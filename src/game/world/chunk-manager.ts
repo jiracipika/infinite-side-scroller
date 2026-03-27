@@ -33,7 +33,7 @@ export class ChunkManager {
     }
 
     // Unload chunks outside range
-    for (const [idx] of this.chunks) {
+    for (const [idx] of Array.from(this.chunks)) {
       if (idx < minChunk - 1 || idx > maxChunk + 1) {
         this.chunks.delete(idx);
       }

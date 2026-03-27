@@ -1,5 +1,6 @@
 /**
  * Game renderer — handles all canvas drawing.
+ * Includes frustum culling and terrain caching for performance.
  */
 
 import { Camera } from '../engine/camera';
@@ -8,14 +9,24 @@ import { Player } from '../entities/player';
 import { Particle } from '../entities/particles';
 import { getBlendedBiomeColors } from '../world/biomes';
 import type { Collectible } from '../entities/Collectibles';
+import { TerrainCache } from '../engine/terrain-cache';
+
+interface BiomeColors {
+  groundDark: string;
+  ground: string;
+  sky: string;
+}
 
 export class GameRenderer {
+  private terrainCache: TerrainCache;
+  private cacheEnabled = true;
   private ctx: CanvasRenderingContext2D;
   private width = 0;
   private height = 0;
 
   constructor(ctx: CanvasRenderingContext2D) {
     this.ctx = ctx;
+    this.terrainCache = new TerrainCache();
   }
 
   resize(width: number, height: number): void {
@@ -81,28 +92,73 @@ export class GameRenderer {
   drawTerrain(chunks: Chunk[], camera: Camera): void {
     for (const chunk of chunks) {
       if (!camera.isVisible(chunk.worldX, 0, CHUNK_WIDTH + 4, this.height)) continue;
-      this.drawChunkTerrain(chunk, camera);
+
+      if (this.cacheEnabled && this.terrainCache.has(chunk.index)) {
+        // Draw from cache
+        const cachedData = this.terrainCache.get(chunk.index);
+        if (cachedData) {
+          const screen = camera.worldToScreen(chunk.worldX, 0);
+          this.ctx.putImageData(cachedData, screen.x, screen.y);
+          continue;
+        }
+      }
+
+      // Draw and cache
+      this.drawChunkTerrain(chunk, camera, this.cacheEnabled);
     }
   }
 
-  private drawChunkTerrain(chunk: Chunk, camera: Camera): void {
+  private drawChunkTerrain(chunk: Chunk, camera: Camera, shouldCache: boolean = false): void {
     const ctx = this.ctx;
-    const colors = getBlendedBiomeColors(chunk.worldX + 400);
+    const colors = getBlendedBiomeColors(chunk.worldX + 400) as {
+      groundDark: string;
+      ground: string;
+      sky: string;
+    };
 
+    // If caching, create an offscreen canvas
+    if (shouldCache) {
+      const cacheWidth = CHUNK_WIDTH + 4;
+      const cacheHeight = this.height + 200;
+      const offscreen = document.createElement('canvas');
+      offscreen.width = cacheWidth;
+      offscreen.height = cacheHeight;
+      const offCtx = offscreen.getContext('2d');
+      if (!offCtx) return;
+
+      // Draw terrain to offscreen canvas
+      this.drawTerrainToContext(offCtx, chunk, colors, cacheWidth, cacheHeight, 0);
+
+      // Cache the result
+      const imageData = offCtx.getImageData(0, 0, cacheWidth, cacheHeight);
+      this.terrainCache.set(chunk.index, imageData);
+    }
+
+    // Draw to main canvas
+    this.drawTerrainToContext(ctx, chunk, colors, this.width, this.height, camera.renderX - chunk.worldX);
+  }
+
+  private drawTerrainToContext(
+    ctx: CanvasRenderingContext2D,
+    chunk: Chunk,
+    colors: BiomeColors,
+    canvasWidth: number,
+    canvasHeight: number,
+    offsetX: number
+  ): void {
     ctx.fillStyle = colors.groundDark;
     ctx.beginPath();
     let started = false;
     for (let i = 0; i < chunk.heights.length; i++) {
       const worldX = chunk.worldX + i * 4;
-      const screen = camera.worldToScreen(worldX, chunk.heights[i]);
-      if (!started) { ctx.moveTo(screen.x, screen.y); started = true; }
-      else { ctx.lineTo(screen.x, screen.y); }
+      const screenX = worldX - chunk.worldX + offsetX;
+      const screenY = chunk.heights[i];
+      if (!started) { ctx.moveTo(screenX, screenY); started = true; }
+      else { ctx.lineTo(screenX, screenY); }
     }
-    const lastWorldX = chunk.worldX + (chunk.heights.length - 1) * 4;
-    const lastScreen = camera.worldToScreen(lastWorldX, chunk.heights[chunk.heights.length - 1]);
-    ctx.lineTo(lastScreen.x, this.height + 10);
-    const firstScreen = camera.worldToScreen(chunk.worldX, chunk.heights[0]);
-    ctx.lineTo(firstScreen.x, this.height + 10);
+    const lastScreenX = CHUNK_WIDTH + offsetX;
+    ctx.lineTo(lastScreenX, canvasHeight + 10);
+    ctx.lineTo(offsetX, canvasHeight + 10);
     ctx.closePath();
     ctx.fill();
 
@@ -112,22 +168,23 @@ export class GameRenderer {
     ctx.beginPath();
     for (let i = 0; i < chunk.heights.length; i++) {
       const worldX = chunk.worldX + i * 4;
-      const screen = camera.worldToScreen(worldX, chunk.heights[i]);
-      if (i === 0) ctx.moveTo(screen.x, screen.y);
-      else ctx.lineTo(screen.x, screen.y);
+      const screenX = worldX - chunk.worldX + offsetX;
+      const screenY = chunk.heights[i];
+      if (i === 0) ctx.moveTo(screenX, screenY);
+      else ctx.lineTo(screenX, screenY);
     }
     ctx.stroke();
 
     // Caves
     for (const cave of chunk.caves) {
-      const screen = camera.worldToScreen(cave.x, cave.y);
+      const caveScreenX = cave.x - chunk.worldX + offsetX;
       ctx.fillStyle = colors.sky;
       ctx.globalAlpha = 0.7;
-      ctx.fillRect(screen.x, screen.y, cave.width, cave.height);
+      ctx.fillRect(caveScreenX, cave.y, cave.width, cave.height);
       ctx.globalAlpha = 1.0;
       ctx.strokeStyle = colors.groundDark;
       ctx.lineWidth = 2;
-      ctx.strokeRect(screen.x, screen.y, cave.width, cave.height);
+      ctx.strokeRect(caveScreenX, cave.y, cave.width, cave.height);
     }
   }
 
@@ -319,6 +376,11 @@ export class GameRenderer {
       }
     }
     ctx.restore();
+  }
+
+  /** Clear the terrain cache */
+  clearTerrainCache(): void {
+    this.terrainCache.clear();
   }
 
   drawParticles(particles: Particle[], camera: Camera): void {

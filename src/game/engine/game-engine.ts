@@ -20,19 +20,27 @@ import { getDifficulty } from '../difficulty';
 import type { Collectible } from '../entities/Collectibles';
 import { spawnCollectiblesForChunk, spawnEnemiesForChunk } from '../entities/Collectibles';
 import { spawnHazardsForChunk, renderHazard, type Hazard } from '../hazards';
-import type { Chunk, Platform as PlatformData } from '../world/chunk';
+import type { Platform as PlatformData } from '../world/chunk';
+import { PerformanceProfiler } from './performance-profiler';
+import { EntityPools } from './entity-pools';
 
 const FIXED_DT = 1 / 60;
 const MAX_ACCUMULATED = 0.1;
 
 export type EngineState = 'playing' | 'paused' | 'gameover';
 
-/** AABB collision check */
+/** AABB collision check with slight expansion to fix edge cases */
 function aabbOverlap(
   a: { x: number; y: number; width: number; height: number },
   b: { x: number; y: number; width: number; height: number },
+  expandBy: number = 2,
 ): boolean {
-  return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
+  const ax = a.x - expandBy;
+  const ay = a.y - expandBy;
+  const aw = a.width + expandBy * 2;
+  const ah = a.height + expandBy * 2;
+
+  return ax < b.x + b.width && ax + aw > b.x && ay < b.y + b.height && ay + ah > b.y;
 }
 
 export class GameEngine {
@@ -45,16 +53,26 @@ export class GameEngine {
   private player: Player;
   private particles: ParticleSystem;
 
+  // Performance monitoring
+  private profiler: PerformanceProfiler;
+  private entityPools: EntityPools;
+
+  // Adaptive quality
+  private adaptiveQualityEnabled = true;
+  private currentQualityLevel = 'high'; // 'high', 'medium', 'low'
+  private qualityChangeTimer = 0;
+  private qualityChangeCooldown = 2.0; // seconds between quality changes
+
   private animationId: number | null = null;
   private lastTime = 0;
   private accumulated = 0;
   private _running = false;
   private _state: EngineState = 'playing';
 
-  // FPS tracking
-  private fps = 60;
-  private frameCount = 0;
-  private fpsTimer = 0;
+  // Input throttling
+  private lastJumpPressTime = 0;
+  private lastAttackPressTime = 0;
+  private inputThrottleMs = 100;
 
   worldSeed = 42;
   difficulty = getDifficulty(0);
@@ -86,6 +104,10 @@ export class GameEngine {
     this.particles = new ParticleSystem();
     this.renderer = new GameRenderer(this.ctx);
 
+    // Initialize performance and entity pools
+    this.profiler = new PerformanceProfiler();
+    this.entityPools = new EntityPools();
+
     this.handleResize();
     window.addEventListener('resize', this.handleResize);
   }
@@ -101,6 +123,9 @@ export class GameEngine {
     this.player = new Player(DEFAULT_PLAYER_CONFIG);
     this.player.setDoubleJump(true);
     this.particles.clear();
+    this.entityPools.clear();
+    this.profiler.reset();
+    this.renderer.clearTerrainCache();
     this.enemies = [];
     this.collectibles = [];
     this.hazards = [];
@@ -109,6 +134,8 @@ export class GameEngine {
     this._state = 'playing';
     this.difficulty = getDifficulty(0);
     this.wasOnGround = true;
+    this.currentQualityLevel = 'high';
+    this.particles.setReducedParticles(false);
   }
 
   private handleResize = (): void => {
@@ -146,32 +173,56 @@ export class GameEngine {
 
   private loop = (currentTime: number): void => {
     if (!this._running) return;
+    this.profiler.startFrame();
+
     let dt = (currentTime - this.lastTime) / 1000;
     this.lastTime = currentTime;
     if (dt > 0.1) dt = 0.1;
 
-    // FPS tracking
-    this.frameCount++;
-    this.fpsTimer += dt;
-    if (this.fpsTimer >= 1.0) {
-      this.fps = this.frameCount;
-      this.frameCount = 0;
-      this.fpsTimer = 0;
-    }
-
     if (this._state === 'playing') {
       this.accumulated += dt;
       if (this.accumulated > MAX_ACCUMULATED) this.accumulated = MAX_ACCUMULATED;
+
+      const updateStart = performance.now();
       while (this.accumulated >= FIXED_DT) {
         this.update(FIXED_DT);
         this.accumulated -= FIXED_DT;
       }
       this.input.endFrame();
+      this.profiler.recordUpdateTime(performance.now() - updateStart);
     }
 
     this.render();
+    this.profiler.endFrame();
+    this.updateAdaptiveQuality();
     this.animationId = requestAnimationFrame(this.loop);
   };
+
+  /** Adaptive quality: adjust particle count based on FPS */
+  private updateAdaptiveQuality(): void {
+    if (!this.adaptiveQualityEnabled) return;
+
+    const metrics = this.profiler.getMetrics();
+    this.qualityChangeTimer += 1 / 60; // Approximate frame time
+
+    if (this.qualityChangeTimer >= this.qualityChangeCooldown) {
+      this.qualityChangeTimer = 0;
+
+      if (metrics.fps < 30 && this.currentQualityLevel !== 'low') {
+        // Drop quality
+        this.currentQualityLevel = 'low';
+        this.particles.setReducedParticles(true);
+      } else if (metrics.fps > 50 && this.currentQualityLevel !== 'high') {
+        // Increase quality
+        this.currentQualityLevel = 'high';
+        this.particles.setReducedParticles(false);
+      } else if (metrics.fps >= 35 && metrics.fps < 50 && this.currentQualityLevel !== 'medium') {
+        // Medium quality
+        this.currentQualityLevel = 'medium';
+        this.particles.setReducedParticles(false);
+      }
+    }
+  }
 
   private getNearbyPlatforms(): PlatformData[] {
     const chunks = this.chunkManager.getLoadedChunks();
@@ -307,6 +358,14 @@ export class GameEngine {
     this.collectibles = this.collectibles.filter(c => !c.collected && Math.abs(c.x - px) < cleanupRange);
     this.hazards = this.hazards.filter(h => !h.destroyed && Math.abs(h.x - px) < cleanupRange);
 
+    // Cleanup spawned chunks tracking to prevent memory leak
+    const loadedChunkIndices = this.chunkManager.getLoadedChunks().map(c => c.index);
+    for (const spawnedIndex of Array.from(this.spawnedChunks)) {
+      if (!loadedChunkIndices.includes(spawnedIndex)) {
+        this.spawnedChunks.delete(spawnedIndex);
+      }
+    }
+
     // Ground & platforms
     const groundY = this.getGroundY(this.player.centerX);
     const platforms = this.getNearbyPlatforms();
@@ -331,10 +390,21 @@ export class GameEngine {
     if (this.player.onGround && !this.wasOnGround) {
       this.particles.spawnLanding(this.player.centerX, this.player.bottom);
     }
-    if (this.input.isPressed('Space') || this.input.isPressed('ArrowUp') || this.input.isPressed('KeyW')) {
+
+    // Throttled jump input
+    const now = performance.now();
+    const jumpPressed = this.input.isPressed('Space') || this.input.isPressed('ArrowUp') || this.input.isPressed('KeyW');
+    if (jumpPressed && (now - this.lastJumpPressTime) > this.inputThrottleMs) {
       if (this.player.onGround || this.player.vy < -100) {
         this.particles.spawnJumpDust(this.player.centerX, this.player.bottom);
+        this.lastJumpPressTime = now;
       }
+    }
+
+    // Throttled attack input
+    const attackPressed = this.input.isPressed('KeyE') || this.input.isPressed('KeyJ');
+    if (attackPressed && (now - this.lastAttackPressTime) > this.inputThrottleMs) {
+      this.lastAttackPressTime = now;
     }
 
     // Wall collision
@@ -531,6 +601,8 @@ export class GameEngine {
     if (this.player.magnetActive) powerUps.push('🧲');
     if (this.player.speedBoostTimer > 0) powerUps.push('⚡');
 
+    const profilerMetrics = this.profiler.getMetrics();
+
     this.onStatsUpdate?.({
       score: this.player.score,
       coins: this.player.coins,
@@ -539,7 +611,7 @@ export class GameEngine {
       maxHealth: this.player.maxHealth,
       biome: biome.name,
       powerUps,
-      fps: this.fps,
+      fps: profilerMetrics.fps,
     });
   }
 
@@ -557,20 +629,23 @@ export class GameEngine {
     this.renderer.drawPlatforms(chunks, this.camera);
     this.renderer.drawDecorations(chunks, this.camera);
 
-    // Hazards
+    // Hazards - frustum culling
     for (const h of this.hazards) {
+      if (!this.camera.isVisible(h.x, h.y, h.width, h.height)) continue;
       renderHazard(ctx, h, this.camera.renderX);
     }
 
-    // Collectibles
+    // Collectibles - frustum culling
     for (const c of this.collectibles) {
       if (c.collected) continue;
+      if (!this.camera.isVisible(c.x, c.y, c.width, c.height)) continue;
       this.renderer.drawCollectible(c, this.camera);
     }
 
-    // Enemies
+    // Enemies - frustum culling
     for (const enemy of this.enemies) {
       if (!enemy.alive) continue;
+      if (!this.camera.isVisible(enemy.x, enemy.y, enemy.width, enemy.height)) continue;
       enemy.render(ctx, this.camera.renderX);
     }
 
