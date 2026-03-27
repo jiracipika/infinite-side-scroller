@@ -5,8 +5,8 @@
 
 import { Chunk, CHUNK_WIDTH } from './chunk';
 
-/** How many chunks to keep loaded on each side of the player */
-const CHUNK_RANGE = 5;
+  /** How many chunks to keep loaded on each side of the player */
+const CHUNK_RANGE = 6;
 
 export class ChunkManager {
   private worldSeed: number;

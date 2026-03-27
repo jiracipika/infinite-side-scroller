@@ -345,15 +345,18 @@ export class GameEngine {
   }
 
   private update(dt: number): void {
-    // Update chunks
-    this.chunkManager.update(this.player.centerX);
+        // Update chunks — use a position slightly ahead of the player so enemies spawn in view
+    const lookAheadPx = this.camera.x + this.camera.renderX > 0
+      ? Math.max(this.player.centerX, this.camera.x + (this.camera as any).screenWidth * 0.6)
+      : this.player.centerX;
+    this.chunkManager.update(lookAheadPx);
 
     // Spawn entities for new chunks
     this.spawnChunkEntities();
 
     // Cleanup far-away entities
     const px = this.player.centerX;
-    const cleanupRange = 2000;
+    const cleanupRange = 3000;
     this.enemies = this.enemies.filter(e => e.alive && Math.abs(e.x - px) < cleanupRange);
     this.collectibles = this.collectibles.filter(c => !c.collected && Math.abs(c.x - px) < cleanupRange);
     this.hazards = this.hazards.filter(h => !h.destroyed && Math.abs(h.x - px) < cleanupRange);

@@ -13,10 +13,10 @@ export interface CameraConfig {
 }
 
 export const DEFAULT_CAMERA_CONFIG: CameraConfig = {
-  lookAheadX: 0.25,
+  lookAheadX: 0.15,
   deadZoneX: 50,
   deadZoneY: 30,
-  lerpSpeed: 0.08,
+  lerpSpeed: 0.12,
 };
 
 export class Camera {
