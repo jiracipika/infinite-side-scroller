@@ -4,9 +4,9 @@ import {
   Text,
   StyleSheet,
   Switch,
-  Slider,
   ScrollView,
 } from 'react-native';
+import Slider from '@react-native-community/slider';
 
 export default function SettingsScreen() {
   const [reducedParticles, setReducedParticles] = useState(true);
