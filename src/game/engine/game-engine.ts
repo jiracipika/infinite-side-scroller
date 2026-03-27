@@ -51,11 +51,16 @@ export class GameEngine {
   private _running = false;
   private _state: EngineState = 'playing';
 
+  // FPS tracking
+  private fps = 60;
+  private frameCount = 0;
+  private fpsTimer = 0;
+
   worldSeed = 42;
   difficulty = getDifficulty(0);
 
   onGameOver?: () => void;
-  onStatsUpdate?: (stats: { score: number; coins: number; distance: number; health: number; maxHealth: number; biome: string; powerUps: string[] }) => void;
+  onStatsUpdate?: (stats: { score: number; coins: number; distance: number; health: number; maxHealth: number; biome: string; powerUps: string[]; fps: number }) => void;
 
   private wasOnGround = true;
 
@@ -144,6 +149,15 @@ export class GameEngine {
     let dt = (currentTime - this.lastTime) / 1000;
     this.lastTime = currentTime;
     if (dt > 0.1) dt = 0.1;
+
+    // FPS tracking
+    this.frameCount++;
+    this.fpsTimer += dt;
+    if (this.fpsTimer >= 1.0) {
+      this.fps = this.frameCount;
+      this.frameCount = 0;
+      this.fpsTimer = 0;
+    }
 
     if (this._state === 'playing') {
       this.accumulated += dt;
@@ -391,10 +405,11 @@ export class GameEngine {
         } else {
           // Player takes damage
           if (this.player.takeDamage(enemy.effectiveDamage)) {
-            // Knockback
+            // Knockback + screen shake
             const kb = this.player.centerX < enemy.x ? -200 : 200;
             this.player.vx = kb;
             this.player.vy = -250;
+            this.camera.shake(6, 0.3);
             this.particles.spawnScorePopup(this.player.centerX, this.player.y - 10, '-1 ♥', '#ef4444');
           }
         }
@@ -433,6 +448,7 @@ export class GameEngine {
       if (aabbOverlap(playerBounds, { x: h.x, y: h.y, width: h.width, height: h.height })) {
         if (this.player.takeDamage(1)) {
           this.player.vy = -300;
+          this.camera.shake(5, 0.25);
           this.particles.spawnScorePopup(this.player.centerX, this.player.y - 10, '-1 ♥', '#ef4444');
         }
       }
@@ -522,6 +538,7 @@ export class GameEngine {
       maxHealth: this.player.maxHealth,
       biome: biome.name,
       powerUps,
+      fps: this.fps,
     });
 
     this.input.endFrame();

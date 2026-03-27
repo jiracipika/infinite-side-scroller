@@ -1,19 +1,20 @@
 'use client';
 
-import { useState, useEffect, type FC } from 'react';
+import { useState, type FC } from 'react';
 import { useGameStore } from './GameStore';
 
 interface Props {
   onResume: () => void;
+  onRestart: () => void;
   onQuit: () => void;
 }
 
-const PauseMenu: FC<Props> = ({ onResume, onQuit }) => {
-  const { settings, setSettings } = useGameStore();
+const PauseMenu: FC<Props> = ({ onResume, onRestart, onQuit }) => {
   const [showSettings, setShowSettings] = useState(false);
 
   return (
     <div className="absolute inset-0 flex items-center justify-center animate-[fadeIn_0.2s_ease-out]">
+      {/* Frosted glass backdrop */}
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
 
       <div className="relative z-10 flex flex-col items-center gap-5 px-6 animate-[fadeSlideUp_0.3s_ease-out]">
@@ -28,6 +29,15 @@ const PauseMenu: FC<Props> = ({ onResume, onQuit }) => {
                        shadow-lg shadow-blue-500/20 active:scale-[0.97] transition-all"
           >
             Resume
+          </button>
+
+          <button
+            onClick={onRestart}
+            className="w-full py-2.5 px-8 rounded-xl font-medium text-white/60 text-sm
+                       bg-white/5 border border-white/8 hover:bg-white/10 hover:text-white/80
+                       active:scale-[0.97] transition-all"
+          >
+            Restart
           </button>
 
           <button

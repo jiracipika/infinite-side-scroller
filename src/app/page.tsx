@@ -14,21 +14,22 @@ export default function Home() {
   const gameRef = useRef<GameEngine | null>(null);
   const {
     state, stats, settings,
-    startGame, pauseGame, resumeGame, quitToMenu, updateStats,
+    startGame, pauseGame, resumeGame, gameOver, quitToMenu, updateStats,
   } = useGameStore();
+
+  // Boot the engine once; keep callbacks current via refs to avoid restarts
+  const onStatsRef = useRef(updateStats);
+  const onGameOverRef = useRef(gameOver);
+  onStatsRef.current = updateStats;
+  onGameOverRef.current = gameOver;
 
   useEffect(() => {
     if (!canvasRef.current) return;
     const game = new GameEngine(canvasRef.current, 42);
     gameRef.current = game;
 
-    // Wire up game → store callbacks
-    game.onStatsUpdate = (s) => {
-      updateStats(s);
-    };
-    game.onGameOver = () => {
-      pauseGame(); // triggers gameover via store
-    };
+    game.onStatsUpdate = (s) => onStatsRef.current(s);
+    game.onGameOver = () => onGameOverRef.current();
 
     game.start();
 
@@ -36,12 +37,35 @@ export default function Home() {
       game.destroy();
       gameRef.current = null;
     };
-  }, [updateStats, pauseGame]);
+  }, []); // intentionally empty — engine lives for the page lifetime
+
+  // Sync engine pause/resume with React state
+  useEffect(() => {
+    if (!gameRef.current) return;
+    if (state === 'paused') gameRef.current.pause();
+    else if (state === 'playing') gameRef.current.resume();
+  }, [state]);
+
+  // Escape key toggles pause
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.code !== 'Escape') return;
+      if (state === 'playing') {
+        pauseGame();
+        gameRef.current?.pause();
+      } else if (state === 'paused') {
+        resumeGame();
+        gameRef.current?.resume();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [state, pauseGame, resumeGame]);
 
   const handlePlay = useCallback((seed?: number) => {
     const s = seed ?? Math.floor(Math.random() * 999999);
     startGame(s);
-    if (gameRef.current) gameRef.current.setSeed(s);
+    gameRef.current?.setSeed(s);
   }, [startGame]);
 
   const handlePause = useCallback(() => {
@@ -57,12 +81,12 @@ export default function Home() {
   const handleRestart = useCallback(() => {
     const seed = Math.floor(Math.random() * 999999);
     startGame(seed);
-    if (gameRef.current) gameRef.current.setSeed(seed);
+    gameRef.current?.setSeed(seed);
   }, [startGame]);
 
   const handleQuit = useCallback(() => {
     quitToMenu();
-    if (gameRef.current) gameRef.current.setSeed(42);
+    gameRef.current?.setSeed(42); // restore demo world on menu
   }, [quitToMenu]);
 
   return (
@@ -77,8 +101,20 @@ export default function Home() {
       {state !== 'playing' && (
         <div className="absolute inset-0 z-10">
           {state === 'menu' && <StartScreen onPlay={handlePlay} />}
-          {state === 'paused' && <PauseMenu onResume={handleResume} onQuit={handleQuit} />}
-          {state === 'gameover' && <GameOverScreen stats={stats} onRestart={handleRestart} />}
+          {state === 'paused' && (
+            <PauseMenu
+              onResume={handleResume}
+              onRestart={handleRestart}
+              onQuit={handleQuit}
+            />
+          )}
+          {state === 'gameover' && (
+            <GameOverScreen
+              stats={stats}
+              onRestart={handleRestart}
+              onQuit={handleQuit}
+            />
+          )}
         </div>
       )}
 

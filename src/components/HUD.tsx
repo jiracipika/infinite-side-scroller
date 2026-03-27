@@ -8,42 +8,74 @@ interface Props {
   settings: GameSettings;
 }
 
+const POWER_UP_LABELS: Record<string, string> = {
+  '⚡': 'Speed',
+  '🛡️': 'Shield',
+  '🧲': 'Magnet',
+};
+
 const HUD: FC<Props> = ({ stats, settings }) => {
-  const healthPct = stats.health / stats.maxHealth;
-  const hearts = Math.ceil(stats.maxHealth / 25);
-  const filledHearts = Math.ceil(stats.health / 25);
+  // Health is now integer hearts (0..maxHealth, default max 3)
+  const totalHearts = Math.min(Math.max(stats.maxHealth, 1), 8);
+  const filledHearts = Math.max(0, stats.health);
+  const isLowHealth = filledHearts === 1;
 
   return (
     <div className="absolute inset-x-0 top-0 z-10 pointer-events-none">
       <div className="flex items-start justify-between p-4 sm:p-5 gap-3">
+
         {/* Left: Hearts + Coins */}
         <div className="flex flex-col gap-2 animate-[slideInRight_0.4s_ease-out]">
           {/* Hearts */}
-          <div className="flex items-center gap-1 glass-badge !px-2 !py-1">
-            {Array.from({ length: Math.min(hearts, 6) }).map((_, i) => (
+          <div className="flex items-center gap-1 glass-badge !px-2 !py-1.5">
+            {Array.from({ length: totalHearts }).map((_, i) => (
               <span
                 key={i}
-                className={`text-xs transition-all duration-300 ${
+                className={`text-sm leading-none transition-all duration-300 ${
                   i < filledHearts
-                    ? i === filledHearts - 1 && healthPct <= 0.25
-                      ? 'text-red-500 animate-[pulse-soft_1s_ease-in-out_infinite]'
+                    ? isLowHealth
+                      ? 'text-red-500 animate-[heartBeat_1s_ease-in-out_infinite]'
                       : 'text-red-400'
                     : 'text-white/15'
                 }`}
-                style={i < filledHearts ? { filter: 'drop-shadow(0 0 4px rgba(248,113,113,0.4))' } : {}}
+                style={i < filledHearts
+                  ? { filter: 'drop-shadow(0 0 4px rgba(248,113,113,0.5))' }
+                  : {}
+                }
               >
                 ♥
               </span>
             ))}
           </div>
+
           {/* Coin counter */}
           <div className="flex items-center gap-1.5 glass-badge !px-2.5 !py-1">
-            <span className="text-yellow-400 text-xs" style={{ filter: 'drop-shadow(0 0 4px rgba(250,204,21,0.4))' }}>●</span>
+            <span
+              className="text-yellow-400 text-xs"
+              style={{ filter: 'drop-shadow(0 0 4px rgba(250,204,21,0.4))' }}
+            >
+              ●
+            </span>
             <span className="text-white/70 text-xs font-medium tabular-nums">{stats.coins}</span>
           </div>
+
+          {/* Active power-ups */}
+          {stats.powerUps.length > 0 && (
+            <div className="flex items-center gap-1 animate-[fadeIn_0.3s_ease-out]">
+              {stats.powerUps.map((pu, i) => (
+                <div
+                  key={i}
+                  className="glass-badge !px-2 !py-0.5 flex items-center gap-1"
+                  title={POWER_UP_LABELS[pu] ?? pu}
+                >
+                  <span className="text-sm leading-none">{pu}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* Center: Score */}
+        {/* Center: Score + Distance */}
         <div className="text-center flex-1 animate-[fadeSlideUp_0.5s_ease-out]">
           <div
             className="text-white/90 text-2xl sm:text-3xl font-bold tabular-nums tracking-tight"
@@ -67,6 +99,7 @@ const HUD: FC<Props> = ({ stats, settings }) => {
             </span>
           )}
         </div>
+
       </div>
     </div>
   );
