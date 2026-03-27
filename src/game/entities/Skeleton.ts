@@ -21,6 +21,7 @@ export class Skeleton extends Enemy {
   update(dt: number, playerX: number, _playerY: number) {
     if (!this.alive) return;
     this.animTimer += dt;
+    this.updateAI(dt, playerX, _playerY);
 
     // Gravity
     this.vy += GRAVITY * dt;
@@ -29,17 +30,25 @@ export class Skeleton extends Enemy {
     // Face player
     this.facingRight = playerX > this.x;
 
-    // Walk toward player if in range, otherwise idle patrol
-    const dx = playerX - this.x;
-    if (Math.abs(dx) < THROW_RANGE) {
-      this.vx = 0; // Stop and throw
+    const speed = WALK_SPEED * this.speedMult;
+    const cooldown = THROW_COOLDOWN * Math.max(0.4, 1 / this.speedMult);
+
+    if (this.aiState === 'attack') {
+      this.vx = 0;
       this.throwTimer += dt;
-      if (this.throwTimer >= THROW_COOLDOWN) {
+      if (this.throwTimer >= cooldown) {
+        this.throwProjectile(playerX);
+        this.throwTimer = 0;
+      }
+    } else if (this.aiState === 'chase') {
+      this.vx = this.facingRight ? speed * 1.5 : -speed * 1.5;
+      this.throwTimer += dt;
+      if (this.throwTimer >= cooldown * 1.5) {
         this.throwProjectile(playerX);
         this.throwTimer = 0;
       }
     } else {
-      this.vx = this.facingRight ? WALK_SPEED : -WALK_SPEED;
+      this.vx = this.facingRight ? speed * 0.5 : -speed * 0.5;
     }
 
     this.x += this.vx * dt;

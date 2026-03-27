@@ -1,9 +1,11 @@
 /**
- * Base enemy class with AI behavior.
+ * Base enemy class with AI state machine.
  * All enemies extend this.
  */
 
-export type EnemyType = 'slime' | 'bat' | 'skeleton' | 'boss';
+export type EnemyType = 'slime' | 'bat' | 'skeleton' | 'jumper' | 'boss';
+
+export type AIState = 'idle' | 'patrol' | 'chase' | 'attack';
 
 export abstract class Enemy {
   x: number;
@@ -19,11 +21,21 @@ export abstract class Enemy {
   alive = true;
   facingRight = true;
   onGround = false;
-  chunkId: number; // which chunk spawned this
+  chunkId: number;
   animTimer = 0;
-
-  // Stomp interaction
   stompable = true;
+
+  // AI state machine
+  aiState: AIState = 'idle';
+  aiStateTimer = 0;
+  detectRange = 200;
+  attackRange = 150;
+  patrolSpeed = 60;
+
+  // Difficulty multipliers
+  speedMult = 1;
+  damageMult = 1;
+  healthMult = 1;
 
   constructor(x: number, y: number, type: EnemyType, config?: Partial<EnemyConfig>) {
     this.x = x;
@@ -37,8 +49,51 @@ export abstract class Enemy {
     this.chunkId = config?.chunkId ?? 0;
   }
 
-  abstract update(dt: number, playerX: number, playerY: number): void;
+  /** Apply difficulty multipliers */
+  applyDifficulty(speedMult: number, damageMult: number, healthMult: number, detectMult: number): void {
+    this.speedMult = speedMult;
+    this.damageMult = damageMult;
+    this.healthMult = healthMult;
+    this.detectRange *= detectMult;
+    // Scale health on spawn
+    if (this.health === this.maxHealth) {
+      this.health = Math.ceil(this.health * healthMult);
+      this.maxHealth = this.health;
+    }
+  }
 
+  /** Update AI state based on player proximity */
+  protected updateAI(dt: number, playerX: number, playerY: number): void {
+    this.aiStateTimer += dt;
+    const dx = playerX - this.x;
+    const dy = playerY - this.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+
+    const prev = this.aiState;
+
+    if (dist < this.attackRange) {
+      this.aiState = 'attack';
+    } else if (dist < this.detectRange) {
+      this.aiState = 'chase';
+    } else {
+      // Idle -> patrol cycle
+      if (this.aiState === 'idle' && this.aiStateTimer > 1.5 + Math.random()) {
+        this.aiState = 'patrol';
+        this.aiStateTimer = 0;
+        this.facingRight = Math.random() > 0.5;
+      } else if (this.aiState === 'patrol' && this.aiStateTimer > 2 + Math.random() * 2) {
+        this.aiState = 'idle';
+        this.aiStateTimer = 0;
+      }
+    }
+
+    // On state change, reset timer
+    if (prev !== this.aiState) {
+      this.aiStateTimer = 0;
+    }
+  }
+
+  abstract update(dt: number, playerX: number, playerY: number): void;
   abstract render(ctx: CanvasRenderingContext2D, cameraX: number): void;
 
   getBounds() {
@@ -51,6 +106,10 @@ export abstract class Enemy {
       this.health = 0;
       this.alive = false;
     }
+  }
+
+  get effectiveDamage(): number {
+    return Math.ceil(this.damage * this.damageMult);
   }
 }
 

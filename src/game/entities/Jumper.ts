@@ -15,7 +15,7 @@ export class Jumper extends Enemy {
   private chasing = false;
 
   constructor(x: number, y: number, chunkId: number) {
-    super(x, y, 'slime', {
+    super(x, y, 'jumper', {
       width: 24, height: 28, health: 2, damage: 1, chunkId,
     });
   }
@@ -23,33 +23,23 @@ export class Jumper extends Enemy {
   update(dt: number, playerX: number, playerY: number) {
     if (!this.alive) return;
     this.animTimer += dt;
+    this.updateAI(dt, playerX, playerY);
 
     // Gravity
     this.vy += GRAVITY * dt;
     if (this.vy > 600) this.vy = 600;
 
-    // Detect player
-    const dx = playerX - this.x;
-    const dy = playerY - this.y;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-
-    if (dist < DETECT_RANGE) {
-      this.chasing = true;
-      this.facingRight = dx > 0;
-    } else {
-      this.chasing = false;
-    }
-
     // Hop toward player when on ground
     if (this.onGround) {
       this.hopTimer += dt;
       if (this.hopTimer >= this.hopInterval) {
-        const speed = this.chasing ? AGGRESSIVE_SPEED : HOP_SPEED;
+        const speed = (this.aiState === 'chase' ? AGGRESSIVE_SPEED : HOP_SPEED) * this.speedMult;
+        if (this.aiState === 'chase') this.facingRight = playerX > this.x;
         this.vx = this.facingRight ? speed : -speed;
-        this.vy = -400 - (this.chasing ? 100 : 0);
+        this.vy = -400 - (this.aiState === 'chase' ? 100 : 0);
         this.hopTimer = 0;
       } else {
-        this.vx = 0;
+        this.vx *= 0.9;
       }
     }
 

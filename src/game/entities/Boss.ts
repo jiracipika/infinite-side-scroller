@@ -25,6 +25,7 @@ export class Boss extends Enemy {
   update(dt: number, playerX: number, playerY: number) {
     if (!this.alive) return;
     this.animTimer += dt;
+    this.updateAI(dt, playerX, playerY);
     this.phaseTimer += dt;
     this.shootTimer += dt;
 
@@ -34,7 +35,8 @@ export class Boss extends Enemy {
 
     // Move toward player
     this.facingRight = playerX > this.x;
-    this.vx = this.facingRight ? BOSS_SPEED : -BOSS_SPEED;
+    const speed = BOSS_SPEED * this.speedMult;
+    this.vx = this.facingRight ? speed : -speed;
 
     // Phase switch every 5 seconds
     if (this.phaseTimer > 5) {
@@ -43,7 +45,8 @@ export class Boss extends Enemy {
     }
 
     // Shoot projectiles
-    if (this.shootTimer >= SHOOT_COOLDOWN) {
+    const cooldown = SHOOT_COOLDOWN / this.speedMult;
+    if (this.shootTimer >= cooldown) {
       this.shootTimer = 0;
       this.shoot(playerX, playerY);
     }

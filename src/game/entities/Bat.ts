@@ -29,18 +29,19 @@ export class Bat extends Enemy {
     const dx = playerX - this.x;
     const dy = playerY - this.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
+    this.updateAI(dt, playerX, playerY);
 
-    if (dist < DETECT_RANGE) {
+    if (this.aiState === 'chase' || this.aiState === 'attack') {
       this.chasing = true;
-      // Move toward player
+      const speed = CHASE_SPEED * this.speedMult;
       const angle = Math.atan2(dy, dx);
-      this.vx = Math.cos(angle) * CHASE_SPEED;
-      this.vy = Math.sin(angle) * CHASE_SPEED;
+      this.vx = Math.cos(angle) * speed;
+      this.vy = Math.sin(angle) * speed;
     } else {
       this.chasing = false;
       this.flyTimer += dt;
-      // Sine wave movement
-      this.vx = this.facingRight ? FLY_SPEED : -FLY_SPEED;
+      const speed = FLY_SPEED * this.speedMult;
+      this.vx = this.facingRight ? speed : -speed;
       this.vy = Math.cos(this.flyTimer * this.frequency) * this.amplitude;
     }
 

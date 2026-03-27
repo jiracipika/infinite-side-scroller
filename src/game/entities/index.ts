@@ -1,6 +1,6 @@
 export { Player } from './player';
 export { Enemy } from './Enemy';
-export type { EnemyType } from './Enemy';
+export type { EnemyType, AIState } from './Enemy';
 export { Slime } from './Slime';
 export { Bat } from './Bat';
 export { Skeleton } from './Skeleton';

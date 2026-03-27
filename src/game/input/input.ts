@@ -13,6 +13,8 @@ export class InputManager {
   private touchRight = false;
   private touchJump = false;
   private touchJumpPressed = false;
+  private touchAttack = false;
+  private touchAttackPressed = false;
 
   private handleGameInput: ((e: CustomEvent) => void) | null = null;
 
@@ -37,6 +39,14 @@ export class InputManager {
               this.touchJump = true;
             } else {
               this.touchJump = false;
+            }
+            break;
+          case 'attack-press':
+            if (value) {
+              if (!this.touchAttack) this.touchAttackPressed = true;
+              this.touchAttack = true;
+            } else {
+              this.touchAttack = false;
             }
             break;
         }
@@ -74,13 +84,22 @@ export class InputManager {
     if ((code === 'Space' || code === 'ArrowUp' || code === 'KeyW') && this.touchJumpPressed) {
       return true;
     }
+    if ((code === 'KeyE' || code === 'KeyJ') && this.touchAttackPressed) {
+      return true;
+    }
     return false;
+  }
+
+  /** Check if attack is held */
+  isAttackDown(): boolean {
+    return this.keys.get('KeyE') === true || this.keys.get('KeyJ') === true || this.touchAttack;
   }
 
   /** Call at end of frame to clear just-pressed state */
   endFrame(): void {
     this.justPressed.clear();
     this.touchJumpPressed = false;
+    this.touchAttackPressed = false;
   }
 
   /** Clean up event listeners */

@@ -6,17 +6,11 @@ import { InputManager } from '../input/input';
 import type { Platform } from '../world/chunk';
 
 export interface PlayerConfig {
-  /** Starting world X position */
   startX: number;
-  /** Starting world Y position */
   startY: number;
-  /** Horizontal speed (pixels per second) */
   speed: number;
-  /** Jump velocity (pixels per second, upward) */
   jumpVelocity: number;
-  /** Gravity (pixels per second squared) */
   gravity: number;
-  /** Player size */
   width: number;
   height: number;
 }
@@ -38,28 +32,49 @@ export class Player {
   vy = 0;
   readonly width: number;
   readonly height: number;
-  health = 100;
-  maxHealth = 100;
+  health = 3;
+  maxHealth = 3;
   alive = true;
   score = 0;
   coins = 0;
   distance = 0;
   distanceTraveled = 0;
-  
+
   invulnerable = false;
   invulnerableTimer = 0;
 
+  // Dash attack
+  dashing = false;
+  dashTimer = 0;
+  dashCooldown = 0;
+  dashDirection = 1;
+  private readonly DASH_DURATION = 0.15;
+  private readonly DASH_SPEED = 600;
+  private readonly DASH_COOLDOWN = 0.8;
+
+  // Shield power-up
+  shieldActive = false;
+  shieldTimer = 0;
+
+  // Magnet power-up
+  magnetActive = false;
+  magnetTimer = 0;
+
+  // Speed boost
+  speedBoostTimer = 0;
+
   private config: PlayerConfig;
-  /** Is the player standing on ground? */
   onGround = false;
   facingRight = true;
   wallSliding = false;
   touchingWall = false;
-  /** Was the player on ground last frame? (for coyote time) */
   private wasOnGround = false;
-  /** Frames since leaving ground (for coyote time) */
   private coyoteTimer = 0;
   private readonly COYOTE_FRAMES = 6;
+
+  // Projectiles
+  projectiles: { x: number; y: number; vx: number; life: number; damage: number }[] = [];
+  private shootCooldown = 0;
 
   constructor(config: PlayerConfig = DEFAULT_PLAYER_CONFIG) {
     this.config = config;
@@ -69,17 +84,50 @@ export class Player {
     this.height = config.height;
   }
 
-  /**
-   * Update player physics and input.
-   * @param dt - Delta time in seconds
-   * @param input - Input manager
-   * @param groundY - The Y coordinate of the ground surface at player's position
-   */
   update(dt: number, input: InputManager, groundY: number, platforms: Platform[] = []): void {
-    // Horizontal movement with acceleration/friction
+    // Tick timers
+    if (this.invulnerableTimer > 0) {
+      this.invulnerableTimer--;
+      if (this.invulnerableTimer <= 0) this.invulnerable = false;
+    }
+    if (this.dashCooldown > 0) this.dashCooldown -= dt;
+    if (this.shieldTimer > 0) { this.shieldTimer -= dt; if (this.shieldTimer <= 0) this.shieldActive = false; }
+    if (this.magnetTimer > 0) { this.magnetTimer -= dt; if (this.magnetTimer <= 0) this.magnetActive = false; }
+    if (this.speedBoostTimer > 0) { this.speedBoostTimer -= dt; if (this.speedBoostTimer <= 0) this.config.speed = DEFAULT_PLAYER_CONFIG.speed; }
+    if (this.shootCooldown > 0) this.shootCooldown -= dt;
+
+    // Dash attack
+    const wantDash = input.isPressed('KeyX') || input.isPressed('ShiftLeft');
+    if (wantDash && this.dashCooldown <= 0 && !this.dashing) {
+      this.dashing = true;
+      this.dashTimer = this.DASH_DURATION;
+      this.dashCooldown = this.DASH_COOLDOWN;
+      this.dashDirection = this.facingRight ? 1 : -1;
+      this.invulnerable = true;
+      this.invulnerableTimer = Math.max(this.invulnerableTimer, Math.ceil(this.DASH_DURATION * 60));
+    }
+
+    if (this.dashing) {
+      this.dashTimer -= dt;
+      this.vx = this.dashDirection * this.DASH_SPEED;
+      this.vy = 0; // float during dash
+      if (this.dashTimer <= 0) {
+        this.dashing = false;
+      }
+      // Still move
+      this.x += this.vx * dt;
+      this.y += this.vy * dt;
+      if (this.x < 0) { this.x = 0; this.vx = 0; }
+      this.distance = Math.max(this.distance, Math.floor(this.x / 50));
+      this.distanceTraveled += Math.abs(this.vx * dt);
+      this._updateProjectiles(dt);
+      return;
+    }
+
+    // Horizontal movement
     const moveLeft = input.isDown('ArrowLeft') || input.isDown('KeyA');
     const moveRight = input.isDown('ArrowRight') || input.isDown('KeyD');
-    const sprint = input.isDown('ShiftLeft') || input.isDown('ShiftRight');
+    const sprint = input.isDown('ShiftRight');
     const maxSpeed = this.config.speed * (sprint ? 1.6 : 1);
     const accel = maxSpeed * 8;
     const friction = maxSpeed * 10;
@@ -91,9 +139,21 @@ export class Player {
       this.vx = Math.min(this.vx + accel * dt, maxSpeed);
       this.facingRight = true;
     } else {
-      // Friction
       if (this.vx > 0) this.vx = Math.max(0, this.vx - friction * dt);
       else if (this.vx < 0) this.vx = Math.min(0, this.vx + friction * dt);
+    }
+
+    // Shoot projectile (KeyZ or KeyE)
+    const wantShoot = input.isPressed('KeyZ') || input.isPressed('KeyE');
+    if (wantShoot && this.shootCooldown <= 0) {
+      this.projectiles.push({
+        x: this.x + (this.facingRight ? this.width : 0),
+        y: this.y + this.height / 2,
+        vx: this.facingRight ? 400 : -400,
+        life: 1.5,
+        damage: 1,
+      });
+      this.shootCooldown = 0.3;
     }
 
     const wantJump = input.isPressed('Space') || input.isPressed('ArrowUp') || input.isPressed('KeyW');
@@ -103,11 +163,10 @@ export class Player {
     if (!this.onGround && this.touchingWall && this.vy > 0) {
       if (moveLeft && !this.facingRight || moveRight && this.facingRight) {
         this.wallSliding = true;
-        this.vy = Math.min(this.vy, 120); // slow fall
+        this.vy = Math.min(this.vy, 120);
       }
     }
 
-    // Jump — ground, coyote time, wall jump, or double jump
     if (wantJump) {
       if (this.onGround || this.coyoteTimer < this.COYOTE_FRAMES) {
         this.vy = this.config.jumpVelocity;
@@ -116,7 +175,6 @@ export class Player {
         this.touchingWall = false;
         this.wallSliding = false;
       } else if (this.wallSliding) {
-        // Wall jump
         this.vy = this.config.jumpVelocity * 0.9;
         this.vx = this.facingRight ? -maxSpeed * 0.7 : maxSpeed * 0.7;
         this.facingRight = !this.facingRight;
@@ -127,36 +185,25 @@ export class Player {
       }
     }
 
-    // Apply gravity (reduced when wall sliding)
     this.vy += this.config.gravity * dt;
-
-    // Clamp fall speed
     if (this.vy > 800) this.vy = 800;
 
-    // Move horizontally
     this.x += this.vx * dt;
-
-    // Don't let player go left of world start
     if (this.x < 0) { this.x = 0; this.vx = 0; }
-
-    // Move vertically
     this.y += this.vy * dt;
 
-    // Platform collision (one-way, can jump through from below)
+    // Platform collision
     let onPlatform = false;
-    if (this.vy >= 0) { // Only collide when falling or standing
+    if (this.vy >= 0) {
       for (const plat of platforms) {
-        const prevBottom = (this.y + this.height) - this.vy * dt;
-
-        // Check if player's feet are at platform level and moving down
         if (this.x + this.width > plat.x && this.x < plat.x + plat.width) {
+          const prevBottom = (this.y + this.height) - this.vy * dt;
           if (prevBottom <= plat.y + 2 && this.y + this.height >= plat.y) {
             this.y = plat.y - this.height;
             this.vy = 0;
             onPlatform = true;
             break;
           }
-          // Also: already standing on platform
           if (Math.abs(this.y + this.height - plat.y) < 4 && this.vy >= 0) {
             this.y = plat.y - this.height;
             this.vy = 0;
@@ -185,76 +232,75 @@ export class Player {
       this.onGround = false;
     }
 
-    // Coyote time
     if (!this.onGround && this.wasOnGround) this.coyoteTimer = 0;
     if (!this.onGround) this.coyoteTimer++;
 
-    // Distance tracking
     this.distance = Math.max(this.distance, Math.floor(this.x / 50));
     this.distanceTraveled += Math.abs(this.vx * dt);
+
+    this._updateProjectiles(dt);
   }
 
-  /** Get the center X position */
-  get centerX(): number {
-    return this.x + this.width / 2;
+  private _updateProjectiles(dt: number) {
+    this.projectiles = this.projectiles.filter(p => {
+      p.x += p.vx * dt;
+      p.life -= dt;
+      return p.life > 0;
+    });
   }
 
-  /** Get the center Y position */
-  get centerY(): number {
-    return this.y + this.height / 2;
-  }
+  get centerX(): number { return this.x + this.width / 2; }
+  get centerY(): number { return this.y + this.height / 2; }
+  get bottom(): number { return this.y + this.height; }
 
-  /** Get the bounding box bottom */
-  get bottom(): number {
-    return this.y + this.height;
-  }
-
-  /** Apply damage to the player */
   takeDamage(amount: number): boolean {
     if (this.invulnerable || !this.alive) return false;
+    if (this.shieldActive) {
+      this.shieldActive = false;
+      this.shieldTimer = 0;
+      return false;
+    }
     this.health = Math.max(0, this.health - amount);
     this.invulnerable = true;
-    this.invulnerableTimer = 60; // 1 second of invulnerability
-    if (this.health <= 0) {
-      this.alive = false;
-    }
+    this.invulnerableTimer = 90; // 1.5 seconds
+    if (this.health <= 0) this.alive = false;
     return true;
   }
 
-  /** Heal the player */
   heal(amount: number): void {
     this.health = Math.min(this.maxHealth, this.health + amount);
   }
 
-  /** Add coins */
   addCoins(amount: number): void {
     this.coins += amount;
     this.score += amount * 10;
   }
 
-  /** Get bounding box for collision */
   getBounds() {
     return { x: this.x, y: this.y, width: this.width, height: this.height };
   }
 
-  /** Check if player is stomping (falling) */
-  isStomping(): boolean {
-    return this.vy > 0;
-  }
+  isStomping(): boolean { return this.vy > 0; }
 
-  /** Bounce after stomping an enemy */
   stompBounce(): void {
     this.vy = this.config.jumpVelocity * 0.6;
   }
 
-  /** Apply a temporary speed boost */
-  private speedBoostTimer = 0;
-  applySpeedBoost(multiplier: number, duration: number = 3): void {
+  applySpeedBoost(multiplier: number, duration: number = 5): void {
     this.config.speed = DEFAULT_PLAYER_CONFIG.speed * multiplier;
-    this.speedBoostTimer = duration * 60;
+    this.speedBoostTimer = duration;
   }
 
-  /** Enable/disable double jump */
+  applyShield(duration: number = 8): void {
+    this.shieldActive = true;
+    this.shieldTimer = duration;
+  }
+
+  applyMagnet(duration: number = 8): void {
+    this.magnetActive = true;
+    this.magnetTimer = duration;
+  }
+
   private _doubleJump = false;
   hasDoubleJumped = false;
   setDoubleJump(enabled: boolean): void {

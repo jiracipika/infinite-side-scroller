@@ -7,19 +7,33 @@ import { Camera, DEFAULT_CAMERA_CONFIG } from './camera';
 import { ChunkManager } from '../world/chunk-manager';
 import { InputManager } from '../input/input';
 import { Player, DEFAULT_PLAYER_CONFIG } from '../entities/player';
+import { Enemy } from '../entities/Enemy';
+import { Slime } from '../entities/Slime';
+import { Bat } from '../entities/Bat';
+import { Skeleton } from '../entities/Skeleton';
+import { Jumper } from '../entities/Jumper';
+import { Boss } from '../entities/Boss';
 import { ParticleSystem } from '../entities/particles';
 import { GameRenderer } from '../rendering/renderer';
 import { getBiomeAt } from '../world/biomes';
 import { getDifficulty } from '../difficulty';
+import type { Collectible } from '../entities/Collectibles';
+import { spawnCollectiblesForChunk, spawnEnemiesForChunk } from '../entities/Collectibles';
+import { spawnHazardsForChunk, renderHazard, type Hazard } from '../hazards';
 import type { Chunk, Platform as PlatformData } from '../world/chunk';
 
-/** Fixed timestep for physics (seconds) */
 const FIXED_DT = 1 / 60;
-
-/** Max accumulated time before we force updates (prevents spiral of death) */
 const MAX_ACCUMULATED = 0.1;
 
 export type EngineState = 'playing' | 'paused' | 'gameover';
+
+/** AABB collision check */
+function aabbOverlap(
+  a: { x: number; y: number; width: number; height: number },
+  b: { x: number; y: number; width: number; height: number },
+): boolean {
+  return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
+}
 
 export class GameEngine {
   private canvas: HTMLCanvasElement;
@@ -37,20 +51,22 @@ export class GameEngine {
   private _running = false;
   private _state: EngineState = 'playing';
 
-  /** World seed — change this for a different world */
   worldSeed = 42;
-
-  /** Difficulty config based on distance */
   difficulty = getDifficulty(0);
 
-  /** Callback when player dies */
   onGameOver?: () => void;
+  onStatsUpdate?: (stats: { score: number; coins: number; distance: number; health: number; maxHealth: number; biome: string; powerUps: string[] }) => void;
 
-  /** Callback for stat updates (HUD) */
-  onStatsUpdate?: (stats: { score: number; coins: number; distance: number; health: number; maxHealth: number; biome: string }) => void;
-
-  /** Track previous onGround for landing particles */
   private wasOnGround = true;
+
+  // Entity management
+  private enemies: Enemy[] = [];
+  private collectibles: Collectible[] = [];
+  private hazards: Hazard[] = [];
+  private lastChunkKey = '';
+
+  // Track which chunks have spawned entities
+  private spawnedChunks = new Set<number>();
 
   constructor(canvas: HTMLCanvasElement, seed?: number) {
     this.canvas = canvas;
@@ -61,7 +77,7 @@ export class GameEngine {
     this.camera = new Camera(DEFAULT_CAMERA_CONFIG);
     this.chunkManager = new ChunkManager(this.worldSeed);
     this.player = new Player(DEFAULT_PLAYER_CONFIG);
-    this.player.setDoubleJump(true); // Double jump enabled by default
+    this.player.setDoubleJump(true);
     this.particles = new ParticleSystem();
     this.renderer = new GameRenderer(this.ctx);
 
@@ -80,6 +96,11 @@ export class GameEngine {
     this.player = new Player(DEFAULT_PLAYER_CONFIG);
     this.player.setDoubleJump(true);
     this.particles.clear();
+    this.enemies = [];
+    this.collectibles = [];
+    this.hazards = [];
+    this.spawnedChunks.clear();
+    this.lastChunkKey = '';
     this._state = 'playing';
     this.difficulty = getDifficulty(0);
     this.wasOnGround = true;
@@ -90,16 +111,13 @@ export class GameEngine {
     const rect = this.canvas.getBoundingClientRect();
     const width = rect.width;
     const height = rect.height;
-
     this.canvas.width = width * dpr;
     this.canvas.height = height * dpr;
     this.ctx.scale(dpr, dpr);
-
     this.renderer.resize(width, height);
     this.camera.setScreenSize(width, height);
   };
 
-  /** Start the game loop */
   start(): void {
     if (this._running) return;
     this._running = true;
@@ -107,7 +125,6 @@ export class GameEngine {
     this.loop(this.lastTime);
   }
 
-  /** Stop the game loop */
   stop(): void {
     this._running = false;
     if (this.animationId !== null) {
@@ -116,7 +133,6 @@ export class GameEngine {
     }
   }
 
-  /** Clean up all resources */
   destroy(): void {
     this.stop();
     this.input.destroy();
@@ -125,39 +141,28 @@ export class GameEngine {
 
   private loop = (currentTime: number): void => {
     if (!this._running) return;
-
     let dt = (currentTime - this.lastTime) / 1000;
     this.lastTime = currentTime;
     if (dt > 0.1) dt = 0.1;
 
-    // Only update when playing
     if (this._state === 'playing') {
       this.accumulated += dt;
-      if (this.accumulated > MAX_ACCUMULATED) {
-        this.accumulated = MAX_ACCUMULATED;
-      }
-
+      if (this.accumulated > MAX_ACCUMULATED) this.accumulated = MAX_ACCUMULATED;
       while (this.accumulated >= FIXED_DT) {
         this.update(FIXED_DT);
         this.accumulated -= FIXED_DT;
       }
     }
 
-    // Always render (even when paused — shows frozen frame)
     this.render();
-
     this.animationId = requestAnimationFrame(this.loop);
   };
 
-  /**
-   * Get all platforms near the player for collision.
-   */
   private getNearbyPlatforms(): PlatformData[] {
     const chunks = this.chunkManager.getLoadedChunks();
     const platforms: PlatformData[] = [];
     const px = this.player.centerX;
-    const range = 600; // Load platforms within this range
-
+    const range = 600;
     for (const chunk of chunks) {
       for (const plat of chunk.platforms) {
         if (plat.x > px - range && plat.x + plat.width < px + range) {
@@ -168,139 +173,347 @@ export class GameEngine {
     return platforms;
   }
 
-  /**
-   * Get the effective ground Y at player position, considering gaps.
-   */
   private getGroundY(worldX: number): number {
-    // Check if player is over a gap
     const chunks = this.chunkManager.getLoadedChunks();
     const playerLeft = worldX - this.player.width / 2;
     const playerRight = worldX + this.player.width / 2;
-
     for (const chunk of chunks) {
       for (const cave of chunk.caves) {
-        // If player is horizontally inside a cave that reaches the surface, treat as gap
         if (playerLeft < cave.x + cave.width && playerRight > cave.x) {
           const surfaceY = chunk.getHeight(cave.x - chunk.worldX);
-          // Cave starts at surface level = it's a pit
-          if (cave.y <= surfaceY + 10) {
-            return Infinity; // No ground here — it's a gap
-          }
+          if (cave.y <= surfaceY + 10) return Infinity;
         }
       }
     }
-
     return this.chunkManager.getHeight(worldX);
   }
 
-  /**
-   * Check if there's a wall to the left or right of the player.
-   * Returns 'left', 'right', or null.
-   */
   private checkWallCollision(): 'left' | 'right' | null {
     const px = this.player.x;
     const py = this.player.y;
-    const pw = this.player.width;
-    const ph = this.player.height;
     const margin = 2;
-
-    // Check terrain height difference at player edges
     const leftY = this.chunkManager.getHeight(px - margin);
-    const rightY = this.chunkManager.getHeight(px + pw + margin);
-    const centerBottom = py + ph;
-
-    // Wall on left if terrain is much higher on the left side
-    if (leftY < centerBottom - ph * 0.4 && this.player.vx < 0) {
-      return 'left';
-    }
-    // Wall on right if terrain is much higher on the right side
-    if (rightY < centerBottom - ph * 0.4 && this.player.vx > 0) {
-      return 'right';
-    }
+    const rightY = this.chunkManager.getHeight(px + this.player.width + margin);
+    const centerBottom = py + this.player.height;
+    if (leftY < centerBottom - this.player.height * 0.4 && this.player.vx < 0) return 'left';
+    if (rightY < centerBottom - this.player.height * 0.4 && this.player.vx > 0) return 'right';
     return null;
   }
 
+  /** Simple seeded RNG for spawning */
+  private seededRng(seed: number): number {
+    const x = Math.sin(seed * 127.1 + 311.7) * 43758.5453;
+    return x - Math.floor(x);
+  }
+
+  /** Spawn enemies/collectibles/hazards for newly loaded chunks */
+  private spawnChunkEntities(): void {
+    const chunks = this.chunkManager.getLoadedChunks();
+    for (const chunk of chunks) {
+      if (this.spawnedChunks.has(chunk.index)) continue;
+      this.spawnedChunks.add(chunk.index);
+
+      const plats = chunk.platforms;
+      const chunkWorldX = chunk.worldX;
+
+      // Enemies
+      const enemySpawns = spawnEnemiesForChunk(chunk.index, plats, (s) => this.seededRng(s));
+      // Apply density scaling — only spawn fraction based on difficulty
+      const targetCount = Math.ceil(enemySpawns.length / this.difficulty.densityMult);
+      const scaledSpawns = enemySpawns.slice(0, targetCount);
+
+      for (const spawn of scaledSpawns) {
+        let enemy: Enemy;
+        switch (spawn.type) {
+          case 'slime': enemy = new Slime(spawn.x, spawn.y, spawn.chunkId); break;
+          case 'bat': enemy = new Bat(spawn.x, spawn.y, spawn.chunkId); break;
+          case 'jumper': enemy = new Jumper(spawn.x, spawn.y, spawn.chunkId); break;
+          case 'skeleton': enemy = new Skeleton(spawn.x, spawn.y, spawn.chunkId); break;
+          case 'boss': enemy = new Boss(spawn.x, spawn.y, spawn.chunkId); break;
+          default: continue;
+        }
+        enemy.applyDifficulty(
+          this.difficulty.speedMult,
+          this.difficulty.damageMult,
+          this.difficulty.healthMult,
+          this.difficulty.detectRangeMult,
+        );
+        this.enemies.push(enemy);
+      }
+
+      // Collectibles
+      const newCollectibles = spawnCollectiblesForChunk(chunk.index, chunkWorldX, 800, plats, (s) => this.seededRng(s));
+      this.collectibles.push(...newCollectibles);
+
+      // Hazards
+      const newHazards = spawnHazardsForChunk(
+        chunk.index, plats, chunk.heights, chunkWorldX, (s) => this.seededRng(s)
+      );
+      this.hazards.push(...newHazards);
+    }
+  }
+
+  /** Update enemy ground state from terrain */
+  private updateEnemyGround(enemy: Enemy): void {
+    const groundY = this.chunkManager.getHeight(enemy.x + enemy.width / 2);
+    if (enemy.y + enemy.height >= groundY && groundY !== Infinity) {
+      enemy.y = groundY - enemy.height;
+      enemy.vy = 0;
+      enemy.onGround = true;
+    } else {
+      // Also check platforms
+      for (const h of this.hazards) {
+        if (h.type === 'falling_platform' && !h.destroyed && h.vy !== undefined && (h.vy === 0 || h.falling === false)) {
+          if (enemy.x + enemy.width > h.x && enemy.x < h.x + h.width) {
+            if (enemy.vy >= 0 && enemy.y + enemy.height >= h.y && enemy.y + enemy.height <= h.y + 12) {
+              enemy.y = h.y - enemy.height;
+              enemy.vy = 0;
+              enemy.onGround = true;
+              return;
+            }
+          }
+        }
+      }
+      enemy.onGround = false;
+    }
+  }
+
   private update(dt: number): void {
-    // Update chunks around player
+    // Update chunks
     this.chunkManager.update(this.player.centerX);
 
-    // Get ground/platform data
+    // Spawn entities for new chunks
+    this.spawnChunkEntities();
+
+    // Cleanup far-away entities
+    const px = this.player.centerX;
+    const cleanupRange = 2000;
+    this.enemies = this.enemies.filter(e => e.alive && Math.abs(e.x - px) < cleanupRange);
+    this.collectibles = this.collectibles.filter(c => !c.collected && Math.abs(c.x - px) < cleanupRange);
+    this.hazards = this.hazards.filter(h => !h.destroyed && Math.abs(h.x - px) < cleanupRange);
+
+    // Ground & platforms
     const groundY = this.getGroundY(this.player.centerX);
     const platforms = this.getNearbyPlatforms();
 
-    // Check wall collision
+    // Build platform list including non-falling hazards for player collision
+    const allPlatforms = [...platforms];
+    for (const h of this.hazards) {
+      if (h.type === 'falling_platform' && !h.destroyed && !h.falling && h.vy !== undefined) {
+        allPlatforms.push({ x: h.x, y: h.y, width: h.width } as PlatformData);
+      }
+    }
+
     const wallSide = this.checkWallCollision();
     this.player.touchingWall = wallSide !== null;
     if (wallSide === 'left') this.player.facingRight = false;
     if (wallSide === 'right') this.player.facingRight = true;
 
-    // Store previous ground state
     this.wasOnGround = this.player.onGround;
-
-    // Update player with platform collision data
-    this.player.update(dt, this.input, groundY, platforms);
+    this.player.update(dt, this.input, groundY, allPlatforms);
 
     // Landing particles
     if (this.player.onGround && !this.wasOnGround) {
       this.particles.spawnLanding(this.player.centerX, this.player.bottom);
     }
-
-    // Jump particles
     if (this.input.isPressed('Space') || this.input.isPressed('ArrowUp') || this.input.isPressed('KeyW')) {
       if (this.player.onGround || this.player.vy < -100) {
         this.particles.spawnJumpDust(this.player.centerX, this.player.bottom);
       }
     }
 
-    // Wall collision — prevent moving through terrain walls
+    // Wall collision
     if (wallSide) {
-      // Get terrain height at the blocked side
       const wallX = wallSide === 'left' ? this.player.x - 1 : this.player.x + this.player.width + 1;
       const wallY = this.chunkManager.getHeight(wallX);
-      const playerTop = this.player.y;
-      const playerBottom = this.player.y + this.player.height;
-
-      // If wall is tall enough to block movement (more than half player height)
-      if (wallY < playerBottom - this.player.height * 0.35) {
+      if (wallY < this.player.y + this.player.height - this.player.height * 0.35) {
         if (wallSide === 'left' && this.player.x > 0) {
-          this.player.x = wallX + 1;
-          this.player.vx = 0;
+          this.player.x = wallX + 1; this.player.vx = 0;
         } else if (wallSide === 'right') {
-          this.player.x = wallX - this.player.width - 1;
-          this.player.vx = 0;
+          this.player.x = wallX - this.player.width - 1; this.player.vx = 0;
         }
       }
     }
 
-    // Update difficulty based on distance
+    // Difficulty
     this.difficulty = getDifficulty(this.player.distanceTraveled);
 
-    // Update camera
+    // Update falling platforms
+    for (const h of this.hazards) {
+      if (h.type !== 'falling_platform' || h.destroyed) continue;
+      // Check if player is standing on it
+      if (h.vy !== undefined) {
+        if (!h.falling) {
+          if (
+            this.player.x + this.player.width > h.x && this.player.x < h.x + h.width &&
+            Math.abs(this.player.y + this.player.height - h.y) < 4 && this.player.onGround
+          ) {
+            h.crumbleTimer = (h.crumbleTimer ?? 0) + dt;
+            if (h.crumbleTimer > 0.5) {
+              h.falling = true;
+            }
+          }
+        } else {
+          h.vy = (h.vy ?? 0) + 800 * dt;
+          h.y += h.vy * dt;
+          if (h.y > 2000) h.destroyed = true;
+        }
+      }
+    }
+
+    // Update enemies
+    const playerBounds = this.player.getBounds();
+    for (const enemy of this.enemies) {
+      if (!enemy.alive) continue;
+
+      enemy.update(dt, this.player.centerX, this.player.centerY);
+      this.updateEnemyGround(enemy);
+
+      // Enemy-player collision
+      if (aabbOverlap(playerBounds, enemy.getBounds())) {
+        // Check stomp
+        if (enemy.stompable && this.player.isStomping() && this.player.y + this.player.height < enemy.y + enemy.height * 0.6) {
+          enemy.takeDamage(1);
+          if (!enemy.alive) {
+            this.player.score += 100;
+            this.particles.spawnEnemyDeath(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2);
+            this.particles.spawnScorePopup(enemy.x + enemy.width / 2, enemy.y, '+100');
+          }
+          this.player.stompBounce();
+        } else if (this.player.dashing) {
+          // Dash kills
+          enemy.takeDamage(2);
+          if (!enemy.alive) {
+            this.player.score += 100;
+            this.particles.spawnEnemyDeath(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2);
+            this.particles.spawnScorePopup(enemy.x + enemy.width / 2, enemy.y, '+100');
+          }
+        } else {
+          // Player takes damage
+          if (this.player.takeDamage(enemy.effectiveDamage)) {
+            // Knockback
+            const kb = this.player.centerX < enemy.x ? -200 : 200;
+            this.player.vx = kb;
+            this.player.vy = -250;
+            this.particles.spawnScorePopup(this.player.centerX, this.player.y - 10, '-1 ♥', '#ef4444');
+          }
+        }
+      }
+
+      // Player projectiles hitting enemies
+      for (const proj of this.player.projectiles) {
+        if (aabbOverlap({ x: proj.x - 4, y: proj.y - 4, width: 8, height: 8 }, enemy.getBounds())) {
+          enemy.takeDamage(proj.damage);
+          proj.life = 0; // destroy projectile
+          if (!enemy.alive) {
+            this.player.score += 100;
+            this.particles.spawnEnemyDeath(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2);
+            this.particles.spawnScorePopup(enemy.x + enemy.width / 2, enemy.y, '+100');
+          }
+        }
+      }
+
+      // Skeleton/Boss projectiles hitting player
+      if ('projectiles' in enemy && Array.isArray(enemy.projectiles)) {
+        for (const proj of enemy.projectiles as { x: number; y: number; width: number; height: number; life: number; damage: number }[]) {
+          if (proj.life <= 0) continue;
+          if (aabbOverlap({ x: proj.x - proj.width / 2, y: proj.y - proj.height / 2, width: proj.width, height: proj.height }, playerBounds)) {
+            if (this.player.takeDamage(proj.damage)) {
+              proj.life = 0;
+              this.particles.spawnScorePopup(this.player.centerX, this.player.y - 10, '-1 ♥', '#ef4444');
+            }
+          }
+        }
+      }
+    }
+
+    // Spike hazards
+    for (const h of this.hazards) {
+      if (h.type !== 'spike') continue;
+      if (aabbOverlap(playerBounds, { x: h.x, y: h.y, width: h.width, height: h.height })) {
+        if (this.player.takeDamage(1)) {
+          this.player.vy = -300;
+          this.particles.spawnScorePopup(this.player.centerX, this.player.y - 10, '-1 ♥', '#ef4444');
+        }
+      }
+    }
+
+    // Collectibles
+    for (const c of this.collectibles) {
+      if (c.collected) continue;
+      c.animTimer += dt;
+
+      // Magnet attraction
+      if (this.player.magnetActive && c.type === 'coin') {
+        const dx = this.player.centerX - (c.x + c.width / 2);
+        const dy = this.player.centerY - (c.y + c.height / 2);
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 150 && dist > 0) {
+          c.x += (dx / dist) * 400 * dt;
+          c.y += (dy / dist) * 400 * dt;
+        }
+      }
+
+      if (aabbOverlap(playerBounds, c)) {
+        c.collected = true;
+        switch (c.type) {
+          case 'coin':
+            this.player.addCoins(1);
+            this.particles.spawnCoinSparkle(c.x + c.width / 2, c.y + c.height / 2);
+            this.particles.spawnScorePopup(c.x, c.y, '+10', '#fbbf24');
+            break;
+          case 'health':
+            if (this.player.health < this.player.maxHealth) {
+              this.player.heal(1);
+              this.particles.spawnScorePopup(c.x, c.y, '+1 ♥', '#22c55e');
+            }
+            break;
+          case 'speedBoost':
+            this.player.applySpeedBoost(1.5, c.value);
+            this.particles.spawnScorePopup(c.x, c.y, 'SPEED!', '#3b82f6');
+            break;
+          case 'doubleJump':
+            this.player.setDoubleJump(true);
+            this.particles.spawnScorePopup(c.x, c.y, '2x JUMP!', '#a855f7');
+            break;
+          case 'shield':
+            this.player.applyShield(c.value * 8);
+            this.particles.spawnScorePopup(c.x, c.y, 'SHIELD!', '#06b6d4');
+            break;
+          case 'magnet':
+            this.player.applyMagnet(c.value);
+            this.particles.spawnScorePopup(c.x, c.y, 'MAGNET!', '#f59e0b');
+            break;
+        }
+      }
+    }
+
+    // Camera
     this.camera.update(this.player.centerX, this.player.centerY);
 
-    // Update particles
+    // Particles
     const biome = getBiomeAt(this.player.centerX);
     const screenW = this.canvas.getBoundingClientRect().width;
     const screenH = this.canvas.getBoundingClientRect().height;
-    this.particles.update(
-      this.camera.x, this.camera.y,
-      screenW, screenH,
-      biome.type, dt
-    );
+    this.particles.update(this.camera.x, this.camera.y, screenW, screenH, biome.type, dt);
 
-    // Check death (fell off the world)
+    // Death by falling
     if (this.player.y > 1500) {
       this.player.alive = false;
     }
 
-    // Game over
     if (!this.player.alive) {
       this._state = 'gameover';
       this.camera.shake(8, 0.5);
       this.onGameOver?.();
     }
 
-    // Emit stats for HUD
+    // Power-ups for HUD
+    const powerUps: string[] = [];
+    if (this.player.shieldActive) powerUps.push('🛡️');
+    if (this.player.magnetActive) powerUps.push('🧲');
+    if (this.player.speedBoostTimer > 0) powerUps.push('⚡');
+
     this.onStatsUpdate?.({
       score: this.player.score,
       coins: this.player.coins,
@@ -308,9 +521,9 @@ export class GameEngine {
       health: this.player.health,
       maxHealth: this.player.maxHealth,
       biome: biome.name,
+      powerUps,
     });
 
-    // Clear input state at end of frame
     this.input.endFrame();
   }
 
@@ -318,7 +531,6 @@ export class GameEngine {
     const ctx = this.ctx;
     const width = this.canvas.getBoundingClientRect().width;
     const height = this.canvas.getBoundingClientRect().height;
-
     ctx.clearRect(0, 0, width, height);
 
     const chunks = this.chunkManager.getLoadedChunks();
@@ -328,8 +540,63 @@ export class GameEngine {
     this.renderer.drawTerrain(chunks, this.camera);
     this.renderer.drawPlatforms(chunks, this.camera);
     this.renderer.drawDecorations(chunks, this.camera);
-    this.renderer.drawParticles(this.particles.getParticles(), this.camera);
+
+    // Hazards
+    for (const h of this.hazards) {
+      renderHazard(ctx, h, this.camera.renderX);
+    }
+
+    // Collectibles
+    for (const c of this.collectibles) {
+      if (c.collected) continue;
+      this.renderer.drawCollectible(c, this.camera);
+    }
+
+    // Enemies
+    for (const enemy of this.enemies) {
+      if (!enemy.alive) continue;
+      enemy.render(ctx, this.camera.renderX);
+    }
+
+    // Player projectiles
+    ctx.fillStyle = '#60a5fa';
+    for (const p of this.player.projectiles) {
+      const sx = p.x - this.camera.renderX;
+      ctx.beginPath();
+      ctx.arc(sx, p.y, 4, 0, Math.PI * 2);
+      ctx.fill();
+      // Glow
+      ctx.fillStyle = '#93c5fd80';
+      ctx.beginPath();
+      ctx.arc(sx, p.y, 7, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#60a5fa';
+    }
+
+    // Player
     this.renderer.drawPlayer(this.player, this.camera);
+
+    // Shield visual
+    if (this.player.shieldActive) {
+      const sx = this.player.x - this.camera.renderX + this.player.width / 2;
+      const sy = this.player.y + this.player.height / 2;
+      ctx.strokeStyle = '#06b6d480';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(sx, sy, this.player.width * 0.8, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = '#06b6d415';
+      ctx.fill();
+    }
+
+    // Dash trail
+    if (this.player.dashing) {
+      ctx.fillStyle = '#4488cc40';
+      const sx = this.player.x - this.camera.renderX - this.player.dashDirection * 20;
+      ctx.fillRect(sx, this.player.y, this.player.width, this.player.height);
+    }
+
+    this.renderer.drawParticles(this.particles.getParticles(), this.camera);
 
     // Pause overlay
     if (this._state === 'paused') {

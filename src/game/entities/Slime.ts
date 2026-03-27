@@ -1,5 +1,5 @@
 /**
- * Slime - Bounces on platforms, damages on contact
+ * Slime - Bounces on platforms, damages on contact. Walker type.
  */
 import { Enemy } from './Enemy';
 
@@ -16,24 +16,33 @@ export class Slime extends Enemy {
     });
   }
 
-  update(dt: number, _playerX: number, _playerY: number) {
+  update(dt: number, playerX: number, playerY: number) {
     if (!this.alive) return;
-
     this.animTimer += dt;
+    this.updateAI(dt, playerX, playerY);
 
     // Gravity
     this.vy += GRAVITY * dt;
     if (this.vy > 600) this.vy = 600;
 
+    const speed = MOVE_SPEED * this.speedMult;
+
+    if (this.aiState === 'chase') {
+      this.facingRight = playerX > this.x;
+      this.vx = this.facingRight ? speed * 1.5 : -speed * 1.5;
+    } else if (this.aiState === 'patrol') {
+      this.vx = this.facingRight ? speed : -speed;
+    } else {
+      this.vx *= 0.9;
+    }
+
     // Bounce when on ground
     if (this.onGround) {
       this.bounceTimer += dt;
-      if (this.bounceTimer >= this.bounceInterval) {
+      if (this.bounceTimer >= this.bounceInterval / this.speedMult) {
         this.vy = -300;
         this.bounceTimer = 0;
       }
-      // Slow horizontal drift
-      this.vx = this.facingRight ? MOVE_SPEED : -MOVE_SPEED;
     }
 
     this.x += this.vx * dt;

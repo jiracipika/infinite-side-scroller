@@ -7,6 +7,7 @@ import { Chunk, CHUNK_WIDTH } from '../world/chunk';
 import { Player } from '../entities/player';
 import { Particle } from '../entities/particles';
 import { getBlendedBiomeColors } from '../world/biomes';
+import type { Collectible } from '../entities/Collectibles';
 
 export class GameRenderer {
   private ctx: CanvasRenderingContext2D;
@@ -204,6 +205,11 @@ export class GameRenderer {
   drawPlayer(player: Player, camera: Camera): void {
     const ctx = this.ctx;
     const screen = camera.worldToScreen(player.x, player.y);
+
+    // Invulnerability flash
+    if (player.invulnerable && !player.dashing) {
+      ctx.globalAlpha = Math.floor(player.invulnerableTimer / 4) % 2 === 0 ? 0.4 : 1.0;
+    }
     const w = player.width;
     const h = player.height;
 
@@ -231,6 +237,88 @@ export class GameRenderer {
       const slideX = player.facingRight ? screen.x + w : screen.x - 2;
       ctx.fillRect(slideX, screen.y + 4, 2, h - 8);
     }
+
+    ctx.globalAlpha = 1.0;
+  }
+
+  drawCollectible(c: Collectible, camera: Camera): void {
+    const ctx = this.ctx;
+    const screen = camera.worldToScreen(c.x, c.y);
+    const bob = Math.sin(c.animTimer * 3) * 3;
+    const sy = screen.y + bob;
+
+    ctx.save();
+    switch (c.type) {
+      case 'coin': {
+        // Gold coin
+        ctx.fillStyle = '#fbbf24';
+        ctx.beginPath();
+        ctx.arc(screen.x + c.width / 2, sy + c.height / 2, c.width / 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#f59e0b';
+        ctx.beginPath();
+        ctx.arc(screen.x + c.width / 2, sy + c.height / 2, c.width / 3, 0, Math.PI * 2);
+        ctx.fill();
+        // $ symbol
+        ctx.fillStyle = '#92400e';
+        ctx.font = 'bold 10px system-ui';
+        ctx.textAlign = 'center';
+        ctx.fillText('$', screen.x + c.width / 2, sy + c.height / 2 + 4);
+        break;
+      }
+      case 'health': {
+        ctx.fillStyle = '#ef4444';
+        ctx.font = `${c.width}px system-ui`;
+        ctx.textAlign = 'center';
+        ctx.fillText('♥', screen.x + c.width / 2, sy + c.height);
+        break;
+      }
+      case 'speedBoost': {
+        ctx.fillStyle = '#3b82f6';
+        ctx.beginPath();
+        ctx.arc(screen.x + c.width / 2, sy + c.height / 2, c.width / 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 12px system-ui';
+        ctx.textAlign = 'center';
+        ctx.fillText('⚡', screen.x + c.width / 2, sy + c.height / 2 + 4);
+        break;
+      }
+      case 'doubleJump': {
+        ctx.fillStyle = '#a855f7';
+        ctx.beginPath();
+        ctx.arc(screen.x + c.width / 2, sy + c.height / 2, c.width / 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 10px system-ui';
+        ctx.textAlign = 'center';
+        ctx.fillText('⇈', screen.x + c.width / 2, sy + c.height / 2 + 4);
+        break;
+      }
+      case 'shield': {
+        ctx.fillStyle = '#06b6d4';
+        ctx.beginPath();
+        ctx.arc(screen.x + c.width / 2, sy + c.height / 2, c.width / 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 12px system-ui';
+        ctx.textAlign = 'center';
+        ctx.fillText('🛡', screen.x + c.width / 2, sy + c.height / 2 + 5);
+        break;
+      }
+      case 'magnet': {
+        ctx.fillStyle = '#f59e0b';
+        ctx.beginPath();
+        ctx.arc(screen.x + c.width / 2, sy + c.height / 2, c.width / 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 12px system-ui';
+        ctx.textAlign = 'center';
+        ctx.fillText('🧲', screen.x + c.width / 2, sy + c.height / 2 + 5);
+        break;
+      }
+    }
+    ctx.restore();
   }
 
   drawParticles(particles: Particle[], camera: Camera): void {

@@ -29,6 +29,7 @@ const DEFAULT_STATS: GameStats = {
   maxHealth: 100,
   biome: 'Grassland',
   fps: 60,
+  powerUps: [],
 };
 
 type Action =
