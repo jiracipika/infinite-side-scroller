@@ -9,6 +9,8 @@ export enum BiomeType {
   Desert = 'desert',
   Rocky = 'rocky',
   DarkCaves = 'dark_caves',
+  Sky = 'sky',
+  Lava = 'lava',
 }
 
 export interface BiomeColors {
@@ -130,6 +132,42 @@ export const BIOMES: Record<BiomeType, BiomeConfig> = {
     caveChance: 0.3,
     platformDensity: 0.12,
   },
+  [BiomeType.Sky]: {
+    type: BiomeType.Sky,
+    name: 'Sky Islands',
+    colors: {
+      ground: '#87ceeb',
+      groundDark: '#5ba3d9',
+      sky: '#1a0533',
+      skyGradient: '#4a2d7a',
+      platform: '#e8e0f0',
+    },
+    treeChance: 0.0,
+    rockChance: 0.0,
+    bushChance: 0.0,
+    heightVariation: 200,
+    hilliness: 0.1,
+    caveChance: 0.0,
+    platformDensity: 0.9,
+  },
+  [BiomeType.Lava]: {
+    type: BiomeType.Lava,
+    name: 'Volcanic',
+    colors: {
+      ground: '#2a1a0a',
+      groundDark: '#1a0f05',
+      sky: '#1a0800',
+      skyGradient: '#4a1500',
+      platform: '#4a2a10',
+    },
+    treeChance: 0.0,
+    rockChance: 0.25,
+    bushChance: 0.0,
+    heightVariation: 50,
+    hilliness: 0.3,
+    caveChance: 0.1,
+    platformDensity: 0.2,
+  },
 };
 
 /**
@@ -138,14 +176,17 @@ export const BIOMES: Record<BiomeType, BiomeConfig> = {
 const BIOME_ORDER: BiomeType[] = [
   BiomeType.Grassland,
   BiomeType.Forest,
-  BiomeType.Grassland,
   BiomeType.Desert,
   BiomeType.Rocky,
+  BiomeType.Sky,
   BiomeType.Forest,
+  BiomeType.Lava,
   BiomeType.DarkCaves,
+  BiomeType.Sky,
+  BiomeType.Desert,
   BiomeType.Rocky,
   BiomeType.Grassland,
-  BiomeType.Desert,
+  BiomeType.Lava,
 ];
 
 /** Width of a biome region in world pixels */

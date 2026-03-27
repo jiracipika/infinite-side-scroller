@@ -39,6 +39,10 @@ export interface Platform {
   x: number;
   y: number;
   width: number;
+  /** Moving platform: amplitude of vertical oscillation (0 = static) */
+  moveAmp?: number;
+  /** Moving platform: speed of oscillation */
+  moveSpeed?: number;
 }
 
 /** Represents one horizontal chunk of the world */
@@ -108,7 +112,13 @@ export class Chunk {
       const baseHeight = this.getHeight(x);
       const y = baseHeight - rng.nextFloat(60, 160);
       const width = rng.nextFloat(60, 150);
-      platforms.push({ x: this.worldX + x, y, width });
+      const isMoving = rng.chance(0.3);
+      platforms.push({
+        x: this.worldX + x,
+        y,
+        width,
+        ...(isMoving ? { moveAmp: rng.nextFloat(30, 80), moveSpeed: rng.nextFloat(1, 3) } : {}),
+      });
     }
     return platforms;
   }

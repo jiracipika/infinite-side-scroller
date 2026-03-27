@@ -3,6 +3,7 @@
  */
 
 import { InputManager } from '../input/input';
+import type { Platform } from '../world/chunk';
 
 export interface PlayerConfig {
   /** Starting world X position */
@@ -51,6 +52,9 @@ export class Player {
   private config: PlayerConfig;
   /** Is the player standing on ground? */
   onGround = false;
+  facingRight = true;
+  wallSliding = false;
+  touchingWall = false;
   /** Was the player on ground last frame? (for coyote time) */
   private wasOnGround = false;
   /** Frames since leaving ground (for coyote time) */
@@ -71,27 +75,59 @@ export class Player {
    * @param input - Input manager
    * @param groundY - The Y coordinate of the ground surface at player's position
    */
-  update(dt: number, input: InputManager, groundY: number): void {
-    // Horizontal movement
-    this.vx = 0;
-    if (input.isDown('ArrowLeft') || input.isDown('KeyA')) {
-      this.vx = -this.config.speed;
-    }
-    if (input.isDown('ArrowRight') || input.isDown('KeyD')) {
-      this.vx = this.config.speed;
+  update(dt: number, input: InputManager, groundY: number, platforms: Platform[] = []): void {
+    // Horizontal movement with acceleration/friction
+    const moveLeft = input.isDown('ArrowLeft') || input.isDown('KeyA');
+    const moveRight = input.isDown('ArrowRight') || input.isDown('KeyD');
+    const sprint = input.isDown('ShiftLeft') || input.isDown('ShiftRight');
+    const maxSpeed = this.config.speed * (sprint ? 1.6 : 1);
+    const accel = maxSpeed * 8;
+    const friction = maxSpeed * 10;
+
+    if (moveLeft) {
+      this.vx = Math.max(this.vx - accel * dt, -maxSpeed);
+      this.facingRight = false;
+    } else if (moveRight) {
+      this.vx = Math.min(this.vx + accel * dt, maxSpeed);
+      this.facingRight = true;
+    } else {
+      // Friction
+      if (this.vx > 0) this.vx = Math.max(0, this.vx - friction * dt);
+      else if (this.vx < 0) this.vx = Math.min(0, this.vx + friction * dt);
     }
 
-    // Jump — allow if on ground or within coyote time
-    if (
-      (input.isPressed('Space') || input.isPressed('ArrowUp') || input.isPressed('KeyW')) &&
-      (this.onGround || this.coyoteTimer < this.COYOTE_FRAMES)
-    ) {
-      this.vy = this.config.jumpVelocity;
-      this.onGround = false;
-      this.coyoteTimer = this.COYOTE_FRAMES;
+    const wantJump = input.isPressed('Space') || input.isPressed('ArrowUp') || input.isPressed('KeyW');
+
+    // Wall slide
+    this.wallSliding = false;
+    if (!this.onGround && this.touchingWall && this.vy > 0) {
+      if (moveLeft && !this.facingRight || moveRight && this.facingRight) {
+        this.wallSliding = true;
+        this.vy = Math.min(this.vy, 120); // slow fall
+      }
     }
 
-    // Apply gravity
+    // Jump — ground, coyote time, wall jump, or double jump
+    if (wantJump) {
+      if (this.onGround || this.coyoteTimer < this.COYOTE_FRAMES) {
+        this.vy = this.config.jumpVelocity;
+        this.onGround = false;
+        this.coyoteTimer = this.COYOTE_FRAMES;
+        this.touchingWall = false;
+        this.wallSliding = false;
+      } else if (this.wallSliding) {
+        // Wall jump
+        this.vy = this.config.jumpVelocity * 0.9;
+        this.vx = this.facingRight ? -maxSpeed * 0.7 : maxSpeed * 0.7;
+        this.facingRight = !this.facingRight;
+        this.touchingWall = false;
+        this.wallSliding = false;
+      } else if (this.canDoubleJump) {
+        this.useDoubleJump();
+      }
+    }
+
+    // Apply gravity (reduced when wall sliding)
     this.vy += this.config.gravity * dt;
 
     // Clamp fall speed
@@ -100,29 +136,62 @@ export class Player {
     // Move horizontally
     this.x += this.vx * dt;
 
+    // Don't let player go left of world start
+    if (this.x < 0) { this.x = 0; this.vx = 0; }
+
     // Move vertically
     this.y += this.vy * dt;
 
-    // Ground collision — player stands on terrain
+    // Platform collision (one-way, can jump through from below)
+    let onPlatform = false;
+    if (this.vy >= 0) { // Only collide when falling or standing
+      for (const plat of platforms) {
+        const prevBottom = (this.y + this.height) - this.vy * dt;
+
+        // Check if player's feet are at platform level and moving down
+        if (this.x + this.width > plat.x && this.x < plat.x + plat.width) {
+          if (prevBottom <= plat.y + 2 && this.y + this.height >= plat.y) {
+            this.y = plat.y - this.height;
+            this.vy = 0;
+            onPlatform = true;
+            break;
+          }
+          // Also: already standing on platform
+          if (Math.abs(this.y + this.height - plat.y) < 4 && this.vy >= 0) {
+            this.y = plat.y - this.height;
+            this.vy = 0;
+            onPlatform = true;
+            break;
+          }
+        }
+      }
+    }
+
+    // Ground collision
     this.wasOnGround = this.onGround;
     const playerBottom = this.y + this.height;
 
-    if (playerBottom >= groundY) {
+    if (playerBottom >= groundY && groundY !== Infinity) {
       this.y = groundY - this.height;
       this.vy = 0;
       this.onGround = true;
       this.coyoteTimer = 0;
+      this.hasDoubleJumped = false;
+    } else if (onPlatform) {
+      this.onGround = true;
+      this.coyoteTimer = 0;
+      this.hasDoubleJumped = false;
     } else {
       this.onGround = false;
     }
 
-    // Coyote time counter
-    if (!this.onGround && this.wasOnGround) {
-      this.coyoteTimer = 0;
-    }
-    if (!this.onGround) {
-      this.coyoteTimer++;
-    }
+    // Coyote time
+    if (!this.onGround && this.wasOnGround) this.coyoteTimer = 0;
+    if (!this.onGround) this.coyoteTimer++;
+
+    // Distance tracking
+    this.distance = Math.max(this.distance, Math.floor(this.x / 50));
+    this.distanceTraveled += Math.abs(this.vx * dt);
   }
 
   /** Get the center X position */

@@ -62,12 +62,9 @@ export class Camera {
     const desiredX = playerX - this.screenWidth * (0.5 + this.config.lookAheadX);
     const desiredY = playerY - this.screenHeight * 0.5;
 
-    // Dead zone
-    const dx = Math.abs(playerX - (this.x + this.screenWidth * (0.5 + this.config.lookAheadX)));
-    const dy = Math.abs(playerY - (this.y + this.screenHeight * 0.5));
-
-    if (dx > this.config.deadZoneX) this.targetX = desiredX;
-    if (dy > this.config.deadZoneY) this.targetY = desiredY;
+    // Always update target — lerp provides the smoothing
+    this.targetX = desiredX;
+    this.targetY = desiredY;
 
     // Smooth lerp
     this.x += (this.targetX - this.x) * this.config.lerpSpeed;

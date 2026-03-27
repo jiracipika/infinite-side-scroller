@@ -22,6 +22,7 @@ export interface GameStats {
   maxHealth: number;
   biome: string;
   fps: number;
+  powerUps: string[];
 }
 
 export interface GameCallbacks {

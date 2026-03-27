@@ -6,6 +6,7 @@ export { Bat } from './Bat';
 export { Skeleton } from './Skeleton';
 export type { Projectile } from './Skeleton';
 export { Boss } from './Boss';
+export { Jumper } from './Jumper';
 export {
   createCollectible,
   spawnCollectiblesForChunk,

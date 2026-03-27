@@ -14,26 +14,56 @@ export default function Home() {
   const gameRef = useRef<GameEngine | null>(null);
   const {
     state, stats, settings,
-    startGame, pauseGame, resumeGame, quitToMenu,
+    startGame, pauseGame, resumeGame, quitToMenu, updateStats,
   } = useGameStore();
 
   useEffect(() => {
     if (!canvasRef.current) return;
-    const game = new GameEngine(canvasRef.current);
+    const game = new GameEngine(canvasRef.current, 42);
     gameRef.current = game;
+
+    // Wire up game → store callbacks
+    game.onStatsUpdate = (s) => {
+      updateStats(s);
+    };
+    game.onGameOver = () => {
+      pauseGame(); // triggers gameover via store
+    };
+
     game.start();
 
     return () => {
       game.destroy();
       gameRef.current = null;
     };
-  }, []);
+  }, [updateStats, pauseGame]);
 
-  const handlePlay = useCallback((seed?: number) => startGame(seed), [startGame]);
-  const handlePause = useCallback(() => pauseGame(), [pauseGame]);
-  const handleResume = useCallback(() => resumeGame(), [resumeGame]);
-  const handleRestart = useCallback(() => startGame(), [startGame]);
-  const handleQuit = useCallback(() => quitToMenu(), [quitToMenu]);
+  const handlePlay = useCallback((seed?: number) => {
+    const s = seed ?? Math.floor(Math.random() * 999999);
+    startGame(s);
+    if (gameRef.current) gameRef.current.setSeed(s);
+  }, [startGame]);
+
+  const handlePause = useCallback(() => {
+    pauseGame();
+    gameRef.current?.pause();
+  }, [pauseGame]);
+
+  const handleResume = useCallback(() => {
+    resumeGame();
+    gameRef.current?.resume();
+  }, [resumeGame]);
+
+  const handleRestart = useCallback(() => {
+    const seed = Math.floor(Math.random() * 999999);
+    startGame(seed);
+    if (gameRef.current) gameRef.current.setSeed(seed);
+  }, [startGame]);
+
+  const handleQuit = useCallback(() => {
+    quitToMenu();
+    if (gameRef.current) gameRef.current.setSeed(42);
+  }, [quitToMenu]);
 
   return (
     <main className="w-screen h-screen overflow-hidden bg-black relative select-none">

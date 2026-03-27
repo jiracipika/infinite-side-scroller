@@ -204,20 +204,33 @@ export class GameRenderer {
   drawPlayer(player: Player, camera: Camera): void {
     const ctx = this.ctx;
     const screen = camera.worldToScreen(player.x, player.y);
+    const w = player.width;
+    const h = player.height;
 
+    // Body
     ctx.fillStyle = '#4488cc';
-    ctx.fillRect(screen.x, screen.y, player.width, player.height);
+    ctx.fillRect(screen.x, screen.y, w, h);
 
+    // Eyes on the facing side
+    const eyeX = player.facingRight ? screen.x + w - 12 : screen.x + 4;
     ctx.fillStyle = '#fff';
-    ctx.fillRect(screen.x + player.width - 10, screen.y + 6, 4, 4);
-    ctx.fillRect(screen.x + player.width - 4, screen.y + 6, 4, 4);
+    ctx.fillRect(eyeX, screen.y + 6, 4, 4);
+    ctx.fillRect(eyeX + 6, screen.y + 6, 4, 4);
     ctx.fillStyle = '#000';
-    ctx.fillRect(screen.x + player.width - 8, screen.y + 8, 2, 2);
-    ctx.fillRect(screen.x + player.width - 2, screen.y + 8, 2, 2);
+    ctx.fillRect(eyeX + 2, screen.y + 8, 2, 2);
+    ctx.fillRect(eyeX + 8, screen.y + 8, 2, 2);
 
+    // Outline
     ctx.strokeStyle = '#2a5a8a';
     ctx.lineWidth = 1;
-    ctx.strokeRect(screen.x, screen.y, player.width, player.height);
+    ctx.strokeRect(screen.x, screen.y, w, h);
+
+    // Wall slide indicator
+    if (player.wallSliding) {
+      ctx.fillStyle = '#ffffff60';
+      const slideX = player.facingRight ? screen.x + w : screen.x - 2;
+      ctx.fillRect(slideX, screen.y + 4, 2, h - 8);
+    }
   }
 
   drawParticles(particles: Particle[], camera: Camera): void {

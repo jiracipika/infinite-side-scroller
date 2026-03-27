@@ -2,7 +2,7 @@
  * Collectible types: coins, health, speed boost, double jump
  */
 
-export type CollectibleType = 'coin' | 'health' | 'speedBoost' | 'doubleJump';
+export type CollectibleType = 'coin' | 'health' | 'speedBoost' | 'doubleJump' | 'shield' | 'magnet';
 
 export interface Collectible {
   x: number;
@@ -25,6 +25,8 @@ export function createCollectible(
     health: { w: 18, h: 18, value: 1 },
     speedBoost: { w: 20, h: 20, value: 5 },
     doubleJump: { w: 20, h: 20, value: 10 },
+    shield: { w: 20, h: 20, value: 1 },
+    magnet: { w: 20, h: 20, value: 8 },
   };
   const s = sizes[type];
   return { x, y, width: s.w, height: s.h, type, chunkId, collected: false, animTimer: 0, value: s.value };
@@ -52,9 +54,11 @@ export function spawnCollectiblesForChunk(
     // Determine type
     const typeRoll = rng(base + g * 10 + 3);
     let type: CollectibleType = 'coin';
-    if (typeRoll > 0.92) type = 'health';
-    else if (typeRoll > 0.86) type = 'speedBoost';
-    else if (typeRoll > 0.82) type = 'doubleJump';
+    if (typeRoll > 0.94) type = 'shield';
+    else if (typeRoll > 0.89) type = 'magnet';
+    else if (typeRoll > 0.84) type = 'health';
+    else if (typeRoll > 0.79) type = 'speedBoost';
+    else if (typeRoll > 0.75) type = 'doubleJump';
 
     // Place on platform
     const count = type === 'coin' ? 3 + Math.floor(rng(base + g * 10 + 4) * 4) : 1;
@@ -90,8 +94,9 @@ export function spawnEnemiesForChunk(
     const roll = rng(base + i * 20 + 102);
 
     let type: string;
-    if (roll < 0.5) type = 'slime';
-    else if (roll < 0.75) type = 'bat';
+    if (roll < 0.35) type = 'slime';
+    else if (roll < 0.55) type = 'bat';
+    else if (roll < 0.75) type = 'jumper';
     else type = 'skeleton';
 
     enemies.push({
