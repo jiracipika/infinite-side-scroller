@@ -166,6 +166,7 @@ export class GameEngine {
         this.update(FIXED_DT);
         this.accumulated -= FIXED_DT;
       }
+      this.input.endFrame();
     }
 
     this.render();
@@ -540,8 +541,6 @@ export class GameEngine {
       powerUps,
       fps: this.fps,
     });
-
-    this.input.endFrame();
   }
 
   private render(): void {

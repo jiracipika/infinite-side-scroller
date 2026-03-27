@@ -5,8 +5,8 @@
 export type KeyState = 'up' | 'down' | 'pressed';
 
 export class InputManager {
-  private keys = new Map<string, boolean>();
-  private justPressed = new Set<string>();
+  private keys = new Set<string>();
+  private prevKeys = new Set<string>();
 
   // Touch virtual button state
   private touchLeft = false;
@@ -56,22 +56,19 @@ export class InputManager {
   }
 
   private onKeyDown = (e: KeyboardEvent): void => {
-    if (!this.keys.has(e.code)) {
-      this.justPressed.add(e.code);
-    }
-    this.keys.set(e.code, true);
+    this.keys.add(e.code);
     if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) {
       e.preventDefault();
     }
   };
 
   private onKeyUp = (e: KeyboardEvent): void => {
-    this.keys.set(e.code, false);
+    this.keys.delete(e.code);
   };
 
   /** Check if a key or virtual button is currently held down */
   isDown(code: string): boolean {
-    if (this.keys.get(code)) return true;
+    if (this.keys.has(code)) return true;
     // Map touch controls to key codes
     if (code === 'ArrowLeft' || code === 'KeyA') return this.touchLeft;
     if (code === 'ArrowRight' || code === 'KeyD') return this.touchRight;
@@ -80,7 +77,7 @@ export class InputManager {
 
   /** Check if a key or virtual button was just pressed this frame */
   isPressed(code: string): boolean {
-    if (this.justPressed.has(code)) return true;
+    if (this.keys.has(code) && !this.prevKeys.has(code)) return true;
     if ((code === 'Space' || code === 'ArrowUp' || code === 'KeyW') && this.touchJumpPressed) {
       return true;
     }
@@ -92,12 +89,12 @@ export class InputManager {
 
   /** Check if attack is held */
   isAttackDown(): boolean {
-    return this.keys.get('KeyE') === true || this.keys.get('KeyJ') === true || this.touchAttack;
+    return this.keys.has('KeyE') || this.keys.has('KeyJ') || this.touchAttack;
   }
 
-  /** Call at end of frame to clear just-pressed state */
+  /** Call at end of frame to snapshot current key state for next-frame press detection */
   endFrame(): void {
-    this.justPressed.clear();
+    this.prevKeys = new Set(this.keys);
     this.touchJumpPressed = false;
     this.touchAttackPressed = false;
   }
