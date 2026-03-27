@@ -1,4 +1,4 @@
-export { Player } from './Player';
+export { Player } from './player';
 export { Enemy } from './Enemy';
 export type { EnemyType } from './Enemy';
 export { Slime } from './Slime';

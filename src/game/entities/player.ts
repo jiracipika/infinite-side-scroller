@@ -37,6 +37,16 @@ export class Player {
   vy = 0;
   readonly width: number;
   readonly height: number;
+  health = 100;
+  maxHealth = 100;
+  alive = true;
+  score = 0;
+  coins = 0;
+  distance = 0;
+  distanceTraveled = 0;
+  
+  invulnerable = false;
+  invulnerableTimer = 0;
 
   private config: PlayerConfig;
   /** Is the player standing on ground? */
@@ -96,7 +106,6 @@ export class Player {
     // Ground collision — player stands on terrain
     this.wasOnGround = this.onGround;
     const playerBottom = this.y + this.height;
-    const playerTop = this.y;
 
     if (playerBottom >= groundY) {
       this.y = groundY - this.height;
@@ -129,5 +138,65 @@ export class Player {
   /** Get the bounding box bottom */
   get bottom(): number {
     return this.y + this.height;
+  }
+
+  /** Apply damage to the player */
+  takeDamage(amount: number): boolean {
+    if (this.invulnerable || !this.alive) return false;
+    this.health = Math.max(0, this.health - amount);
+    this.invulnerable = true;
+    this.invulnerableTimer = 60; // 1 second of invulnerability
+    if (this.health <= 0) {
+      this.alive = false;
+    }
+    return true;
+  }
+
+  /** Heal the player */
+  heal(amount: number): void {
+    this.health = Math.min(this.maxHealth, this.health + amount);
+  }
+
+  /** Add coins */
+  addCoins(amount: number): void {
+    this.coins += amount;
+    this.score += amount * 10;
+  }
+
+  /** Get bounding box for collision */
+  getBounds() {
+    return { x: this.x, y: this.y, width: this.width, height: this.height };
+  }
+
+  /** Check if player is stomping (falling) */
+  isStomping(): boolean {
+    return this.vy > 0;
+  }
+
+  /** Bounce after stomping an enemy */
+  stompBounce(): void {
+    this.vy = this.config.jumpVelocity * 0.6;
+  }
+
+  /** Apply a temporary speed boost */
+  private speedBoostTimer = 0;
+  applySpeedBoost(multiplier: number, duration: number = 3): void {
+    this.config.speed = DEFAULT_PLAYER_CONFIG.speed * multiplier;
+    this.speedBoostTimer = duration * 60;
+  }
+
+  /** Enable/disable double jump */
+  private _doubleJump = false;
+  hasDoubleJumped = false;
+  setDoubleJump(enabled: boolean): void {
+    this._doubleJump = enabled;
+    this.hasDoubleJumped = false;
+  }
+  get canDoubleJump(): boolean { return this._doubleJump && !this.hasDoubleJumped; }
+  useDoubleJump(): void {
+    if (this.canDoubleJump) {
+      this.vy = this.config.jumpVelocity;
+      this.hasDoubleJumped = true;
+    }
   }
 }

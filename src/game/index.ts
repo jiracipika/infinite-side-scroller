@@ -1,22 +1,15 @@
 /**
- * Game module - Player, Enemies, Collectibles, Combat, Input
+ * Game barrel export — convenient access to all game modules.
  */
 
-export { InputManager } from './input';
-export type { InputState } from './input';
-
-export { Player } from './entities/Player';
-export { Enemy } from './entities/Enemy';
-export { Slime } from './entities/Slime';
-export { Bat } from './entities/Bat';
-export { Skeleton } from './entities/Skeleton';
-export { Boss } from './entities/Boss';
-export {
-  createCollectible,
-  spawnCollectiblesForChunk,
-  spawnEnemiesForChunk,
-} from './entities/Collectibles';
-export type { EnemyType, Projectile, Collectible, CollectibleType } from './entities';
-
-export { CombatSystem } from './combat/CombatSystem';
-export type { ScoreState } from './combat/CombatSystem';
+export { GameEngine } from './engine/game-engine';
+export { Camera, DEFAULT_CAMERA_CONFIG, type CameraConfig } from './engine/camera';
+export { ChunkManager } from './world/chunk-manager';
+export { Chunk, CHUNK_WIDTH } from './world/chunk';
+export { createRng } from './world/rng';
+export { getTerrainHeight } from './world/terrain';
+export { getBiomeAt, getBlendedBiomeColors, BIOMES, BiomeType, type BiomeConfig, type BiomeColors } from './world/biomes';
+export { Player, DEFAULT_PLAYER_CONFIG, type PlayerConfig } from './entities/player';
+export { ParticleSystem, type Particle } from './entities/particles';
+export { InputManager } from './input/input';
+export { GameRenderer } from './rendering/renderer';

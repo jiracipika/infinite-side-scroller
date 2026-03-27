@@ -158,7 +158,7 @@ const BIOME_WIDTH = 8000;
  */
 export function getBiomeAt(worldX: number): BiomeConfig {
   const idx = Math.floor(worldX / BIOME_WIDTH);
-  const offset = (worldX % BIOME_WIDTH) / BIOME_WIDTH; // 0-1 within biome
+  const _offset = (worldX % BIOME_WIDTH) / BIOME_WIDTH; // 0-1 within biome (reserved for blending)
   const biomeType = BIOME_ORDER[((idx % BIOME_ORDER.length) + BIOME_ORDER.length) % BIOME_ORDER.length];
   return BIOMES[biomeType];
 }

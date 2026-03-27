@@ -2,7 +2,7 @@
  * Combat System - Handles all interactions between player, enemies, projectiles, and collectibles
  */
 
-import { Player } from '../entities/Player';
+import { Player } from '../entities/player';
 import { Enemy, Slime, Bat, Skeleton, Boss, Projectile } from '../entities';
 import { Collectible } from '../entities/Collectibles';
 
