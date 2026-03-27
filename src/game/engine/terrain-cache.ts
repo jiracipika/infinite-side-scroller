@@ -15,7 +15,7 @@ export class TerrainCache {
   /** Store terrain data in cache */
   set(chunkIndex: number, imageData: ImageData): void {
     // Evict oldest if over limit (simple FIFO)
-    if (this.cache.size as number >= this.CACHE_SIZE_LIMIT) {
+    if (this.cache.size >= this.CACHE_SIZE_LIMIT) {
       const firstKey = this.cache.keys().next().value;
       this.cache.delete(firstKey);
     }
