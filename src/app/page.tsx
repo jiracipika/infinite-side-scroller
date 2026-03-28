@@ -143,12 +143,19 @@ export default function Home() {
             alignItems: 'center',
             justifyContent: 'center',
             cursor: 'pointer',
-            transition: 'transform 0.12s cubic-bezier(0.34,1.56,0.64,1), opacity 0.1s ease',
-            color: 'rgba(235,235,245,0.65)',
+            transition: 'transform 0.12s cubic-bezier(0.34,1.56,0.64,1), opacity 0.1s ease, background 0.12s ease',
+            color: 'rgba(235,235,245,0.6)',
+            border: '0.5px solid rgba(255,255,255,0.1)',
           }}
-          onMouseEnter={(e) => (e.currentTarget.style.color = 'rgba(235,235,245,0.9)')}
-          onMouseLeave={(e) => (e.currentTarget.style.color = 'rgba(235,235,245,0.65)')}
-          onMouseDown={(e) => (e.currentTarget.style.transform = 'scale(0.94)')}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.color = 'rgba(235,235,245,0.92)';
+            e.currentTarget.style.background = 'rgba(0,0,0,0.64)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.color = 'rgba(235,235,245,0.6)';
+            e.currentTarget.style.background = 'rgba(0,0,0,0.48)';
+          }}
+          onMouseDown={(e) => (e.currentTarget.style.transform = 'scale(0.92)')}
           onMouseUp={(e) => (e.currentTarget.style.transform = 'scale(1)')}
         >
           <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">

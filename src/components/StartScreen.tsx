@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, type FC } from 'react';
+import { useState, useEffect, useMemo, type FC } from 'react';
 import { useGameStore } from './GameStore';
 
 interface Props {
@@ -28,26 +28,36 @@ const StartScreen: FC<Props> = ({ onPlay }) => {
       className="absolute inset-0 flex flex-col items-center justify-center ios-overlay"
       style={{ opacity: mounted ? 1 : 0, transition: 'opacity 0.35s ease' }}
     >
+      {/* Background star field */}
+      <StarField />
+
       <div
         className="flex flex-col items-center w-full"
         style={{
           maxWidth: 360,
           padding: '0 16px',
+          position: 'relative',
+          zIndex: 1,
           animation: mounted ? 'iosSpringIn 0.55s cubic-bezier(0.34,1.56,0.64,1) both' : 'none',
         }}
       >
         {/* ── App Icon + Title ─────────────────────────────── */}
-        <div className="flex flex-col items-center" style={{ marginBottom: 32 }}>
+        <div className="flex flex-col items-center" style={{ marginBottom: 28 }}>
           <AppIcon />
           <h1
             className="ios-large-title"
-            style={{ marginTop: 14, animation: 'iosGlow 5s ease-in-out infinite' }}
+            style={{ marginTop: 16, animation: 'iosGlow 5s ease-in-out infinite' }}
           >
             Infinite
           </h1>
           <p
             className="ios-caption2"
-            style={{ marginTop: 4, letterSpacing: '0.22em', textTransform: 'uppercase' }}
+            style={{
+              marginTop: 5,
+              letterSpacing: '0.28em',
+              textTransform: 'uppercase',
+              color: 'rgba(235,235,245,0.35)',
+            }}
           >
             Side Scroller
           </p>
@@ -57,13 +67,13 @@ const StartScreen: FC<Props> = ({ onPlay }) => {
         {stats.highScore > 0 && (
           <div
             className="ios-hud-pill"
-            style={{ marginBottom: 20, gap: 6, animation: 'iosFadeIn 0.4s ease 0.15s both' }}
+            style={{ marginBottom: 22, gap: 6, animation: 'iosFadeIn 0.4s ease 0.15s both' }}
           >
             <StarIcon />
-            <span className="ios-footnote" style={{ color: 'var(--ios-label2)' }}>Best</span>
+            <span className="ios-footnote" style={{ color: 'var(--ios-label3)' }}>Best</span>
             <span
               className="ios-footnote"
-              style={{ color: 'var(--ios-label)', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}
+              style={{ color: 'var(--ios-label)', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}
             >
               {stats.highScore.toLocaleString()}
             </span>
@@ -72,7 +82,11 @@ const StartScreen: FC<Props> = ({ onPlay }) => {
 
         {/* ── Play button ──────────────────────────────────── */}
         <div style={{ width: '100%', marginBottom: 10 }}>
-          <button className="ios-btn-primary" onClick={handlePlay}>
+          <button
+            className="ios-btn-primary ios-btn-shimmer"
+            onClick={handlePlay}
+            style={{ fontSize: 18, letterSpacing: '-0.3px' }}
+          >
             Play
           </button>
         </div>
@@ -111,22 +125,128 @@ const StartScreen: FC<Props> = ({ onPlay }) => {
       </div>
 
       {/* ── Keyboard hint ────────────────────────────────────── */}
-      <p
-        className="ios-caption2"
-        style={{
-          position: 'absolute',
-          bottom: 28,
-          letterSpacing: '0.05em',
-          color: 'var(--ios-label4)',
-        }}
-      >
-        WASD · Space to jump · Esc to pause
-      </p>
+      <KeyboardHint />
     </div>
   );
 };
 
 export default StartScreen;
+
+/* ── Star field background ────────────────────────────────────── */
+
+const StarField: FC = () => {
+  // Golden-ratio distribution for even spacing, no JS randomness needed
+  const stars = useMemo(() =>
+    Array.from({ length: 38 }, (_, i) => ({
+      x: ((i * 137.508) % 100).toFixed(3),
+      y: ((i * 61.803) % 100).toFixed(3),
+      size: 0.9 + (i % 4) * 0.55,
+      delay: ((i * 0.618) % 3.5).toFixed(2),
+      duration: (1.6 + (i % 5) * 0.7).toFixed(2),
+    })), []);
+
+  return (
+    <div
+      className="absolute inset-0 overflow-hidden pointer-events-none"
+      style={{ zIndex: 0 }}
+    >
+      {stars.map((star, i) => (
+        <div
+          key={i}
+          style={{
+            position: 'absolute',
+            left: `${star.x}%`,
+            top: `${star.y}%`,
+            width: star.size,
+            height: star.size,
+            borderRadius: '50%',
+            background: 'white',
+            opacity: 0,
+            animation: `starTwinkle ${star.duration}s ease-in-out ${star.delay}s infinite`,
+          }}
+        />
+      ))}
+    </div>
+  );
+};
+
+/* ── App icon with ambient glow ring ─────────────────────────── */
+
+const AppIcon: FC = () => (
+  <div style={{ position: 'relative', width: 88, height: 88 }}>
+    {/* Expanding glow ring */}
+    <div
+      style={{
+        position: 'absolute',
+        inset: 0,
+        borderRadius: 22,
+        background: 'rgba(0,122,255,0.18)',
+        animation: 'ringExpand 3.2s ease-out 0.4s infinite',
+        pointerEvents: 'none',
+      }}
+    />
+    {/* Ambient soft glow */}
+    <div
+      style={{
+        position: 'absolute',
+        inset: -14,
+        borderRadius: 36,
+        background: 'radial-gradient(circle, rgba(0,122,255,0.18) 0%, transparent 70%)',
+        animation: 'iconAmbient 3.6s ease-in-out infinite',
+        pointerEvents: 'none',
+      }}
+    />
+    {/* App icon face */}
+    <div
+      style={{
+        position: 'relative',
+        width: 88,
+        height: 88,
+        borderRadius: 20,
+        background: 'linear-gradient(148deg, #0C1A30 0%, #0E2244 55%, #091C38 100%)',
+        boxShadow: '0 10px 32px rgba(0,0,0,0.6), 0 0 0 0.5px rgba(255,255,255,0.09), 0 1px 0 rgba(255,255,255,0.06) inset',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: 46,
+        lineHeight: 1,
+        userSelect: 'none',
+      }}
+    >
+      ∞
+    </div>
+  </div>
+);
+
+/* ── Keyboard hint with key caps ─────────────────────────────── */
+
+const KeyboardHint: FC = () => (
+  <div
+    style={{
+      position: 'absolute',
+      bottom: 28,
+      display: 'flex',
+      alignItems: 'center',
+      gap: 6,
+      flexWrap: 'wrap',
+      justifyContent: 'center',
+      padding: '0 24px',
+      animation: 'iosFadeIn 0.5s ease 0.5s both',
+      opacity: 0,
+    }}
+  >
+    <span className="ios-keycap">W</span>
+    <span className="ios-keycap">A</span>
+    <span className="ios-keycap">S</span>
+    <span className="ios-keycap">D</span>
+    <span style={{ fontSize: 10, color: 'rgba(235,235,245,0.22)', letterSpacing: '0.04em', margin: '0 2px' }}>·</span>
+    <span className="ios-keycap">Space</span>
+    <span style={{ fontSize: 10, color: 'rgba(235,235,245,0.22)', letterSpacing: '0.04em', margin: '0 2px' }}>to jump</span>
+    <span style={{ fontSize: 10, color: 'rgba(235,235,245,0.22)', letterSpacing: '0.04em', margin: '0 2px' }}>·</span>
+    <span className="ios-keycap">Esc</span>
+    <span style={{ fontSize: 10, color: 'rgba(235,235,245,0.22)', letterSpacing: '0.04em', margin: '0 2px' }}>to pause</span>
+  </div>
+);
 
 /* ── Settings Panel ──────────────────────────────────────────── */
 
@@ -218,25 +338,6 @@ const IOSToggle: FC<{ checked: boolean; onChange: (v: boolean) => void }> = ({ c
 );
 
 /* ── Decorative icons ─────────────────────────────────────────── */
-
-const AppIcon: FC = () => (
-  <div
-    style={{
-      width: 88,
-      height: 88,
-      borderRadius: 20,
-      background: 'linear-gradient(150deg, #0A1628 0%, #0D1F3C 50%, #0A2240 100%)',
-      boxShadow: '0 8px 28px rgba(0,0,0,0.55), 0 0 0 0.5px rgba(255,255,255,0.08)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      fontSize: 46,
-      lineHeight: 1,
-    }}
-  >
-    ∞
-  </div>
-);
 
 const StarIcon: FC = () => (
   <svg width="12" height="12" viewBox="0 0 24 24" fill="var(--ios-yellow)">
