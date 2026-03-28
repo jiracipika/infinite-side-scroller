@@ -3,43 +3,33 @@
 import { useEffect, useRef, useState, type FC, useCallback } from 'react';
 
 /**
- * Touch controls overlay for mobile.
+ * Touch controls overlay for mobile — iOS game controller aesthetic.
  *
  * Layout:
- *   Left side  — Left / Right arrow buttons
- *   Right side — Jump (large) + Attack (smaller)
+ *   Left side  — Left / Right arrow buttons (D-pad style)
+ *   Right side — Jump (large, #007AFF) + Attack (smaller, #FF9500)
  *
- * Auto-shows only on touch devices; hidden on desktop via Tailwind's `md:hidden`.
  * Emits 'game-input' CustomEvents consumed by InputManager.
  */
 const TouchControls: FC = () => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [leftHeld, setLeftHeld] = useState(false);
-  const [rightHeld, setRightHeld] = useState(false);
-  const [jumpHeld, setJumpHeld] = useState(false);
+  const [leftHeld, setLeftHeld]     = useState(false);
+  const [rightHeld, setRightHeld]   = useState(false);
+  const [jumpHeld, setJumpHeld]     = useState(false);
   const [attackHeld, setAttackHeld] = useState(false);
 
   const emit = useCallback((type: string, value: boolean) => {
     window.dispatchEvent(new CustomEvent('game-input', { detail: { type, value } }));
   }, []);
 
-  // ── Directional buttons ────────────────────────────────────────────────────
-
-  const startLeft = useCallback(() => { setLeftHeld(true); emit('move-left', true); }, [emit]);
-  const endLeft   = useCallback(() => { setLeftHeld(false); emit('move-left', false); }, [emit]);
-
-  const startRight = useCallback(() => { setRightHeld(true); emit('move-right', true); }, [emit]);
-  const endRight   = useCallback(() => { setRightHeld(false); emit('move-right', false); }, [emit]);
-
-  // ── Jump / Attack ──────────────────────────────────────────────────────────
-
-  const startJump = useCallback(() => { setJumpHeld(true); emit('jump-press', true); }, [emit]);
-  const endJump   = useCallback(() => { setJumpHeld(false); emit('jump-press', false); }, [emit]);
-
-  const startAttack = useCallback(() => { setAttackHeld(true); emit('attack-press', true); }, [emit]);
+  const startLeft   = useCallback(() => { setLeftHeld(true);    emit('move-left', true); }, [emit]);
+  const endLeft     = useCallback(() => { setLeftHeld(false);   emit('move-left', false); }, [emit]);
+  const startRight  = useCallback(() => { setRightHeld(true);   emit('move-right', true); }, [emit]);
+  const endRight    = useCallback(() => { setRightHeld(false);  emit('move-right', false); }, [emit]);
+  const startJump   = useCallback(() => { setJumpHeld(true);    emit('jump-press', true); }, [emit]);
+  const endJump     = useCallback(() => { setJumpHeld(false);   emit('jump-press', false); }, [emit]);
+  const startAttack = useCallback(() => { setAttackHeld(true);  emit('attack-press', true); }, [emit]);
   const endAttack   = useCallback(() => { setAttackHeld(false); emit('attack-press', false); }, [emit]);
 
-  // Release all on touch cancel / focus loss
   const releaseAll = useCallback(() => {
     setLeftHeld(false); setRightHeld(false);
     setJumpHeld(false); setAttackHeld(false);
@@ -52,7 +42,6 @@ const TouchControls: FC = () => {
     return () => window.removeEventListener('blur', releaseAll);
   }, [releaseAll]);
 
-  // Only render on actual touch devices
   const [isTouchDevice, setIsTouchDevice] = useState(false);
   useEffect(() => {
     setIsTouchDevice(window.matchMedia('(hover: none) and (pointer: coarse)').matches);
@@ -62,59 +51,34 @@ const TouchControls: FC = () => {
 
   return (
     <div
-      ref={containerRef}
       className="absolute inset-0 z-20 pointer-events-none select-none"
       style={{ touchAction: 'none' }}
     >
-      {/* ── Left Side: D-Pad arrows ────────────────────────── */}
-      <div className="absolute bottom-8 left-6 flex gap-3 pointer-events-auto">
-        {/* Left arrow */}
-        <TouchBtn
-          active={leftHeld}
-          onStart={startLeft}
-          onEnd={endLeft}
-          size="lg"
-          aria-label="Move left"
-        >
-          <ArrowLeft />
+      {/* ── Left: D-Pad ──────────────────────────────────────── */}
+      <div
+        className="absolute pointer-events-auto"
+        style={{ bottom: 28, left: 20, display: 'flex', gap: 10 }}
+      >
+        <TouchBtn active={leftHeld}  onStart={startLeft}  onEnd={endLeft}  size="lg" aria-label="Move left">
+          <ChevronLeft />
         </TouchBtn>
-
-        {/* Right arrow */}
-        <TouchBtn
-          active={rightHeld}
-          onStart={startRight}
-          onEnd={endRight}
-          size="lg"
-          aria-label="Move right"
-        >
-          <ArrowRight />
+        <TouchBtn active={rightHeld} onStart={startRight} onEnd={endRight} size="lg" aria-label="Move right">
+          <ChevronRight />
         </TouchBtn>
       </div>
 
-      {/* ── Right Side: Jump + Attack ──────────────────────── */}
-      <div className="absolute bottom-8 right-6 flex flex-col items-end gap-3 pointer-events-auto">
-        {/* Attack (smaller, top) */}
-        <TouchBtn
-          active={attackHeld}
-          onStart={startAttack}
-          onEnd={endAttack}
-          size="sm"
-          accent="orange"
-          aria-label="Attack"
-        >
-          <span className="text-xs font-bold text-white/70 tracking-wide">ATK</span>
+      {/* ── Right: Attack + Jump ─────────────────────────────── */}
+      <div
+        className="absolute pointer-events-auto"
+        style={{ bottom: 28, right: 20, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 10 }}
+      >
+        <TouchBtn active={attackHeld} onStart={startAttack} onEnd={endAttack} size="sm" tint="orange" aria-label="Attack">
+          <span style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.8)', letterSpacing: '0.05em' }}>
+            ATK
+          </span>
         </TouchBtn>
-
-        {/* Jump (larger, bottom) */}
-        <TouchBtn
-          active={jumpHeld}
-          onStart={startJump}
-          onEnd={endJump}
-          size="lg"
-          accent="blue"
-          aria-label="Jump"
-        >
-          <ArrowUp />
+        <TouchBtn active={jumpHeld} onStart={startJump} onEnd={endJump} size="lg" tint="blue" aria-label="Jump">
+          <ChevronUp />
         </TouchBtn>
       </div>
     </div>
@@ -123,37 +87,50 @@ const TouchControls: FC = () => {
 
 export default TouchControls;
 
-// ── Sub-components ────────────────────────────────────────────────────────────
+/* ── Touch Button ───────────────────────────────────────────── */
 
 interface TouchBtnProps {
   active: boolean;
   onStart: () => void;
   onEnd: () => void;
   size: 'sm' | 'lg';
-  accent?: 'blue' | 'orange';
+  tint?: 'blue' | 'orange';
   'aria-label': string;
   children: React.ReactNode;
 }
 
-const TouchBtn: FC<TouchBtnProps> = ({ active, onStart, onEnd, size, accent, children, 'aria-label': ariaLabel }) => {
-  const base = size === 'lg' ? 'w-16 h-16' : 'w-12 h-12';
-  const accentBg = active
-    ? accent === 'blue'
-      ? 'bg-blue-500/40 border-blue-400/50'
-      : accent === 'orange'
-        ? 'bg-orange-500/40 border-orange-400/50'
-        : 'bg-white/25 border-white/30'
-    : 'bg-white/10 border-white/15';
+const TINT_COLORS = {
+  blue:   { active: 'rgba(0,122,255,0.55)',  idle: 'rgba(0,122,255,0.18)' },
+  orange: { active: 'rgba(255,149,0,0.55)',  idle: 'rgba(255,149,0,0.18)' },
+  none:   { active: 'rgba(120,120,128,0.45)', idle: 'rgba(120,120,128,0.2)' },
+};
+
+const TouchBtn: FC<TouchBtnProps> = ({
+  active, onStart, onEnd, size, tint, children, 'aria-label': ariaLabel,
+}) => {
+  const dim = size === 'lg' ? 64 : 48;
+  const colors = TINT_COLORS[tint ?? 'none'];
 
   return (
     <button
       aria-label={ariaLabel}
-      className={`${base} rounded-full flex items-center justify-center
-                  border backdrop-blur-sm transition-colors duration-75
-                  ${accentBg}`}
-      style={{ touchAction: 'none' }}
+      style={{
+        width: dim,
+        height: dim,
+        borderRadius: '50%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: active ? colors.active : colors.idle,
+        border: `1px solid ${active ? colors.active : 'rgba(255,255,255,0.1)'}`,
+        backdropFilter: 'blur(10px)',
+        WebkitBackdropFilter: 'blur(10px)',
+        transition: 'background 0.06s ease, transform 0.08s ease',
+        transform: active ? 'scale(0.93)' : 'scale(1)',
+        touchAction: 'none',
+      }}
       onTouchStart={(e) => { e.preventDefault(); onStart(); }}
-      onTouchEnd={(e) => { e.preventDefault(); onEnd(); }}
+      onTouchEnd={(e)   => { e.preventDefault(); onEnd(); }}
       onTouchCancel={(e) => { e.preventDefault(); onEnd(); }}
     >
       {children}
@@ -161,20 +138,28 @@ const TouchBtn: FC<TouchBtnProps> = ({ active, onStart, onEnd, size, accent, chi
   );
 };
 
-const ArrowLeft: FC = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-white/70">
+/* ── SF Symbol–equivalent chevrons ─────────────────────────── */
+
+const ChevronLeft: FC = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+    stroke="rgba(235,235,245,0.75)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+  >
     <path d="M15 18l-6-6 6-6" />
   </svg>
 );
 
-const ArrowRight: FC = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-white/70">
+const ChevronRight: FC = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+    stroke="rgba(235,235,245,0.75)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+  >
     <path d="M9 18l6-6-6-6" />
   </svg>
 );
 
-const ArrowUp: FC = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-white/70">
-    <path d="M12 19V5M5 12l7-7 7 7" />
+const ChevronUp: FC = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+    stroke="rgba(235,235,245,0.85)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+  >
+    <path d="M18 15l-6-6-6 6" />
   </svg>
 );

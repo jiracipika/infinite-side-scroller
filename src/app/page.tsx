@@ -122,19 +122,38 @@ export default function Home() {
       {state === 'playing' && <HUD stats={stats} settings={settings} />}
       {state === 'playing' && <TouchControls />}
 
-      {/* Pause button */}
+      {/* Pause button — iOS system style */}
       {state === 'playing' && (
         <button
           onClick={handlePause}
-          className="absolute top-4 right-4 z-20 w-10 h-10 rounded-full
-                     bg-black/40 backdrop-blur-md border border-white/10
-                     flex items-center justify-center text-white/70 hover:text-white
-                     hover:bg-black/60 transition-all active:scale-95"
           aria-label="Pause"
+          style={{
+            position: 'absolute',
+            top: 16,
+            right: 16,
+            zIndex: 20,
+            width: 36,
+            height: 36,
+            borderRadius: '50%',
+            background: 'rgba(0,0,0,0.48)',
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)',
+            border: 'none',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            transition: 'transform 0.12s cubic-bezier(0.34,1.56,0.64,1), opacity 0.1s ease',
+            color: 'rgba(235,235,245,0.65)',
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = 'rgba(235,235,245,0.9)')}
+          onMouseLeave={(e) => (e.currentTarget.style.color = 'rgba(235,235,245,0.65)')}
+          onMouseDown={(e) => (e.currentTarget.style.transform = 'scale(0.94)')}
+          onMouseUp={(e) => (e.currentTarget.style.transform = 'scale(1)')}
         >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-            <rect x="3" y="2" width="4" height="12" rx="1" />
-            <rect x="9" y="2" width="4" height="12" rx="1" />
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+            <rect x="3" y="2" width="3.5" height="12" rx="1.2" />
+            <rect x="9.5" y="2" width="3.5" height="12" rx="1.2" />
           </svg>
         </button>
       )}

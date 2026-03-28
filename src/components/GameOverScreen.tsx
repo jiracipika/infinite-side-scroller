@@ -13,50 +13,88 @@ const GameOverScreen: FC<Props> = ({ stats, onRestart, onQuit }) => {
   const isNewHighScore = stats.score >= stats.highScore && stats.score > 0;
 
   return (
-    <div className="absolute inset-0 flex items-center justify-center animate-[fadeIn_0.5s_ease-out]">
-      {/* Frosted glass backdrop */}
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+    <div
+      className="absolute inset-0 flex items-center justify-center"
+      style={{ animation: 'iosFadeIn 0.3s ease' }}
+    >
+      {/* Frosted overlay */}
+      <div className="absolute inset-0 ios-overlay" />
 
-      <div className="relative z-10 flex flex-col items-center gap-6 px-6 animate-[fadeSlideUp_0.5s_ease-out_0.1s_both]">
-        <h2 className="text-4xl font-bold text-white/90 tracking-tight">Game Over</h2>
-
-        {isNewHighScore && (
+      {/* Modal sheet */}
+      <div
+        style={{
+          position: 'relative',
+          zIndex: 10,
+          width: '100%',
+          maxWidth: 340,
+          padding: '0 16px',
+          animation: 'iosModalIn 0.48s cubic-bezier(0.34,1.56,0.64,1) 0.08s both',
+        }}
+      >
+        <div className="ios-sheet">
+          {/* ── Header ───────────────────────────────────────── */}
           <div
-            className="px-4 py-1.5 rounded-full bg-yellow-500/20 border border-yellow-500/30"
-            style={{ animation: 'newHighScore 0.6s ease-out' }}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              paddingTop: 24,
+              paddingBottom: 18,
+              paddingLeft: 16,
+              paddingRight: 16,
+            }}
           >
-            <span className="text-sm font-semibold text-yellow-400">New High Score!</span>
+            <h2 className="ios-title1">Game Over</h2>
+
+            {isNewHighScore && (
+              <div
+                className="ios-badge-yellow"
+                style={{ marginTop: 8, animation: 'iosBounceIn 0.5s cubic-bezier(0.34,1.56,0.64,1) 0.28s both' }}
+              >
+                <StarIcon />
+                New High Score!
+              </div>
+            )}
           </div>
-        )}
 
-        {/* Stats grid */}
-        <div className="grid grid-cols-2 gap-3 w-full max-w-xs">
-          <StatCard label="Score" value={stats.score.toLocaleString()} highlight={isNewHighScore} />
-          <StatCard label="Best" value={stats.highScore.toLocaleString()} />
-          <StatCard label="Distance" value={`${Math.round(stats.distance)}m`} />
-          <StatCard label="Coins" value={`${stats.coins}`} />
-        </div>
+          {/* ── Stats table ──────────────────────────────────── */}
+          <div style={{ borderTop: '0.5px solid var(--ios-separator)' }}>
+            <StatRow
+              label="Score"
+              value={stats.score.toLocaleString()}
+              highlight={isNewHighScore}
+            />
+            <StatRow
+              label="Best"
+              value={stats.highScore.toLocaleString()}
+            />
+            <StatRow
+              label="Distance"
+              value={`${Math.round(stats.distance)}m`}
+            />
+            <StatRow
+              label="Coins"
+              value={String(stats.coins)}
+            />
+          </div>
 
-        {/* Buttons */}
-        <div className="flex flex-col items-center gap-2.5 w-full max-w-xs mt-1">
-          <button
-            onClick={onRestart}
-            className="w-full py-3 px-8 rounded-2xl font-semibold text-white
-                       bg-gradient-to-r from-blue-500 to-indigo-600
-                       hover:from-blue-400 hover:to-indigo-500
-                       shadow-lg shadow-blue-500/20 active:scale-[0.97] transition-all"
+          {/* ── Action buttons ────────────────────────────────── */}
+          <div
+            style={{
+              padding: '14px 14px 14px',
+              borderTop: '0.5px solid var(--ios-separator)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8,
+            }}
           >
-            Play Again
-          </button>
-
-          <button
-            onClick={onQuit}
-            className="w-full py-2.5 px-8 rounded-xl font-medium text-white/50 text-sm
-                       bg-white/5 border border-white/5 hover:bg-white/10 hover:text-white/70
-                       active:scale-[0.97] transition-all"
-          >
-            Main Menu
-          </button>
+            <button className="ios-btn-primary" onClick={onRestart}>
+              Play Again
+            </button>
+            <button className="ios-btn-gray" onClick={onQuit}>
+              Main Menu
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -65,15 +103,30 @@ const GameOverScreen: FC<Props> = ({ stats, onRestart, onQuit }) => {
 
 export default GameOverScreen;
 
-const StatCard: FC<{ label: string; value: string; highlight?: boolean }> = ({ label, value, highlight }) => (
-  <div className={`rounded-xl px-4 py-3 text-center transition-all ${
-    highlight
-      ? 'bg-yellow-500/10 border border-yellow-500/20'
-      : 'bg-white/5 border border-white/5'
-  }`}>
-    <div className="text-xs text-white/40 uppercase tracking-wider">{label}</div>
-    <div className={`text-lg font-semibold mt-0.5 ${highlight ? 'text-yellow-400' : 'text-white/80'}`}>
+/* ── Stat row ────────────────────────────────────────────────── */
+
+const StatRow: FC<{ label: string; value: string; highlight?: boolean }> = ({
+  label, value, highlight,
+}) => (
+  <div className="ios-row">
+    <span className="ios-row-label">{label}</span>
+    <span
+      className="ios-row-value"
+      style={
+        highlight
+          ? { color: 'var(--ios-yellow)', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }
+          : { fontVariantNumeric: 'tabular-nums' }
+      }
+    >
       {value}
-    </div>
+    </span>
   </div>
+);
+
+/* ── Star icon ───────────────────────────────────────────────── */
+
+const StarIcon: FC = () => (
+  <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" style={{ marginRight: 3 }}>
+    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+  </svg>
 );

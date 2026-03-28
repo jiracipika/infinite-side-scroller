@@ -8,93 +8,130 @@ interface Props {
   settings: GameSettings;
 }
 
-const POWER_UP_LABELS: Record<string, string> = {
-  '⚡': 'Speed',
-  '🛡️': 'Shield',
-  '🧲': 'Magnet',
-};
-
 const HUD: FC<Props> = ({ stats, settings }) => {
-  // Health is now integer hearts (0..maxHealth, default max 3)
-  const totalHearts = Math.min(Math.max(stats.maxHealth, 1), 8);
+  const totalHearts = Math.min(Math.max(stats.maxHealth, 1), 5);
   const filledHearts = Math.max(0, stats.health);
   const isLowHealth = filledHearts === 1;
 
   return (
-    <div className="absolute inset-x-0 top-0 z-10 pointer-events-none">
-      <div className="flex items-start justify-between p-4 sm:p-5 gap-3">
+    <div
+      className="absolute inset-x-0 top-0 z-10 pointer-events-none"
+      style={{ padding: '16px 16px 0' }}
+    >
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
 
-        {/* Left: Hearts + Coins */}
-        <div className="flex flex-col gap-2 animate-[slideInRight_0.4s_ease-out]">
+        {/* ── Left: Hearts + Coins + Power-ups ───────────────── */}
+        <div
+          style={{ display: 'flex', flexDirection: 'column', gap: 6, animation: 'fadeSlideUp 0.4s ease both' }}
+        >
           {/* Hearts */}
-          <div className="flex items-center gap-1 glass-badge !px-2 !py-1.5">
+          <div className="ios-hud-pill" style={{ gap: 4 }}>
             {Array.from({ length: totalHearts }).map((_, i) => (
-              <span
+              <HeartIcon
                 key={i}
-                className={`text-sm leading-none transition-all duration-300 ${
-                  i < filledHearts
-                    ? isLowHealth
-                      ? 'text-red-500 animate-[heartBeat_1s_ease-in-out_infinite]'
-                      : 'text-red-400'
-                    : 'text-white/15'
-                }`}
-                style={i < filledHearts
-                  ? { filter: 'drop-shadow(0 0 4px rgba(248,113,113,0.5))' }
-                  : {}
-                }
-              >
-                ♥
-              </span>
+                filled={i < filledHearts}
+                pulsing={isLowHealth && i < filledHearts}
+              />
             ))}
           </div>
 
-          {/* Coin counter */}
-          <div className="flex items-center gap-1.5 glass-badge !px-2.5 !py-1">
+          {/* Coins */}
+          <div className="ios-hud-pill" style={{ gap: 5 }}>
+            <CoinIcon />
             <span
-              className="text-yellow-400 text-xs"
-              style={{ filter: 'drop-shadow(0 0 4px rgba(250,204,21,0.4))' }}
+              style={{
+                fontSize: 13,
+                fontWeight: 600,
+                color: 'rgba(255,255,255,0.88)',
+                fontVariantNumeric: 'tabular-nums',
+                lineHeight: 1,
+              }}
             >
-              ●
+              {stats.coins}
             </span>
-            <span className="text-white/70 text-xs font-medium tabular-nums">{stats.coins}</span>
           </div>
 
-          {/* Active power-ups */}
+          {/* Power-ups */}
           {stats.powerUps.length > 0 && (
-            <div className="flex items-center gap-1 animate-[fadeIn_0.3s_ease-out]">
+            <div style={{ display: 'flex', gap: 4, animation: 'fadeIn 0.25s ease both' }}>
               {stats.powerUps.map((pu, i) => (
-                <div
-                  key={i}
-                  className="glass-badge !px-2 !py-0.5 flex items-center gap-1"
-                  title={POWER_UP_LABELS[pu] ?? pu}
-                >
-                  <span className="text-sm leading-none">{pu}</span>
+                <div key={i} className="ios-hud-pill" style={{ fontSize: 14, lineHeight: 1 }}>
+                  {pu}
                 </div>
               ))}
             </div>
           )}
         </div>
 
-        {/* Center: Score + Distance */}
-        <div className="text-center flex-1 animate-[fadeSlideUp_0.5s_ease-out]">
+        {/* ── Center: Score + Distance ────────────────────────── */}
+        <div
+          style={{
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            animation: 'fadeSlideUp 0.45s ease 0.05s both',
+          }}
+        >
           <div
-            className="text-white/90 text-2xl sm:text-3xl font-bold tabular-nums tracking-tight"
-            style={{ textShadow: '0 2px 12px rgba(0,0,0,0.6)' }}
+            style={{
+              fontSize: 30,
+              fontWeight: 700,
+              letterSpacing: '-0.3px',
+              color: 'rgba(255,255,255,0.95)',
+              textShadow: '0 2px 14px rgba(0,0,0,0.65)',
+              fontVariantNumeric: 'tabular-nums',
+              lineHeight: 1.05,
+            }}
           >
             {stats.score.toLocaleString()}
           </div>
-          <div className="text-white/25 text-[11px] tabular-nums mt-0.5 tracking-wider">
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 400,
+              color: 'rgba(235,235,245,0.32)',
+              letterSpacing: '0.04em',
+              fontVariantNumeric: 'tabular-nums',
+              marginTop: 2,
+            }}
+          >
             {Math.round(stats.distance)}m
           </div>
         </div>
 
-        {/* Right: Biome + FPS */}
-        <div className="flex flex-col items-end gap-2 animate-[slideInRight_0.4s_ease-out_0.1s_both]">
-          <div className="glass-badge !py-1">
-            <span className="text-white/40 text-[11px] font-medium tracking-wide">{stats.biome}</span>
+        {/* ── Right: Biome + FPS ──────────────────────────────── */}
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'flex-end',
+            gap: 6,
+            animation: 'fadeSlideUp 0.4s ease 0.08s both',
+          }}
+        >
+          <div className="ios-hud-pill">
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 500,
+                color: 'rgba(235,235,245,0.48)',
+                letterSpacing: '0.02em',
+              }}
+            >
+              {stats.biome}
+            </span>
           </div>
           {settings.showFPS && (
-            <span className="text-[10px] text-white/15 tabular-nums font-mono">
+            <span
+              style={{
+                fontSize: 10,
+                color: 'rgba(235,235,245,0.2)',
+                fontVariantNumeric: 'tabular-nums',
+                fontFamily: 'ui-monospace, "SF Mono", Menlo, monospace',
+                lineHeight: 1,
+              }}
+            >
               {stats.fps} fps
             </span>
           )}
@@ -106,3 +143,40 @@ const HUD: FC<Props> = ({ stats, settings }) => {
 };
 
 export default HUD;
+
+/* ── Icon components ─────────────────────────────────────────── */
+
+const HeartIcon: FC<{ filled: boolean; pulsing: boolean }> = ({ filled, pulsing }) => (
+  <svg
+    width="13"
+    height="13"
+    viewBox="0 0 24 24"
+    fill={filled ? '#FF3B30' : 'rgba(255,255,255,0.14)'}
+    style={
+      pulsing
+        ? { animation: 'heartBeat 1s ease-in-out infinite', filter: 'drop-shadow(0 0 3px rgba(255,59,48,0.55))' }
+        : filled
+          ? { filter: 'drop-shadow(0 0 2px rgba(255,59,48,0.38))' }
+          : undefined
+    }
+  >
+    <path d="M12 21.593c-5.63-5.539-11-10.297-11-14.402 0-3.791 3.068-5.191 5.281-5.191 1.312 0 4.151.501 5.719 4.457 1.59-3.968 4.464-4.447 5.726-4.447 2.54 0 5.274 1.621 5.274 5.181 0 4.069-5.136 8.625-11 14.402z" />
+  </svg>
+);
+
+const CoinIcon: FC = () => (
+  <svg width="11" height="11" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="10" fill="#FFD60A" />
+    <circle cx="12" cy="12" r="10" fill="none" stroke="rgba(0,0,0,0.15)" strokeWidth="1" />
+    <text
+      x="12" y="16"
+      textAnchor="middle"
+      fontSize="11"
+      fontWeight="700"
+      fill="rgba(0,0,0,0.55)"
+      fontFamily="-apple-system, sans-serif"
+    >
+      $
+    </text>
+  </svg>
+);
