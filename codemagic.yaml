@@ -1,40 +1,59 @@
 workflows:
-  ios:
-    name: Infinite Side Scroller iOS
+  release-both:
+    name: "Infinite Side Scroller: Build iOS (TestFlight) + Android (Play)"
+    max_build_duration: 120
+    instance_type: mac_mini_m2
     environment:
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.infinitesidescroller.app
+      groups:
+        - app_store_connect
+        - google_play
       vars:
-        EXPO_APP_DIR: apps/mobile
+        XCODE_WORKSPACE: "ios/App/App.xcworkspace"
+        XCODE_SCHEME: "App"
+        BUNDLE_ID: "com.infinitesidescroller.app"
+        JAVA_HOME: /Library/Java/JavaVirtualMachines/zulu-17.jdk/Contents/Home
+        PACKAGE_NAME: "com.infinitesidescroller.app"
+        node: 20
+      android_signing:
+        - akey
+      triggering:
+        events:
+          - push
+        branch_patterns:
+          - pattern: 'main'
+            include: true
+          - pattern: 'master'
+            include: true
     scripts:
-      - name: Install dependencies
+      - name: Set up keystore
         script: |
-          cd $EXPO_APP_DIR
+          echo $CM_KEYSTORE | base64 --decode > $CM_KEYSTORE_PATH
+      - name: Install npm dependencies
+        script: |
+          cd apps/mobile
           npm install
-      - name: Install Expo CLI
-        script: npm install -g expo-cli eas-cli
-      - name: Build with EAS
+      - name: Build web app and sync with Capacitor
         script: |
-          cd $EXPO_APP_DIR
-          eas build --platform ios --non-interactive --local --output build.ipa
+          cd apps/mobile
+          npm run build
+          npx cap sync android
+          npx cap sync ios
+      - name: Build Android App Bundle
+        script: |
+          cd apps/mobile/android
+          ./gradlew assembleRelease -Pandroid.injected.signing.store.file=$CM_KEYSTORE_PATH -Pandroid.injected.signing.store.password=$CM_KEYSTORE_PASSWORD -Pandroid.injected.signing.key.alias=$CM_KEY_ALIAS -Pandroid.injected.signing.key.password=$CM_KEY_PASSWORD
+          ./gradlew bundleRelease -Pandroid.injected.signing.store.file=$CM_KEYSTORE_PATH -Pandroid.injected.signing.store.password=$CM_KEYSTORE_PASSWORD -Pandroid.injected.signing.key.alias=$CM_KEY_ALIAS -Pandroid.injected.signing.key.password=$CM_KEY_PASSWORD
     artifacts:
-      - apps/mobile/build.ipa
-  android:
-    name: Infinite Side Scroller Android
-    environment:
-      vars:
-        EXPO_APP_DIR: apps/mobile
-    scripts:
-      - name: Install dependencies
-        script: |
-          cd $EXPO_APP_DIR
-          npm install
-      - name: Install Expo CLI
-        script: npm install -g expo-cli eas-cli
-      - name: Build with EAS
-        script: |
-          cd $EXPO_APP_DIR
-          eas build --platform android --non-interactive --local --output build.apk
-    artifacts:
-      - apps/mobile/build.apk
+      - apps/mobile/android/app/build/outputs/**/*.aab
+      - apps/mobile/android/app/build/outputs/**/*.apk
+    publishing:
+      email:
+        recipients:
+          - rajingajadhar@gmail.com
+        notify:
+          success: true
+          failure: true
+      google_play:
+        credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+        track: internal
+        submit_as_draft: false
