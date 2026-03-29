@@ -1,0 +1,59 @@
+workflows:
+  release-both:
+    name: "Rent Central: Build iOS (TestFlight) + Android (Play)"
+    max_build_duration: 120
+    instance_type: mac_mini_m2
+    environment:
+      groups:
+        - app_store_connect
+        - google_play
+      vars:
+        XCODE_WORKSPACE: "ios/App/App.xcworkspace"
+        XCODE_SCHEME: "App"
+        BUNDLE_ID: "com.rentcentral.app"
+        JAVA_HOME: /Library/Java/JavaVirtualMachines/zulu-17.jdk/Contents/Home
+        PACKAGE_NAME: "com.rentcentral.app"
+        node: 20
+      android_signing:
+        - akey
+      triggering:
+        events:
+          - push
+        branch_patterns:
+          - pattern: 'main'
+            include: true
+          - pattern: 'master'
+            include: true
+    scripts:
+      - name: Set up keystore
+        script: |
+          echo $CM_KEYSTORE | base64 --decode > $CM_KEYSTORE_PATH
+      - name: Install npm dependencies
+        script: |
+          cd apps/mobile
+          npm install
+      - name: Build web app and sync with Capacitor
+        script: |
+          cd apps/mobile
+          npm run build
+          npx cap sync android
+          npx cap sync ios
+      - name: Build Android App Bundle
+        script: |
+          cd apps/mobile/android
+          ./gradlew assembleRelease -Pandroid.injected.signing.store.file=$CM_KEYSTORE_PATH -Pandroid.injected.signing.store.password=$CM_KEYSTORE_PASSWORD -Pandroid.injected.sign"key alias=$CM_KEY_ALIAS -Pandroid.injected.sign"key password=$CM_KEY_PASSWORD
+          ./gradlew bundleRelease -Pandroid.injected.signing store.file=$CM_KEYSTORE_PATH -Pandroid.injected.signing store.password=$CM_KEYSTORE_PASSWORD -Pandroid.injected.sign"key alias=$CM_KEY_ALIAS -Pandroid.injected.sign"key.password=$CM_KEY_PASSWORD
+    artifacts:
+      - apps/mobile/android/app/build/outputs/**/*.aab
+      - apps/mobile/android/app/build/outputs/**/*.apk
+    publishing:
+      email:
+        recipients:
+          - rajingajadhar@gmail.com
+        notify:
+          success: true
+          failure: true
+      google_play:
+        credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+        track: internal
+        submit_as_draft: false
