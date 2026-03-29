@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useMemo, type FC } from 'react';
 import { useGameStore } from './GameStore';
+import AchievementsModal from './AchievementsModal';
+import { loadUnlockedAchievements } from '@/lib/achievements';
 
 interface Props {
   onPlay: (seed?: number) => void;
@@ -11,6 +13,7 @@ const StartScreen: FC<Props> = ({ onPlay }) => {
   const { stats } = useGameStore();
   const [seedInput, setSeedInput] = useState('');
   const [showSettings, setShowSettings] = useState(false);
+  const [showAchievements, setShowAchievements] = useState(false);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -104,13 +107,22 @@ const StartScreen: FC<Props> = ({ onPlay }) => {
               style={{ height: 40, fontSize: 15, marginBottom: 8 }}
               onKeyDown={(e) => e.key === 'Enter' && handlePlay()}
             />
-            <button
-              className="ios-btn-secondary"
-              onClick={() => setShowSettings((s) => !s)}
-              style={{ height: 40, fontSize: 15 }}
-            >
-              {showSettings ? 'Hide Settings' : 'Settings'}
-            </button>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                className="ios-btn-secondary"
+                onClick={() => setShowAchievements(true)}
+                style={{ height: 40, fontSize: 15, flex: 1 }}
+              >
+                🏆 {typeof window !== 'undefined' ? loadUnlockedAchievements().length : 0}/{18}
+              </button>
+              <button
+                className="ios-btn-secondary"
+                onClick={() => setShowSettings((s) => !s)}
+                style={{ height: 40, fontSize: 15, flex: 1 }}
+              >
+                {showSettings ? 'Hide Settings' : 'Settings'}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -126,6 +138,9 @@ const StartScreen: FC<Props> = ({ onPlay }) => {
 
       {/* ── Keyboard hint ────────────────────────────────────── */}
       <KeyboardHint />
+
+      {/* ── Achievements modal ── */}
+      {showAchievements && <AchievementsModal onClose={() => setShowAchievements(false)} />}
     </div>
   );
 };

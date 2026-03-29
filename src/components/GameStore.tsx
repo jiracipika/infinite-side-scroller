@@ -5,6 +5,10 @@ import {
   type GameState, type GameSettings, type GameStats,
   loadSettings, loadHighScore, saveHighScore,
 } from '@/game/state/game-state';
+import {
+  loadLifetimeStats, saveLifetimeStats, loadUnlockedAchievements,
+  saveUnlockedAchievements, checkNewAchievements,
+} from '@/lib/achievements';
 
 export interface GameStoreAPI {
   state: GameState;
@@ -64,6 +68,26 @@ function reducer(state: State, action: Action): State {
     case 'GAMEOVER': {
       const hs = Math.max(state.stats.score, state.stats.highScore);
       saveHighScore(hs);
+
+      // Persist lifetime stats for achievements
+      const prev = loadLifetimeStats();
+      const updated = {
+        totalGames: prev.totalGames + 1,
+        highScore: Math.max(prev.highScore, state.stats.score),
+        totalDistance: prev.totalDistance + Math.round(state.stats.distance),
+        totalCoins: prev.totalCoins + state.stats.coins,
+        bestDistance: Math.max(prev.bestDistance, Math.round(state.stats.distance)),
+        bestCoins: Math.max(prev.bestCoins, state.stats.coins),
+      };
+      saveLifetimeStats(updated);
+
+      // Check for new achievements
+      const prevUnlocked = loadUnlockedAchievements();
+      const newIds = checkNewAchievements(prevUnlocked, updated);
+      if (newIds.length > 0) {
+        saveUnlockedAchievements([...prevUnlocked, ...newIds]);
+      }
+
       return { ...state, gameState: 'gameover', stats: { ...state.stats, highScore: hs } };
     }
     case 'QUIT_TO_MENU':
