@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, type FC } from 'react';
 import { useGameStore } from './GameStore';
 import AchievementsModal from './AchievementsModal';
-import { loadUnlockedAchievements } from '@/lib/achievements';
+import ACHIEVEMENTS, { loadUnlockedAchievements } from '@/lib/achievements';
 
 interface Props {
   onPlay: (seed?: number) => void;
@@ -14,7 +14,12 @@ const StartScreen: FC<Props> = ({ onPlay }) => {
   const [seedInput, setSeedInput] = useState('');
   const [showSettings, setShowSettings] = useState(false);
   const [showAchievements, setShowAchievements] = useState(false);
+  const [achieveCount, setAchieveCount] = useState(0);
   const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setAchieveCount(loadUnlockedAchievements().length);
+  }, []);
 
   useEffect(() => {
     const raf = requestAnimationFrame(() => setMounted(true));
@@ -113,7 +118,7 @@ const StartScreen: FC<Props> = ({ onPlay }) => {
                 onClick={() => setShowAchievements(true)}
                 style={{ height: 40, fontSize: 15, flex: 1 }}
               >
-                🏆 {typeof window !== 'undefined' ? loadUnlockedAchievements().length : 0}/{18}
+                🏆 {achieveCount}/{ACHIEVEMENTS.length}
               </button>
               <button
                 className="ios-btn-secondary"
@@ -140,7 +145,7 @@ const StartScreen: FC<Props> = ({ onPlay }) => {
       <KeyboardHint />
 
       {/* ── Achievements modal ── */}
-      {showAchievements && <AchievementsModal onClose={() => setShowAchievements(false)} />}
+      {showAchievements && <AchievementsModal onClose={() => { setShowAchievements(false); setAchieveCount(loadUnlockedAchievements().length); }} />}
     </div>
   );
 };
