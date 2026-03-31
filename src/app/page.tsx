@@ -138,14 +138,13 @@ export default function Home() {
             background: 'rgba(0,0,0,0.48)',
             backdropFilter: 'blur(12px)',
             WebkitBackdropFilter: 'blur(12px)',
-            border: 'none',
+            border: '0.5px solid rgba(255,255,255,0.1)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             cursor: 'pointer',
             transition: 'transform 0.12s cubic-bezier(0.34,1.56,0.64,1), opacity 0.1s ease, background 0.12s ease',
             color: 'rgba(235,235,245,0.6)',
-            border: '0.5px solid rgba(255,255,255,0.1)',
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.color = 'rgba(235,235,245,0.92)';

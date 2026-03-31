@@ -178,12 +178,6 @@ export default function AchievementsModal({ onClose }: Props) {
         </div>
       </div>
 
-      <style>{`
-        @keyframes toastIn {
-          from { opacity: 0; transform: translateX(-50%) translateY(-20px) scale(0.9); }
-          to   { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
-        }
-      `}</style>
     </div>
   );
 }

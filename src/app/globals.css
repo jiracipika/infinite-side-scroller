@@ -185,6 +185,11 @@ html, body {
   to   { opacity: 0; transform: translateY(-28px) scale(0.8); }
 }
 
+@keyframes toastIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(-20px) scale(0.9); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0)     scale(1); }
+}
+
 @keyframes ringExpand {
   0%   { transform: scale(1);    opacity: 0.5; }
   100% { transform: scale(1.55); opacity: 0; }
@@ -271,6 +276,11 @@ html, body {
     opacity: 0.82;
   }
 
+  .ios-btn:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3.5px rgba(var(--ios-tint-rgb), 0.45);
+  }
+
   .ios-btn-primary {
     @apply ios-btn;
     background: var(--ios-tint);
@@ -318,8 +328,9 @@ html, body {
     transition: background 0.08s ease;
   }
 
-  .ios-action-row:hover  { background: rgba(255, 255, 255, 0.04); }
-  .ios-action-row:active { background: rgba(255, 255, 255, 0.07); }
+  .ios-action-row:hover        { background: rgba(255, 255, 255, 0.04); }
+  .ios-action-row:active       { background: rgba(255, 255, 255, 0.07); }
+  .ios-action-row:focus-visible { outline: none; background: rgba(255, 255, 255, 0.06); }
 
   .ios-action-row + .ios-action-row {
     border-top: 0.5px solid var(--ios-separator);
@@ -459,7 +470,11 @@ html, body {
     outline: none;
     cursor: pointer;
     flex-shrink: 0;
-    transition: background 0.22s ease;
+    transition: background 0.22s ease, box-shadow 0.15s ease;
+  }
+
+  .ios-toggle-track:focus-visible {
+    box-shadow: 0 0 0 3.5px rgba(var(--ios-tint-rgb), 0.45);
   }
 
   .ios-toggle-thumb {
