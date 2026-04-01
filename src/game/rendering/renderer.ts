@@ -188,18 +188,28 @@ export class GameRenderer {
     }
   }
 
-  drawPlatforms(chunks: Chunk[], camera: Camera): void {
+  drawPlatforms(chunks: Chunk[], camera: Camera, gameTime: number = 0): void {
     const ctx = this.ctx;
     for (const chunk of chunks) {
       const colors = getBlendedBiomeColors(chunk.worldX + 400);
       for (const platform of chunk.platforms) {
-        const screen = camera.worldToScreen(platform.x, platform.y);
+        // Calculate moving platform Y offset
+        let platY = platform.y;
+        if (platform.moveAmp && platform.moveSpeed) {
+          platY += Math.sin(gameTime * platform.moveSpeed) * platform.moveAmp;
+        }
+        const screen = camera.worldToScreen(platform.x, platY);
         if (screen.x + platform.width < 0 || screen.x > this.width) continue;
         ctx.fillStyle = colors.platform;
         ctx.fillRect(screen.x, screen.y, platform.width, 8);
         ctx.strokeStyle = colors.groundDark;
         ctx.lineWidth = 1;
         ctx.strokeRect(screen.x, screen.y, platform.width, 8);
+        // Small glow for moving platforms
+        if (platform.moveAmp) {
+          ctx.fillStyle = 'rgba(255,255,255,0.08)';
+          ctx.fillRect(screen.x, screen.y - 2, platform.width, 2);
+        }
       }
     }
   }
@@ -263,9 +273,12 @@ export class GameRenderer {
     const ctx = this.ctx;
     const screen = camera.worldToScreen(player.x, player.y);
 
-    // Invulnerability flash
+    // Invulnerability flash — blink using timer
     if (player.invulnerable && !player.dashing) {
-      ctx.globalAlpha = Math.floor(player.invulnerableTimer / 4) % 2 === 0 ? 0.4 : 1.0;
+      // Blink: 6 blinks per second (3Hz flash)
+      const blinkRate = 6;
+      const t = player.invulnerableTimer * blinkRate;
+      ctx.globalAlpha = Math.floor(t) % 2 === 0 ? 0.4 : 1.0;
     }
     const w = player.width;
     const h = player.height;

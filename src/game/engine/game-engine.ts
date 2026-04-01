@@ -29,16 +29,19 @@ const MAX_ACCUMULATED = 0.1;
 
 export type EngineState = 'playing' | 'paused' | 'gameover';
 
-/** AABB collision check with slight expansion to fix edge cases */
+/** AABB collision check. expandBy shrinks the player hitbox for forgiving collision. */
 function aabbOverlap(
   a: { x: number; y: number; width: number; height: number },
   b: { x: number; y: number; width: number; height: number },
-  expandBy: number = 2,
+  expandBy: number = 0,
 ): boolean {
-  const ax = a.x - expandBy;
-  const ay = a.y - expandBy;
-  const aw = a.width + expandBy * 2;
-  const ah = a.height + expandBy * 2;
+  // Shrink hitbox A by expandBy for more forgiving collisions
+  const ax = a.x + expandBy;
+  const ay = a.y + expandBy;
+  const aw = a.width - expandBy * 2;
+  const ah = a.height - expandBy * 2;
+
+  if (aw <= 0 || ah <= 0) return false; // safety check
 
   return ax < b.x + b.width && ax + aw > b.x && ay < b.y + b.height && ay + ah > b.y;
 }
@@ -91,6 +94,9 @@ export class GameEngine {
   // Track which chunks have spawned entities
   private spawnedChunks = new Set<number>();
 
+  // Game time for animations
+  private gameTime = 0;
+
   constructor(canvas: HTMLCanvasElement, seed?: number) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d')!;
@@ -136,6 +142,10 @@ export class GameEngine {
     this.wasOnGround = true;
     this.currentQualityLevel = 'high';
     this.particles.setReducedParticles(false);
+    this.gameTime = 0;
+    // Reset timing to avoid first-frame spike after restart
+    this.lastTime = performance.now();
+    this.accumulated = 0;
   }
 
   private handleResize = (): void => {
@@ -231,8 +241,15 @@ export class GameEngine {
     const range = 600;
     for (const chunk of chunks) {
       for (const plat of chunk.platforms) {
-        if (plat.x > px - range && plat.x + plat.width < px + range) {
-          platforms.push(plat);
+        // Include platforms that overlap the range (not just fully contained)
+        if (plat.x + plat.width > px - range && plat.x < px + range) {
+          // Apply moving platform offset
+          if (plat.moveAmp && plat.moveSpeed) {
+            const offsetY = Math.sin(this.gameTime * plat.moveSpeed) * plat.moveAmp;
+            platforms.push({ x: plat.x, y: plat.y + offsetY, width: plat.width });
+          } else {
+            platforms.push(plat);
+          }
         }
       }
     }
@@ -282,13 +299,22 @@ export class GameEngine {
       const plats = chunk.platforms;
       const chunkWorldX = chunk.worldX;
 
-      // Enemies
+      // Enemies — densityMult: 0.6 at start → 1.0 at primary ramp → up to ~1.8 later
       const enemySpawns = spawnEnemiesForChunk(chunk.index, plats, (s) => this.seededRng(s));
-      // Apply density scaling — only spawn fraction based on difficulty
-      const targetCount = Math.ceil(enemySpawns.length / this.difficulty.densityMult);
-      const scaledSpawns = enemySpawns.slice(0, targetCount);
+      // Fraction of base pool to use (capped at 100% of available spawns)
+      const baseCount = Math.min(
+        Math.ceil(enemySpawns.length * Math.min(this.difficulty.densityMult, 1.0)),
+        enemySpawns.length,
+      );
+      const baseSpawns = enemySpawns.slice(0, baseCount);
+      // Beyond 100% density: each pool enemy has a probabilistic chance to spawn a second copy
+      const bonusRate = Math.max(0, this.difficulty.densityMult - 1.0);
+      const bonusSpawns = bonusRate > 0
+        ? enemySpawns.filter((_, i) => this.seededRng(chunk.index * 777 + i) < bonusRate)
+        : [];
+      const allSpawns = [...baseSpawns, ...bonusSpawns];
 
-      for (const spawn of scaledSpawns) {
+      for (const spawn of allSpawns) {
         let enemy: Enemy;
         switch (spawn.type) {
           case 'slime': enemy = new Slime(spawn.x, spawn.y, spawn.chunkId); break;
@@ -345,6 +371,8 @@ export class GameEngine {
   }
 
   private update(dt: number): void {
+    this.gameTime += dt;
+
         // Update chunks — use a position slightly ahead of the player so enemies spawn in view
     const lookAheadPx = this.camera.x + this.camera.renderX > 0
       ? Math.max(this.player.centerX, this.camera.x + (this.camera as any).screenWidth * 0.6)
@@ -357,14 +385,23 @@ export class GameEngine {
     // Cleanup far-away entities
     const px = this.player.centerX;
     const cleanupRange = 3000;
+    // Also clean up enemy projectiles before removing enemies
+    for (const enemy of this.enemies) {
+      if (!enemy.alive || Math.abs(enemy.x - px) >= cleanupRange) {
+        if ('projectiles' in enemy && Array.isArray((enemy as any).projectiles)) {
+          (enemy as any).projectiles.length = 0;
+        }
+      }
+    }
     this.enemies = this.enemies.filter(e => e.alive && Math.abs(e.x - px) < cleanupRange);
     this.collectibles = this.collectibles.filter(c => !c.collected && Math.abs(c.x - px) < cleanupRange);
     this.hazards = this.hazards.filter(h => !h.destroyed && Math.abs(h.x - px) < cleanupRange);
 
-    // Cleanup spawned chunks tracking to prevent memory leak
-    const loadedChunkIndices = this.chunkManager.getLoadedChunks().map(c => c.index);
+    // Cleanup spawned chunks tracking — only remove indices far behind the player so
+    // backtracking up to ~18 chunks (14400px) doesn't re-spawn entities.
+    const playerChunkIdx = Math.floor(this.player.centerX / 800);
     for (const spawnedIndex of Array.from(this.spawnedChunks)) {
-      if (!loadedChunkIndices.includes(spawnedIndex)) {
+      if (spawnedIndex < playerChunkIdx - 18) {
         this.spawnedChunks.delete(spawnedIndex);
       }
     }
@@ -394,20 +431,10 @@ export class GameEngine {
       this.particles.spawnLanding(this.player.centerX, this.player.bottom);
     }
 
-    // Throttled jump input
-    const now = performance.now();
+    // Jump dust particles
     const jumpPressed = this.input.isPressed('Space') || this.input.isPressed('ArrowUp') || this.input.isPressed('KeyW');
-    if (jumpPressed && (now - this.lastJumpPressTime) > this.inputThrottleMs) {
-      if (this.player.onGround || this.player.vy < -100) {
-        this.particles.spawnJumpDust(this.player.centerX, this.player.bottom);
-        this.lastJumpPressTime = now;
-      }
-    }
-
-    // Throttled attack input
-    const attackPressed = this.input.isPressed('KeyE') || this.input.isPressed('KeyJ');
-    if (attackPressed && (now - this.lastAttackPressTime) > this.inputThrottleMs) {
-      this.lastAttackPressTime = now;
+    if (jumpPressed && (this.player.onGround || this.player.vy < -100)) {
+      this.particles.spawnJumpDust(this.player.centerX, this.player.bottom);
     }
 
     // Wall collision
@@ -425,6 +452,13 @@ export class GameEngine {
 
     // Difficulty
     this.difficulty = getDifficulty(this.player.distanceTraveled);
+
+    // Distance-based scoring — gain 1 point per 50 pixels traveled
+    const prevDistance = this.player.distance;
+    this.player.distance = Math.max(this.player.distance, Math.floor(this.player.x / 50));
+    if (this.player.distance > prevDistance) {
+      this.player.score += (this.player.distance - prevDistance);
+    }
 
     // Update falling platforms
     for (const h of this.hazards) {
@@ -457,29 +491,36 @@ export class GameEngine {
       enemy.update(dt, this.player.centerX, this.player.centerY);
       this.updateEnemyGround(enemy);
 
-      // Enemy-player collision
-      if (aabbOverlap(playerBounds, enemy.getBounds())) {
-        // Check stomp
-        if (enemy.stompable && this.player.isStomping() && this.player.y + this.player.height < enemy.y + enemy.height * 0.6) {
+      // Score per kill scales by enemy type
+      const KILL_SCORES: Record<string, number> = { slime: 100, bat: 150, jumper: 200, skeleton: 250, boss: 1000 };
+
+      // Enemy-player collision — shrink player hitbox 4px for forgiving feel
+      if (aabbOverlap(playerBounds, enemy.getBounds(), 4)) {
+        // Stomp: player clearly falling AND feet in top 40% of enemy
+        const playerFeetY = this.player.y + this.player.height;
+        const isStomp = enemy.stompable
+          && this.player.vy > 50
+          && playerFeetY < enemy.y + enemy.height * 0.4;
+
+        if (isStomp) {
           enemy.takeDamage(1);
           if (!enemy.alive) {
-            this.player.score += 100;
+            const pts = KILL_SCORES[enemy.type] ?? 100;
+            this.player.score += pts;
             this.particles.spawnEnemyDeath(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2);
-            this.particles.spawnScorePopup(enemy.x + enemy.width / 2, enemy.y, '+100');
+            this.particles.spawnScorePopup(enemy.x + enemy.width / 2, enemy.y, `+${pts}`);
           }
           this.player.stompBounce();
         } else if (this.player.dashing) {
-          // Dash kills
           enemy.takeDamage(2);
           if (!enemy.alive) {
-            this.player.score += 100;
+            const pts = KILL_SCORES[enemy.type] ?? 100;
+            this.player.score += pts;
             this.particles.spawnEnemyDeath(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2);
-            this.particles.spawnScorePopup(enemy.x + enemy.width / 2, enemy.y, '+100');
+            this.particles.spawnScorePopup(enemy.x + enemy.width / 2, enemy.y, `+${pts}`);
           }
         } else {
-          // Player takes damage
           if (this.player.takeDamage(enemy.effectiveDamage)) {
-            // Knockback + screen shake
             const kb = this.player.centerX < enemy.x ? -200 : 200;
             this.player.vx = kb;
             this.player.vy = -250;
@@ -493,11 +534,12 @@ export class GameEngine {
       for (const proj of this.player.projectiles) {
         if (aabbOverlap({ x: proj.x - 4, y: proj.y - 4, width: 8, height: 8 }, enemy.getBounds())) {
           enemy.takeDamage(proj.damage);
-          proj.life = 0; // destroy projectile
+          proj.life = 0;
           if (!enemy.alive) {
-            this.player.score += 100;
+            const pts = KILL_SCORES[enemy.type] ?? 100;
+            this.player.score += pts;
             this.particles.spawnEnemyDeath(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2);
-            this.particles.spawnScorePopup(enemy.x + enemy.width / 2, enemy.y, '+100');
+            this.particles.spawnScorePopup(enemy.x + enemy.width / 2, enemy.y, `+${pts}`);
           }
         }
       }
@@ -516,10 +558,10 @@ export class GameEngine {
       }
     }
 
-    // Spike hazards
+    // Spike hazards — use tighter hitbox (shrink by 4px) and respect invulnerability
     for (const h of this.hazards) {
       if (h.type !== 'spike') continue;
-      if (aabbOverlap(playerBounds, { x: h.x, y: h.y, width: h.width, height: h.height })) {
+      if (aabbOverlap(playerBounds, { x: h.x, y: h.y, width: h.width, height: h.height }, 4)) {
         if (this.player.takeDamage(1)) {
           this.player.vy = -300;
           this.camera.shake(5, 0.25);
@@ -544,7 +586,14 @@ export class GameEngine {
         }
       }
 
-      if (aabbOverlap(playerBounds, c)) {
+      // Collectible collision — generous hitbox (don't shrink, use full overlap)
+      const playerCollectBounds = {
+        x: playerBounds.x - 4,
+        y: playerBounds.y - 4,
+        width: playerBounds.width + 8,
+        height: playerBounds.height + 8,
+      };
+      if (aabbOverlap(playerCollectBounds, c)) {
         c.collected = true;
         switch (c.type) {
           case 'coin':
@@ -556,6 +605,8 @@ export class GameEngine {
             if (this.player.health < this.player.maxHealth) {
               this.player.heal(1);
               this.particles.spawnScorePopup(c.x, c.y, '+1 ♥', '#22c55e');
+            } else {
+              this.particles.spawnScorePopup(c.x, c.y, 'FULL!', '#86efac');
             }
             break;
           case 'speedBoost':
@@ -563,7 +614,7 @@ export class GameEngine {
             this.particles.spawnScorePopup(c.x, c.y, 'SPEED!', '#3b82f6');
             break;
           case 'doubleJump':
-            this.player.setDoubleJump(true);
+            this.player.restoreDoubleJump();
             this.particles.spawnScorePopup(c.x, c.y, '2x JUMP!', '#a855f7');
             break;
           case 'shield':
@@ -629,7 +680,7 @@ export class GameEngine {
     this.renderer.drawSky(this.camera);
     this.renderer.drawParallax(this.camera);
     this.renderer.drawTerrain(chunks, this.camera);
-    this.renderer.drawPlatforms(chunks, this.camera);
+    this.renderer.drawPlatforms(chunks, this.camera, this.gameTime);
     this.renderer.drawDecorations(chunks, this.camera);
 
     // Hazards - frustum culling

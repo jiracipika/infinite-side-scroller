@@ -15,6 +15,8 @@ export class InputManager {
   private touchJumpPressed = false;
   private touchAttack = false;
   private touchAttackPressed = false;
+  private touchDash = false;
+  private touchDashPressed = false;
 
   private handleGameInput: ((e: CustomEvent) => void) | null = null;
 
@@ -47,6 +49,14 @@ export class InputManager {
               this.touchAttack = true;
             } else {
               this.touchAttack = false;
+            }
+            break;
+          case 'dash-press':
+            if (value) {
+              if (!this.touchDash) this.touchDashPressed = true;
+              this.touchDash = true;
+            } else {
+              this.touchDash = false;
             }
             break;
         }

@@ -18,9 +18,9 @@ export interface PlayerConfig {
 export const DEFAULT_PLAYER_CONFIG: PlayerConfig = {
   startX: 200,
   startY: 300,
-  speed: 300,
-  jumpVelocity: -500,
-  gravity: 1200,
+  speed: 280,
+  jumpVelocity: -520,
+  gravity: 1400,
   width: 24,
   height: 32,
 };
@@ -70,7 +70,7 @@ export class Player {
   touchingWall = false;
   private wasOnGround = false;
   private coyoteTimer = 0;
-  private readonly COYOTE_FRAMES = 6;
+  private readonly COYOTE_TIME = 0.1; // seconds of coyote time
 
   // Projectiles
   projectiles: { x: number; y: number; vx: number; life: number; damage: number }[] = [];
@@ -85,10 +85,13 @@ export class Player {
   }
 
   update(dt: number, input: InputManager, groundY: number, platforms: Platform[] = []): void {
-    // Tick timers
+    // Tick timers (dt-based)
     if (this.invulnerableTimer > 0) {
-      this.invulnerableTimer--;
-      if (this.invulnerableTimer <= 0) this.invulnerable = false;
+      this.invulnerableTimer -= dt;
+      if (this.invulnerableTimer <= 0) {
+        this.invulnerable = false;
+        this.invulnerableTimer = 0;
+      }
     }
     if (this.dashCooldown > 0) this.dashCooldown -= dt;
     if (this.shieldTimer > 0) { this.shieldTimer -= dt; if (this.shieldTimer <= 0) this.shieldActive = false; }
@@ -104,7 +107,7 @@ export class Player {
       this.dashCooldown = this.DASH_COOLDOWN;
       this.dashDirection = this.facingRight ? 1 : -1;
       this.invulnerable = true;
-      this.invulnerableTimer = Math.max(this.invulnerableTimer, Math.ceil(this.DASH_DURATION * 60));
+      this.invulnerableTimer = Math.max(this.invulnerableTimer, this.DASH_DURATION);
     }
 
     if (this.dashing) {
@@ -118,7 +121,6 @@ export class Player {
       this.x += this.vx * dt;
       this.y += this.vy * dt;
       if (this.x < 0) { this.x = 0; this.vx = 0; }
-      this.distance = Math.max(this.distance, Math.floor(this.x / 50));
       this.distanceTraveled += Math.abs(this.vx * dt);
       this._updateProjectiles(dt);
       return;
@@ -158,20 +160,20 @@ export class Player {
 
     const wantJump = input.isPressed('Space') || input.isPressed('ArrowUp') || input.isPressed('KeyW');
 
-    // Wall slide
+    // Wall slide — only if falling and pressing toward wall
     this.wallSliding = false;
     if (!this.onGround && this.touchingWall && this.vy > 0) {
-      if (moveLeft && !this.facingRight || moveRight && this.facingRight) {
+      if ((moveLeft && !this.facingRight) || (moveRight && this.facingRight)) {
         this.wallSliding = true;
         this.vy = Math.min(this.vy, 120);
       }
     }
 
     if (wantJump) {
-      if (this.onGround || this.coyoteTimer < this.COYOTE_FRAMES) {
+      if (this.onGround || this.coyoteTimer < this.COYOTE_TIME) {
         this.vy = this.config.jumpVelocity;
         this.onGround = false;
-        this.coyoteTimer = this.COYOTE_FRAMES;
+        this.coyoteTimer = this.COYOTE_TIME; // consume coyote time
         this.touchingWall = false;
         this.wallSliding = false;
       } else if (this.wallSliding) {
@@ -186,25 +188,21 @@ export class Player {
     }
 
     this.vy += this.config.gravity * dt;
-    if (this.vy > 800) this.vy = 800;
+    if (this.vy > 900) this.vy = 900; // terminal velocity
 
     this.x += this.vx * dt;
     if (this.x < 0) { this.x = 0; this.vx = 0; }
     this.y += this.vy * dt;
 
-    // Platform collision
+    // Platform collision — one-way platforms (can jump through from below)
     let onPlatform = false;
     if (this.vy >= 0) {
       for (const plat of platforms) {
         if (this.x + this.width > plat.x && this.x < plat.x + plat.width) {
           const prevBottom = (this.y + this.height) - this.vy * dt;
-          if (prevBottom <= plat.y + 2 && this.y + this.height >= plat.y) {
-            this.y = plat.y - this.height;
-            this.vy = 0;
-            onPlatform = true;
-            break;
-          }
-          if (Math.abs(this.y + this.height - plat.y) < 4 && this.vy >= 0) {
+          const currBottom = this.y + this.height;
+          // Player was above platform last frame and is now at or below it
+          if (prevBottom <= plat.y + 2 && currBottom >= plat.y - 2) {
             this.y = plat.y - this.height;
             this.vy = 0;
             onPlatform = true;
@@ -232,10 +230,9 @@ export class Player {
       this.onGround = false;
     }
 
-    if (!this.onGround && this.wasOnGround) this.coyoteTimer = 0;
-    if (!this.onGround) this.coyoteTimer++;
+    if (!this.onGround && this.wasOnGround) this.coyoteTimer = 0; // just left ground, start coyote timer
+    if (!this.onGround) this.coyoteTimer += dt;
 
-    this.distance = Math.max(this.distance, Math.floor(this.x / 50));
     this.distanceTraveled += Math.abs(this.vx * dt);
 
     this._updateProjectiles(dt);
@@ -262,7 +259,7 @@ export class Player {
     }
     this.health = Math.max(0, this.health - amount);
     this.invulnerable = true;
-    this.invulnerableTimer = 90; // 1.5 seconds
+    this.invulnerableTimer = 1.5; // 1.5 seconds of invulnerability
     if (this.health <= 0) this.alive = false;
     return true;
   }
@@ -305,6 +302,11 @@ export class Player {
   hasDoubleJumped = false;
   setDoubleJump(enabled: boolean): void {
     this._doubleJump = enabled;
+    this.hasDoubleJumped = false;
+  }
+  /** Restore double jump so it can be used again mid-air (power-up effect) */
+  restoreDoubleJump(): void {
+    this._doubleJump = true;
     this.hasDoubleJumped = false;
   }
   get canDoubleJump(): boolean { return this._doubleJump && !this.hasDoubleJumped; }

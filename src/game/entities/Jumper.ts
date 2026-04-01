@@ -24,6 +24,7 @@ export class Jumper extends Enemy {
     if (!this.alive) return;
     this.animTimer += dt;
     this.updateAI(dt, playerX, playerY);
+    this.chasing = this.aiState === 'chase' || this.aiState === 'attack';
 
     // Gravity
     this.vy += GRAVITY * dt;

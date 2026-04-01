@@ -19,15 +19,19 @@ export interface DifficultyConfig {
 
 /** Get difficulty config based on distance traveled */
 export function getDifficulty(distanceTraveled: number): DifficultyConfig {
-  // Difficulty ramps up over ~10000 pixels
-  const t = Math.min(distanceTraveled / 10000, 1);
+  // Primary ramp: 0→1 over first 12000 pixels
+  const t = Math.min(distanceTraveled / 12000, 1);
+  // Secondary slow ramp: continues past 12000 pixels indefinitely
+  const extra = Math.max(0, (distanceTraveled - 12000) / 40000);
 
   return {
-    speedMult: 1 + t * 0.8,
-    densityMult: 1 + t * 1.5,
-    damageMult: 1 + t * 0.5,
-    healthMult: 1 + t * 0.5,
-    detectRangeMult: 1 + t * 0.5,
-    shootCooldownMult: Math.max(0.4, 1 - t * 0.4),
+    speedMult: 1 + t * 0.8 + extra * 0.5,
+    // densityMult is a FRACTION of the max possible spawns to use (0.4 = 40%, 1.0 = 100%)
+    // Used as: targetCount = ceil(spawns.length * densityMult) in spawnChunkEntities
+    densityMult: Math.min(0.4 + t * 0.6 + extra * 0.3, 2.0),
+    damageMult: 1 + t * 0.5 + extra * 0.3,
+    healthMult: 1 + t * 0.5 + extra * 0.3,
+    detectRangeMult: 1 + t * 0.5 + extra * 0.2,
+    shootCooldownMult: Math.max(0.25, 1 - t * 0.5 - extra * 0.1),
   };
 }

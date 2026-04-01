@@ -17,6 +17,7 @@ const TouchControls: FC = () => {
   const [rightHeld,  setRightHeld]  = useState(false);
   const [jumpHeld,   setJumpHeld]   = useState(false);
   const [attackHeld, setAttackHeld] = useState(false);
+  const [dashHeld,   setDashHeld]   = useState(false);
 
   const emit = useCallback((type: string, value: boolean) => {
     window.dispatchEvent(new CustomEvent('game-input', { detail: { type, value } }));
@@ -30,12 +31,14 @@ const TouchControls: FC = () => {
   const endJump     = useCallback(() => { setJumpHeld(false);   emit('jump-press',   false); }, [emit]);
   const startAttack = useCallback(() => { setAttackHeld(true);  emit('attack-press', true);  }, [emit]);
   const endAttack   = useCallback(() => { setAttackHeld(false); emit('attack-press', false); }, [emit]);
+  const startDash   = useCallback(() => { setDashHeld(true);    emit('dash-press',   true);  }, [emit]);
+  const endDash     = useCallback(() => { setDashHeld(false);   emit('dash-press',   false); }, [emit]);
 
   const releaseAll = useCallback(() => {
     setLeftHeld(false); setRightHeld(false);
-    setJumpHeld(false); setAttackHeld(false);
+    setJumpHeld(false); setAttackHeld(false); setDashHeld(false);
     emit('move-left', false); emit('move-right', false);
-    emit('jump-press', false); emit('attack-press', false);
+    emit('jump-press', false); emit('attack-press', false); emit('dash-press', false);
   }, [emit]);
 
   useEffect(() => {
@@ -83,7 +86,7 @@ const TouchControls: FC = () => {
         </TouchBtn>
       </div>
 
-      {/* ── Right: Attack + Jump ─────────────────────────────── */}
+      {/* ── Right: Dash + Attack + Jump ─────────────────────── */}
       <div
         className="absolute pointer-events-auto"
         style={{
@@ -95,16 +98,28 @@ const TouchControls: FC = () => {
           gap: 10,
         }}
       >
-        <TouchBtn
-          active={attackHeld}
-          onStart={startAttack}
-          onEnd={endAttack}
-          size="sm"
-          tint="orange"
-          aria-label="Attack"
-        >
-          <AtkLabel />
-        </TouchBtn>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <TouchBtn
+            active={dashHeld}
+            onStart={startDash}
+            onEnd={endDash}
+            size="sm"
+            tint="orange"
+            aria-label="Dash"
+          >
+            <DashLabel />
+          </TouchBtn>
+          <TouchBtn
+            active={attackHeld}
+            onStart={startAttack}
+            onEnd={endAttack}
+            size="sm"
+            tint="orange"
+            aria-label="Attack"
+          >
+            <AtkLabel />
+          </TouchBtn>
+        </div>
         <TouchBtn
           active={jumpHeld}
           onStart={startJump}
@@ -231,4 +246,13 @@ const AtkLabel: FC = () => (
   }}>
     ATK
   </span>
+);
+
+const DashLabel: FC = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+    stroke="rgba(255,255,255,0.85)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+  >
+    <path d="M5 12h14" />
+    <path d="M13 6l6 6-6 6" />
+  </svg>
 );
