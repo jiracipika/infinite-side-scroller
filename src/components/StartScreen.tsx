@@ -97,46 +97,117 @@ const StartScreen: FC<Props> = ({ onPlay }) => {
         {/* ── Character Select ──────────────────────────────── */}
         <div
           className="ios-card"
-          style={{ width: '100%', marginBottom: 10, animation: 'iosFadeIn 0.4s ease 0.1s both' }}
+          style={{ width: '100%', marginBottom: 10, animation: 'iosFadeIn 0.4s ease 0.1s both', overflow: 'hidden' }}
         >
-          <div style={{ padding: '10px' }}>
-            <p className="ios-section-header" style={{ marginBottom: 8 }}>Character</p>
-            <div style={{ display: 'flex', gap: 6 }}>
-              {CHARACTERS.map((c) => (
-                <button
-                  key={c.id}
-                  onClick={() => { setSelectedChar(c.id); saveSelectedCharacter(c.id); }}
-                  style={{
-                    flex: 1,
-                    padding: '6px 4px',
-                    borderRadius: 10,
-                    border: selectedChar === c.id ? '2px solid var(--ios-blue)' : '2px solid transparent',
-                    background: selectedChar === c.id ? 'rgba(0,122,255,0.12)' : 'transparent',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: 3,
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                  }}
-                >
+          {/* Selected character preview + stats */}
+          {(() => {
+            const sel = CHARACTERS.find(c => c.id === selectedChar) ?? CHARACTERS[0];
+            return (
+              <div style={{
+                padding: '12px 12px 0',
+                display: 'flex',
+                gap: 12,
+                alignItems: 'flex-start',
+              }}>
+                {/* Big character avatar */}
+                <div style={{
+                  width: 52,
+                  height: 64,
+                  borderRadius: 10,
+                  background: `linear-gradient(135deg, ${sel.bodyColor}dd, ${sel.bodyColor})`,
+                  border: `2px solid ${sel.outlineColor}`,
+                  boxShadow: `0 4px 16px ${sel.bodyColor}44, inset 0 1px 0 rgba(255,255,255,0.15)`,
+                  flexShrink: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  position: 'relative',
+                  overflow: 'hidden',
+                }}>
+                  {/* Eyes */}
+                  <div style={{ display: 'flex', gap: 4, marginTop: -4 }}>
+                    <div style={{ width: 5, height: 5, borderRadius: '50%', background: sel.eyeColor }} />
+                    <div style={{ width: 5, height: 5, borderRadius: '50%', background: sel.eyeColor }} />
+                  </div>
+                  {/* Shine */}
                   <div style={{
-                    width: 22,
-                    height: 28,
-                    borderRadius: 4,
-                    background: c.bodyColor,
-                    border: `1.5px solid ${c.outlineColor}`,
+                    position: 'absolute', top: 4, left: 4, width: 14, height: 20,
+                    background: 'linear-gradient(135deg, rgba(255,255,255,0.25), transparent)',
+                    borderRadius: 6,
                   }} />
-                  <span className="ios-footnote" style={{
-                    color: selectedChar === c.id ? 'var(--ios-blue)' : 'var(--ios-label)',
-                    fontWeight: selectedChar === c.id ? 700 : 400,
-                    fontSize: 11,
-                  }}>
-                    {c.name}
-                  </span>
-                </button>
-              ))}
-            </div>
+                </div>
+                {/* Name, desc, stats */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                    <span className="ios-row-label" style={{ fontSize: 15, fontWeight: 700 }}>{sel.name}</span>
+                    <span className="ios-caption2" style={{ color: 'var(--ios-label3)' }}>{sel.description}</span>
+                  </div>
+                  {/* Mini stat bars */}
+                  <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <StatBar label="SPD" value={sel.speed} color="var(--ios-tint)" />
+                    <StatBar label="JMP" value={sel.jumpVelocity} color="var(--ios-green)" />
+                    <StatBar label="HP" value={sel.maxHealth / 5} color="var(--ios-red)" />
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Character tabs */}
+          <div style={{
+            display: 'flex',
+            gap: 0,
+            padding: '8px 8px 10px',
+          }}>
+            {CHARACTERS.map((c) => (
+              <button
+                key={c.id}
+                onClick={() => { setSelectedChar(c.id); saveSelectedCharacter(c.id); }}
+                style={{
+                  flex: 1,
+                  padding: '8px 2px 6px',
+                  borderRadius: 0,
+                  border: 'none',
+                  background: 'transparent',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 4,
+                  cursor: 'pointer',
+                  position: 'relative',
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                {/* Active indicator dot */}
+                {selectedChar === c.id && (
+                  <div style={{
+                    position: 'absolute', top: 0, left: '25%', right: '25%',
+                    height: 2, borderRadius: 1,
+                    background: c.bodyColor,
+                    boxShadow: `0 0 8px ${c.bodyColor}88`,
+                  }} />
+                )}
+                <div style={{
+                  width: 20,
+                  height: 24,
+                  borderRadius: 5,
+                  background: c.bodyColor,
+                  border: `1.5px solid ${c.outlineColor}`,
+                  opacity: selectedChar === c.id ? 1 : 0.45,
+                  transform: selectedChar === c.id ? 'scale(1.1)' : 'scale(1)',
+                  transition: 'all 0.2s cubic-bezier(0.34,1.56,0.64,1)',
+                  boxShadow: selectedChar === c.id ? `0 2px 10px ${c.bodyColor}55` : 'none',
+                }} />
+                <span className="ios-caption2" style={{
+                  color: selectedChar === c.id ? 'var(--ios-label)' : 'var(--ios-label3)',
+                  fontWeight: selectedChar === c.id ? 700 : 400,
+                  fontSize: 10,
+                  transition: 'all 0.15s ease',
+                }}>
+                  {c.name}
+                </span>
+              </button>
+            ))}
           </div>
         </div>
 
@@ -354,6 +425,33 @@ const SettingsPanel: FC = () => {
           value={settings.reducedParticles}
           onChange={(v) => setSettings({ reducedParticles: v })}
         />
+      </div>
+    </div>
+  );
+};
+
+/* ── Stat bar for character select ───────────────────────────── */
+
+const StatBar: FC<{ label: string; value: number; color: string }> = ({ label, value, color }) => {
+  const pct = Math.min(100, Math.round(value * 100));
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+      <span className="ios-caption2" style={{ color: 'var(--ios-label3)', width: 24, fontSize: 9, letterSpacing: '0.04em' }}>{label}</span>
+      <div style={{
+        flex: 1,
+        height: 4,
+        borderRadius: 2,
+        background: 'var(--ios-fill3)',
+        overflow: 'hidden',
+      }}>
+        <div style={{
+          width: `${pct}%`,
+          height: '100%',
+          borderRadius: 2,
+          background: color,
+          transition: 'width 0.3s cubic-bezier(0.34,1.56,0.64,1)',
+          boxShadow: `0 0 6px ${color}44`,
+        }} />
       </div>
     </div>
   );
