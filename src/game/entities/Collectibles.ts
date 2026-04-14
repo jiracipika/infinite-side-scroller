@@ -38,7 +38,8 @@ export function spawnCollectiblesForChunk(
   chunkX: number,
   chunkWidth: number,
   platforms: { x: number; y: number; width: number }[],
-  rng: (seed: number) => number
+  rng: (seed: number) => number,
+  terrainHeights?: number[],
 ): Collectible[] {
   const collectibles: Collectible[] = [];
   // Simple seeded RNG based on chunk
@@ -47,10 +48,6 @@ export function spawnCollectiblesForChunk(
   // Spawn 2-5 coin groups
   const numGroups = 2 + Math.abs(Math.floor(rng(base + 1) * 4));
   for (let g = 0; g < numGroups; g++) {
-    const platIdx = Math.floor(rng(base + g * 10 + 2) * platforms.length);
-    if (platIdx >= platforms.length) continue;
-    const plat = platforms[platIdx];
-
     // Determine type
     const typeRoll = rng(base + g * 10 + 3);
     let type: CollectibleType = 'coin';
@@ -60,37 +57,52 @@ export function spawnCollectiblesForChunk(
     else if (typeRoll > 0.79) type = 'speedBoost';
     else if (typeRoll > 0.75) type = 'doubleJump';
 
-    // Place on platform
     const count = type === 'coin' ? 3 + Math.floor(rng(base + g * 10 + 4) * 4) : 1;
-    const startX = plat.x + (rng(base + g * 10 + 5) * (plat.width - count * 20));
 
-    for (let i = 0; i < count; i++) {
-      collectibles.push(createCollectible(
-        startX + i * 20,
-        plat.y - 20,
-        type,
-        chunkId
-      ));
+    // Try platform placement first
+    if (platforms.length > 0) {
+      const platIdx = Math.floor(rng(base + g * 10 + 2) * platforms.length);
+      if (platIdx < platforms.length) {
+        const plat = platforms[platIdx];
+        const startX = plat.x + (rng(base + g * 10 + 5) * (plat.width - count * 20));
+        for (let i = 0; i < count; i++) {
+          collectibles.push(createCollectible(startX + i * 20, plat.y - 20, type, chunkId));
+        }
+        continue;
+      }
+    }
+
+    // Ground placement using terrain heights
+    if (terrainHeights && terrainHeights.length > 0) {
+      const startX = rng(base + g * 10 + 6) * (chunkWidth - count * 20 - 40) + 20;
+      for (let i = 0; i < count; i++) {
+        const px = startX + i * 20;
+        const heightIdx = Math.min(Math.floor(px / 4), terrainHeights.length - 1);
+        const groundY = terrainHeights[Math.max(heightIdx, 0)];
+        collectibles.push(createCollectible(chunkX + px, groundY - 20, type, chunkId));
+      }
     }
   }
 
   return collectibles;
 }
 
-/** Spawn enemies for a chunk */
+/** Spawn enemies for a chunk.
+ *  Enemies are placed on ground terrain by default (using terrainHeights).
+ *  If platforms are available, some enemies (bats, ranged types) can be placed on them.
+ */
 export function spawnEnemiesForChunk(
   chunkId: number,
   platforms: { x: number; y: number; width: number }[],
-  rng: (seed: number) => number
+  rng: (seed: number) => number,
+  terrainHeights?: number[],
+  chunkWorldX?: number,
 ): { type: string; x: number; y: number; chunkId: number }[] {
   const enemies: { type: string; x: number; y: number; chunkId: number }[] = [];
   const base = chunkId * 7777;
   const count = 2 + Math.floor(rng(base + 100) * 4);
 
   for (let i = 0; i < count; i++) {
-    const platIdx = Math.floor(rng(base + i * 20 + 101) * platforms.length);
-    if (platIdx >= platforms.length) continue;
-    const plat = platforms[platIdx];
     const roll = rng(base + i * 20 + 102);
 
     let type: string;
@@ -99,23 +111,59 @@ export function spawnEnemiesForChunk(
     else if (roll < 0.75) type = 'jumper';
     else type = 'skeleton';
 
-    enemies.push({
-      type,
-      x: plat.x + rng(base + i * 20 + 103) * plat.width,
-      y: plat.y - 30,
-      chunkId,
-    });
+    // Place on platform if available and enemy type benefits from it
+    if (platforms.length > 0 && (type === 'bat' || rng(base + i * 20 + 104) < 0.3)) {
+      const platIdx = Math.floor(rng(base + i * 20 + 101) * platforms.length);
+      if (platIdx < platforms.length) {
+        const plat = platforms[platIdx];
+        enemies.push({
+          type,
+          x: plat.x + rng(base + i * 20 + 103) * plat.width,
+          y: plat.y - 30,
+          chunkId,
+        });
+        continue;
+      }
+    }
+
+    // Ground placement using terrain heights
+    if (terrainHeights && terrainHeights.length > 0 && chunkWorldX !== undefined) {
+      const CHUNK_WIDTH = 800;
+      const x = rng(base + i * 20 + 105) * (CHUNK_WIDTH - 100) + 50;
+      const heightIdx = Math.floor(x / 4);
+      const safeIdx = Math.min(Math.max(heightIdx, 0), terrainHeights.length - 1);
+      const groundY = terrainHeights[safeIdx];
+
+      enemies.push({
+        type,
+        x: chunkWorldX + x,
+        y: groundY - 30,
+        chunkId,
+      });
+    }
   }
 
   // Boss every 50 chunks
-  if (chunkId > 0 && chunkId % 50 === 0 && platforms.length > 0) {
-    const plat = platforms[0];
-    enemies.push({
-      type: 'boss',
-      x: plat.x + plat.width / 2 - 28,
-      y: plat.y - 70,
-      chunkId,
-    });
+  if (chunkId > 0 && chunkId % 50 === 0) {
+    const CHUNK_WIDTH = 800;
+    if (platforms.length > 0) {
+      const plat = platforms[0];
+      enemies.push({
+        type: 'boss',
+        x: plat.x + plat.width / 2 - 28,
+        y: plat.y - 70,
+        chunkId,
+      });
+    } else if (terrainHeights && terrainHeights.length > 0 && chunkWorldX !== undefined) {
+      // Place boss on ground if no platforms
+      const midIdx = Math.floor(terrainHeights.length / 2);
+      enemies.push({
+        type: 'boss',
+        x: chunkWorldX + CHUNK_WIDTH / 2 - 28,
+        y: terrainHeights[midIdx] - 70,
+        chunkId,
+      });
+    }
   }
 
   return enemies;

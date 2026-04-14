@@ -300,7 +300,7 @@ export class GameEngine {
       const chunkWorldX = chunk.worldX;
 
       // Enemies — densityMult: 0.6 at start → 1.0 at primary ramp → up to ~1.8 later
-      const enemySpawns = spawnEnemiesForChunk(chunk.index, plats, (s) => this.seededRng(s));
+      const enemySpawns = spawnEnemiesForChunk(chunk.index, plats, (s) => this.seededRng(s), chunk.heights, chunkWorldX);
       // Fraction of base pool to use (capped at 100% of available spawns)
       const baseCount = Math.min(
         Math.ceil(enemySpawns.length * Math.min(this.difficulty.densityMult, 1.0)),
@@ -334,7 +334,7 @@ export class GameEngine {
       }
 
       // Collectibles
-      const newCollectibles = spawnCollectiblesForChunk(chunk.index, chunkWorldX, 800, plats, (s) => this.seededRng(s));
+      const newCollectibles = spawnCollectiblesForChunk(chunk.index, chunkWorldX, 800, plats, (s) => this.seededRng(s), chunk.heights);
       this.collectibles.push(...newCollectibles);
 
       // Hazards
