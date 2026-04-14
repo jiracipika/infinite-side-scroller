@@ -6,6 +6,7 @@
 import { Camera } from '../engine/camera';
 import { Chunk, CHUNK_WIDTH } from '../world/chunk';
 import { Player } from '../entities/player';
+import { getCharacterById } from '../data/characters';
 import { Particle } from '../entities/particles';
 import { getBlendedBiomeColors } from '../world/biomes';
 import type { Collectible } from '../entities/Collectibles';
@@ -53,7 +54,11 @@ export class GameRenderer {
 
   private drawMountains(camera: Camera, parallaxFactor: number, amplitude: number, color: string, baseY: number): void {
     const offsetX = camera.renderX * parallaxFactor;
-    const offsetY = camera.renderY * parallaxFactor * 0.3;
+    // Background mountains are decorative — ignore camera Y so they never
+    // clip when the player moves vertically (camera.renderY changes).
+    // Apply only a very subtle parallax capped to ±50px for a depth feel.
+    const rawOffsetY = camera.renderY * parallaxFactor * 0.3;
+    const offsetY = Math.max(-50, Math.min(50, rawOffsetY));
 
     this.ctx.fillStyle = color;
     this.ctx.beginPath();
@@ -272,6 +277,7 @@ export class GameRenderer {
   drawPlayer(player: Player, camera: Camera): void {
     const ctx = this.ctx;
     const screen = camera.worldToScreen(player.x, player.y);
+    const char = getCharacterById(player.characterId);
 
     // Invulnerability flash — blink using timer
     if (player.invulnerable && !player.dashing) {
@@ -284,12 +290,12 @@ export class GameRenderer {
     const h = player.height;
 
     // Body
-    ctx.fillStyle = '#4488cc';
+    ctx.fillStyle = char.bodyColor;
     ctx.fillRect(screen.x, screen.y, w, h);
 
     // Eyes on the facing side
     const eyeX = player.facingRight ? screen.x + w - 12 : screen.x + 4;
-    ctx.fillStyle = '#fff';
+    ctx.fillStyle = char.eyeColor;
     ctx.fillRect(eyeX, screen.y + 6, 4, 4);
     ctx.fillRect(eyeX + 6, screen.y + 6, 4, 4);
     ctx.fillStyle = '#000';
@@ -297,7 +303,7 @@ export class GameRenderer {
     ctx.fillRect(eyeX + 8, screen.y + 8, 2, 2);
 
     // Outline
-    ctx.strokeStyle = '#2a5a8a';
+    ctx.strokeStyle = char.outlineColor;
     ctx.lineWidth = 1;
     ctx.strokeRect(screen.x, screen.y, w, h);
 

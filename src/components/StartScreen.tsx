@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, type FC } from 'react';
 import { useGameStore } from './GameStore';
+import { CHARACTERS, saveSelectedCharacter, loadSelectedCharacter } from '@/game/data/characters';
 import AchievementsModal from './AchievementsModal';
 import ACHIEVEMENTS, { loadUnlockedAchievements } from '@/lib/achievements';
 
@@ -16,9 +17,14 @@ const StartScreen: FC<Props> = ({ onPlay }) => {
   const [showAchievements, setShowAchievements] = useState(false);
   const [achieveCount, setAchieveCount] = useState(0);
   const [mounted, setMounted] = useState(false);
+  const [selectedChar, setSelectedChar] = useState('knight');
 
   useEffect(() => {
     setAchieveCount(loadUnlockedAchievements().length);
+  }, []);
+
+  useEffect(() => {
+    setSelectedChar(loadSelectedCharacter());
   }, []);
 
   useEffect(() => {
@@ -87,6 +93,52 @@ const StartScreen: FC<Props> = ({ onPlay }) => {
             </span>
           </div>
         )}
+
+        {/* ── Character Select ──────────────────────────────── */}
+        <div
+          className="ios-card"
+          style={{ width: '100%', marginBottom: 10, animation: 'iosFadeIn 0.4s ease 0.1s both' }}
+        >
+          <div style={{ padding: '10px' }}>
+            <p className="ios-section-header" style={{ marginBottom: 8 }}>Character</p>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {CHARACTERS.map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => { setSelectedChar(c.id); saveSelectedCharacter(c.id); }}
+                  style={{
+                    flex: 1,
+                    padding: '6px 4px',
+                    borderRadius: 10,
+                    border: selectedChar === c.id ? '2px solid var(--ios-blue)' : '2px solid transparent',
+                    background: selectedChar === c.id ? 'rgba(0,122,255,0.12)' : 'transparent',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: 3,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <div style={{
+                    width: 22,
+                    height: 28,
+                    borderRadius: 4,
+                    background: c.bodyColor,
+                    border: `1.5px solid ${c.outlineColor}`,
+                  }} />
+                  <span className="ios-footnote" style={{
+                    color: selectedChar === c.id ? 'var(--ios-blue)' : 'var(--ios-label)',
+                    fontWeight: selectedChar === c.id ? 700 : 400,
+                    fontSize: 11,
+                  }}>
+                    {c.name}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
 
         {/* ── Play button ──────────────────────────────────── */}
         <div style={{ width: '100%', marginBottom: 10 }}>

@@ -4,6 +4,7 @@
 
 import { InputManager } from '../input/input';
 import type { Platform } from '../world/chunk';
+import type { CharacterDef } from '../data/characters';
 
 export interface PlayerConfig {
   startX: number;
@@ -30,8 +31,8 @@ export class Player {
   y: number;
   vx = 0;
   vy = 0;
-  readonly width: number;
-  readonly height: number;
+  width: number;
+  height: number;
   health = 3;
   maxHealth = 3;
   alive = true;
@@ -39,6 +40,8 @@ export class Player {
   coins = 0;
   distance = 0;
   distanceTraveled = 0;
+
+  characterId: string = 'knight';
 
   invulnerable = false;
   invulnerableTimer = 0;
@@ -82,6 +85,22 @@ export class Player {
     this.y = config.startY;
     this.width = config.width;
     this.height = config.height;
+  }
+
+  /** Apply a character definition's stats and visuals */
+  applyCharacter(char: CharacterDef): void {
+    this.characterId = char.id;
+    this.width = char.width;
+    this.height = char.height;
+    this.maxHealth = char.maxHealth;
+    this.health = char.maxHealth;
+    this.config = {
+      ...DEFAULT_PLAYER_CONFIG,
+      speed: DEFAULT_PLAYER_CONFIG.speed * char.speed,
+      jumpVelocity: DEFAULT_PLAYER_CONFIG.jumpVelocity * char.jumpVelocity,
+      width: char.width,
+      height: char.height,
+    };
   }
 
   update(dt: number, input: InputManager, groundY: number, platforms: Platform[] = []): void {

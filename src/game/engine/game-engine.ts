@@ -20,6 +20,7 @@ import { getDifficulty } from '../difficulty';
 import type { Collectible } from '../entities/Collectibles';
 import { spawnCollectiblesForChunk, spawnEnemiesForChunk } from '../entities/Collectibles';
 import { spawnHazardsForChunk, renderHazard, type Hazard } from '../hazards';
+import { getCharacterById, type CharacterDef } from '../data/characters';
 import type { Platform as PlatformData } from '../world/chunk';
 import { PerformanceProfiler } from './performance-profiler';
 import { EntityPools } from './entity-pools';
@@ -97,15 +98,19 @@ export class GameEngine {
   // Game time for animations
   private gameTime = 0;
 
-  constructor(canvas: HTMLCanvasElement, seed?: number) {
+  private _characterId: string = 'knight';
+
+  constructor(canvas: HTMLCanvasElement, seed?: number, characterId?: string) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d')!;
     if (seed !== undefined) this.worldSeed = seed;
+    if (characterId) this._characterId = characterId;
 
     this.input = new InputManager();
     this.camera = new Camera(DEFAULT_CAMERA_CONFIG);
     this.chunkManager = new ChunkManager(this.worldSeed);
     this.player = new Player(DEFAULT_PLAYER_CONFIG);
+    this.player.applyCharacter(getCharacterById(this._characterId));
     this.player.setDoubleJump(true);
     this.particles = new ParticleSystem();
     this.renderer = new GameRenderer(this.ctx);
@@ -123,10 +128,12 @@ export class GameEngine {
   pause(): void { this._state = 'paused'; }
   resume(): void { this._state = 'playing'; this.lastTime = performance.now(); this.accumulated = 0; }
 
-  setSeed(seed: number): void {
+  setSeed(seed: number, characterId?: string): void {
     this.worldSeed = seed;
+    if (characterId) this._characterId = characterId;
     this.chunkManager = new ChunkManager(this.worldSeed);
     this.player = new Player(DEFAULT_PLAYER_CONFIG);
+    this.player.applyCharacter(getCharacterById(this._characterId));
     this.player.setDoubleJump(true);
     this.particles.clear();
     this.entityPools.clear();

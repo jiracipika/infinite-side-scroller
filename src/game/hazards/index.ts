@@ -2,6 +2,17 @@
  * Hazards - Spikes and falling platforms
  */
 
+import type { Chunk } from '../world/chunk';
+
+/** Interpolate terrain height from heights array at an arbitrary localX */
+function getInterpolatedHeight(heights: number[], localX: number): number {
+  const idx = Math.floor(localX / 4);
+  if (idx < 0) return heights[0];
+  if (idx >= heights.length - 1) return heights[heights.length - 1];
+  const frac = (localX / 4) - idx;
+  return heights[idx] + (heights[idx + 1] - heights[idx]) * frac;
+}
+
 export interface Hazard {
   type: 'spike' | 'falling_platform';
   x: number;
@@ -37,18 +48,15 @@ export function spawnHazardsForChunk(
     const spikeCount = 1 + Math.floor(rng(base + 201) * 3);
     for (let i = 0; i < spikeCount; i++) {
       const localX = rng(base + i * 30 + 202) * 700 + 50;
-      const heightIdx = Math.floor(localX / 4);
-      if (heightIdx < heights.length) {
-        const groundY = heights[heightIdx];
-        hazards.push({
-          type: 'spike',
-          x: chunkWorldX + localX,
-          y: groundY - 12,
-          width: 24 + Math.floor(rng(base + i * 30 + 203) * 3) * 8,
-          height: 12,
-          chunkId,
-        });
-      }
+      const groundY = getInterpolatedHeight(heights, localX);
+      hazards.push({
+        type: 'spike',
+        x: chunkWorldX + localX,
+        y: groundY - 12,
+        width: 24 + Math.floor(rng(base + i * 30 + 203) * 3) * 8,
+        height: 12,
+        chunkId,
+      });
     }
   }
 

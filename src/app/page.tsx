@@ -3,6 +3,7 @@
 import { useEffect, useCallback, useRef } from 'react';
 import { GameEngine } from '@/game';
 import { useGameStore } from '@/components/GameStore';
+import { loadSelectedCharacter } from '@/game/data/characters';
 import StartScreen from '@/components/StartScreen';
 import PauseMenu from '@/components/PauseMenu';
 import GameOverScreen from '@/components/GameOverScreen';
@@ -25,7 +26,8 @@ export default function Home() {
 
   useEffect(() => {
     if (!canvasRef.current) return;
-    const game = new GameEngine(canvasRef.current, 42);
+    const charId = loadSelectedCharacter();
+    const game = new GameEngine(canvasRef.current, 42, charId);
     gameRef.current = game;
 
     game.onStatsUpdate = (s) => onStatsRef.current(s);
@@ -64,8 +66,9 @@ export default function Home() {
 
   const handlePlay = useCallback((seed?: number) => {
     const s = seed ?? Math.floor(Math.random() * 999999);
+    const charId = loadSelectedCharacter();
     startGame(s);
-    gameRef.current?.setSeed(s);
+    gameRef.current?.setSeed(s, charId);
   }, [startGame]);
 
   const handlePause = useCallback(() => {
@@ -86,7 +89,7 @@ export default function Home() {
 
   const handleQuit = useCallback(() => {
     quitToMenu();
-    gameRef.current?.setSeed(42); // restore demo world on menu
+    gameRef.current?.setSeed(42, loadSelectedCharacter()); // restore demo world on menu
   }, [quitToMenu]);
 
   return (
