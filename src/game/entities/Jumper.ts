@@ -53,37 +53,43 @@ export class Jumper extends Enemy {
     const sx = this.x - cameraX;
     const sy = this.y;
 
-    // Squash/stretch based on vertical velocity
     const stretch = this.onGround ? 1.0 : (this.vy < 0 ? 0.8 : 1.15);
     const w = this.width * (2 - stretch);
     const h = this.height * stretch;
+    const cx = sx + this.width / 2;
+    const cy = sy + this.height - 2;
 
     ctx.save();
 
-    // Body
-    ctx.fillStyle = this.chasing ? '#CC4444' : '#CC8844';
+    const body = ctx.createLinearGradient(0, sy, 0, sy + this.height);
+    body.addColorStop(0, this.chasing ? '#f97316' : '#f59e0b');
+    body.addColorStop(1, this.chasing ? '#b91c1c' : '#9a3412');
+    ctx.fillStyle = body;
     ctx.beginPath();
-    ctx.ellipse(sx + this.width / 2, sy + this.height, w / 2, h / 2, 0, 0, Math.PI * 2);
+    ctx.ellipse(cx, cy, w / 2, h / 2, 0, 0, Math.PI * 2);
     ctx.fill();
+    ctx.strokeStyle = '#7c2d12';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
 
     // Legs (visible when hopping)
     if (!this.onGround) {
-      ctx.fillStyle = '#AA6633';
+      ctx.fillStyle = '#78350f';
       ctx.fillRect(sx + 3, sy + this.height - 2, 5, 8);
       ctx.fillRect(sx + this.width - 8, sy + this.height - 2, 5, 8);
     }
 
     // Eyes
-    ctx.fillStyle = '#fff';
+    ctx.fillStyle = '#fff7ed';
     ctx.fillRect(sx + 5, sy + 5, 5, 6);
     ctx.fillRect(sx + 14, sy + 5, 5, 6);
-    ctx.fillStyle = this.chasing ? '#FF0000' : '#000';
+    ctx.fillStyle = this.chasing ? '#7f1d1d' : '#111827';
     ctx.fillRect(sx + 7, sy + 8, 2, 3);
     ctx.fillRect(sx + 16, sy + 8, 2, 3);
 
-    // Angry eyebrows when chasing
+    // Brows and jaw
     if (this.chasing) {
-      ctx.strokeStyle = '#000';
+      ctx.strokeStyle = '#1f2937';
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.moveTo(sx + 5, sy + 4);
@@ -94,6 +100,11 @@ export class Jumper extends Enemy {
       ctx.lineTo(sx + 14, sy + 6);
       ctx.stroke();
     }
+    ctx.strokeStyle = '#7c2d12';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(cx, sy + 16, 4, 0.2 * Math.PI, 0.8 * Math.PI);
+    ctx.stroke();
 
     ctx.restore();
   }

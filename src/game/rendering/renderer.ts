@@ -278,43 +278,88 @@ export class GameRenderer {
     const ctx = this.ctx;
     const screen = camera.worldToScreen(player.x, player.y);
     const char = getCharacterById(player.characterId);
-
-    // Invulnerability flash — blink using timer
-    if (player.invulnerable && !player.dashing) {
-      // Blink: 6 blinks per second (3Hz flash)
-      const blinkRate = 6;
-      const t = player.invulnerableTimer * blinkRate;
-      ctx.globalAlpha = Math.floor(t) % 2 === 0 ? 0.4 : 1.0;
-    }
     const w = player.width;
     const h = player.height;
+    const moving = Math.abs(player.vx) > 30;
+    const stride = Math.sin(player.distanceTraveled * 0.22) * (moving ? 2.6 : 0.8);
+    const bob = player.onGround ? Math.abs(stride) * 0.22 : -1.5;
+    const sy = screen.y + bob;
 
-    // Body
-    ctx.fillStyle = char.bodyColor;
-    ctx.fillRect(screen.x, screen.y, w, h);
-
-    // Eyes on the facing side
-    const eyeX = player.facingRight ? screen.x + w - 12 : screen.x + 4;
-    ctx.fillStyle = char.eyeColor;
-    ctx.fillRect(eyeX, screen.y + 6, 4, 4);
-    ctx.fillRect(eyeX + 6, screen.y + 6, 4, 4);
-    ctx.fillStyle = '#000';
-    ctx.fillRect(eyeX + 2, screen.y + 8, 2, 2);
-    ctx.fillRect(eyeX + 8, screen.y + 8, 2, 2);
-
-    // Outline
-    ctx.strokeStyle = char.outlineColor;
-    ctx.lineWidth = 1;
-    ctx.strokeRect(screen.x, screen.y, w, h);
-
-    // Wall slide indicator
-    if (player.wallSliding) {
-      ctx.fillStyle = '#ffffff60';
-      const slideX = player.facingRight ? screen.x + w : screen.x - 2;
-      ctx.fillRect(slideX, screen.y + 4, 2, h - 8);
+    ctx.save();
+    if (player.invulnerable && !player.dashing) {
+      const blinkRate = 6;
+      const t = player.invulnerableTimer * blinkRate;
+      ctx.globalAlpha = Math.floor(t) % 2 === 0 ? 0.42 : 1.0;
     }
 
-    ctx.globalAlpha = 1.0;
+    // Grounded shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.24)';
+    ctx.beginPath();
+    ctx.ellipse(screen.x + w / 2, sy + h + 4, w * 0.42, h * 0.16, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.translate(screen.x + w / 2, sy + h / 2);
+    ctx.scale(player.facingRight ? 1 : -1, 1);
+    ctx.translate(-w / 2, -h / 2);
+
+    // Legs
+    ctx.fillStyle = char.outlineColor;
+    ctx.fillRect(4, h - 10, 5, 10 + stride);
+    ctx.fillRect(w - 9, h - 10, 5, 10 - stride);
+    ctx.fillStyle = '#131721';
+    ctx.fillRect(3, h - 2, 7, 2);
+    ctx.fillRect(w - 10, h - 2, 7, 2);
+
+    // Torso
+    const torso = ctx.createLinearGradient(0, 0, 0, h);
+    torso.addColorStop(0, char.bodyColor);
+    torso.addColorStop(1, char.outlineColor);
+    ctx.fillStyle = torso;
+    ctx.fillRect(1, 4, w - 2, h - 8);
+
+    // Chest plate / trim
+    ctx.fillStyle = 'rgba(255,255,255,0.16)';
+    ctx.fillRect(4, 8, w - 8, 6);
+    ctx.fillStyle = 'rgba(0,0,0,0.2)';
+    ctx.fillRect(4, 15, w - 8, 2);
+
+    // Head / visor
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(3, 4, w - 6, 10);
+    ctx.fillStyle = char.eyeColor;
+    ctx.fillRect(w - 12, 7, 3, 3);
+    ctx.fillRect(w - 7, 7, 3, 3);
+    ctx.fillStyle = '#020617';
+    ctx.fillRect(w - 11, 8, 1, 1);
+    ctx.fillRect(w - 6, 8, 1, 1);
+
+    // Cape / trail ribbon
+    ctx.fillStyle = 'rgba(244,114,182,0.45)';
+    ctx.beginPath();
+    ctx.moveTo(2, 11);
+    ctx.lineTo(-5 - Math.max(0, stride), 16);
+    ctx.lineTo(2, 21);
+    ctx.closePath();
+    ctx.fill();
+
+    // Dash accent
+    if (player.dashing) {
+      ctx.fillStyle = 'rgba(125,211,252,0.42)';
+      ctx.fillRect(-8, 8, 8, h - 12);
+    }
+
+    // Outline and wall-slide sparks
+    ctx.strokeStyle = char.outlineColor;
+    ctx.lineWidth = 1.2;
+    ctx.strokeRect(1, 4, w - 2, h - 8);
+    if (player.wallSliding) {
+      ctx.fillStyle = '#fef08a';
+      ctx.fillRect(w + 1, h - 9, 2, 2);
+      ctx.fillRect(w + 3, h - 5, 2, 2);
+    }
+
+    ctx.restore();
+    ctx.globalAlpha = 1;
   }
 
   drawCollectible(c: Collectible, camera: Camera): void {
@@ -322,79 +367,111 @@ export class GameRenderer {
     const screen = camera.worldToScreen(c.x, c.y);
     const bob = Math.sin(c.animTimer * 3) * 3;
     const sy = screen.y + bob;
+    const cx = screen.x + c.width / 2;
+    const cy = sy + c.height / 2;
+    const radius = c.width / 2;
 
     ctx.save();
     switch (c.type) {
       case 'coin': {
-        // Gold coin
-        ctx.fillStyle = '#fbbf24';
+        this.drawCollectibleOrb(cx, cy, radius, '#fde68a', '#f59e0b');
+        ctx.strokeStyle = '#7c2d12';
+        ctx.lineWidth = 1.5;
         ctx.beginPath();
-        ctx.arc(screen.x + c.width / 2, sy + c.height / 2, c.width / 2, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = '#f59e0b';
+        ctx.arc(cx, cy, radius * 0.52, 0, Math.PI * 2);
+        ctx.stroke();
         ctx.beginPath();
-        ctx.arc(screen.x + c.width / 2, sy + c.height / 2, c.width / 3, 0, Math.PI * 2);
-        ctx.fill();
-        // $ symbol
-        ctx.fillStyle = '#92400e';
-        ctx.font = 'bold 10px system-ui';
-        ctx.textAlign = 'center';
-        ctx.fillText('$', screen.x + c.width / 2, sy + c.height / 2 + 4);
+        ctx.moveTo(cx - 2, cy - 4);
+        ctx.lineTo(cx + 2, cy - 4);
+        ctx.lineTo(cx - 2, cy + 4);
+        ctx.lineTo(cx + 2, cy + 4);
+        ctx.stroke();
         break;
       }
       case 'health': {
-        ctx.fillStyle = '#ef4444';
-        ctx.font = `${c.width}px system-ui`;
-        ctx.textAlign = 'center';
-        ctx.fillText('♥', screen.x + c.width / 2, sy + c.height);
+        this.drawCollectibleOrb(cx, cy, radius, '#fca5a5', '#dc2626');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(cx - 1.5, cy - 5, 3, 10);
+        ctx.fillRect(cx - 5, cy - 1.5, 10, 3);
         break;
       }
       case 'speedBoost': {
-        ctx.fillStyle = '#3b82f6';
+        this.drawCollectibleOrb(cx, cy, radius, '#93c5fd', '#2563eb');
+        ctx.fillStyle = '#eff6ff';
         ctx.beginPath();
-        ctx.arc(screen.x + c.width / 2, sy + c.height / 2, c.width / 2, 0, Math.PI * 2);
+        ctx.moveTo(cx + 1, cy - 6);
+        ctx.lineTo(cx - 3, cy - 1);
+        ctx.lineTo(cx + 0.5, cy - 1);
+        ctx.lineTo(cx - 1, cy + 6);
+        ctx.lineTo(cx + 4, cy);
+        ctx.lineTo(cx + 1, cy);
+        ctx.closePath();
         ctx.fill();
-        ctx.fillStyle = '#fff';
-        ctx.font = 'bold 12px system-ui';
-        ctx.textAlign = 'center';
-        ctx.fillText('⚡', screen.x + c.width / 2, sy + c.height / 2 + 4);
         break;
       }
       case 'doubleJump': {
-        ctx.fillStyle = '#a855f7';
+        this.drawCollectibleOrb(cx, cy, radius, '#d8b4fe', '#9333ea');
+        ctx.strokeStyle = '#faf5ff';
+        ctx.lineWidth = 1.8;
         ctx.beginPath();
-        ctx.arc(screen.x + c.width / 2, sy + c.height / 2, c.width / 2, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = '#fff';
-        ctx.font = 'bold 10px system-ui';
-        ctx.textAlign = 'center';
-        ctx.fillText('⇈', screen.x + c.width / 2, sy + c.height / 2 + 4);
+        ctx.moveTo(cx - 5, cy + 3);
+        ctx.lineTo(cx - 1.5, cy - 2);
+        ctx.lineTo(cx + 2, cy + 3);
+        ctx.moveTo(cx - 2, cy + 5);
+        ctx.lineTo(cx + 1.5, cy);
+        ctx.lineTo(cx + 5, cy + 5);
+        ctx.stroke();
         break;
       }
       case 'shield': {
-        ctx.fillStyle = '#06b6d4';
+        this.drawCollectibleOrb(cx, cy, radius, '#67e8f9', '#0891b2');
+        ctx.fillStyle = '#ecfeff';
         ctx.beginPath();
-        ctx.arc(screen.x + c.width / 2, sy + c.height / 2, c.width / 2, 0, Math.PI * 2);
+        ctx.moveTo(cx, cy - 6);
+        ctx.lineTo(cx + 5, cy - 3);
+        ctx.lineTo(cx + 4, cy + 4);
+        ctx.lineTo(cx, cy + 7);
+        ctx.lineTo(cx - 4, cy + 4);
+        ctx.lineTo(cx - 5, cy - 3);
+        ctx.closePath();
         ctx.fill();
-        ctx.fillStyle = '#fff';
-        ctx.font = 'bold 12px system-ui';
-        ctx.textAlign = 'center';
-        ctx.fillText('🛡', screen.x + c.width / 2, sy + c.height / 2 + 5);
         break;
       }
       case 'magnet': {
-        ctx.fillStyle = '#f59e0b';
+        this.drawCollectibleOrb(cx, cy, radius, '#fdba74', '#ea580c');
+        ctx.strokeStyle = '#fff7ed';
+        ctx.lineWidth = 3;
         ctx.beginPath();
-        ctx.arc(screen.x + c.width / 2, sy + c.height / 2, c.width / 2, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = '#fff';
-        ctx.font = 'bold 12px system-ui';
-        ctx.textAlign = 'center';
-        ctx.fillText('🧲', screen.x + c.width / 2, sy + c.height / 2 + 5);
+        ctx.arc(cx, cy - 1, 4, Math.PI * 0.15, Math.PI * 0.85, true);
+        ctx.stroke();
+        ctx.fillStyle = '#dc2626';
+        ctx.fillRect(cx - 6, cy + 1, 4, 3);
+        ctx.fillStyle = '#2563eb';
+        ctx.fillRect(cx + 2, cy + 1, 4, 3);
         break;
       }
     }
     ctx.restore();
+  }
+
+  private drawCollectibleOrb(cx: number, cy: number, radius: number, glowColor: string, baseColor: string): void {
+    const ctx = this.ctx;
+    const grad = ctx.createRadialGradient(cx - radius * 0.35, cy - radius * 0.4, 1, cx, cy, radius);
+    grad.addColorStop(0, glowColor);
+    grad.addColorStop(1, baseColor);
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = 'rgba(15,23,42,0.45)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    ctx.fillStyle = 'rgba(255,255,255,0.28)';
+    ctx.beginPath();
+    ctx.arc(cx - radius * 0.35, cy - radius * 0.35, radius * 0.32, 0, Math.PI * 2);
+    ctx.fill();
   }
 
   /** Clear the terrain cache */

@@ -20,7 +20,7 @@ import { getDifficulty } from '../difficulty';
 import type { Collectible } from '../entities/Collectibles';
 import { spawnCollectiblesForChunk, spawnEnemiesForChunk } from '../entities/Collectibles';
 import { spawnHazardsForChunk, renderHazard, type Hazard } from '../hazards';
-import { getCharacterById, type CharacterDef } from '../data/characters';
+import { getCharacterById } from '../data/characters';
 import type { Platform as PlatformData } from '../world/chunk';
 import { PerformanceProfiler } from './performance-profiler';
 import { EntityPools } from './entity-pools';
@@ -160,9 +160,10 @@ export class GameEngine {
     const rect = this.canvas.getBoundingClientRect();
     const width = rect.width;
     const height = rect.height;
+    this.ctx.setTransform(1, 0, 0, 1, 0, 0);
     this.canvas.width = width * dpr;
     this.canvas.height = height * dpr;
-    this.ctx.scale(dpr, dpr);
+    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     this.renderer.resize(width, height);
     this.camera.setScreenSize(width, height);
   };
@@ -241,26 +242,47 @@ export class GameEngine {
     }
   }
 
-  private getNearbyPlatforms(): PlatformData[] {
+  private isPlatformReplacedByFallingHazard(chunkId: number, platform: PlatformData): boolean {
+    return this.hazards.some((h) =>
+      h.type === 'falling_platform'
+      && h.chunkId === chunkId
+      && Math.abs(h.x - platform.x) < 0.5
+      && Math.abs(h.y - platform.y) < 0.5
+      && Math.abs(h.width - platform.width) < 0.5
+    );
+  }
+
+  private getActivePlatforms(rangeCenterX?: number, range: number = Infinity): PlatformData[] {
     const chunks = this.chunkManager.getLoadedChunks();
     const platforms: PlatformData[] = [];
-    const px = this.player.centerX;
-    const range = 600;
+    const minX = rangeCenterX !== undefined ? rangeCenterX - range : -Infinity;
+    const maxX = rangeCenterX !== undefined ? rangeCenterX + range : Infinity;
+
     for (const chunk of chunks) {
       for (const plat of chunk.platforms) {
-        // Include platforms that overlap the range (not just fully contained)
-        if (plat.x + plat.width > px - range && plat.x < px + range) {
-          // Apply moving platform offset
-          if (plat.moveAmp && plat.moveSpeed) {
-            const offsetY = Math.sin(this.gameTime * plat.moveSpeed) * plat.moveAmp;
-            platforms.push({ x: plat.x, y: plat.y + offsetY, width: plat.width });
-          } else {
-            platforms.push(plat);
-          }
+        if (this.isPlatformReplacedByFallingHazard(chunk.index, plat)) continue;
+        if (plat.x + plat.width <= minX || plat.x >= maxX) continue;
+
+        if (plat.moveAmp && plat.moveSpeed) {
+          const offsetY = Math.sin(this.gameTime * plat.moveSpeed) * plat.moveAmp;
+          platforms.push({ x: plat.x, y: plat.y + offsetY, width: plat.width });
+        } else {
+          platforms.push(plat);
         }
       }
     }
+
+    for (const h of this.hazards) {
+      if (h.type !== 'falling_platform' || h.destroyed || h.falling || h.vy === undefined) continue;
+      if (h.x + h.width <= minX || h.x >= maxX) continue;
+      platforms.push({ x: h.x, y: h.y, width: h.width });
+    }
+
     return platforms;
+  }
+
+  private getNearbyPlatforms(): PlatformData[] {
+    return this.getActivePlatforms(this.player.centerX, 600);
   }
 
   private getGroundY(worldX: number): number {
@@ -336,6 +358,7 @@ export class GameEngine {
           this.difficulty.damageMult,
           this.difficulty.healthMult,
           this.difficulty.detectRangeMult,
+          this.difficulty.shootCooldownMult,
         );
         this.enemies.push(enemy);
       }
@@ -349,40 +372,56 @@ export class GameEngine {
         chunk.index, plats, chunk.heights, chunkWorldX, (s) => this.seededRng(s)
       );
       this.hazards.push(...newHazards);
+
+      const replacedPlatforms = newHazards.filter((h) => h.type === 'falling_platform');
+      if (replacedPlatforms.length > 0) {
+        for (let i = chunk.platforms.length - 1; i >= 0; i--) {
+          const plat = chunk.platforms[i];
+          const replaced = replacedPlatforms.some((h) =>
+            Math.abs(h.x - plat.x) < 0.5
+            && Math.abs(h.y - plat.y) < 0.5
+            && Math.abs(h.width - plat.width) < 0.5
+          );
+          if (replaced) chunk.platforms.splice(i, 1);
+        }
+      }
     }
   }
 
   /** Update enemy ground state from terrain */
-  private updateEnemyGround(enemy: Enemy): void {
-    const groundY = this.chunkManager.getHeight(enemy.x + enemy.width / 2);
-    if (enemy.y + enemy.height >= groundY && groundY !== Infinity) {
-      enemy.y = groundY - enemy.height;
+  private updateEnemyGround(enemy: Enemy, platforms: PlatformData[], dt: number): void {
+    const enemyBottom = enemy.y + enemy.height;
+    const prevBottom = enemyBottom - enemy.vy * dt;
+
+    let supportY = this.chunkManager.getHeight(enemy.x + enemy.width / 2);
+    for (const plat of platforms) {
+      if (enemy.x + enemy.width <= plat.x || enemy.x >= plat.x + plat.width) continue;
+      // Ignore platforms that are far above the enemy to avoid snapping upward.
+      if (enemyBottom > plat.y + Math.max(14, enemy.height * 0.75)) continue;
+      supportY = Math.min(supportY, plat.y);
+    }
+
+    if (
+      enemy.vy >= 0
+      && supportY !== Infinity
+      && prevBottom <= supportY + 3
+      && enemyBottom >= supportY - 3
+    ) {
+      enemy.y = supportY - enemy.height;
       enemy.vy = 0;
       enemy.onGround = true;
-    } else {
-      // Also check platforms
-      for (const h of this.hazards) {
-        if (h.type === 'falling_platform' && !h.destroyed && h.vy !== undefined && (h.vy === 0 || h.falling === false)) {
-          if (enemy.x + enemy.width > h.x && enemy.x < h.x + h.width) {
-            if (enemy.vy >= 0 && enemy.y + enemy.height >= h.y && enemy.y + enemy.height <= h.y + 12) {
-              enemy.y = h.y - enemy.height;
-              enemy.vy = 0;
-              enemy.onGround = true;
-              return;
-            }
-          }
-        }
-      }
-      enemy.onGround = false;
+      return;
     }
+
+    enemy.onGround = false;
   }
 
   private update(dt: number): void {
     this.gameTime += dt;
 
-        // Update chunks — use a position slightly ahead of the player so enemies spawn in view
+    // Update chunks — use a position slightly ahead of the player so enemies spawn in view.
     const lookAheadPx = this.camera.x + this.camera.renderX > 0
-      ? Math.max(this.player.centerX, this.camera.x + (this.camera as any).screenWidth * 0.6)
+      ? Math.max(this.player.centerX, this.camera.x + this.camera.viewportWidth * 0.6)
       : this.player.centerX;
     this.chunkManager.update(lookAheadPx);
 
@@ -395,8 +434,9 @@ export class GameEngine {
     // Also clean up enemy projectiles before removing enemies
     for (const enemy of this.enemies) {
       if (!enemy.alive || Math.abs(enemy.x - px) >= cleanupRange) {
-        if ('projectiles' in enemy && Array.isArray((enemy as any).projectiles)) {
-          (enemy as any).projectiles.length = 0;
+        const maybeProjectiles = (enemy as Enemy & { projectiles?: unknown }).projectiles;
+        if (Array.isArray(maybeProjectiles)) {
+          maybeProjectiles.length = 0;
         }
       }
     }
@@ -416,14 +456,7 @@ export class GameEngine {
     // Ground & platforms
     const groundY = this.getGroundY(this.player.centerX);
     const platforms = this.getNearbyPlatforms();
-
-    // Build platform list including non-falling hazards for player collision
-    const allPlatforms = [...platforms];
-    for (const h of this.hazards) {
-      if (h.type === 'falling_platform' && !h.destroyed && !h.falling && h.vy !== undefined) {
-        allPlatforms.push({ x: h.x, y: h.y, width: h.width } as PlatformData);
-      }
-    }
+    const enemyPlatforms = this.getActivePlatforms();
 
     const wallSide = this.checkWallCollision();
     this.player.touchingWall = wallSide !== null;
@@ -431,7 +464,7 @@ export class GameEngine {
     if (wallSide === 'right') this.player.facingRight = true;
 
     this.wasOnGround = this.player.onGround;
-    this.player.update(dt, this.input, groundY, allPlatforms);
+    this.player.update(dt, this.input, groundY, platforms);
 
     // Landing particles
     if (this.player.onGround && !this.wasOnGround) {
@@ -496,7 +529,7 @@ export class GameEngine {
       if (!enemy.alive) continue;
 
       enemy.update(dt, this.player.centerX, this.player.centerY);
-      this.updateEnemyGround(enemy);
+      this.updateEnemyGround(enemy, enemyPlatforms, dt);
 
       // Score per kill scales by enemy type
       const KILL_SCORES: Record<string, number> = { slime: 100, bat: 150, jumper: 200, skeleton: 250, boss: 1000 };

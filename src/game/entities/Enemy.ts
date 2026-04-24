@@ -36,6 +36,7 @@ export abstract class Enemy {
   speedMult = 1;
   damageMult = 1;
   healthMult = 1;
+  shootCooldownMult = 1;
 
   constructor(x: number, y: number, type: EnemyType, config?: Partial<EnemyConfig>) {
     this.x = x;
@@ -50,10 +51,17 @@ export abstract class Enemy {
   }
 
   /** Apply difficulty multipliers */
-  applyDifficulty(speedMult: number, damageMult: number, healthMult: number, detectMult: number): void {
+  applyDifficulty(
+    speedMult: number,
+    damageMult: number,
+    healthMult: number,
+    detectMult: number,
+    shootCooldownMult: number = 1
+  ): void {
     this.speedMult = speedMult;
     this.damageMult = damageMult;
     this.healthMult = healthMult;
+    this.shootCooldownMult = shootCooldownMult;
     this.detectRange *= detectMult;
     // Scale health on spawn
     if (this.health === this.maxHealth) {

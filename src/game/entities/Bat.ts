@@ -55,33 +55,44 @@ export class Bat extends Enemy {
     const sx = this.x - cameraX;
     const sy = this.y;
 
-    const wingFlap = Math.sin(this.animTimer * 15) * 8;
+    const wingFlap = Math.sin(this.animTimer * 18) * 9;
+    const bodyX = sx + this.width / 2;
+    const bodyY = sy + this.height / 2;
 
     ctx.save();
-    ctx.fillStyle = '#8844AA';
-
-    // Body
+    ctx.fillStyle = '#5b21b6';
     ctx.beginPath();
-    ctx.ellipse(sx + this.width / 2, sy + this.height / 2, 10, 7, 0, 0, Math.PI * 2);
+    ctx.ellipse(bodyX, bodyY, 10, 7, 0, 0, Math.PI * 2);
     ctx.fill();
+    ctx.strokeStyle = '#2e1065';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
 
     // Wings
+    ctx.fillStyle = this.chasing ? '#7c3aed' : '#6d28d9';
     ctx.beginPath();
     ctx.moveTo(sx + 6, sy + 8);
-    ctx.lineTo(sx - 6, sy + 2 + wingFlap);
-    ctx.lineTo(sx + 4, sy + 14);
+    ctx.quadraticCurveTo(sx - 10, sy + 4 + wingFlap, sx + 4, sy + 15);
+    ctx.lineTo(sx + 9, sy + 12);
     ctx.fill();
 
     ctx.beginPath();
     ctx.moveTo(sx + 22, sy + 8);
-    ctx.lineTo(sx + 34, sy + 2 - wingFlap);
-    ctx.lineTo(sx + 24, sy + 14);
+    ctx.quadraticCurveTo(sx + 38, sy + 4 - wingFlap, sx + 24, sy + 15);
+    ctx.lineTo(sx + 19, sy + 12);
     ctx.fill();
 
-    // Eyes
-    ctx.fillStyle = '#FF4444';
-    ctx.fillRect(sx + 9, sy + 6, 3, 3);
-    ctx.fillRect(sx + 16, sy + 6, 3, 3);
+    ctx.fillStyle = '#fef3c7';
+    ctx.fillRect(sx + 9, sy + 7, 3, 3);
+    ctx.fillRect(sx + 16, sy + 7, 3, 3);
+    ctx.fillStyle = '#dc2626';
+    ctx.fillRect(sx + 10, sy + 8, 1, 1);
+    ctx.fillRect(sx + 17, sy + 8, 1, 1);
+
+    // Tiny fangs
+    ctx.fillStyle = '#f8fafc';
+    ctx.fillRect(bodyX - 2, sy + 13, 1.5, 2);
+    ctx.fillRect(bodyX + 0.5, sy + 13, 1.5, 2);
 
     ctx.restore();
   }

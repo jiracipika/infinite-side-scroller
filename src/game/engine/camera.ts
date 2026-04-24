@@ -33,6 +33,8 @@ export class Camera {
   private config: CameraConfig;
   private screenWidth = 800;
   private screenHeight = 600;
+  get viewportWidth(): number { return this.screenWidth; }
+  get viewportHeight(): number { return this.screenHeight; }
 
   // Screen shake
   private shakeIntensity = 0;

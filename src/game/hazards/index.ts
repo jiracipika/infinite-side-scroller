@@ -85,17 +85,17 @@ export function spawnHazardsForChunk(
 /** Render a hazard */
 export function renderHazard(ctx: CanvasRenderingContext2D, h: Hazard, cameraX: number) {
   const sx = h.x - cameraX;
-  const sy = h.type === 'falling_platform' ? h.y : h.y;
+  const sy = h.y;
 
   if (h.destroyed) return;
 
   ctx.save();
 
   if (h.type === 'spike') {
-    // Draw triangular spikes
+    // Carved obsidian spikes
     const count = Math.floor(h.width / 12);
-    ctx.fillStyle = '#888';
-    ctx.strokeStyle = '#555';
+    ctx.fillStyle = '#475569';
+    ctx.strokeStyle = '#0f172a';
     ctx.lineWidth = 1;
     for (let i = 0; i < count; i++) {
       const bx = sx + i * 12;
@@ -107,8 +107,8 @@ export function renderHazard(ctx: CanvasRenderingContext2D, h: Hazard, cameraX: 
       ctx.fill();
       ctx.stroke();
     }
-    // Metallic shine
-    ctx.fillStyle = '#AAA';
+    // Inner edge glow
+    ctx.fillStyle = 'rgba(148,163,184,0.65)';
     for (let i = 0; i < count; i++) {
       const bx = sx + i * 12;
       ctx.beginPath();
@@ -119,16 +119,21 @@ export function renderHazard(ctx: CanvasRenderingContext2D, h: Hazard, cameraX: 
       ctx.fill();
     }
   } else if (h.type === 'falling_platform') {
-    // Crumbling platform - visual shake when timer is active
+    // Crumbling platform with warning cracks
     const shakeX = h.crumbleTimer && h.crumbleTimer > 0 && !h.falling
       ? (Math.random() - 0.5) * 2 : 0;
     const alpha = h.crumbleTimer && h.crumbleTimer > 0.4 ? 0.6 : 1.0;
     ctx.globalAlpha = alpha;
-    ctx.fillStyle = '#A0522D';
+    const grad = ctx.createLinearGradient(sx, sy, sx, sy + h.height);
+    grad.addColorStop(0, '#7c3f1d');
+    grad.addColorStop(1, '#4a2714');
+    ctx.fillStyle = grad;
     ctx.fillRect(sx + shakeX, sy, h.width, h.height);
+    ctx.strokeStyle = '#2a1409';
+    ctx.strokeRect(sx + shakeX, sy, h.width, h.height);
     // Crack lines when crumbling
     if (h.crumbleTimer && h.crumbleTimer > 0) {
-      ctx.strokeStyle = '#654321';
+      ctx.strokeStyle = '#fca5a5';
       ctx.lineWidth = 1;
       const cx = sx + h.width / 2 + shakeX;
       ctx.beginPath();

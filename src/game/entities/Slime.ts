@@ -54,24 +54,43 @@ export class Slime extends Enemy {
     const sx = this.x - cameraX;
     const sy = this.y;
 
-    // Squish animation
-    const squish = this.onGround ? 1 + Math.sin(this.animTimer * 3) * 0.1 : 0.85;
+    const squish = this.onGround ? 1 + Math.sin(this.animTimer * 7) * 0.1 : 0.85;
     const w = this.width * (2 - squish);
     const h = this.height * squish;
+    const cx = sx + this.width / 2;
+    const cy = sy + this.height - h * 0.1;
 
     ctx.save();
-    ctx.fillStyle = '#44BB44';
+    const bodyGradient = ctx.createRadialGradient(cx - 4, cy - 8, 2, cx, cy, w * 0.7);
+    bodyGradient.addColorStop(0, '#86efac');
+    bodyGradient.addColorStop(1, '#16a34a');
+    ctx.fillStyle = bodyGradient;
     ctx.beginPath();
-    ctx.ellipse(sx + this.width / 2, sy + this.height, w / 2, h / 2, 0, 0, Math.PI * 2);
+    ctx.ellipse(cx, cy, w / 2, h / 2, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#14532d';
+    ctx.lineWidth = 1.3;
+    ctx.stroke();
+
+    // Slime sheen and eyes
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.beginPath();
+    ctx.ellipse(cx - w * 0.16, cy - h * 0.22, w * 0.14, h * 0.11, -0.2, 0, Math.PI * 2);
     ctx.fill();
 
-    // Eyes
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(sx + 6, sy + 6, 5, 5);
-    ctx.fillRect(sx + 17, sy + 6, 5, 5);
-    ctx.fillStyle = '#000';
-    ctx.fillRect(sx + 8, sy + 8, 2, 2);
-    ctx.fillRect(sx + 19, sy + 8, 2, 2);
+    const eyeY = sy + 8;
+    ctx.fillStyle = '#f8fafc';
+    ctx.fillRect(sx + 6, eyeY, 5, 4);
+    ctx.fillRect(sx + 17, eyeY, 5, 4);
+    ctx.fillStyle = '#052e16';
+    ctx.fillRect(sx + 8, eyeY + 1, 2, 2);
+    ctx.fillRect(sx + 19, eyeY + 1, 2, 2);
+
+    ctx.strokeStyle = '#14532d';
+    ctx.lineWidth = 1.1;
+    ctx.beginPath();
+    ctx.arc(cx, sy + 16, 4, 0.1 * Math.PI, 0.9 * Math.PI);
+    ctx.stroke();
 
     ctx.restore();
   }

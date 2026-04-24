@@ -91,6 +91,9 @@ export class InputManager {
     if ((code === 'Space' || code === 'ArrowUp' || code === 'KeyW') && this.touchJumpPressed) {
       return true;
     }
+    if ((code === 'KeyX' || code === 'ShiftLeft') && this.touchDashPressed) {
+      return true;
+    }
     if ((code === 'KeyE' || code === 'KeyJ') && this.touchAttackPressed) {
       return true;
     }
@@ -107,6 +110,7 @@ export class InputManager {
     this.prevKeys = new Set(this.keys);
     this.touchJumpPressed = false;
     this.touchAttackPressed = false;
+    this.touchDashPressed = false;
   }
 
   /** Clean up event listeners */

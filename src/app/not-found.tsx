@@ -11,7 +11,7 @@ export default function NotFound() {
           Game Over
         </h1>
         <p style={{ fontSize: 15, color: 'rgba(235,235,245,0.55)', lineHeight: 1.5, letterSpacing: '-0.23px', marginBottom: 24 }}>
-          This page doesn't exist. But the adventure continues.
+          This page doesn&apos;t exist. But the adventure continues.
         </p>
         <Link
           href="/"

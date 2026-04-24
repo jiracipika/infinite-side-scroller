@@ -45,7 +45,7 @@ export class Boss extends Enemy {
     }
 
     // Shoot projectiles
-    const cooldown = SHOOT_COOLDOWN / this.speedMult;
+    const cooldown = Math.max(0.16, (SHOOT_COOLDOWN / this.speedMult) * this.shootCooldownMult);
     if (this.shootTimer >= cooldown) {
       this.shootTimer = 0;
       this.shoot(playerX, playerY);
@@ -92,48 +92,80 @@ export class Boss extends Enemy {
     if (!this.alive) return;
     const sx = this.x - cameraX;
     const sy = this.y;
+    const pulse = 0.9 + Math.sin(this.animTimer * 4) * 0.1;
 
     ctx.save();
 
-    // Body
-    ctx.fillStyle = '#8B0000';
+    const shell = ctx.createLinearGradient(sx, sy, sx, sy + this.height);
+    shell.addColorStop(0, '#7f1d1d');
+    shell.addColorStop(1, '#3f0b0b');
+    ctx.fillStyle = shell;
     ctx.fillRect(sx, sy, this.width, this.height);
 
-    // Darker outline
-    ctx.strokeStyle = '#4A0000';
+    // Armor plates
+    ctx.fillStyle = '#450a0a';
+    ctx.fillRect(sx + 6, sy + 8, this.width - 12, 10);
+    ctx.fillRect(sx + 6, sy + 24, this.width - 12, 8);
+
+    ctx.strokeStyle = '#2f0909';
     ctx.lineWidth = 2;
     ctx.strokeRect(sx, sy, this.width, this.height);
 
-    // Face
-    ctx.fillStyle = '#FFD700';
-    const eyeX = this.facingRight ? sx + 30 : sx + 10;
-    ctx.fillRect(eyeX, sy + 12, 8, 8);
-    ctx.fillRect(eyeX + 14, sy + 12, 8, 8);
+    // Horns
+    ctx.fillStyle = '#f1f5f9';
+    ctx.beginPath();
+    ctx.moveTo(sx + 8, sy + 3);
+    ctx.lineTo(sx + 2, sy - 10);
+    ctx.lineTo(sx + 12, sy + 1);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(sx + this.width - 8, sy + 3);
+    ctx.lineTo(sx + this.width - 2, sy - 10);
+    ctx.lineTo(sx + this.width - 12, sy + 1);
+    ctx.closePath();
+    ctx.fill();
 
-    // Angry eyebrows
-    ctx.fillStyle = '#FFD700';
-    ctx.fillRect(eyeX - 2, sy + 8, 12, 3);
-    ctx.fillRect(eyeX + 12, sy + 8, 12, 3);
+    // Core eye
+    const eyeX = sx + this.width / 2;
+    const eyeY = sy + 19;
+    ctx.fillStyle = '#fef08a';
+    ctx.beginPath();
+    ctx.arc(eyeX, eyeY, 7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#b91c1c';
+    ctx.beginPath();
+    ctx.arc(eyeX, eyeY, 3 * pulse, 0, Math.PI * 2);
+    ctx.fill();
 
-    // Mouth
-    ctx.fillStyle = '#000';
-    ctx.fillRect(sx + 16, sy + 32, 24, 6);
+    // Jaw
+    ctx.fillStyle = '#111827';
+    ctx.fillRect(sx + 14, sy + 38, 28, 8);
+    ctx.fillStyle = '#fca5a5';
+    for (let i = 0; i < 5; i++) {
+      ctx.fillRect(sx + 16 + i * 5, sy + 37, 2, 3);
+    }
 
     // Health bar
     const barW = this.width;
     const barH = 4;
-    ctx.fillStyle = '#333';
+    ctx.fillStyle = '#0f172a';
     ctx.fillRect(sx, sy - 10, barW, barH);
-    ctx.fillStyle = '#FF0000';
+    ctx.fillStyle = '#ef4444';
     ctx.fillRect(sx, sy - 10, barW * (this.health / this.maxHealth), barH);
 
     // Render projectiles
-    ctx.fillStyle = '#FF6600';
+    ctx.fillStyle = '#fb7185';
     for (const p of this.projectiles) {
       const px = p.x - cameraX;
       ctx.beginPath();
       ctx.arc(px, p.y, 5, 0, Math.PI * 2);
       ctx.fill();
+      ctx.fillStyle = 'rgba(251,113,133,0.35)';
+      ctx.beginPath();
+      ctx.arc(px, p.y, 8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#fb7185';
     }
 
     ctx.restore();

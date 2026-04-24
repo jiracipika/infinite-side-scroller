@@ -67,6 +67,7 @@ export class Player {
   speedBoostTimer = 0;
 
   private config: PlayerConfig;
+  private baseSpeed: number;
   onGround = false;
   facingRight = true;
   wallSliding = false;
@@ -74,6 +75,8 @@ export class Player {
   private wasOnGround = false;
   private coyoteTimer = 0;
   private readonly COYOTE_TIME = 0.1; // seconds of coyote time
+  private jumpBufferTimer = 0;
+  private readonly JUMP_BUFFER_TIME = 0.12;
 
   // Projectiles
   projectiles: { x: number; y: number; vx: number; life: number; damage: number }[] = [];
@@ -81,6 +84,7 @@ export class Player {
 
   constructor(config: PlayerConfig = DEFAULT_PLAYER_CONFIG) {
     this.config = config;
+    this.baseSpeed = config.speed;
     this.x = config.startX;
     this.y = config.startY;
     this.width = config.width;
@@ -101,6 +105,7 @@ export class Player {
       width: char.width,
       height: char.height,
     };
+    this.baseSpeed = this.config.speed;
   }
 
   update(dt: number, input: InputManager, groundY: number, platforms: Platform[] = []): void {
@@ -115,7 +120,8 @@ export class Player {
     if (this.dashCooldown > 0) this.dashCooldown -= dt;
     if (this.shieldTimer > 0) { this.shieldTimer -= dt; if (this.shieldTimer <= 0) this.shieldActive = false; }
     if (this.magnetTimer > 0) { this.magnetTimer -= dt; if (this.magnetTimer <= 0) this.magnetActive = false; }
-    if (this.speedBoostTimer > 0) { this.speedBoostTimer -= dt; if (this.speedBoostTimer <= 0) this.config.speed = DEFAULT_PLAYER_CONFIG.speed; }
+    if (this.speedBoostTimer > 0) { this.speedBoostTimer -= dt; if (this.speedBoostTimer <= 0) this.config.speed = this.baseSpeed; }
+    if (this.jumpBufferTimer > 0) this.jumpBufferTimer = Math.max(0, this.jumpBufferTimer - dt);
     if (this.shootCooldown > 0) this.shootCooldown -= dt;
 
     // Dash attack
@@ -178,6 +184,7 @@ export class Player {
     }
 
     const wantJump = input.isPressed('Space') || input.isPressed('ArrowUp') || input.isPressed('KeyW');
+    if (wantJump) this.jumpBufferTimer = this.JUMP_BUFFER_TIME;
 
     // Wall slide — only if falling and pressing toward wall
     this.wallSliding = false;
@@ -188,23 +195,7 @@ export class Player {
       }
     }
 
-    if (wantJump) {
-      if (this.onGround || this.coyoteTimer < this.COYOTE_TIME) {
-        this.vy = this.config.jumpVelocity;
-        this.onGround = false;
-        this.coyoteTimer = this.COYOTE_TIME; // consume coyote time
-        this.touchingWall = false;
-        this.wallSliding = false;
-      } else if (this.wallSliding) {
-        this.vy = this.config.jumpVelocity * 0.9;
-        this.vx = this.facingRight ? -maxSpeed * 0.7 : maxSpeed * 0.7;
-        this.facingRight = !this.facingRight;
-        this.touchingWall = false;
-        this.wallSliding = false;
-      } else if (this.canDoubleJump) {
-        this.useDoubleJump();
-      }
-    }
+    this.tryConsumeJump(maxSpeed);
 
     this.vy += this.config.gravity * dt;
     if (this.vy > 900) this.vy = 900; // terminal velocity
@@ -252,9 +243,46 @@ export class Player {
     if (!this.onGround && this.wasOnGround) this.coyoteTimer = 0; // just left ground, start coyote timer
     if (!this.onGround) this.coyoteTimer += dt;
 
+    // If jump was buffered slightly before landing, consume it immediately.
+    if (this.jumpBufferTimer > 0 && this.onGround) {
+      this.tryConsumeJump(maxSpeed);
+    }
+
     this.distanceTraveled += Math.abs(this.vx * dt);
 
     this._updateProjectiles(dt);
+  }
+
+  private tryConsumeJump(maxSpeed: number): boolean {
+    if (this.jumpBufferTimer <= 0) return false;
+
+    if (this.onGround || this.coyoteTimer < this.COYOTE_TIME) {
+      this.vy = this.config.jumpVelocity;
+      this.onGround = false;
+      this.coyoteTimer = this.COYOTE_TIME; // consume coyote time
+      this.touchingWall = false;
+      this.wallSliding = false;
+      this.jumpBufferTimer = 0;
+      return true;
+    }
+
+    if (this.wallSliding) {
+      this.vy = this.config.jumpVelocity * 0.9;
+      this.vx = this.facingRight ? -maxSpeed * 0.7 : maxSpeed * 0.7;
+      this.facingRight = !this.facingRight;
+      this.touchingWall = false;
+      this.wallSliding = false;
+      this.jumpBufferTimer = 0;
+      return true;
+    }
+
+    if (this.canDoubleJump) {
+      this.useDoubleJump();
+      this.jumpBufferTimer = 0;
+      return true;
+    }
+
+    return false;
   }
 
   private _updateProjectiles(dt: number) {
@@ -303,7 +331,7 @@ export class Player {
   }
 
   applySpeedBoost(multiplier: number, duration: number = 5): void {
-    this.config.speed = DEFAULT_PLAYER_CONFIG.speed * multiplier;
+    this.config.speed = this.baseSpeed * multiplier;
     this.speedBoostTimer = duration;
   }
 

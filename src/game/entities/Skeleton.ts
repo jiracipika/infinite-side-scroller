@@ -31,7 +31,7 @@ export class Skeleton extends Enemy {
     this.facingRight = playerX > this.x;
 
     const speed = WALK_SPEED * this.speedMult;
-    const cooldown = THROW_COOLDOWN * Math.max(0.4, 1 / this.speedMult);
+    const cooldown = THROW_COOLDOWN * Math.max(0.35, (1 / this.speedMult) * this.shootCooldownMult);
 
     if (this.aiState === 'attack') {
       this.vx = 0;
@@ -82,37 +82,54 @@ export class Skeleton extends Enemy {
 
     ctx.save();
 
-    // Body (bone white)
-    ctx.fillStyle = '#E8E0D0';
-    ctx.fillRect(sx + 4, sy + 12, 20, 24); // torso
+    // Torso and ribcage
+    ctx.fillStyle = '#e7e5e4';
+    ctx.fillRect(sx + 5, sy + 12, 18, 24);
+    ctx.strokeStyle = '#78716c';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(sx + 5, sy + 12, 18, 24);
+    ctx.fillStyle = '#a8a29e';
+    for (let i = 0; i < 3; i++) {
+      ctx.fillRect(sx + 7, sy + 16 + i * 5, 14, 1.5);
+    }
 
     // Skull
-    ctx.fillStyle = '#F0E8D8';
+    ctx.fillStyle = '#f5f5f4';
     ctx.fillRect(sx + 4, sy, 20, 16);
-
-    // Eye sockets
-    ctx.fillStyle = '#000';
+    ctx.strokeStyle = '#78716c';
+    ctx.strokeRect(sx + 4, sy, 20, 16);
+    ctx.fillStyle = '#0f172a';
     ctx.fillRect(sx + 8, sy + 4, 5, 5);
-    ctx.fillRect(sx + 17, sy + 4, 5, 5);
+    ctx.fillRect(sx + 16, sy + 4, 5, 5);
+    ctx.fillStyle = '#ef4444';
+    ctx.fillRect(sx + 9, sy + 5, 2, 2);
+    ctx.fillRect(sx + 17, sy + 5, 2, 2);
 
-    // Red eyes
-    ctx.fillStyle = '#FF0000';
-    ctx.fillRect(sx + 9, sy + 5, 3, 3);
-    ctx.fillRect(sx + 18, sy + 5, 3, 3);
+    // Jaw
+    ctx.fillStyle = '#d6d3d1';
+    ctx.fillRect(sx + 8, sy + 12, 12, 3);
 
     // Legs
     const legAnim = Math.sin(this.animTimer * 8) * 3;
-    ctx.fillStyle = '#D0C8B8';
-    ctx.fillRect(sx + 6, sy + 36, 6, 8 + legAnim);
-    ctx.fillRect(sx + 16, sy + 36, 6, 8 - legAnim);
+    ctx.fillStyle = '#d6d3d1';
+    ctx.fillRect(sx + 6, sy + 36, 5, 8 + legAnim);
+    ctx.fillRect(sx + 17, sy + 36, 5, 8 - legAnim);
+    ctx.fillStyle = '#57534e';
+    ctx.fillRect(sx + 5, sy + 43 + legAnim, 7, 2);
+    ctx.fillRect(sx + 16, sy + 43 - legAnim, 7, 2);
 
     // Render projectiles
-    ctx.fillStyle = '#FF4444';
+    ctx.fillStyle = '#f97316';
     for (const p of this.projectiles) {
       const px = p.x - cameraX;
       ctx.beginPath();
       ctx.arc(px, p.y, 4, 0, Math.PI * 2);
       ctx.fill();
+      ctx.fillStyle = 'rgba(254,215,170,0.35)';
+      ctx.beginPath();
+      ctx.arc(px, p.y, 7, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#f97316';
     }
 
     ctx.restore();
