@@ -28,7 +28,7 @@ export function getDifficulty(distanceTraveled: number): DifficultyConfig {
     speedMult: 1 + t * 0.8 + extra * 0.5,
     // densityMult is a FRACTION of the max possible spawns to use (0.4 = 40%, 1.0 = 100%)
     // Used as: targetCount = ceil(spawns.length * densityMult) in spawnChunkEntities
-    densityMult: Math.min(0.4 + t * 0.6 + extra * 0.3, 2.0),
+    densityMult: Math.min(0.65 + t * 0.6 + extra * 0.3, 2.0),
     damageMult: 1 + t * 0.5 + extra * 0.3,
     healthMult: 1 + t * 0.5 + extra * 0.3,
     detectRangeMult: 1 + t * 0.5 + extra * 0.2,

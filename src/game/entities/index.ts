@@ -9,6 +9,7 @@ export { Boss } from './Boss';
 export { Jumper } from './Jumper';
 export { Alien } from './Alien';
 export { UFO } from './UFO';
+export { AbductorAlien } from './AbductorAlien';
 export {
   createCollectible,
   spawnCollectiblesForChunk,
