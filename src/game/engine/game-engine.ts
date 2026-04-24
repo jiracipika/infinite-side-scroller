@@ -13,6 +13,8 @@ import { Bat } from '../entities/Bat';
 import { Skeleton } from '../entities/Skeleton';
 import { Jumper } from '../entities/Jumper';
 import { Boss } from '../entities/Boss';
+import { Alien } from '../entities/Alien';
+import { UFO } from '../entities/UFO';
 import { ParticleSystem } from '../entities/particles';
 import { GameRenderer } from '../rendering/renderer';
 import { getBiomeAt } from '../world/biomes';
@@ -53,6 +55,8 @@ const KILL_SCORES: Record<string, number> = {
   bat: 150,
   jumper: 200,
   skeleton: 250,
+  alien: 350,
+  ufo: 500,
   boss: 1000,
 };
 
@@ -216,6 +220,7 @@ export class GameEngine {
     if (this._running) return;
     this._running = true;
     this.handleResize();
+    this.renderer.clearTerrainCache();
     this.prepareOpeningFrame();
     // Layout can settle one frame after mount in embedded previews.
     requestAnimationFrame(() => {
@@ -380,7 +385,15 @@ export class GameEngine {
       const chunkWorldX = chunk.worldX;
 
       // Enemies — densityMult: 0.6 at start → 1.0 at primary ramp → up to ~1.8 later
-      const enemySpawns = spawnEnemiesForChunk(chunk.index, plats, (s) => this.seededRng(s), chunk.heights, chunkWorldX);
+      const progressionLevel = Math.max(0, Math.floor(chunkWorldX / 4000));
+      const enemySpawns = spawnEnemiesForChunk(
+        chunk.index,
+        plats,
+        (s) => this.seededRng(s),
+        chunk.heights,
+        chunkWorldX,
+        progressionLevel,
+      );
       // Fraction of base pool to use (capped at 100% of available spawns)
       const baseCount = Math.min(
         Math.ceil(enemySpawns.length * Math.min(this.difficulty.densityMult, 1.0)),
@@ -402,6 +415,8 @@ export class GameEngine {
           case 'bat': enemy = new Bat(spawn.x, spawn.y, spawn.chunkId); break;
           case 'jumper': enemy = new Jumper(spawn.x, spawn.y, spawn.chunkId); break;
           case 'skeleton': enemy = new Skeleton(spawn.x, spawn.y, spawn.chunkId); break;
+          case 'alien': enemy = new Alien(spawn.x, spawn.y, spawn.chunkId); break;
+          case 'ufo': enemy = new UFO(spawn.x, spawn.y, spawn.chunkId); break;
           case 'boss': enemy = new Boss(spawn.x, spawn.y, spawn.chunkId); break;
           default: continue;
         }
@@ -494,6 +509,37 @@ export class GameEngine {
     this.player.score += pts;
     this.particles.spawnEnemyDeath(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2);
     this.particles.spawnScorePopup(enemy.x + enemy.width / 2, enemy.y, `+${pts}`);
+  }
+
+  private handleUfoAbduction(enemy: UFO, dt: number): void {
+    if (!enemy.beamActive) return;
+
+    const beam = enemy.getBeamBounds();
+    const playerBounds = this.player.getBounds();
+    if (!aabbOverlap(playerBounds, beam, -2)) return;
+
+    if (this.player.shieldActive) {
+      this.player.shieldActive = false;
+      this.player.shieldTimer = 0;
+      enemy.disrupt();
+      this.camera.shake(4, 0.2);
+      this.particles.spawnScorePopup(enemy.x + enemy.width / 2, enemy.y - 8, 'DISRUPT!', '#67e8f9');
+      if (!enemy.alive) this.awardEnemyDefeat(enemy);
+      return;
+    }
+
+    const beamCenterX = beam.x + beam.width / 2;
+    const pullX = Math.max(-90, Math.min(90, (beamCenterX - this.player.centerX) * 1.8));
+    this.player.vx += pullX * dt;
+    this.player.vy = Math.max(this.player.vy - 620 * dt, -360);
+    this.player.onGround = false;
+
+    if (this.player.centerY < enemy.y + enemy.height + 22 && this.player.takeDamage(enemy.effectiveDamage)) {
+      this.player.vy = 180;
+      enemy.disrupt();
+      this.camera.shake(5, 0.25);
+      this.particles.spawnScorePopup(this.player.centerX, this.player.y - 12, 'ABDUCTED!', '#22d3ee');
+    }
   }
 
   private update(dt: number): void {
@@ -610,6 +656,7 @@ export class GameEngine {
 
       enemy.update(dt, this.player.centerX, this.player.centerY);
       this.updateEnemyGround(enemy, enemyPlatforms, dt);
+      if (enemy instanceof UFO) this.handleUfoAbduction(enemy, dt);
 
       // Enemy-player collision — shrink player hitbox 4px for forgiving feel
       if (aabbOverlap(playerBounds, enemy.getBounds(), 4)) {
@@ -625,6 +672,16 @@ export class GameEngine {
         } else if (this.player.dashing) {
           enemy.takeDamage(2);
           if (!enemy.alive) this.awardEnemyDefeat(enemy);
+        } else if (this.player.shieldActive) {
+          this.player.shieldActive = false;
+          this.player.shieldTimer = 0;
+          enemy.takeDamage(enemy.stompable ? 1 : 2);
+          if (!enemy.alive) this.awardEnemyDefeat(enemy);
+          const kb = this.player.centerX < enemy.x ? -180 : 180;
+          this.player.vx = kb;
+          this.player.vy = -180;
+          this.camera.shake(4, 0.18);
+          this.particles.spawnScorePopup(enemy.x + enemy.width / 2, enemy.y, 'SHIELD BASH!', '#67e8f9');
         } else {
           if (this.player.takeDamage(enemy.effectiveDamage)) {
             const kb = this.player.centerX < enemy.x ? -200 : 200;

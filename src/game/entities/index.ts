@@ -7,6 +7,8 @@ export { Skeleton } from './Skeleton';
 export type { Projectile } from './Skeleton';
 export { Boss } from './Boss';
 export { Jumper } from './Jumper';
+export { Alien } from './Alien';
+export { UFO } from './UFO';
 export {
   createCollectible,
   spawnCollectiblesForChunk,

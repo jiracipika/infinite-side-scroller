@@ -2,6 +2,8 @@
  * Collectible types: coins, health, speed boost, double jump
  */
 
+import type { EnemyType } from './Enemy';
+
 export type CollectibleType = 'coin' | 'health' | 'speedBoost' | 'doubleJump' | 'shield' | 'magnet';
 
 export interface Collectible {
@@ -21,7 +23,19 @@ const ENEMY_HEIGHTS: Record<string, number> = {
   bat: 20,
   jumper: 28,
   skeleton: 44,
+  alien: 34,
+  ufo: 28,
   boss: 64,
+};
+
+const ENEMY_WIDTHS: Record<string, number> = {
+  slime: 28,
+  bat: 28,
+  jumper: 24,
+  skeleton: 28,
+  alien: 26,
+  ufo: 58,
+  boss: 56,
 };
 
 /** Create a collectible */
@@ -105,29 +119,30 @@ export function spawnEnemiesForChunk(
   rng: (seed: number) => number,
   terrainHeights?: number[],
   chunkWorldX?: number,
-): { type: string; x: number; y: number; chunkId: number }[] {
-  const enemies: { type: string; x: number; y: number; chunkId: number }[] = [];
+  progressionLevel: number = Math.max(0, Math.floor(((chunkWorldX ?? chunkId * 800) / 4000))),
+): { type: EnemyType; x: number; y: number; chunkId: number }[] {
+  const enemies: { type: EnemyType; x: number; y: number; chunkId: number }[] = [];
   const base = chunkId * 7777;
-  const count = 2 + Math.floor(rng(base + 100) * 4);
+  const count = 2 + Math.floor(rng(base + 100) * 4) + Math.min(3, Math.floor(progressionLevel / 2));
+  const enemyPool: EnemyType[] = ['slime', 'bat'];
+  if (progressionLevel >= 1) enemyPool.push('jumper');
+  if (progressionLevel >= 2) enemyPool.push('skeleton');
+  if (progressionLevel >= 3) enemyPool.push('alien');
+  if (progressionLevel >= 4) enemyPool.push('ufo');
 
   for (let i = 0; i < count; i++) {
     const roll = rng(base + i * 20 + 102);
-
-    let type: string;
-    if (roll < 0.35) type = 'slime';
-    else if (roll < 0.55) type = 'bat';
-    else if (roll < 0.75) type = 'jumper';
-    else type = 'skeleton';
+    const type = enemyPool[Math.min(enemyPool.length - 1, Math.floor(roll * enemyPool.length))];
 
     // Place on platform if available and enemy type benefits from it
-    if (platforms.length > 0 && (type === 'bat' || rng(base + i * 20 + 104) < 0.3)) {
+    if (platforms.length > 0 && (type === 'bat' || type === 'ufo' || rng(base + i * 20 + 104) < 0.3)) {
       const platIdx = Math.floor(rng(base + i * 20 + 101) * platforms.length);
       if (platIdx < platforms.length) {
         const plat = platforms[platIdx];
         enemies.push({
           type,
-          x: plat.x + rng(base + i * 20 + 103) * plat.width,
-          y: plat.y - (ENEMY_HEIGHTS[type] ?? 30),
+          x: plat.x + rng(base + i * 20 + 103) * Math.max(1, plat.width - (ENEMY_WIDTHS[type] ?? 28)),
+          y: type === 'ufo' ? plat.y - 140 : plat.y - (ENEMY_HEIGHTS[type] ?? 30),
           chunkId,
         });
         continue;
@@ -145,7 +160,7 @@ export function spawnEnemiesForChunk(
       enemies.push({
         type,
         x: chunkWorldX + x,
-        y: groundY - (ENEMY_HEIGHTS[type] ?? 30),
+        y: type === 'ufo' ? groundY - 165 : groundY - (ENEMY_HEIGHTS[type] ?? 30),
         chunkId,
       });
     }

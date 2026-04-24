@@ -12,15 +12,9 @@ import { getBlendedBiomeColors } from '../world/biomes';
 import type { Collectible } from '../entities/Collectibles';
 import { TerrainCache } from '../engine/terrain-cache';
 
-interface BiomeColors {
-  groundDark: string;
-  ground: string;
-  sky: string;
-}
-
 export class GameRenderer {
   private terrainCache: TerrainCache;
-  private cacheEnabled = true;
+  private cacheEnabled = false;
   private ctx: CanvasRenderingContext2D;
   private width = 0;
   private height = 0;
@@ -118,11 +112,6 @@ export class GameRenderer {
 
   private drawChunkTerrain(chunk: Chunk, camera: Camera, shouldCache: boolean = false): void {
     const ctx = this.ctx;
-    const colors = getBlendedBiomeColors(chunk.worldX + 400) as {
-      groundDark: string;
-      ground: string;
-      sky: string;
-    };
 
     // If caching, create an offscreen canvas
     if (shouldCache) {
@@ -135,30 +124,24 @@ export class GameRenderer {
       if (!offCtx) return;
 
       // Draw terrain to offscreen canvas
-      this.drawTerrainToContext(offCtx, chunk, colors, cacheWidth, cacheHeight, 0, 0);
+      this.drawTerrainToContext(offCtx, chunk, cacheWidth, cacheHeight, 0, 0);
 
       // Cache the transparent canvas itself; drawImage preserves destination sky.
       this.terrainCache.set(chunk.index, offscreen);
     }
 
     // Draw to main canvas
-    this.drawTerrainToContext(ctx, chunk, colors, this.width, this.height, camera.renderX - chunk.worldX, -camera.renderY);
+    this.drawTerrainToContext(ctx, chunk, this.width, this.height, camera.renderX - chunk.worldX, -camera.renderY);
   }
 
   private drawTerrainToContext(
     ctx: CanvasRenderingContext2D,
     chunk: Chunk,
-    colors: BiomeColors,
     canvasWidth: number,
     canvasHeight: number,
     offsetX: number,
     offsetY: number
   ): void {
-    const soilGradient = ctx.createLinearGradient(0, 0, 0, canvasHeight);
-    soilGradient.addColorStop(0, this.shadeHexColor(colors.groundDark, 10));
-    soilGradient.addColorStop(0.45, colors.groundDark);
-    soilGradient.addColorStop(1, this.shadeHexColor(colors.groundDark, -35));
-    ctx.fillStyle = soilGradient;
     ctx.beginPath();
     let started = false;
     for (let i = 0; i < chunk.heights.length; i++) {
@@ -172,20 +155,37 @@ export class GameRenderer {
     ctx.lineTo(lastScreenX, canvasHeight + 10);
     ctx.lineTo(offsetX, canvasHeight + 10);
     ctx.closePath();
-    ctx.fill();
+
+    ctx.save();
+    ctx.clip();
+    // Paint in short world-space strips so biome/chunk transitions blend instead
+    // of becoming vertical walls at chunk boundaries.
+    const stripWidth = 18;
+    for (let localX = 0; localX <= CHUNK_WIDTH; localX += stripWidth) {
+      const worldX = chunk.worldX + localX;
+      const stripColors = getBlendedBiomeColors(worldX);
+      const soilGradient = ctx.createLinearGradient(0, 0, 0, canvasHeight);
+      soilGradient.addColorStop(0, this.shadeHexColor(stripColors.groundDark, 12));
+      soilGradient.addColorStop(0.45, stripColors.groundDark);
+      soilGradient.addColorStop(1, this.shadeHexColor(stripColors.groundDark, -35));
+      ctx.fillStyle = soilGradient;
+      ctx.fillRect(localX + offsetX - 1, 0, stripWidth + 2, canvasHeight + 10);
+    }
+    ctx.restore();
 
     // Layered ground texture. Deterministic math keeps cached chunks stable.
     ctx.save();
     ctx.globalAlpha = 0.16;
-    ctx.strokeStyle = this.shadeHexColor(colors.groundDark, -22);
     ctx.lineWidth = 1;
     for (let i = 8; i < chunk.heights.length; i += 14) {
       const localX = i * 4;
       const worldX = chunk.worldX + localX;
+      const fleckColors = getBlendedBiomeColors(worldX);
       const screenX = localX + offsetX;
       const surfaceY = chunk.heights[i] + offsetY;
       const fleckY = surfaceY + 22 + ((Math.sin((worldX + chunk.index * 37) * 0.047) + 1) * 34);
       const fleckW = 8 + ((i + chunk.index) % 5) * 3;
+      ctx.strokeStyle = this.shadeHexColor(fleckColors.groundDark, -22);
       ctx.beginPath();
       ctx.moveTo(screenX, fleckY);
       ctx.lineTo(screenX + fleckW, fleckY + Math.sin(worldX * 0.03) * 2);
@@ -194,37 +194,39 @@ export class GameRenderer {
     ctx.restore();
 
     // Grass cap and highlight
-    ctx.strokeStyle = this.shadeHexColor(colors.ground, -15);
     ctx.lineWidth = 7;
-    ctx.beginPath();
-    for (let i = 0; i < chunk.heights.length; i++) {
+    for (let i = 0; i < chunk.heights.length - 1; i++) {
       const worldX = chunk.worldX + i * 4;
-      const screenX = worldX - chunk.worldX + offsetX;
-      const screenY = chunk.heights[i] + offsetY;
-      if (i === 0) ctx.moveTo(screenX, screenY);
-      else ctx.lineTo(screenX, screenY);
+      const capColors = getBlendedBiomeColors(worldX);
+      ctx.strokeStyle = this.shadeHexColor(capColors.ground, -15);
+      ctx.beginPath();
+      ctx.moveTo(i * 4 + offsetX, chunk.heights[i] + offsetY);
+      ctx.lineTo((i + 1) * 4 + offsetX, chunk.heights[i + 1] + offsetY);
+      ctx.stroke();
     }
-    ctx.stroke();
 
-    ctx.strokeStyle = this.shadeHexColor(colors.ground, 24);
     ctx.lineWidth = 3;
-    ctx.beginPath();
-    for (let i = 0; i < chunk.heights.length; i++) {
+    for (let i = 0; i < chunk.heights.length - 1; i++) {
+      const worldX = chunk.worldX + i * 4;
+      const capColors = getBlendedBiomeColors(worldX);
+      ctx.strokeStyle = this.shadeHexColor(capColors.ground, 24);
       const screenX = i * 4 + offsetX;
       const screenY = chunk.heights[i] - 1 + offsetY;
-      if (i === 0) ctx.moveTo(screenX, screenY);
-      else ctx.lineTo(screenX, screenY);
+      ctx.beginPath();
+      ctx.moveTo(screenX, screenY);
+      ctx.lineTo((i + 1) * 4 + offsetX, chunk.heights[i + 1] - 1 + offsetY);
+      ctx.stroke();
     }
-    ctx.stroke();
 
     // Caves
     for (const cave of chunk.caves) {
       const caveScreenX = cave.x - chunk.worldX + offsetX;
-      ctx.fillStyle = colors.sky;
+      const caveColors = getBlendedBiomeColors(cave.x);
+      ctx.fillStyle = caveColors.sky;
       ctx.globalAlpha = 0.7;
       ctx.fillRect(caveScreenX, cave.y + offsetY, cave.width, cave.height);
       ctx.globalAlpha = 1.0;
-      ctx.strokeStyle = colors.groundDark;
+      ctx.strokeStyle = caveColors.groundDark;
       ctx.lineWidth = 2;
       ctx.strokeRect(caveScreenX, cave.y + offsetY, cave.width, cave.height);
     }

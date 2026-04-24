@@ -3,7 +3,7 @@
  * All enemies extend this.
  */
 
-export type EnemyType = 'slime' | 'bat' | 'skeleton' | 'jumper' | 'boss';
+export type EnemyType = 'slime' | 'bat' | 'skeleton' | 'jumper' | 'alien' | 'ufo' | 'boss';
 
 export type AIState = 'idle' | 'patrol' | 'chase' | 'attack';
 
