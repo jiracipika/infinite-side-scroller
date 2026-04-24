@@ -383,7 +383,17 @@ export class GameEngine {
   /** Spawn enemies/collectibles/hazards for newly loaded chunks */
   private spawnChunkEntities(): void {
     const chunks = this.chunkManager.getLoadedChunks();
+    const playerX = this.player.centerX;
+    const spawnAheadDistance = 2400;
+    const spawnBehindDistance = 1400;
     for (const chunk of chunks) {
+      const chunkStart = chunk.worldX;
+      const chunkEnd = chunk.worldX + 800;
+      // Avoid spawning entities in very distant chunks: far-ahead entities were
+      // getting cleaned up before the player arrived and never respawned.
+      if (chunkEnd < playerX - spawnBehindDistance || chunkStart > playerX + spawnAheadDistance) {
+        continue;
+      }
       if (this.spawnedChunks.has(chunk.index)) continue;
       this.spawnedChunks.add(chunk.index);
 
@@ -391,7 +401,7 @@ export class GameEngine {
       const chunkWorldX = chunk.worldX;
 
       // Enemies — densityMult: 0.6 at start → 1.0 at primary ramp → up to ~1.8 later
-      const progressionLevel = Math.max(0, Math.floor(chunkWorldX / 4000));
+      const progressionLevel = Math.max(0, Math.floor(chunkWorldX / 2500));
       const enemySpawns = spawnEnemiesForChunk(
         chunk.index,
         plats,

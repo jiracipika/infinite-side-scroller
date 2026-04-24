@@ -125,7 +125,7 @@ export function spawnEnemiesForChunk(
   rng: (seed: number) => number,
   terrainHeights?: number[],
   chunkWorldX?: number,
-  progressionLevel: number = Math.max(0, Math.floor(((chunkWorldX ?? chunkId * 800) / 4000))),
+  progressionLevel: number = Math.max(0, Math.floor(((chunkWorldX ?? chunkId * 800) / 2500))),
 ): { type: EnemyType; x: number; y: number; chunkId: number }[] {
   const enemies: { type: EnemyType; x: number; y: number; chunkId: number }[] = [];
   const base = chunkId * 7777;
@@ -138,10 +138,17 @@ export function spawnEnemiesForChunk(
   if (progressionLevel >= 3) enemyPool.push('alien');
   if (progressionLevel >= 3) enemyPool.push('bat');
   if (progressionLevel >= 4) enemyPool.push('ufo');
+  const advancedPool = enemyPool.filter((t) => t !== 'slime' && t !== 'beetle');
 
   for (let i = 0; i < count; i++) {
-    const roll = rng(base + i * 20 + 102);
-    const type = enemyPool[Math.min(enemyPool.length - 1, Math.floor(roll * enemyPool.length))];
+    let type: EnemyType;
+    if (i === 0 && progressionLevel >= 1 && advancedPool.length > 0) {
+      const advancedRoll = rng(base + 990 + progressionLevel * 17);
+      type = advancedPool[Math.min(advancedPool.length - 1, Math.floor(advancedRoll * advancedPool.length))];
+    } else {
+      const roll = rng(base + i * 20 + 102);
+      type = enemyPool[Math.min(enemyPool.length - 1, Math.floor(roll * enemyPool.length))];
+    }
 
     // Place on platform if available and enemy type benefits from it
     if (platforms.length > 0 && (type === 'bat' || type === 'wisp' || type === 'ufo' || rng(base + i * 20 + 104) < 0.3)) {

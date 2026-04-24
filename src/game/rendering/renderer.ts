@@ -30,7 +30,7 @@ export class GameRenderer {
   }
 
   drawSky(camera: Camera): void {
-    const centerX = camera.renderX + this.width / 2;
+    const centerX = camera.x + this.width / 2;
     const colors = getBlendedBiomeColors(centerX);
 
     const gradient = this.ctx.createLinearGradient(0, 0, 0, this.height);
@@ -39,8 +39,15 @@ export class GameRenderer {
     this.ctx.fillStyle = gradient;
     this.ctx.fillRect(0, 0, this.width, this.height);
 
-    this.ctx.fillStyle = 'rgba(255,255,255,0.08)';
-    this.ctx.fillRect(0, Math.max(0, this.height * 0.52), this.width, this.height * 0.48);
+    // World-anchored atmospheric haze so it doesn't look like a screen filter
+    // attached to the player/camera movement.
+    const hazeStartY = 250 - camera.y;
+    const hazeEndY = 780 - camera.y;
+    const hazeGradient = this.ctx.createLinearGradient(0, hazeStartY, 0, hazeEndY);
+    hazeGradient.addColorStop(0, 'rgba(255,255,255,0)');
+    hazeGradient.addColorStop(1, 'rgba(255,255,255,0.07)');
+    this.ctx.fillStyle = hazeGradient;
+    this.ctx.fillRect(0, 0, this.width, this.height);
   }
 
   drawParallax(camera: Camera): void {
@@ -50,12 +57,8 @@ export class GameRenderer {
   }
 
   private drawMountains(camera: Camera, parallaxFactor: number, amplitude: number, color: string, baseY: number): void {
-    const offsetX = camera.renderX * parallaxFactor;
-    // Background mountains are decorative — ignore camera Y so they never
-    // clip when the player moves vertically (camera.renderY changes).
-    // Apply only a very subtle parallax capped to ±50px for a depth feel.
-    const rawOffsetY = camera.renderY * parallaxFactor * 0.3;
-    const offsetY = Math.max(-50, Math.min(50, rawOffsetY));
+    const offsetX = camera.x * parallaxFactor;
+    const offsetY = 0;
 
     this.ctx.fillStyle = color;
     this.ctx.beginPath();
@@ -74,7 +77,7 @@ export class GameRenderer {
   }
 
   private drawClouds(camera: Camera): void {
-    const offsetX = camera.renderX * 0.05;
+    const offsetX = camera.x * 0.05;
     this.ctx.fillStyle = '#ffffff40';
 
     for (let i = 0; i < 8; i++) {
