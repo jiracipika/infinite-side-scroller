@@ -59,7 +59,7 @@ const TouchControls: FC = () => {
   return (
     <div
       className="absolute inset-0 z-20 pointer-events-none select-none"
-      style={{ touchAction: 'none' }}
+      style={{ touchAction: 'auto' }}
     >
       {/* ── Left: D-Pad ──────────────────────────────────────── */}
       <div
@@ -199,9 +199,9 @@ const TouchBtn: FC<TouchBtnProps> = ({
         transform: active ? 'scale(0.92)' : 'scale(1)',
         touchAction: 'none',
       }}
-      onTouchStart={(e) => { e.preventDefault(); onStart(); }}
-      onTouchEnd={(e)   => { e.preventDefault(); onEnd(); }}
-      onTouchCancel={(e) => { e.preventDefault(); onEnd(); }}
+      onTouchStart={(e) => { e.stopPropagation(); onStart(); }}
+      onTouchEnd={(e)   => { e.stopPropagation(); onEnd(); }}
+      onTouchCancel={(e) => { e.stopPropagation(); onEnd(); }}
     >
       {children}
     </button>

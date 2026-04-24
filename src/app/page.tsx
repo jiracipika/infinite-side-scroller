@@ -122,6 +122,12 @@ export default function Home() {
       )}
 
       {/* In-game UI */}
+      {state === 'playing' && (
+        <div
+          className="absolute inset-x-0 top-0 z-[9] pointer-events-none"
+          style={{ height: 88, background: 'linear-gradient(to bottom, rgba(0,0,0,0.3), rgba(0,0,0,0))' }}
+        />
+      )}
       {state === 'playing' && <HUD stats={stats} settings={settings} />}
       {state === 'playing' && <TouchControls />}
 
@@ -132,8 +138,8 @@ export default function Home() {
           aria-label="Pause"
           style={{
             position: 'absolute',
-            top: 16,
-            right: 16,
+            top: 'calc(env(safe-area-inset-top, 0px) + 12px)',
+            right: 'calc(env(safe-area-inset-right, 0px) + 14px)',
             zIndex: 20,
             width: 36,
             height: 36,

@@ -44,7 +44,11 @@ const HUD: FC<Props> = ({ stats, settings }) => {
 
       <div
         className="absolute inset-x-0 top-0 z-10 pointer-events-none"
-        style={{ padding: '16px 16px 0' }}
+        style={{
+          paddingTop: 'calc(env(safe-area-inset-top, 0px) + 10px)',
+          paddingLeft: 'calc(env(safe-area-inset-left, 0px) + 16px)',
+          paddingRight: 'calc(env(safe-area-inset-right, 0px) + 16px)',
+        }}
       >
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
 
@@ -138,6 +142,8 @@ const HUD: FC<Props> = ({ stats, settings }) => {
               flexDirection: 'column',
               alignItems: 'flex-end',
               gap: 6,
+              // Keep biome/FPS clear of pause button in the top-right corner.
+              marginRight: 46,
               animation: 'fadeSlideUp 0.4s ease 0.08s both',
             }}
           >
