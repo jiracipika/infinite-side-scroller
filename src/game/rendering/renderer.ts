@@ -135,14 +135,14 @@ export class GameRenderer {
       if (!offCtx) return;
 
       // Draw terrain to offscreen canvas
-      this.drawTerrainToContext(offCtx, chunk, colors, cacheWidth, cacheHeight, 0);
+      this.drawTerrainToContext(offCtx, chunk, colors, cacheWidth, cacheHeight, 0, 0);
 
       // Cache the transparent canvas itself; drawImage preserves destination sky.
       this.terrainCache.set(chunk.index, offscreen);
     }
 
     // Draw to main canvas
-    this.drawTerrainToContext(ctx, chunk, colors, this.width, this.height, camera.renderX - chunk.worldX);
+    this.drawTerrainToContext(ctx, chunk, colors, this.width, this.height, camera.renderX - chunk.worldX, -camera.renderY);
   }
 
   private drawTerrainToContext(
@@ -151,7 +151,8 @@ export class GameRenderer {
     colors: BiomeColors,
     canvasWidth: number,
     canvasHeight: number,
-    offsetX: number
+    offsetX: number,
+    offsetY: number
   ): void {
     const soilGradient = ctx.createLinearGradient(0, 0, 0, canvasHeight);
     soilGradient.addColorStop(0, this.shadeHexColor(colors.groundDark, 10));
@@ -163,7 +164,7 @@ export class GameRenderer {
     for (let i = 0; i < chunk.heights.length; i++) {
       const worldX = chunk.worldX + i * 4;
       const screenX = worldX - chunk.worldX + offsetX;
-      const screenY = chunk.heights[i];
+      const screenY = chunk.heights[i] + offsetY;
       if (!started) { ctx.moveTo(screenX, screenY); started = true; }
       else { ctx.lineTo(screenX, screenY); }
     }
@@ -182,7 +183,7 @@ export class GameRenderer {
       const localX = i * 4;
       const worldX = chunk.worldX + localX;
       const screenX = localX + offsetX;
-      const surfaceY = chunk.heights[i];
+      const surfaceY = chunk.heights[i] + offsetY;
       const fleckY = surfaceY + 22 + ((Math.sin((worldX + chunk.index * 37) * 0.047) + 1) * 34);
       const fleckW = 8 + ((i + chunk.index) % 5) * 3;
       ctx.beginPath();
@@ -199,7 +200,7 @@ export class GameRenderer {
     for (let i = 0; i < chunk.heights.length; i++) {
       const worldX = chunk.worldX + i * 4;
       const screenX = worldX - chunk.worldX + offsetX;
-      const screenY = chunk.heights[i];
+      const screenY = chunk.heights[i] + offsetY;
       if (i === 0) ctx.moveTo(screenX, screenY);
       else ctx.lineTo(screenX, screenY);
     }
@@ -210,7 +211,7 @@ export class GameRenderer {
     ctx.beginPath();
     for (let i = 0; i < chunk.heights.length; i++) {
       const screenX = i * 4 + offsetX;
-      const screenY = chunk.heights[i] - 1;
+      const screenY = chunk.heights[i] - 1 + offsetY;
       if (i === 0) ctx.moveTo(screenX, screenY);
       else ctx.lineTo(screenX, screenY);
     }
@@ -221,11 +222,11 @@ export class GameRenderer {
       const caveScreenX = cave.x - chunk.worldX + offsetX;
       ctx.fillStyle = colors.sky;
       ctx.globalAlpha = 0.7;
-      ctx.fillRect(caveScreenX, cave.y, cave.width, cave.height);
+      ctx.fillRect(caveScreenX, cave.y + offsetY, cave.width, cave.height);
       ctx.globalAlpha = 1.0;
       ctx.strokeStyle = colors.groundDark;
       ctx.lineWidth = 2;
-      ctx.strokeRect(caveScreenX, cave.y, cave.width, cave.height);
+      ctx.strokeRect(caveScreenX, cave.y + offsetY, cave.width, cave.height);
     }
   }
 
@@ -325,6 +326,21 @@ export class GameRenderer {
     ctx.beginPath(); ctx.arc(x + 7 * s, y - 4 * s, 7 * s, 0, Math.PI * 2); ctx.fill();
   }
 
+  private drawRoundedRect(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number): void {
+    const r = Math.min(radius, width / 2, height / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + width - r, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+    ctx.lineTo(x + width, y + height - r);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+    ctx.lineTo(x + r, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+  }
+
   drawPlayer(player: Player, camera: Camera): void {
     const ctx = this.ctx;
     const screen = camera.worldToScreen(player.x, player.y);
@@ -353,45 +369,89 @@ export class GameRenderer {
     ctx.scale(player.facingRight ? 1 : -1, 1);
     ctx.translate(-w / 2, -h / 2);
 
-    // Legs
-    ctx.fillStyle = char.outlineColor;
-    ctx.fillRect(4, h - 10, 5, 10 + stride);
-    ctx.fillRect(w - 9, h - 10, 5, 10 - stride);
-    ctx.fillStyle = '#131721';
-    ctx.fillRect(3, h - 2, 7, 2);
-    ctx.fillRect(w - 10, h - 2, 7, 2);
-
-    // Torso
-    const torso = ctx.createLinearGradient(0, 0, 0, h);
-    torso.addColorStop(0, char.bodyColor);
-    torso.addColorStop(1, char.outlineColor);
-    ctx.fillStyle = torso;
-    ctx.fillRect(1, 4, w - 2, h - 8);
-
-    // Chest plate / trim
-    ctx.fillStyle = 'rgba(255,255,255,0.16)';
-    ctx.fillRect(4, 8, w - 8, 6);
-    ctx.fillStyle = 'rgba(0,0,0,0.2)';
-    ctx.fillRect(4, 15, w - 8, 2);
-
-    // Head / visor
-    ctx.fillStyle = '#0f172a';
-    ctx.fillRect(3, 4, w - 6, 10);
-    ctx.fillStyle = char.eyeColor;
-    ctx.fillRect(w - 12, 7, 3, 3);
-    ctx.fillRect(w - 7, 7, 3, 3);
-    ctx.fillStyle = '#020617';
-    ctx.fillRect(w - 11, 8, 1, 1);
-    ctx.fillRect(w - 6, 8, 1, 1);
-
-    // Cape / trail ribbon
-    ctx.fillStyle = 'rgba(244,114,182,0.45)';
+    // Cape/scarf sits behind the silhouette and gives direction at a glance.
+    const capeColor = char.id === 'ninja' ? 'rgba(239,68,68,0.55)' : 'rgba(185,28,28,0.42)';
+    ctx.fillStyle = capeColor;
     ctx.beginPath();
-    ctx.moveTo(2, 11);
-    ctx.lineTo(-5 - Math.max(0, stride), 16);
-    ctx.lineTo(2, 21);
+    ctx.moveTo(4, 10);
+    ctx.lineTo(-7 - Math.max(0, stride), 16);
+    ctx.lineTo(4, h - 7);
     ctx.closePath();
     ctx.fill();
+
+    // Legs and boots
+    ctx.fillStyle = this.shadeHexColor(char.outlineColor, -18);
+    ctx.fillRect(5, h - 11, 5, 10 + stride);
+    ctx.fillRect(w - 10, h - 11, 5, 10 - stride);
+    ctx.fillStyle = '#111827';
+    ctx.fillRect(3, h - 2, 8, 3);
+    ctx.fillRect(w - 11, h - 2, 8, 3);
+
+    const torso = ctx.createLinearGradient(0, 4, 0, h - 7);
+    torso.addColorStop(0, this.shadeHexColor(char.bodyColor, 22));
+    torso.addColorStop(1, char.outlineColor);
+    ctx.fillStyle = torso;
+    this.drawRoundedRect(ctx, 2, 8, w - 4, h - 11, 5);
+    ctx.fill();
+
+    ctx.strokeStyle = this.shadeHexColor(char.outlineColor, -22);
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+
+    // Character-specific accents keep unlocks from looking like recolors.
+    if (char.id === 'mage') {
+      ctx.fillStyle = '#312e81';
+      ctx.beginPath();
+      ctx.moveTo(w / 2, -2);
+      ctx.lineTo(2, 12);
+      ctx.lineTo(w - 2, 12);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = '#fef08a';
+      ctx.fillRect(w / 2 + 2, 4, 2, 2);
+    } else if (char.id === 'tank') {
+      ctx.fillStyle = 'rgba(255,255,255,0.18)';
+      ctx.fillRect(4, 11, w - 8, 5);
+      ctx.fillStyle = '#334155';
+      ctx.fillRect(-2, 13, 5, 10);
+      ctx.fillRect(w - 3, 13, 5, 10);
+    } else if (char.id === 'ninja') {
+      ctx.fillStyle = '#0f172a';
+      this.drawRoundedRect(ctx, 3, 3, w - 6, 15, 5);
+      ctx.fill();
+      ctx.fillStyle = '#dc2626';
+      ctx.fillRect(4, 10, w - 8, 3);
+    } else {
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillRect(4, 5, w - 8, 5);
+      ctx.fillStyle = '#fbbf24';
+      ctx.fillRect(w / 2 - 1, 1, 2, 5);
+    }
+
+    // Head / face
+    ctx.fillStyle = char.id === 'ninja' ? '#111827' : '#e2e8f0';
+    this.drawRoundedRect(ctx, 4, 4, w - 8, 12, 4);
+    ctx.fill();
+    ctx.strokeStyle = this.shadeHexColor(char.outlineColor, -18);
+    ctx.stroke();
+
+    if (char.id === 'knight' || char.id === 'tank') {
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(7, 8, w - 14, 4);
+      ctx.fillStyle = char.eyeColor;
+      ctx.fillRect(w - 11, 9, 3, 2);
+    } else {
+      ctx.fillStyle = char.eyeColor;
+      ctx.fillRect(w - 13, 8, 3, 3);
+      ctx.fillRect(w - 8, 8, 3, 3);
+      ctx.fillStyle = '#020617';
+      ctx.fillRect(w - 12, 9, 1, 1);
+      ctx.fillRect(w - 7, 9, 1, 1);
+    }
+
+    // Chest highlight
+    ctx.fillStyle = 'rgba(255,255,255,0.18)';
+    ctx.fillRect(5, 18, w - 10, 3);
 
     // Dash accent
     if (player.dashing) {
@@ -399,10 +459,7 @@ export class GameRenderer {
       ctx.fillRect(-8, 8, 8, h - 12);
     }
 
-    // Outline and wall-slide sparks
-    ctx.strokeStyle = char.outlineColor;
-    ctx.lineWidth = 1.2;
-    ctx.strokeRect(1, 4, w - 2, h - 8);
+    // Wall-slide sparks
     if (player.wallSliding) {
       ctx.fillStyle = '#fef08a';
       ctx.fillRect(w + 1, h - 9, 2, 2);

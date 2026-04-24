@@ -102,7 +102,7 @@ export abstract class Enemy {
   }
 
   abstract update(dt: number, playerX: number, playerY: number): void;
-  abstract render(ctx: CanvasRenderingContext2D, cameraX: number): void;
+  abstract render(ctx: CanvasRenderingContext2D, cameraX: number, cameraY?: number): void;
 
   getBounds() {
     return { x: this.x, y: this.y, width: this.width, height: this.height };

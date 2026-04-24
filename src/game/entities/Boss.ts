@@ -88,10 +88,10 @@ export class Boss extends Enemy {
     }
   }
 
-  render(ctx: CanvasRenderingContext2D, cameraX: number) {
+  render(ctx: CanvasRenderingContext2D, cameraX: number, cameraY: number = 0) {
     if (!this.alive) return;
     const sx = this.x - cameraX;
-    const sy = this.y;
+    const sy = this.y - cameraY;
     const pulse = 0.9 + Math.sin(this.animTimer * 4) * 0.1;
 
     ctx.save();
@@ -158,12 +158,13 @@ export class Boss extends Enemy {
     ctx.fillStyle = '#fb7185';
     for (const p of this.projectiles) {
       const px = p.x - cameraX;
+      const py = p.y - cameraY;
       ctx.beginPath();
-      ctx.arc(px, p.y, 5, 0, Math.PI * 2);
+      ctx.arc(px, py, 5, 0, Math.PI * 2);
       ctx.fill();
       ctx.fillStyle = 'rgba(251,113,133,0.35)';
       ctx.beginPath();
-      ctx.arc(px, p.y, 8, 0, Math.PI * 2);
+      ctx.arc(px, py, 8, 0, Math.PI * 2);
       ctx.fill();
       ctx.fillStyle = '#fb7185';
     }

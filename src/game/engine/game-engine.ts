@@ -27,6 +27,7 @@ import { EntityPools } from './entity-pools';
 
 const FIXED_DT = 1 / 60;
 const MAX_ACCUMULATED = 0.1;
+const START_SAFE_ZONE_END = 760;
 
 export type EngineState = 'playing' | 'paused' | 'gameover';
 
@@ -114,6 +115,7 @@ export class GameEngine {
     this.entityPools = new EntityPools();
 
     this.handleResize();
+    this.prepareOpeningFrame();
     window.addEventListener('resize', this.handleResize);
   }
 
@@ -143,9 +145,22 @@ export class GameEngine {
     this.currentQualityLevel = 'high';
     this.particles.setReducedParticles(false);
     this.gameTime = 0;
+    this.prepareOpeningFrame();
     // Reset timing to avoid first-frame spike after restart
     this.lastTime = performance.now();
     this.accumulated = 0;
+  }
+
+  private prepareOpeningFrame(): void {
+    this.chunkManager.update(this.player.centerX);
+    const groundY = this.getGroundY(this.player.centerX);
+    if (groundY !== Infinity) {
+      this.player.y = groundY - this.player.height;
+      this.player.vy = 0;
+      this.player.onGround = true;
+    }
+    this.camera.snapTo(this.player.centerX, this.player.centerY);
+    this.spawnChunkEntities();
   }
 
   private handleResize = (): void => {
@@ -193,8 +208,12 @@ export class GameEngine {
     if (this._running) return;
     this._running = true;
     this.handleResize();
+    this.prepareOpeningFrame();
     // Layout can settle one frame after mount in embedded previews.
-    requestAnimationFrame(() => this.handleResize());
+    requestAnimationFrame(() => {
+      this.handleResize();
+      this.prepareOpeningFrame();
+    });
     this.lastTime = performance.now();
     this.loop(this.lastTime);
   }
@@ -368,6 +387,7 @@ export class GameEngine {
       const allSpawns = [...baseSpawns, ...bonusSpawns];
 
       for (const spawn of allSpawns) {
+        if (chunk.index === 0 && spawn.x < START_SAFE_ZONE_END) continue;
         let enemy: Enemy;
         switch (spawn.type) {
           case 'slime': enemy = new Slime(spawn.x, spawn.y, spawn.chunkId); break;
@@ -755,7 +775,7 @@ export class GameEngine {
     // Hazards - frustum culling
     for (const h of this.hazards) {
       if (!this.camera.isVisible(h.x, h.y, h.width, h.height)) continue;
-      renderHazard(ctx, h, this.camera.renderX);
+      renderHazard(ctx, h, this.camera.renderX, this.camera.renderY);
     }
 
     // Collectibles - frustum culling
@@ -769,20 +789,21 @@ export class GameEngine {
     for (const enemy of this.enemies) {
       if (!enemy.alive) continue;
       if (!this.camera.isVisible(enemy.x, enemy.y, enemy.width, enemy.height)) continue;
-      enemy.render(ctx, this.camera.renderX);
+      enemy.render(ctx, this.camera.renderX, this.camera.renderY);
     }
 
     // Player projectiles
     ctx.fillStyle = '#60a5fa';
     for (const p of this.player.projectiles) {
       const sx = p.x - this.camera.renderX;
+      const sy = p.y - this.camera.renderY;
       ctx.beginPath();
-      ctx.arc(sx, p.y, 4, 0, Math.PI * 2);
+      ctx.arc(sx, sy, 4, 0, Math.PI * 2);
       ctx.fill();
       // Glow
       ctx.fillStyle = '#93c5fd80';
       ctx.beginPath();
-      ctx.arc(sx, p.y, 7, 0, Math.PI * 2);
+      ctx.arc(sx, sy, 7, 0, Math.PI * 2);
       ctx.fill();
       ctx.fillStyle = '#60a5fa';
     }
@@ -793,7 +814,7 @@ export class GameEngine {
     // Shield visual
     if (this.player.shieldActive) {
       const sx = this.player.x - this.camera.renderX + this.player.width / 2;
-      const sy = this.player.y + this.player.height / 2;
+      const sy = this.player.y - this.camera.renderY + this.player.height / 2;
       ctx.strokeStyle = '#06b6d480';
       ctx.lineWidth = 2;
       ctx.beginPath();
@@ -807,7 +828,8 @@ export class GameEngine {
     if (this.player.dashing) {
       ctx.fillStyle = '#4488cc40';
       const sx = this.player.x - this.camera.renderX - this.player.dashDirection * 20;
-      ctx.fillRect(sx, this.player.y, this.player.width, this.player.height);
+      const sy = this.player.y - this.camera.renderY;
+      ctx.fillRect(sx, sy, this.player.width, this.player.height);
     }
 
     this.renderer.drawParticles(this.particles.getParticles(), this.camera);

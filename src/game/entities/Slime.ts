@@ -49,10 +49,10 @@ export class Slime extends Enemy {
     this.y += this.vy * dt;
   }
 
-  render(ctx: CanvasRenderingContext2D, cameraX: number) {
+  render(ctx: CanvasRenderingContext2D, cameraX: number, cameraY: number = 0) {
     if (!this.alive) return;
     const sx = this.x - cameraX;
-    const sy = this.y;
+    const sy = this.y - cameraY;
 
     const squish = this.onGround ? 1 + Math.sin(this.animTimer * 7) * 0.1 : 0.85;
     const w = this.width * (2 - squish);
@@ -61,6 +61,11 @@ export class Slime extends Enemy {
     const cy = sy + this.height - h * 0.1;
 
     ctx.save();
+    ctx.fillStyle = 'rgba(15,23,42,0.2)';
+    ctx.beginPath();
+    ctx.ellipse(cx, sy + this.height + 3, this.width * 0.42, 3, 0, 0, Math.PI * 2);
+    ctx.fill();
+
     const bodyGradient = ctx.createRadialGradient(cx - 4, cy - 8, 2, cx, cy, w * 0.7);
     bodyGradient.addColorStop(0, '#86efac');
     bodyGradient.addColorStop(1, '#16a34a');

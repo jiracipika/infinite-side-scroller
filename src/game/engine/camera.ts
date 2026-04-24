@@ -61,7 +61,7 @@ export class Camera {
 
   update(playerX: number, playerY: number): void {
     // Desired camera position with look-ahead
-    const desiredX = playerX - this.screenWidth * (0.5 + this.config.lookAheadX);
+    const desiredX = Math.max(0, playerX - this.screenWidth * (0.5 + this.config.lookAheadX));
     const desiredY = playerY - this.screenHeight * 0.5;
 
     // Always update target — lerp provides the smoothing
@@ -88,6 +88,19 @@ export class Camera {
       this.shakeIntensity = 0;
       this.shakeDuration = 0;
     }
+  }
+
+  /** Place the camera immediately without lerp for clean starts/restarts. */
+  snapTo(playerX: number, playerY: number): void {
+    this.targetX = Math.max(0, playerX - this.screenWidth * (0.5 + this.config.lookAheadX));
+    this.targetY = playerY - this.screenHeight * 0.5;
+    this.x = this.targetX;
+    this.y = Math.max(-200, this.targetY);
+    this.shakeOffsetX = 0;
+    this.shakeOffsetY = 0;
+    this.shakeIntensity = 0;
+    this.shakeDuration = 0;
+    this.shakeTimer = 0;
   }
 
   /** Convert world → screen using shake-adjusted position */

@@ -47,10 +47,10 @@ export class Jumper extends Enemy {
     this.y += this.vy * dt;
   }
 
-  render(ctx: CanvasRenderingContext2D, cameraX: number) {
+  render(ctx: CanvasRenderingContext2D, cameraX: number, cameraY: number = 0) {
     if (!this.alive) return;
     const sx = this.x - cameraX;
-    const sy = this.y;
+    const sy = this.y - cameraY;
 
     const stretch = this.onGround ? 1.0 : (this.vy < 0 ? 0.8 : 1.15);
     const w = this.width * (2 - stretch);
@@ -59,6 +59,10 @@ export class Jumper extends Enemy {
     const cy = sy + this.height - 2;
 
     ctx.save();
+    ctx.fillStyle = 'rgba(15,23,42,0.2)';
+    ctx.beginPath();
+    ctx.ellipse(cx, sy + this.height + 4, this.width * 0.44, 3, 0, 0, Math.PI * 2);
+    ctx.fill();
 
     const body = ctx.createLinearGradient(0, sy, 0, sy + this.height);
     body.addColorStop(0, this.chasing ? '#f97316' : '#f59e0b');

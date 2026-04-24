@@ -40,12 +40,14 @@ export function spawnHazardsForChunk(
 ): Hazard[] {
   const hazards: Hazard[] = [];
   const base = chunkId * 9999;
+  const startSafeZoneEnd = 760;
 
   // Spikes on ground (every chunk has a chance)
   if (rng(base + 200) > 0.4) {
     const spikeCount = 1 + Math.floor(rng(base + 201) * 3);
     for (let i = 0; i < spikeCount; i++) {
       const localX = rng(base + i * 30 + 202) * 700 + 50;
+      if (chunkId === 0 && localX < startSafeZoneEnd) continue;
       const groundY = getInterpolatedHeight(heights, localX);
       hazards.push({
         type: 'spike',
@@ -81,9 +83,9 @@ export function spawnHazardsForChunk(
 }
 
 /** Render a hazard */
-export function renderHazard(ctx: CanvasRenderingContext2D, h: Hazard, cameraX: number) {
+export function renderHazard(ctx: CanvasRenderingContext2D, h: Hazard, cameraX: number, cameraY: number = 0) {
   const sx = h.x - cameraX;
-  const sy = h.y;
+  const sy = h.y - cameraY;
 
   if (h.destroyed) return;
 

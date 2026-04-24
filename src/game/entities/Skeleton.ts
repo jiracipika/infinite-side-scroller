@@ -74,12 +74,16 @@ export class Skeleton extends Enemy {
     });
   }
 
-  render(ctx: CanvasRenderingContext2D, cameraX: number) {
+  render(ctx: CanvasRenderingContext2D, cameraX: number, cameraY: number = 0) {
     if (!this.alive) return;
     const sx = this.x - cameraX;
-    const sy = this.y;
+    const sy = this.y - cameraY;
 
     ctx.save();
+    ctx.fillStyle = 'rgba(15,23,42,0.2)';
+    ctx.beginPath();
+    ctx.ellipse(sx + this.width / 2, sy + this.height + 4, this.width * 0.42, 3, 0, 0, Math.PI * 2);
+    ctx.fill();
 
     // Torso and ribcage
     ctx.fillStyle = '#e7e5e4';
@@ -121,12 +125,13 @@ export class Skeleton extends Enemy {
     ctx.fillStyle = '#f97316';
     for (const p of this.projectiles) {
       const px = p.x - cameraX;
+      const py = p.y - cameraY;
       ctx.beginPath();
-      ctx.arc(px, p.y, 4, 0, Math.PI * 2);
+      ctx.arc(px, py, 4, 0, Math.PI * 2);
       ctx.fill();
       ctx.fillStyle = 'rgba(254,215,170,0.35)';
       ctx.beginPath();
-      ctx.arc(px, p.y, 7, 0, Math.PI * 2);
+      ctx.arc(px, py, 7, 0, Math.PI * 2);
       ctx.fill();
       ctx.fillStyle = '#f97316';
     }

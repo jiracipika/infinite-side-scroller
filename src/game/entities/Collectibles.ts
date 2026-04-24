@@ -16,6 +16,14 @@ export interface Collectible {
   value: number; // score value for coins, duration for boosts
 }
 
+const ENEMY_HEIGHTS: Record<string, number> = {
+  slime: 24,
+  bat: 20,
+  jumper: 28,
+  skeleton: 44,
+  boss: 64,
+};
+
 /** Create a collectible */
 export function createCollectible(
   x: number, y: number, type: CollectibleType, chunkId: number
@@ -119,7 +127,7 @@ export function spawnEnemiesForChunk(
         enemies.push({
           type,
           x: plat.x + rng(base + i * 20 + 103) * plat.width,
-          y: plat.y - 30,
+          y: plat.y - (ENEMY_HEIGHTS[type] ?? 30),
           chunkId,
         });
         continue;
@@ -137,7 +145,7 @@ export function spawnEnemiesForChunk(
       enemies.push({
         type,
         x: chunkWorldX + x,
-        y: groundY - 30,
+        y: groundY - (ENEMY_HEIGHTS[type] ?? 30),
         chunkId,
       });
     }
@@ -151,7 +159,7 @@ export function spawnEnemiesForChunk(
       enemies.push({
         type: 'boss',
         x: plat.x + plat.width / 2 - 28,
-        y: plat.y - 70,
+        y: plat.y - ENEMY_HEIGHTS.boss,
         chunkId,
       });
     } else if (terrainHeights && terrainHeights.length > 0 && chunkWorldX !== undefined) {
@@ -160,7 +168,7 @@ export function spawnEnemiesForChunk(
       enemies.push({
         type: 'boss',
         x: chunkWorldX + CHUNK_WIDTH / 2 - 28,
-        y: terrainHeights[midIdx] - 70,
+        y: terrainHeights[midIdx] - ENEMY_HEIGHTS.boss,
         chunkId,
       });
     }
