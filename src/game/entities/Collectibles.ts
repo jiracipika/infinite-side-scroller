@@ -20,7 +20,10 @@ export interface Collectible {
 
 const ENEMY_HEIGHTS: Record<string, number> = {
   slime: 24,
+  beetle: 16,
+  wisp: 18,
   bat: 20,
+  mite: 18,
   jumper: 28,
   skeleton: 44,
   alien: 34,
@@ -30,7 +33,10 @@ const ENEMY_HEIGHTS: Record<string, number> = {
 
 const ENEMY_WIDTHS: Record<string, number> = {
   slime: 28,
+  beetle: 22,
+  wisp: 18,
   bat: 28,
+  mite: 20,
   jumper: 24,
   skeleton: 28,
   alien: 26,
@@ -124,10 +130,13 @@ export function spawnEnemiesForChunk(
   const enemies: { type: EnemyType; x: number; y: number; chunkId: number }[] = [];
   const base = chunkId * 7777;
   const count = 2 + Math.floor(rng(base + 100) * 4) + Math.min(3, Math.floor(progressionLevel / 2));
-  const enemyPool: EnemyType[] = ['slime', 'bat'];
+  const enemyPool: EnemyType[] = ['slime', 'beetle'];
+  if (progressionLevel >= 1) enemyPool.push('wisp');
   if (progressionLevel >= 1) enemyPool.push('jumper');
   if (progressionLevel >= 2) enemyPool.push('skeleton');
+  if (progressionLevel >= 2) enemyPool.push('mite');
   if (progressionLevel >= 3) enemyPool.push('alien');
+  if (progressionLevel >= 3) enemyPool.push('bat');
   if (progressionLevel >= 4) enemyPool.push('ufo');
 
   for (let i = 0; i < count; i++) {
@@ -135,14 +144,14 @@ export function spawnEnemiesForChunk(
     const type = enemyPool[Math.min(enemyPool.length - 1, Math.floor(roll * enemyPool.length))];
 
     // Place on platform if available and enemy type benefits from it
-    if (platforms.length > 0 && (type === 'bat' || type === 'ufo' || rng(base + i * 20 + 104) < 0.3)) {
+    if (platforms.length > 0 && (type === 'bat' || type === 'wisp' || type === 'ufo' || rng(base + i * 20 + 104) < 0.3)) {
       const platIdx = Math.floor(rng(base + i * 20 + 101) * platforms.length);
       if (platIdx < platforms.length) {
         const plat = platforms[platIdx];
         enemies.push({
           type,
           x: plat.x + rng(base + i * 20 + 103) * Math.max(1, plat.width - (ENEMY_WIDTHS[type] ?? 28)),
-          y: type === 'ufo' ? plat.y - 140 : plat.y - (ENEMY_HEIGHTS[type] ?? 30),
+          y: type === 'ufo' ? plat.y - 140 : type === 'wisp' ? plat.y - 72 : plat.y - (ENEMY_HEIGHTS[type] ?? 30),
           chunkId,
         });
         continue;
@@ -160,7 +169,7 @@ export function spawnEnemiesForChunk(
       enemies.push({
         type,
         x: chunkWorldX + x,
-        y: type === 'ufo' ? groundY - 165 : groundY - (ENEMY_HEIGHTS[type] ?? 30),
+        y: type === 'ufo' ? groundY - 165 : type === 'wisp' ? groundY - 95 : groundY - (ENEMY_HEIGHTS[type] ?? 30),
         chunkId,
       });
     }

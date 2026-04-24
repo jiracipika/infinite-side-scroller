@@ -9,7 +9,10 @@ import { InputManager } from '../input/input';
 import { Player, DEFAULT_PLAYER_CONFIG } from '../entities/player';
 import { Enemy } from '../entities/Enemy';
 import { Slime } from '../entities/Slime';
+import { Beetle } from '../entities/Beetle';
+import { Wisp } from '../entities/Wisp';
 import { Bat } from '../entities/Bat';
+import { Mite } from '../entities/Mite';
 import { Skeleton } from '../entities/Skeleton';
 import { Jumper } from '../entities/Jumper';
 import { Boss } from '../entities/Boss';
@@ -52,7 +55,10 @@ function aabbOverlap(
 
 const KILL_SCORES: Record<string, number> = {
   slime: 100,
+  beetle: 75,
+  wisp: 125,
   bat: 150,
+  mite: 175,
   jumper: 200,
   skeleton: 250,
   alien: 350,
@@ -412,7 +418,10 @@ export class GameEngine {
         let enemy: Enemy;
         switch (spawn.type) {
           case 'slime': enemy = new Slime(spawn.x, spawn.y, spawn.chunkId); break;
+          case 'beetle': enemy = new Beetle(spawn.x, spawn.y, spawn.chunkId); break;
+          case 'wisp': enemy = new Wisp(spawn.x, spawn.y, spawn.chunkId); break;
           case 'bat': enemy = new Bat(spawn.x, spawn.y, spawn.chunkId); break;
+          case 'mite': enemy = new Mite(spawn.x, spawn.y, spawn.chunkId); break;
           case 'jumper': enemy = new Jumper(spawn.x, spawn.y, spawn.chunkId); break;
           case 'skeleton': enemy = new Skeleton(spawn.x, spawn.y, spawn.chunkId); break;
           case 'alien': enemy = new Alien(spawn.x, spawn.y, spawn.chunkId); break;
