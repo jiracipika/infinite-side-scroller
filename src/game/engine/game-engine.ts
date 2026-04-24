@@ -151,14 +151,35 @@ export class GameEngine {
   private handleResize = (): void => {
     const dpr = window.devicePixelRatio || 1;
     const host = this.canvas.parentElement;
-    const width = Math.max(1, Math.floor(host?.clientWidth ?? window.innerWidth));
-    const height = Math.max(1, Math.floor(host?.clientHeight ?? window.innerHeight));
+    const hostRect = host?.getBoundingClientRect();
+    const canvasRect = this.canvas.getBoundingClientRect();
+
+    const width = Math.max(
+      1,
+      Math.floor(host?.clientWidth ?? 0),
+      Math.floor(hostRect?.width ?? 0),
+      Math.floor(canvasRect.width),
+      Math.floor(window.innerWidth),
+    );
+    const height = Math.max(
+      1,
+      Math.floor(host?.clientHeight ?? 0),
+      Math.floor(hostRect?.height ?? 0),
+      Math.floor(canvasRect.height),
+      Math.floor(window.innerHeight),
+    );
     const pixelWidth = Math.max(1, Math.floor(width * dpr));
     const pixelHeight = Math.max(1, Math.floor(height * dpr));
 
-    this.ctx.setTransform(1, 0, 0, 1, 0, 0);
     this.canvas.style.width = `${width}px`;
     this.canvas.style.height = `${height}px`;
+    if (this.canvas.width === pixelWidth && this.canvas.height === pixelHeight) {
+      this.renderer.resize(width, height);
+      this.camera.setScreenSize(width, height);
+      return;
+    }
+
+    this.ctx.setTransform(1, 0, 0, 1, 0, 0);
     this.canvas.width = pixelWidth;
     this.canvas.height = pixelHeight;
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -712,8 +733,13 @@ export class GameEngine {
 
   private render(): void {
     const ctx = this.ctx;
-    const width = this.camera.viewportWidth;
-    const height = this.camera.viewportHeight;
+    let width = this.camera.viewportWidth;
+    let height = this.camera.viewportHeight;
+    if (width <= 2 || height <= 2) {
+      this.handleResize();
+      width = this.camera.viewportWidth;
+      height = this.camera.viewportHeight;
+    }
     ctx.clearRect(0, 0, width, height);
 
     const chunks = this.chunkManager.getLoadedChunks();
