@@ -326,8 +326,10 @@ export class Player {
 
   isStomping(): boolean { return this.vy > 0; }
 
-  stompBounce(): void {
-    this.vy = this.config.jumpVelocity * 0.6;
+  stompBounce(boosted: boolean = false): void {
+    this.vy = this.config.jumpVelocity * (boosted ? 0.82 : 0.58);
+    this.onGround = false;
+    this.hasDoubleJumped = false;
   }
 
   applySpeedBoost(multiplier: number, duration: number = 5): void {

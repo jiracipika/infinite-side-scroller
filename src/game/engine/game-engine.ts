@@ -48,6 +48,14 @@ function aabbOverlap(
   return ax < b.x + b.width && ax + aw > b.x && ay < b.y + b.height && ay + ah > b.y;
 }
 
+const KILL_SCORES: Record<string, number> = {
+  slime: 100,
+  bat: 150,
+  jumper: 200,
+  skeleton: 250,
+  boss: 1000,
+};
+
 export class GameEngine {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
@@ -460,6 +468,34 @@ export class GameEngine {
     enemy.onGround = false;
   }
 
+  private isStompCollision(enemy: Enemy, dt: number): boolean {
+    if (!enemy.stompable) return false;
+
+    const playerBottom = this.player.bottom;
+    const previousBottom = playerBottom - this.player.vy * dt;
+    const enemyTop = enemy.y;
+    const enemyMid = enemy.y + enemy.height * 0.62;
+    const centerGrace = 8;
+    const horizontalCenterOverlaps =
+      this.player.centerX >= enemy.x - centerGrace &&
+      this.player.centerX <= enemy.x + enemy.width + centerGrace;
+
+    // Forgiving top-half stomp: accepts fast falls, edge hits, and small enemies.
+    return (
+      this.player.vy > -80 &&
+      horizontalCenterOverlaps &&
+      (previousBottom <= enemyMid || this.player.centerY < enemy.y + enemy.height * 0.55) &&
+      playerBottom >= enemyTop - 8
+    );
+  }
+
+  private awardEnemyDefeat(enemy: Enemy): void {
+    const pts = KILL_SCORES[enemy.type] ?? 100;
+    this.player.score += pts;
+    this.particles.spawnEnemyDeath(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2);
+    this.particles.spawnScorePopup(enemy.x + enemy.width / 2, enemy.y, `+${pts}`);
+  }
+
   private update(dt: number): void {
     this.gameTime += dt;
 
@@ -575,34 +611,20 @@ export class GameEngine {
       enemy.update(dt, this.player.centerX, this.player.centerY);
       this.updateEnemyGround(enemy, enemyPlatforms, dt);
 
-      // Score per kill scales by enemy type
-      const KILL_SCORES: Record<string, number> = { slime: 100, bat: 150, jumper: 200, skeleton: 250, boss: 1000 };
-
       // Enemy-player collision — shrink player hitbox 4px for forgiving feel
       if (aabbOverlap(playerBounds, enemy.getBounds(), 4)) {
-        // Stomp: player clearly falling AND feet in top 40% of enemy
-        const playerFeetY = this.player.y + this.player.height;
-        const isStomp = enemy.stompable
-          && this.player.vy > 50
-          && playerFeetY < enemy.y + enemy.height * 0.4;
+        const isStomp = this.isStompCollision(enemy, dt);
 
         if (isStomp) {
           enemy.takeDamage(1);
-          if (!enemy.alive) {
-            const pts = KILL_SCORES[enemy.type] ?? 100;
-            this.player.score += pts;
-            this.particles.spawnEnemyDeath(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2);
-            this.particles.spawnScorePopup(enemy.x + enemy.width / 2, enemy.y, `+${pts}`);
-          }
-          this.player.stompBounce();
+          if (!enemy.alive) this.awardEnemyDefeat(enemy);
+          const wantsBoostedBounce = this.input.isDown('Space') || this.input.isDown('ArrowUp') || this.input.isDown('KeyW');
+          this.player.stompBounce(wantsBoostedBounce);
+          this.camera.shake(2, 0.12);
+          this.particles.spawnLanding(this.player.centerX, Math.min(this.player.bottom, enemy.y + 2));
         } else if (this.player.dashing) {
           enemy.takeDamage(2);
-          if (!enemy.alive) {
-            const pts = KILL_SCORES[enemy.type] ?? 100;
-            this.player.score += pts;
-            this.particles.spawnEnemyDeath(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2);
-            this.particles.spawnScorePopup(enemy.x + enemy.width / 2, enemy.y, `+${pts}`);
-          }
+          if (!enemy.alive) this.awardEnemyDefeat(enemy);
         } else {
           if (this.player.takeDamage(enemy.effectiveDamage)) {
             const kb = this.player.centerX < enemy.x ? -200 : 200;
@@ -619,12 +641,7 @@ export class GameEngine {
         if (aabbOverlap({ x: proj.x - 4, y: proj.y - 4, width: 8, height: 8 }, enemy.getBounds())) {
           enemy.takeDamage(proj.damage);
           proj.life = 0;
-          if (!enemy.alive) {
-            const pts = KILL_SCORES[enemy.type] ?? 100;
-            this.player.score += pts;
-            this.particles.spawnEnemyDeath(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2);
-            this.particles.spawnScorePopup(enemy.x + enemy.width / 2, enemy.y, `+${pts}`);
-          }
+          if (!enemy.alive) this.awardEnemyDefeat(enemy);
         }
       }
 
