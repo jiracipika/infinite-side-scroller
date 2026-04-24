@@ -131,7 +131,7 @@ export class GameRenderer {
     }
 
     // Draw to main canvas
-    this.drawTerrainToContext(ctx, chunk, this.width, this.height, camera.renderX - chunk.worldX, -camera.renderY);
+    this.drawTerrainToContext(ctx, chunk, this.width, this.height, chunk.worldX - camera.renderX, -camera.renderY);
   }
 
   private drawTerrainToContext(
