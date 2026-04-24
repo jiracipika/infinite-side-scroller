@@ -2,8 +2,6 @@
  * Hazards - Spikes and falling platforms
  */
 
-import type { Chunk } from '../world/chunk';
-
 /** Interpolate terrain height from heights array at an arbitrary localX */
 function getInterpolatedHeight(heights: number[], localX: number): number {
   const idx = Math.floor(localX / 4);

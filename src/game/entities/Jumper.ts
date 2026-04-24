@@ -6,7 +6,6 @@ import { Enemy } from './Enemy';
 const GRAVITY = 1800;
 const HOP_SPEED = 120;
 const AGGRESSIVE_SPEED = 200;
-const DETECT_RANGE = 300;
 const HOP_INTERVAL = 1.0;
 
 export class Jumper extends Enemy {

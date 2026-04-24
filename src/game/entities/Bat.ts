@@ -5,10 +5,8 @@ import { Enemy } from './Enemy';
 
 const FLY_SPEED = 120;
 const CHASE_SPEED = 200;
-const DETECT_RANGE = 250;
 
 export class Bat extends Enemy {
-  private baseY: number;
   private flyTimer = 0;
   private amplitude = 40;
   private frequency = 3;
@@ -18,17 +16,14 @@ export class Bat extends Enemy {
     super(x, y, 'bat', {
       width: 28, height: 20, health: 1, damage: 1, chunkId,
     });
-    this.baseY = y;
   }
 
   update(dt: number, playerX: number, playerY: number) {
     if (!this.alive) return;
     this.animTimer += dt;
 
-    // Check if player is close
     const dx = playerX - this.x;
     const dy = playerY - this.y;
-    const dist = Math.sqrt(dx * dx + dy * dy);
     this.updateAI(dt, playerX, playerY);
 
     if (this.aiState === 'chase' || this.aiState === 'attack') {

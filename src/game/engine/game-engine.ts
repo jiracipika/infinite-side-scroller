@@ -73,11 +73,6 @@ export class GameEngine {
   private _running = false;
   private _state: EngineState = 'playing';
 
-  // Input throttling
-  private lastJumpPressTime = 0;
-  private lastAttackPressTime = 0;
-  private inputThrottleMs = 100;
-
   worldSeed = 42;
   difficulty = getDifficulty(0);
 
@@ -90,7 +85,6 @@ export class GameEngine {
   private enemies: Enemy[] = [];
   private collectibles: Collectible[] = [];
   private hazards: Hazard[] = [];
-  private lastChunkKey = '';
 
   // Track which chunks have spawned entities
   private spawnedChunks = new Set<number>();
@@ -143,7 +137,6 @@ export class GameEngine {
     this.collectibles = [];
     this.hazards = [];
     this.spawnedChunks.clear();
-    this.lastChunkKey = '';
     this._state = 'playing';
     this.difficulty = getDifficulty(0);
     this.wasOnGround = true;

@@ -3,7 +3,7 @@
  */
 
 import { Player } from '../entities/player';
-import { Enemy, Slime, Bat, Skeleton, Boss, Projectile } from '../entities';
+import { Enemy, Skeleton, Boss, Projectile } from '../entities';
 import { Collectible } from '../entities/Collectibles';
 
 export interface ScoreState {
@@ -54,7 +54,7 @@ export class CombatSystem {
   }
 
   /** Update all entities and check collisions */
-  update(dt: number, player: Player, cameraX: number) {
+  update(dt: number, player: Player) {
     if (!player.alive) return;
 
     // Update enemies

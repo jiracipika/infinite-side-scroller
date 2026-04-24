@@ -5,7 +5,6 @@ import { Enemy } from './Enemy';
 
 const GRAVITY = 1800;
 const WALK_SPEED = 80;
-const THROW_RANGE = 300;
 const THROW_COOLDOWN = 2.0;
 
 export class Skeleton extends Enemy {

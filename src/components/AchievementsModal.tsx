@@ -1,10 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback, type FC } from 'react';
+import { useState, useEffect, type FC } from 'react';
 import ACHIEVEMENTS, {
-  loadUnlockedAchievements, saveUnlockedAchievements,
-  loadLifetimeStats, saveLifetimeStats, checkNewAchievements,
-  type AchievementStats,
+  loadUnlockedAchievements,
 } from '@/lib/achievements';
 
 /* ── Toast notification (shown briefly when unlocked) ── */
@@ -64,11 +62,9 @@ interface Props {
 
 export default function AchievementsModal({ onClose }: Props) {
   const [unlocked, setUnlocked] = useState<string[]>([]);
-  const [lifetime, setLifetime] = useState<AchievementStats | null>(null);
 
   useEffect(() => {
     setUnlocked(loadUnlockedAchievements());
-    setLifetime(loadLifetimeStats());
   }, []);
 
   const total = ACHIEVEMENTS.length;
