@@ -150,12 +150,17 @@ export class GameEngine {
 
   private handleResize = (): void => {
     const dpr = window.devicePixelRatio || 1;
-    const rect = this.canvas.getBoundingClientRect();
-    const width = rect.width;
-    const height = rect.height;
+    const host = this.canvas.parentElement;
+    const width = Math.max(1, Math.floor(host?.clientWidth ?? window.innerWidth));
+    const height = Math.max(1, Math.floor(host?.clientHeight ?? window.innerHeight));
+    const pixelWidth = Math.max(1, Math.floor(width * dpr));
+    const pixelHeight = Math.max(1, Math.floor(height * dpr));
+
     this.ctx.setTransform(1, 0, 0, 1, 0, 0);
-    this.canvas.width = width * dpr;
-    this.canvas.height = height * dpr;
+    this.canvas.style.width = `${width}px`;
+    this.canvas.style.height = `${height}px`;
+    this.canvas.width = pixelWidth;
+    this.canvas.height = pixelHeight;
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     this.renderer.resize(width, height);
     this.camera.setScreenSize(width, height);
@@ -164,6 +169,9 @@ export class GameEngine {
   start(): void {
     if (this._running) return;
     this._running = true;
+    this.handleResize();
+    // Layout can settle one frame after mount in embedded previews.
+    requestAnimationFrame(() => this.handleResize());
     this.lastTime = performance.now();
     this.loop(this.lastTime);
   }
@@ -667,8 +675,8 @@ export class GameEngine {
 
     // Particles
     const biome = getBiomeAt(this.player.centerX);
-    const screenW = this.canvas.getBoundingClientRect().width;
-    const screenH = this.canvas.getBoundingClientRect().height;
+    const screenW = this.camera.viewportWidth;
+    const screenH = this.camera.viewportHeight;
     this.particles.update(this.camera.x, this.camera.y, screenW, screenH, biome.type, dt);
 
     // Death by falling
@@ -704,8 +712,8 @@ export class GameEngine {
 
   private render(): void {
     const ctx = this.ctx;
-    const width = this.canvas.getBoundingClientRect().width;
-    const height = this.canvas.getBoundingClientRect().height;
+    const width = this.camera.viewportWidth;
+    const height = this.camera.viewportHeight;
     ctx.clearRect(0, 0, width, height);
 
     const chunks = this.chunkManager.getLoadedChunks();

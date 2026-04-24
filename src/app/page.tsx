@@ -93,10 +93,10 @@ export default function Home() {
   }, [quitToMenu]);
 
   return (
-    <main className="w-screen h-screen overflow-hidden bg-black relative select-none">
+    <main className="fixed inset-0 overflow-hidden bg-black relative select-none">
       <canvas
         ref={canvasRef}
-        className="w-full h-full block"
+        className="absolute inset-0 w-full h-full block"
         style={{ imageRendering: 'auto' }}
       />
 
