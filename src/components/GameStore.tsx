@@ -3,7 +3,7 @@
 import { createContext, useContext, useReducer, useEffect, type ReactNode, useRef } from 'react';
 import {
   type GameState, type GameSettings, type GameStats,
-  loadSettings, loadHighScore, saveHighScore,
+  DEFAULT_SETTINGS, loadSettings, loadHighScore, saveHighScore, saveSettings,
 } from '@/game/state/game-state';
 import {
   loadLifetimeStats, saveLifetimeStats, loadUnlockedAchievements,
@@ -37,6 +37,7 @@ const DEFAULT_STATS: GameStats = {
 };
 
 type Action =
+  | { type: 'HYDRATE'; settings: GameSettings; highScore: number }
   | { type: 'START'; seed: number }
   | { type: 'PAUSE' }
   | { type: 'RESUME' }
@@ -50,10 +51,18 @@ interface State {
   stats: GameStats;
   settings: GameSettings;
   seed: number;
+  hydrated: boolean;
 }
 
 function reducer(state: State, action: Action): State {
   switch (action.type) {
+    case 'HYDRATE':
+      return {
+        ...state,
+        hydrated: true,
+        settings: action.settings,
+        stats: { ...state.stats, highScore: action.highScore },
+      };
     case 'START':
       return {
         ...state,
@@ -106,10 +115,15 @@ const Ctx = createContext<GameStoreAPI | null>(null);
 export function GameStoreProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, {
     gameState: 'menu' as GameState,
-    stats: { ...DEFAULT_STATS, highScore: loadHighScore() },
-    settings: loadSettings(),
+    stats: DEFAULT_STATS,
+    settings: DEFAULT_SETTINGS,
     seed: 42,
+    hydrated: false,
   });
+
+  useEffect(() => {
+    dispatch({ type: 'HYDRATE', settings: loadSettings(), highScore: loadHighScore() });
+  }, []);
 
   const api = useRef<GameStoreAPI>(null!);
   api.current = {
@@ -128,8 +142,8 @@ export function GameStoreProvider({ children }: { children: ReactNode }) {
 
   // Persist settings
   useEffect(() => {
-    try { localStorage.setItem('iss-settings', JSON.stringify(state.settings)); } catch {}
-  }, [state.settings]);
+    if (state.hydrated) saveSettings(state.settings);
+  }, [state.hydrated, state.settings]);
 
   return <Ctx.Provider value={api.current}>{children}</Ctx.Provider>;
 }

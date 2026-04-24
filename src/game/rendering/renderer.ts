@@ -44,6 +44,9 @@ export class GameRenderer {
     gradient.addColorStop(1, colors.skyGradient);
     this.ctx.fillStyle = gradient;
     this.ctx.fillRect(0, 0, this.width, this.height);
+
+    this.ctx.fillStyle = 'rgba(255,255,255,0.08)';
+    this.ctx.fillRect(0, Math.max(0, this.height * 0.52), this.width, this.height * 0.48);
   }
 
   drawParallax(camera: Camera): void {
@@ -100,10 +103,10 @@ export class GameRenderer {
 
       if (this.cacheEnabled && this.terrainCache.has(chunk.index)) {
         // Draw from cache
-        const cachedData = this.terrainCache.get(chunk.index);
-        if (cachedData) {
+        const cachedCanvas = this.terrainCache.get(chunk.index);
+        if (cachedCanvas) {
           const screen = camera.worldToScreen(chunk.worldX, 0);
-          this.ctx.putImageData(cachedData, screen.x, screen.y);
+          this.ctx.drawImage(cachedCanvas, screen.x, screen.y);
           continue;
         }
       }
@@ -134,9 +137,8 @@ export class GameRenderer {
       // Draw terrain to offscreen canvas
       this.drawTerrainToContext(offCtx, chunk, colors, cacheWidth, cacheHeight, 0);
 
-      // Cache the result
-      const imageData = offCtx.getImageData(0, 0, cacheWidth, cacheHeight);
-      this.terrainCache.set(chunk.index, imageData);
+      // Cache the transparent canvas itself; drawImage preserves destination sky.
+      this.terrainCache.set(chunk.index, offscreen);
     }
 
     // Draw to main canvas
@@ -151,7 +153,11 @@ export class GameRenderer {
     canvasHeight: number,
     offsetX: number
   ): void {
-    ctx.fillStyle = colors.groundDark;
+    const soilGradient = ctx.createLinearGradient(0, 0, 0, canvasHeight);
+    soilGradient.addColorStop(0, this.shadeHexColor(colors.groundDark, 10));
+    soilGradient.addColorStop(0.45, colors.groundDark);
+    soilGradient.addColorStop(1, this.shadeHexColor(colors.groundDark, -35));
+    ctx.fillStyle = soilGradient;
     ctx.beginPath();
     let started = false;
     for (let i = 0; i < chunk.heights.length; i++) {
@@ -167,14 +173,44 @@ export class GameRenderer {
     ctx.closePath();
     ctx.fill();
 
-    // Grass line
-    ctx.strokeStyle = colors.ground;
-    ctx.lineWidth = 4;
+    // Layered ground texture. Deterministic math keeps cached chunks stable.
+    ctx.save();
+    ctx.globalAlpha = 0.16;
+    ctx.strokeStyle = this.shadeHexColor(colors.groundDark, -22);
+    ctx.lineWidth = 1;
+    for (let i = 8; i < chunk.heights.length; i += 14) {
+      const localX = i * 4;
+      const worldX = chunk.worldX + localX;
+      const screenX = localX + offsetX;
+      const surfaceY = chunk.heights[i];
+      const fleckY = surfaceY + 22 + ((Math.sin((worldX + chunk.index * 37) * 0.047) + 1) * 34);
+      const fleckW = 8 + ((i + chunk.index) % 5) * 3;
+      ctx.beginPath();
+      ctx.moveTo(screenX, fleckY);
+      ctx.lineTo(screenX + fleckW, fleckY + Math.sin(worldX * 0.03) * 2);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // Grass cap and highlight
+    ctx.strokeStyle = this.shadeHexColor(colors.ground, -15);
+    ctx.lineWidth = 7;
     ctx.beginPath();
     for (let i = 0; i < chunk.heights.length; i++) {
       const worldX = chunk.worldX + i * 4;
       const screenX = worldX - chunk.worldX + offsetX;
       const screenY = chunk.heights[i];
+      if (i === 0) ctx.moveTo(screenX, screenY);
+      else ctx.lineTo(screenX, screenY);
+    }
+    ctx.stroke();
+
+    ctx.strokeStyle = this.shadeHexColor(colors.ground, 24);
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    for (let i = 0; i < chunk.heights.length; i++) {
+      const screenX = i * 4 + offsetX;
+      const screenY = chunk.heights[i] - 1;
       if (i === 0) ctx.moveTo(screenX, screenY);
       else ctx.lineTo(screenX, screenY);
     }
@@ -205,11 +241,16 @@ export class GameRenderer {
         }
         const screen = camera.worldToScreen(platform.x, platY);
         if (screen.x + platform.width < 0 || screen.x > this.width) continue;
-        ctx.fillStyle = colors.platform;
-        ctx.fillRect(screen.x, screen.y, platform.width, 8);
-        ctx.strokeStyle = colors.groundDark;
+        const beamGradient = ctx.createLinearGradient(0, screen.y, 0, screen.y + 10);
+        beamGradient.addColorStop(0, this.shadeHexColor(colors.platform, 18));
+        beamGradient.addColorStop(1, this.shadeHexColor(colors.platform, -22));
+        ctx.fillStyle = beamGradient;
+        ctx.fillRect(screen.x, screen.y, platform.width, 10);
+        ctx.fillStyle = 'rgba(255,255,255,0.18)';
+        ctx.fillRect(screen.x + 2, screen.y + 1, Math.max(0, platform.width - 4), 2);
+        ctx.strokeStyle = this.shadeHexColor(colors.groundDark, -20);
         ctx.lineWidth = 1;
-        ctx.strokeRect(screen.x, screen.y, platform.width, 8);
+        ctx.strokeRect(screen.x, screen.y, platform.width, 10);
         // Small glow for moving platforms
         if (platform.moveAmp) {
           ctx.fillStyle = 'rgba(255,255,255,0.08)';
@@ -263,6 +304,16 @@ export class GameRenderer {
     ctx.fillStyle = variant === 0 ? '#8a8a8a' : '#6a6a6a';
     ctx.beginPath(); ctx.ellipse(x, y - 5 * s, 12 * s, 8 * s, 0, 0, Math.PI * 2); ctx.fill();
     ctx.strokeStyle = '#555'; ctx.lineWidth = 1; ctx.stroke();
+  }
+
+  private shadeHexColor(hex: string, amount: number): string {
+    const clean = hex.replace('#', '');
+    if (clean.length !== 6) return hex;
+    const clamp = (value: number) => Math.max(0, Math.min(255, value));
+    const r = clamp(parseInt(clean.slice(0, 2), 16) + amount);
+    const g = clamp(parseInt(clean.slice(2, 4), 16) + amount);
+    const b = clamp(parseInt(clean.slice(4, 6), 16) + amount);
+    return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
   }
 
   private drawBush(x: number, y: number, scale: number, variant: number): void {

@@ -93,7 +93,7 @@ export default function Home() {
   }, [quitToMenu]);
 
   return (
-    <main className="fixed inset-0 overflow-hidden bg-black relative select-none">
+    <main className="fixed inset-0 overflow-hidden bg-black select-none">
       <canvas
         ref={canvasRef}
         className="absolute inset-0 w-full h-full block"

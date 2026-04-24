@@ -174,6 +174,7 @@ export class GameEngine {
     this.canvas.style.width = `${width}px`;
     this.canvas.style.height = `${height}px`;
     if (this.canvas.width === pixelWidth && this.canvas.height === pixelHeight) {
+      this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       this.renderer.resize(width, height);
       this.camera.setScreenSize(width, height);
       return;
@@ -183,6 +184,7 @@ export class GameEngine {
     this.canvas.width = pixelWidth;
     this.canvas.height = pixelHeight;
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    this.renderer.clearTerrainCache();
     this.renderer.resize(width, height);
     this.camera.setScreenSize(width, height);
   };
