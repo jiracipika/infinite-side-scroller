@@ -4,7 +4,17 @@
 
 import type { EnemyType } from './Enemy';
 
-export type CollectibleType = 'coin' | 'health' | 'speedBoost' | 'doubleJump' | 'shield' | 'magnet';
+export type CollectibleType =
+  | 'coin'
+  | 'health'
+  | 'speedBoost'
+  | 'doubleJump'
+  | 'shield'
+  | 'magnet'
+  | 'slingshot'
+  | 'bow'
+  | 'healingAura'
+  | 'portal';
 
 export interface Collectible {
   x: number;
@@ -16,6 +26,8 @@ export interface Collectible {
   collected: boolean;
   animTimer: number;
   value: number; // score value for coins, duration for boosts
+  portalTargetX?: number;
+  portalFlavor?: 'bunker' | 'shortcut';
 }
 
 const ENEMY_HEIGHTS: Record<string, number> = {
@@ -55,6 +67,10 @@ export function createCollectible(
     doubleJump: { w: 20, h: 20, value: 10 },
     shield: { w: 20, h: 20, value: 1 },
     magnet: { w: 20, h: 20, value: 8 },
+    slingshot: { w: 20, h: 20, value: 10 },
+    bow: { w: 20, h: 20, value: 12 },
+    healingAura: { w: 20, h: 20, value: 9 },
+    portal: { w: 34, h: 48, value: 1 },
   };
   const s = sizes[type];
   return { x, y, width: s.w, height: s.h, type, chunkId, collected: false, animTimer: 0, value: s.value };
@@ -68,6 +84,7 @@ export function spawnCollectiblesForChunk(
   platforms: { x: number; y: number; width: number }[],
   rng: (seed: number) => number,
   terrainHeights?: number[],
+  progressionLevel: number = Math.max(0, Math.floor(chunkX / 2400)),
 ): Collectible[] {
   const collectibles: Collectible[] = [];
   // Simple seeded RNG based on chunk
@@ -79,11 +96,14 @@ export function spawnCollectiblesForChunk(
     // Determine type
     const typeRoll = rng(base + g * 10 + 3);
     let type: CollectibleType = 'coin';
-    if (typeRoll > 0.94) type = 'shield';
-    else if (typeRoll > 0.89) type = 'magnet';
-    else if (typeRoll > 0.84) type = 'health';
-    else if (typeRoll > 0.79) type = 'speedBoost';
-    else if (typeRoll > 0.75) type = 'doubleJump';
+    if (typeRoll > 0.97 && progressionLevel >= 3) type = 'healingAura';
+    else if (typeRoll > 0.95 && progressionLevel >= 2) type = 'bow';
+    else if (typeRoll > 0.92 && progressionLevel >= 1) type = 'slingshot';
+    else if (typeRoll > 0.88) type = 'shield';
+    else if (typeRoll > 0.83) type = 'magnet';
+    else if (typeRoll > 0.78) type = 'health';
+    else if (typeRoll > 0.73) type = 'speedBoost';
+    else if (typeRoll > 0.68) type = 'doubleJump';
 
     const count = type === 'coin' ? 3 + Math.floor(rng(base + g * 10 + 4) * 4) : 1;
 
@@ -110,6 +130,18 @@ export function spawnCollectiblesForChunk(
         collectibles.push(createCollectible(chunkX + px, groundY - 20, type, chunkId));
       }
     }
+  }
+
+  // Pipe-like portals for bunker shortcuts.
+  if (progressionLevel >= 1 && terrainHeights && terrainHeights.length > 0 && rng(base + 904) > 0.82) {
+    const localX = 80 + rng(base + 905) * (chunkWidth - 160);
+    const heightIdx = Math.min(Math.floor(localX / 4), terrainHeights.length - 1);
+    const groundY = terrainHeights[Math.max(heightIdx, 0)];
+    const portal = createCollectible(chunkX + localX, groundY - 44, 'portal', chunkId);
+    const jumpAhead = 520 + Math.floor(rng(base + 906) * 620);
+    portal.portalTargetX = chunkX + localX + jumpAhead;
+    portal.portalFlavor = rng(base + 907) > 0.5 ? 'bunker' : 'shortcut';
+    collectibles.push(portal);
   }
 
   return collectibles;

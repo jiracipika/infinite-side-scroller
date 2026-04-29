@@ -104,13 +104,17 @@ export class Chunk {
   /** Generate platforms for this chunk */
   private generatePlatforms(rng: ReturnType<typeof createRng>): Platform[] {
     const platforms: Platform[] = [];
-    if (rng.next() > this.biome.platformDensity) return platforms;
+    const densityBoost = this.index > 3 ? 0.2 : 0.05;
+    const shouldSpawn = rng.next() <= Math.min(0.98, this.biome.platformDensity + densityBoost);
+    if (!shouldSpawn) return platforms;
 
-    const count = rng.nextInt(0, 3);
+    const baseCount = rng.nextInt(1, 4);
+    const bonusCount = (this.index % 5 === 0 ? 1 : 0) + (rng.chance(0.22) ? 1 : 0);
+    const count = baseCount + bonusCount;
     for (let i = 0; i < count; i++) {
       const x = rng.nextFloat(100, CHUNK_WIDTH - 100);
       const baseHeight = this.getHeight(x);
-      const y = baseHeight - rng.nextFloat(60, 160);
+      const y = baseHeight - rng.nextFloat(70, 190);
       const width = rng.nextFloat(60, 150);
       const isMoving = rng.chance(0.3);
       platforms.push({
@@ -119,7 +123,21 @@ export class Chunk {
         width,
         ...(isMoving ? { moveAmp: rng.nextFloat(30, 80), moveSpeed: rng.nextFloat(1, 3) } : {}),
       });
+
+      // Create a mini "stair" occasionally to encourage platform traversal.
+      if (rng.chance(0.28)) {
+        const stairWidth = Math.max(52, width * rng.nextFloat(0.5, 0.8));
+        const stairX = Math.min(CHUNK_WIDTH - 40, x + rng.nextFloat(70, 130));
+        const stairY = y - rng.nextFloat(32, 68);
+        platforms.push({
+          x: this.worldX + stairX,
+          y: stairY,
+          width: stairWidth,
+          ...(rng.chance(0.35) ? { moveAmp: rng.nextFloat(20, 50), moveSpeed: rng.nextFloat(1, 2.2) } : {}),
+        });
+      }
     }
+
     return platforms;
   }
 

@@ -26,6 +26,19 @@ export const DEFAULT_PLAYER_CONFIG: PlayerConfig = {
   height: 32,
 };
 
+export type WeaponType = 'orb' | 'slingshot' | 'bow';
+
+export interface PlayerProjectile {
+  x: number;
+  y: number;
+  vx: number;
+  life: number;
+  damage: number;
+  radius: number;
+  color: string;
+  glowColor: string;
+}
+
 export class Player {
   x: number;
   y: number;
@@ -79,8 +92,13 @@ export class Player {
   private readonly JUMP_BUFFER_TIME = 0.12;
 
   // Projectiles
-  projectiles: { x: number; y: number; vx: number; life: number; damage: number }[] = [];
+  projectiles: PlayerProjectile[] = [];
   private shootCooldown = 0;
+  private weaponType: WeaponType = 'orb';
+  private weaponTimer = 0;
+  private healerRegenTimer = 0;
+  private healingAuraTimer = 0;
+  private healingAuraTickTimer = 0;
 
   constructor(config: PlayerConfig = DEFAULT_PLAYER_CONFIG) {
     this.config = config;
@@ -106,6 +124,11 @@ export class Player {
       height: char.height,
     };
     this.baseSpeed = this.config.speed;
+    this.weaponType = this.getBaseWeaponForCharacter();
+    this.weaponTimer = 0;
+    this.healerRegenTimer = 0;
+    this.healingAuraTimer = 0;
+    this.healingAuraTickTimer = 0;
   }
 
   update(dt: number, input: InputManager, groundY: number, platforms: Platform[] = []): void {
@@ -123,6 +146,32 @@ export class Player {
     if (this.speedBoostTimer > 0) { this.speedBoostTimer -= dt; if (this.speedBoostTimer <= 0) this.config.speed = this.baseSpeed; }
     if (this.jumpBufferTimer > 0) this.jumpBufferTimer = Math.max(0, this.jumpBufferTimer - dt);
     if (this.shootCooldown > 0) this.shootCooldown -= dt;
+    if (this.weaponTimer > 0) {
+      this.weaponTimer -= dt;
+      if (this.weaponTimer <= 0) {
+        this.weaponTimer = 0;
+        this.weaponType = this.getBaseWeaponForCharacter();
+      }
+    }
+    if (this.characterId === 'healer' && this.health < this.maxHealth && this.alive) {
+      this.healerRegenTimer += dt;
+      if (this.healerRegenTimer >= 5.2) {
+        this.healerRegenTimer = 0;
+        this.heal(1);
+      }
+    } else {
+      this.healerRegenTimer = 0;
+    }
+    if (this.healingAuraTimer > 0 && this.alive) {
+      this.healingAuraTimer = Math.max(0, this.healingAuraTimer - dt);
+      this.healingAuraTickTimer += dt;
+      if (this.healingAuraTickTimer >= 2.2) {
+        this.healingAuraTickTimer = 0;
+        this.heal(1);
+      }
+    } else {
+      this.healingAuraTickTimer = 0;
+    }
 
     // Dash attack
     const wantDash = input.isPressed('KeyX') || input.isPressed('ShiftLeft');
@@ -173,14 +222,18 @@ export class Player {
     // Shoot projectile (KeyZ or KeyE)
     const wantShoot = input.isPressed('KeyZ') || input.isPressed('KeyE');
     if (wantShoot && this.shootCooldown <= 0) {
+      const shot = this.getShotProfile();
       this.projectiles.push({
         x: this.x + (this.facingRight ? this.width : 0),
         y: this.y + this.height / 2,
-        vx: this.facingRight ? 400 : -400,
-        life: 1.5,
-        damage: 1,
+        vx: this.facingRight ? shot.speed : -shot.speed,
+        life: shot.life,
+        damage: shot.damage,
+        radius: shot.radius,
+        color: shot.color,
+        glowColor: shot.glowColor,
       });
-      this.shootCooldown = 0.3;
+      this.shootCooldown = shot.cooldown;
     }
 
     const wantJump = input.isPressed('Space') || input.isPressed('ArrowUp') || input.isPressed('KeyW');
@@ -347,6 +400,28 @@ export class Player {
     this.magnetTimer = duration;
   }
 
+  equipWeapon(type: WeaponType, duration: number = 10): void {
+    this.weaponType = type;
+    this.weaponTimer = Math.max(this.weaponTimer, duration);
+  }
+
+  applyHealingAura(duration: number = 10): void {
+    this.healingAuraTimer = Math.max(this.healingAuraTimer, duration);
+    this.healingAuraTickTimer = 0;
+  }
+
+  get currentWeapon(): WeaponType {
+    return this.weaponType;
+  }
+
+  get hasWeaponPickup(): boolean {
+    return this.weaponTimer > 0;
+  }
+
+  get healingAuraActive(): boolean {
+    return this.healingAuraTimer > 0;
+  }
+
   private _doubleJump = false;
   hasDoubleJumped = false;
   setDoubleJump(enabled: boolean): void {
@@ -364,5 +439,54 @@ export class Player {
       this.vy = this.config.jumpVelocity;
       this.hasDoubleJumped = true;
     }
+  }
+
+  private getBaseWeaponForCharacter(): WeaponType {
+    return this.characterId === 'ranger' ? 'bow' : 'orb';
+  }
+
+  private getShotProfile(): {
+    speed: number;
+    life: number;
+    damage: number;
+    cooldown: number;
+    radius: number;
+    color: string;
+    glowColor: string;
+  } {
+    if (this.weaponType === 'slingshot') {
+      return {
+        speed: 540,
+        life: 1.2,
+        damage: 1,
+        cooldown: 0.18,
+        radius: 3,
+        color: '#f59e0b',
+        glowColor: 'rgba(251,191,36,0.45)',
+      };
+    }
+
+    if (this.weaponType === 'bow') {
+      const rangerBonus = this.characterId === 'ranger';
+      return {
+        speed: rangerBonus ? 790 : 740,
+        life: 1.7,
+        damage: rangerBonus ? 3 : 2,
+        cooldown: rangerBonus ? 0.24 : 0.31,
+        radius: 3,
+        color: rangerBonus ? '#facc15' : '#f59e0b',
+        glowColor: rangerBonus ? 'rgba(250,204,21,0.45)' : 'rgba(245,158,11,0.38)',
+      };
+    }
+
+    return {
+      speed: 400,
+      life: 1.5,
+      damage: 1,
+      cooldown: 0.3,
+      radius: 4,
+      color: '#60a5fa',
+      glowColor: 'rgba(147,197,253,0.5)',
+    };
   }
 }

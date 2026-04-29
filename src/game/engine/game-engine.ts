@@ -571,7 +571,15 @@ export class GameEngine {
       }
 
       // Collectibles
-      const newCollectibles = spawnCollectiblesForChunk(chunk.index, chunkWorldX, 800, plats, (s) => this.seededRng(s), chunk.heights);
+      const newCollectibles = spawnCollectiblesForChunk(
+        chunk.index,
+        chunkWorldX,
+        800,
+        plats,
+        (s) => this.seededRng(s),
+        chunk.heights,
+        progressionLevel,
+      );
       this.collectibles.push(...newCollectibles);
 
       // Hazards
@@ -849,7 +857,8 @@ export class GameEngine {
 
       // Player projectiles hitting enemies
       for (const proj of this.player.projectiles) {
-        if (aabbOverlap({ x: proj.x - 4, y: proj.y - 4, width: 8, height: 8 }, enemy.getBounds())) {
+        const size = proj.radius * 2;
+        if (aabbOverlap({ x: proj.x - proj.radius, y: proj.y - proj.radius, width: size, height: size }, enemy.getBounds())) {
           enemy.takeDamage(proj.damage);
           proj.life = 0;
           if (!enemy.alive) this.awardEnemyDefeat(enemy);
@@ -937,6 +946,36 @@ export class GameEngine {
             this.player.applyMagnet(c.value);
             this.particles.spawnScorePopup(c.x, c.y, 'MAGNET!', '#f59e0b');
             break;
+          case 'slingshot':
+            this.player.equipWeapon('slingshot', c.value);
+            this.particles.spawnScorePopup(c.x, c.y, 'SLINGSHOT!', '#f59e0b');
+            break;
+          case 'bow':
+            this.player.equipWeapon('bow', c.value);
+            this.particles.spawnScorePopup(c.x, c.y, 'BOW UP!', '#eab308');
+            break;
+          case 'healingAura':
+            this.player.applyHealingAura(c.value);
+            this.particles.spawnScorePopup(c.x, c.y, 'HEAL AURA!', '#14b8a6');
+            break;
+          case 'portal': {
+            const targetX = c.portalTargetX ?? (c.x + 640);
+            this.chunkManager.update(targetX + 400);
+            this.spawnChunkEntities();
+            const arrivalGround = this.getGroundY(targetX);
+            const fallbackGround = this.chunkManager.getHeight(targetX);
+            const safeGround = Number.isFinite(arrivalGround) ? arrivalGround : (Number.isFinite(fallbackGround) ? fallbackGround : this.player.y + this.player.height);
+            this.player.x = targetX;
+            this.player.y = safeGround - this.player.height;
+            this.player.vx = Math.max(this.player.vx, 160);
+            this.player.vy = -120;
+            this.player.onGround = false;
+            this.camera.shake(4, 0.2);
+            const flavor = c.portalFlavor === 'bunker' ? 'BUNKER ROUTE!' : 'SHORTCUT!';
+            this.particles.spawnScorePopup(c.x, c.y - 10, flavor, '#22c55e');
+            this.particles.spawnScorePopup(targetX, safeGround - 22, 'WARP +', '#86efac');
+            break;
+          }
         }
       }
     }
@@ -966,6 +1005,9 @@ export class GameEngine {
     if (this.player.shieldActive) powerUps.push('🛡️');
     if (this.player.magnetActive) powerUps.push('🧲');
     if (this.player.speedBoostTimer > 0) powerUps.push('⚡');
+    if (this.player.currentWeapon === 'slingshot' && this.player.hasWeaponPickup) powerUps.push('🎯');
+    if (this.player.currentWeapon === 'bow' && (this.player.hasWeaponPickup || this.player.characterId === 'ranger')) powerUps.push('🏹');
+    if (this.player.healingAuraActive) powerUps.push('💚');
 
     const profilerMetrics = this.profiler.getMetrics();
 
@@ -1021,19 +1063,18 @@ export class GameEngine {
     }
 
     // Player projectiles
-    ctx.fillStyle = '#60a5fa';
     for (const p of this.player.projectiles) {
       const sx = p.x - this.camera.renderX;
       const sy = p.y - this.camera.renderY;
+      ctx.fillStyle = p.color;
       ctx.beginPath();
-      ctx.arc(sx, sy, 4, 0, Math.PI * 2);
+      ctx.arc(sx, sy, p.radius, 0, Math.PI * 2);
       ctx.fill();
       // Glow
-      ctx.fillStyle = '#93c5fd80';
+      ctx.fillStyle = p.glowColor;
       ctx.beginPath();
-      ctx.arc(sx, sy, 7, 0, Math.PI * 2);
+      ctx.arc(sx, sy, p.radius + 3, 0, Math.PI * 2);
       ctx.fill();
-      ctx.fillStyle = '#60a5fa';
     }
 
     // Player
@@ -1063,6 +1104,16 @@ export class GameEngine {
       ctx.stroke();
       ctx.fillStyle = '#06b6d415';
       ctx.fill();
+    }
+
+    if (this.player.healingAuraActive) {
+      const sx = this.player.x - this.camera.renderX + this.player.width / 2;
+      const sy = this.player.y - this.camera.renderY + this.player.height / 2;
+      ctx.strokeStyle = '#14b8a680';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(sx, sy, this.player.width * 1.05, 0, Math.PI * 2);
+      ctx.stroke();
     }
 
     // Dash trail

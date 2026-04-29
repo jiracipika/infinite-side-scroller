@@ -108,6 +108,19 @@ export const CHARACTERS: CharacterDef[] = [
     width: 21,
     height: 33,
   },
+  {
+    id: 'healer',
+    name: 'Healer',
+    description: 'Support with passive regen',
+    bodyColor: '#14b8a6',
+    outlineColor: '#0f766e',
+    eyeColor: '#ecfeff',
+    speed: 0.96,
+    jumpVelocity: 1.08,
+    maxHealth: 4,
+    width: 23,
+    height: 33,
+  },
 ];
 
 export const DEFAULT_CHARACTER = CHARACTERS[0];

@@ -442,6 +442,17 @@ export class GameRenderer {
       ctx.fill();
       ctx.fillStyle = '#a78bfa';
       ctx.fillRect(4, 7, w - 8, 2);
+    } else if (char.id === 'healer') {
+      ctx.fillStyle = '#0d9488';
+      ctx.fillRect(3, 9, w - 6, 3);
+      ctx.strokeStyle = '#ccfbf1';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(w / 2, 6);
+      ctx.lineTo(w / 2, h - 12);
+      ctx.moveTo(6, h - 16);
+      ctx.lineTo(w - 6, h - 16);
+      ctx.stroke();
     } else if (char.id === 'tank') {
       ctx.fillStyle = 'rgba(255,255,255,0.18)';
       ctx.fillRect(4, 11, w - 8, 5);
@@ -506,7 +517,7 @@ export class GameRenderer {
   drawCollectible(c: Collectible, camera: Camera): void {
     const ctx = this.ctx;
     const screen = camera.worldToScreen(c.x, c.y);
-    const bob = Math.sin(c.animTimer * 3) * 3;
+    const bob = c.type === 'portal' ? Math.sin(c.animTimer * 2) * 1.5 : Math.sin(c.animTimer * 3) * 3;
     const sy = screen.y + bob;
     const cx = screen.x + c.width / 2;
     const cy = sy + c.height / 2;
@@ -589,6 +600,73 @@ export class GameRenderer {
         ctx.fillRect(cx - 6, cy + 1, 4, 3);
         ctx.fillStyle = '#2563eb';
         ctx.fillRect(cx + 2, cy + 1, 4, 3);
+        break;
+      }
+      case 'slingshot': {
+        this.drawCollectibleOrb(cx, cy, radius, '#fed7aa', '#d97706');
+        ctx.strokeStyle = '#7c2d12';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(cx - 4, cy + 5);
+        ctx.quadraticCurveTo(cx - 7, cy - 1, cx - 2, cy - 6);
+        ctx.moveTo(cx + 4, cy + 5);
+        ctx.quadraticCurveTo(cx + 7, cy - 1, cx + 2, cy - 6);
+        ctx.stroke();
+        ctx.strokeStyle = '#fef3c7';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(cx - 2, cy - 6);
+        ctx.lineTo(cx + 2, cy - 6);
+        ctx.stroke();
+        break;
+      }
+      case 'bow': {
+        this.drawCollectibleOrb(cx, cy, radius, '#fde047', '#ca8a04');
+        ctx.strokeStyle = '#78350f';
+        ctx.lineWidth = 1.8;
+        ctx.beginPath();
+        ctx.arc(cx - 1, cy, 5.5, Math.PI * 1.55, Math.PI * 0.45);
+        ctx.stroke();
+        ctx.strokeStyle = '#fefce8';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(cx + 3.8, cy - 5);
+        ctx.lineTo(cx + 3.8, cy + 5);
+        ctx.stroke();
+        ctx.fillStyle = '#1f2937';
+        ctx.fillRect(cx + 0.8, cy - 1, 6, 2);
+        break;
+      }
+      case 'healingAura': {
+        this.drawCollectibleOrb(cx, cy, radius, '#99f6e4', '#0f766e');
+        ctx.strokeStyle = '#ecfeff';
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        ctx.arc(cx, cy, 6, 0, Math.PI * 2);
+        ctx.arc(cx, cy, 3, 0, Math.PI * 2);
+        ctx.stroke();
+        break;
+      }
+      case 'portal': {
+        const pipeW = c.width;
+        const pipeH = c.height;
+        const px = screen.x;
+        const py = sy;
+        ctx.fillStyle = '#14532d';
+        this.drawRoundedRect(ctx, px, py + 7, pipeW, pipeH - 7, 6);
+        ctx.fill();
+        ctx.fillStyle = '#22c55e';
+        this.drawRoundedRect(ctx, px - 3, py, pipeW + 6, 10, 5);
+        ctx.fill();
+        ctx.strokeStyle = '#052e16';
+        ctx.lineWidth = 1.5;
+        this.drawRoundedRect(ctx, px - 3, py, pipeW + 6, 10, 5);
+        ctx.stroke();
+        ctx.fillStyle = 'rgba(2,6,23,0.6)';
+        this.drawRoundedRect(ctx, px + 5, py + 4, pipeW - 10, 6, 3);
+        ctx.fill();
+        ctx.fillStyle = 'rgba(34,197,94,0.15)';
+        ctx.fillRect(px + 2, py + 12, pipeW - 4, pipeH - 14);
         break;
       }
     }
