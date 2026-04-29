@@ -8,12 +8,17 @@ import ACHIEVEMENTS, { loadUnlockedAchievements } from '@/lib/achievements';
 
 interface Props {
   onPlay: (seed?: number) => void;
+  onPlayMultiplayer?: (params: { mode: 'host' | 'join'; roomId?: string; playerName: string; seed?: number }) => void;
 }
 
-const StartScreen: FC<Props> = ({ onPlay }) => {
+const StartScreen: FC<Props> = ({ onPlay, onPlayMultiplayer }) => {
   const { stats } = useGameStore();
   const [seedInput, setSeedInput] = useState('');
   const [showSettings, setShowSettings] = useState(false);
+  const [showMultiplayer, setShowMultiplayer] = useState(false);
+  const [playerName, setPlayerName] = useState('Player');
+  const [roomCode, setRoomCode] = useState('');
+  const [mpError, setMpError] = useState('');
   const [showAchievements, setShowAchievements] = useState(false);
   const [achieveCount, setAchieveCount] = useState(0);
   const [mounted, setMounted] = useState(false);
@@ -35,6 +40,34 @@ const StartScreen: FC<Props> = ({ onPlay }) => {
   const handlePlay = () => {
     const seed = seedInput.trim() ? parseInt(seedInput, 10) : undefined;
     onPlay(seed);
+  };
+
+  const handleHostMultiplayer = () => {
+    if (!onPlayMultiplayer) return;
+    const seed = seedInput.trim() ? parseInt(seedInput, 10) : undefined;
+    const safeName = playerName.trim().slice(0, 20);
+    if (!safeName) {
+      setMpError('Enter a player name');
+      return;
+    }
+    setMpError('');
+    onPlayMultiplayer({ mode: 'host', playerName: safeName, seed });
+  };
+
+  const handleJoinMultiplayer = () => {
+    if (!onPlayMultiplayer) return;
+    const safeName = playerName.trim().slice(0, 20);
+    const code = roomCode.trim().toUpperCase();
+    if (!safeName) {
+      setMpError('Enter a player name');
+      return;
+    }
+    if (code.length < 4) {
+      setMpError('Enter a valid room code');
+      return;
+    }
+    setMpError('');
+    onPlayMultiplayer({ mode: 'join', roomId: code, playerName: safeName });
   };
 
   return (
@@ -251,8 +284,56 @@ const StartScreen: FC<Props> = ({ onPlay }) => {
                 {showSettings ? 'Hide Settings' : 'Settings'}
               </button>
             </div>
+
+            <div style={{ marginTop: 8 }}>
+              <button
+                className="ios-btn-secondary"
+                onClick={() => setShowMultiplayer((v) => !v)}
+                style={{ height: 40, fontSize: 15, width: '100%' }}
+              >
+                {showMultiplayer ? 'Hide Multiplayer' : 'Multiplayer (Same Wi-Fi)'}
+              </button>
+            </div>
           </div>
         </div>
+
+        {showMultiplayer && (
+          <div
+            className="ios-card"
+            style={{ width: '100%', marginTop: 10, padding: 10, animation: 'iosSlideDown 0.24s ease both' }}
+          >
+            <p className="ios-section-header" style={{ padding: '0 2px 8px' }}>Nearby Multiplayer</p>
+            <input
+              type="text"
+              value={playerName}
+              onChange={(e) => setPlayerName(e.target.value)}
+              placeholder="Your Name"
+              className="ios-text-field"
+              style={{ height: 38, fontSize: 14, marginBottom: 8 }}
+              maxLength={20}
+            />
+            <input
+              type="text"
+              value={roomCode}
+              onChange={(e) => setRoomCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8))}
+              placeholder="Room Code (join only)"
+              className="ios-text-field"
+              style={{ height: 38, fontSize: 14, marginBottom: 8 }}
+              maxLength={8}
+            />
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="ios-btn-primary" style={{ height: 40, fontSize: 14, flex: 1 }} onClick={handleHostMultiplayer}>
+                Host Room
+              </button>
+              <button className="ios-btn-secondary" style={{ height: 40, fontSize: 14, flex: 1 }} onClick={handleJoinMultiplayer}>
+                Join Room
+              </button>
+            </div>
+            {mpError && (
+              <p className="ios-caption2" style={{ color: '#f87171', marginTop: 8, paddingLeft: 4 }}>{mpError}</p>
+            )}
+          </div>
+        )}
 
         {/* ── Settings panel ───────────────────────────────── */}
         {showSettings && (

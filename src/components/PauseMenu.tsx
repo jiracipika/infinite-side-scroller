@@ -93,7 +93,7 @@ const PauseMenu: FC<Props> = ({ onResume, onRestart, onQuit }) => {
           {/* Quit — destructive */}
           <ActionRow
             icon={<QuitIcon />}
-            label="Quit to Menu"
+            label="Main Menu"
             destructive
             onClick={onQuit}
             delay={150}

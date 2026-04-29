@@ -414,6 +414,34 @@ export class GameRenderer {
       ctx.fill();
       ctx.fillStyle = '#fef08a';
       ctx.fillRect(w / 2 + 2, 4, 2, 2);
+    } else if (char.id === 'ranger') {
+      ctx.fillStyle = '#166534';
+      ctx.fillRect(3, 7, w - 6, 2);
+      ctx.fillStyle = '#65a30d';
+      ctx.fillRect(2, 11, w - 4, 2);
+      ctx.strokeStyle = '#86efac';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(2, h - 13);
+      ctx.lineTo(w - 2, h - 20);
+      ctx.stroke();
+    } else if (char.id === 'cyborg') {
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(3, 9, w - 6, 3);
+      ctx.fillStyle = '#22d3ee';
+      ctx.fillRect(5, 10, w - 10, 1.6);
+      ctx.fillStyle = '#334155';
+      ctx.fillRect(-2, 13, 4, 9);
+      ctx.fillRect(w - 2, 13, 4, 9);
+    } else if (char.id === 'spirit') {
+      ctx.fillStyle = 'rgba(221,214,254,0.75)';
+      ctx.beginPath();
+      ctx.moveTo(3, h - 10);
+      ctx.quadraticCurveTo(w / 2, h - 1, w - 3, h - 10);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = '#a78bfa';
+      ctx.fillRect(4, 7, w - 8, 2);
     } else if (char.id === 'tank') {
       ctx.fillStyle = 'rgba(255,255,255,0.18)';
       ctx.fillRect(4, 11, w - 8, 5);
@@ -440,7 +468,7 @@ export class GameRenderer {
     ctx.strokeStyle = this.shadeHexColor(char.outlineColor, -18);
     ctx.stroke();
 
-    if (char.id === 'knight' || char.id === 'tank') {
+    if (char.id === 'knight' || char.id === 'tank' || char.id === 'cyborg') {
       ctx.fillStyle = '#0f172a';
       ctx.fillRect(7, 8, w - 14, 4);
       ctx.fillStyle = char.eyeColor;

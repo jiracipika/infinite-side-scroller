@@ -29,12 +29,21 @@ import { getCharacterById } from '../data/characters';
 import type { Platform as PlatformData } from '../world/chunk';
 import { PerformanceProfiler } from './performance-profiler';
 import { EntityPools } from './entity-pools';
+import type { NetPlayerSnapshot } from '../multiplayer/types';
 
 const FIXED_DT = 1 / 60;
 const MAX_ACCUMULATED = 0.1;
 const START_SAFE_ZONE_END = 760;
 
 export type EngineState = 'playing' | 'paused' | 'gameover';
+
+export interface RemotePlayerViewState {
+  id: string;
+  name: string;
+  snapshot: NetPlayerSnapshot;
+  carryTargetId: string | null;
+  carriedById: string | null;
+}
 
 /** AABB collision check. expandBy shrinks the player hitbox for forgiving collision. */
 function aabbOverlap(
@@ -97,6 +106,8 @@ export class GameEngine {
 
   onGameOver?: () => void;
   onStatsUpdate?: (stats: { score: number; coins: number; distance: number; health: number; maxHealth: number; biome: string; powerUps: string[]; fps: number }) => void;
+  onLocalPlayerSnapshot?: (snapshot: NetPlayerSnapshot) => void;
+  onCarryIntent?: (payload: { targetId: string | null; dropCarry: boolean }) => void;
 
   private wasOnGround = true;
 
@@ -112,6 +123,14 @@ export class GameEngine {
   private gameTime = 0;
 
   private _characterId: string = 'knight';
+  private multiplayerEnabled = false;
+  private multiplayerPlayerId: string | null = null;
+  private remotePlayerId: string | null = null;
+  private remotePlayerName: string | null = null;
+  private remotePlayer: Player | null = null;
+  private remoteCarriedByLocal = false;
+  private localCarriedByRemote = false;
+  private carryHintTimer = 0;
 
   constructor(canvas: HTMLCanvasElement, seed?: number, characterId?: string) {
     this.canvas = canvas;
@@ -163,10 +182,112 @@ export class GameEngine {
     this.currentQualityLevel = 'high';
     this.particles.setReducedParticles(false);
     this.gameTime = 0;
+    this.remotePlayer = null;
+    this.remotePlayerId = null;
+    this.remotePlayerName = null;
+    this.remoteCarriedByLocal = false;
+    this.localCarriedByRemote = false;
+    this.carryHintTimer = 0;
     this.prepareOpeningFrame();
     // Reset timing to avoid first-frame spike after restart
     this.lastTime = performance.now();
     this.accumulated = 0;
+  }
+
+  setMultiplayerEnabled(enabled: boolean, localPlayerId?: string | null): void {
+    this.multiplayerEnabled = enabled;
+    this.multiplayerPlayerId = localPlayerId ?? null;
+    if (!enabled) {
+      this.remotePlayer = null;
+      this.remotePlayerId = null;
+      this.remotePlayerName = null;
+      this.remoteCarriedByLocal = false;
+      this.localCarriedByRemote = false;
+      this.carryHintTimer = 0;
+    }
+  }
+
+  setRemotePlayerState(remote: RemotePlayerViewState | null): void {
+    if (!this.multiplayerEnabled || !remote) {
+      this.remotePlayer = null;
+      this.remotePlayerId = null;
+      this.remotePlayerName = null;
+      this.remoteCarriedByLocal = false;
+      this.localCarriedByRemote = false;
+      return;
+    }
+
+    this.remotePlayerId = remote.id;
+    this.remotePlayerName = remote.name;
+    this.remoteCarriedByLocal = remote.carriedById === this.multiplayerPlayerId;
+    this.localCarriedByRemote = remote.carryTargetId === this.multiplayerPlayerId;
+
+    if (!this.remotePlayer) {
+      this.remotePlayer = new Player(DEFAULT_PLAYER_CONFIG);
+      this.remotePlayer.applyCharacter(getCharacterById(remote.snapshot.characterId));
+    }
+
+    const rp = this.remotePlayer;
+    rp.characterId = remote.snapshot.characterId;
+    rp.width = remote.snapshot.width;
+    rp.height = remote.snapshot.height;
+    rp.x = remote.snapshot.x;
+    rp.y = remote.snapshot.y;
+    rp.vx = remote.snapshot.vx;
+    rp.vy = remote.snapshot.vy;
+    rp.facingRight = remote.snapshot.facingRight;
+    rp.onGround = remote.snapshot.onGround;
+    rp.health = remote.snapshot.health;
+    rp.maxHealth = remote.snapshot.maxHealth;
+    rp.distance = remote.snapshot.distance;
+    rp.alive = remote.snapshot.health > 0;
+  }
+
+  getLocalPlayerSnapshot(): NetPlayerSnapshot {
+    return {
+      x: this.player.x,
+      y: this.player.y,
+      vx: this.player.vx,
+      vy: this.player.vy,
+      facingRight: this.player.facingRight,
+      onGround: this.player.onGround,
+      health: this.player.health,
+      maxHealth: this.player.maxHealth,
+      characterId: this.player.characterId,
+      width: this.player.width,
+      height: this.player.height,
+      distance: this.player.distance,
+    };
+  }
+
+  private handleCarryInteraction(dt: number): void {
+    if (!this.multiplayerEnabled || !this.remotePlayer || !this.remotePlayerId) return;
+    this.carryHintTimer = Math.max(0, this.carryHintTimer - dt);
+
+    const dx = this.remotePlayer.centerX - this.player.centerX;
+    const dy = this.remotePlayer.centerY - this.player.centerY;
+    const nearRemote = (dx * dx + dy * dy) <= 140 * 140;
+
+    if (this.input.isPressed('KeyF')) {
+      if (this.remoteCarriedByLocal) {
+        this.remoteCarriedByLocal = false;
+        this.onCarryIntent?.({ targetId: null, dropCarry: true });
+      } else if (nearRemote) {
+        this.remoteCarriedByLocal = true;
+        this.carryHintTimer = 1.2;
+        this.onCarryIntent?.({ targetId: this.remotePlayerId, dropCarry: false });
+      }
+    }
+
+    if (this.remoteCarriedByLocal) {
+      const xOffset = this.player.facingRight ? 10 : -10;
+      this.remotePlayer.x = this.player.x + xOffset;
+      this.remotePlayer.y = this.player.y - this.remotePlayer.height * 0.95;
+      this.remotePlayer.vx = this.player.vx;
+      this.remotePlayer.vy = this.player.vy;
+      this.remotePlayer.facingRight = this.player.facingRight;
+      this.remotePlayer.onGround = false;
+    }
   }
 
   private prepareOpeningFrame(): void {
@@ -608,22 +729,33 @@ export class GameEngine {
     if (wallSide === 'left') this.player.facingRight = false;
     if (wallSide === 'right') this.player.facingRight = true;
 
+    const carriedByRemote = this.multiplayerEnabled && this.localCarriedByRemote && !!this.remotePlayer;
     this.wasOnGround = this.player.onGround;
-    this.player.update(dt, this.input, groundY, platforms);
+    if (carriedByRemote && this.remotePlayer) {
+      const xOffset = this.remotePlayer.facingRight ? 12 : -12;
+      this.player.x = this.remotePlayer.x + xOffset;
+      this.player.y = this.remotePlayer.y - this.player.height * 0.92;
+      this.player.vx = this.remotePlayer.vx;
+      this.player.vy = this.remotePlayer.vy;
+      this.player.onGround = false;
+      this.player.facingRight = this.remotePlayer.facingRight;
+    } else {
+      this.player.update(dt, this.input, groundY, platforms);
 
-    // Landing particles
-    if (this.player.onGround && !this.wasOnGround) {
-      this.particles.spawnLanding(this.player.centerX, this.player.bottom);
-    }
+      // Landing particles
+      if (this.player.onGround && !this.wasOnGround) {
+        this.particles.spawnLanding(this.player.centerX, this.player.bottom);
+      }
 
-    // Jump dust particles
-    const jumpPressed = this.input.isPressed('Space') || this.input.isPressed('ArrowUp') || this.input.isPressed('KeyW');
-    if (jumpPressed && (this.player.onGround || this.player.vy < -100)) {
-      this.particles.spawnJumpDust(this.player.centerX, this.player.bottom);
+      // Jump dust particles
+      const jumpPressed = this.input.isPressed('Space') || this.input.isPressed('ArrowUp') || this.input.isPressed('KeyW');
+      if (jumpPressed && (this.player.onGround || this.player.vy < -100)) {
+        this.particles.spawnJumpDust(this.player.centerX, this.player.bottom);
+      }
     }
 
     // Wall collision
-    if (wallSide) {
+    if (!carriedByRemote && wallSide) {
       const wallX = wallSide === 'left' ? this.player.x - 1 : this.player.x + this.player.width + 1;
       const wallY = this.chunkManager.getHeight(wallX);
       if (wallY < this.player.y + this.player.height - this.player.height * 0.35) {
@@ -644,6 +776,9 @@ export class GameEngine {
     if (this.player.distance > prevDistance) {
       this.player.score += (this.player.distance - prevDistance);
     }
+
+    this.handleCarryInteraction(dt);
+    this.onLocalPlayerSnapshot?.(this.getLocalPlayerSnapshot());
 
     // Update falling platforms
     for (const h of this.hazards) {
@@ -904,6 +1039,19 @@ export class GameEngine {
     // Player
     this.renderer.drawPlayer(this.player, this.camera);
 
+    if (this.multiplayerEnabled && this.remotePlayer) {
+      this.renderer.drawPlayer(this.remotePlayer, this.camera);
+      const rsx = this.remotePlayer.x - this.camera.renderX + this.remotePlayer.width / 2;
+      const rsy = this.remotePlayer.y - this.camera.renderY - 8;
+      ctx.fillStyle = 'rgba(0,0,0,0.45)';
+      ctx.fillRect(rsx - 48, rsy - 12, 96, 14);
+      ctx.fillStyle = '#e2e8f0';
+      ctx.font = '11px ui-monospace, SFMono-Regular, Menlo, monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(this.remotePlayerName ?? 'Peer', rsx, rsy - 5);
+    }
+
     // Shield visual
     if (this.player.shieldActive) {
       const sx = this.player.x - this.camera.renderX + this.player.width / 2;
@@ -923,6 +1071,17 @@ export class GameEngine {
       const sx = this.player.x - this.camera.renderX - this.player.dashDirection * 20;
       const sy = this.player.y - this.camera.renderY;
       ctx.fillRect(sx, sy, this.player.width, this.player.height);
+    }
+
+    if (this.multiplayerEnabled && this.remotePlayer && this.carryHintTimer > 0) {
+      ctx.fillStyle = 'rgba(15,23,42,0.7)';
+      ctx.fillRect(width / 2 - 120, height - 96, 240, 34);
+      ctx.fillStyle = '#e2e8f0';
+      ctx.font = '13px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const hint = this.remoteCarriedByLocal ? 'Press F to drop your teammate' : 'Press F near teammate to pick them up';
+      ctx.fillText(hint, width / 2, height - 79);
     }
 
     this.renderer.drawParticles(this.particles.getParticles(), this.camera);
