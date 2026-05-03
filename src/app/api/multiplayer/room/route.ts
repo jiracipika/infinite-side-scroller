@@ -1,16 +1,49 @@
 import { NextRequest, NextResponse } from 'next/server';
-import type { NetPlayerSnapshot, NetPlayerState, NetRoomState, NetSyncPayload } from '@/game/multiplayer/types';
+import type { NetPlayerSnapshot, NetPlayerState, NetRoomState, NetSyncPayload, NetSyncResponse } from '@/game/multiplayer/types';
+import {
+  MP_HISTORY_BUFFER_DURATION_MS,
+  MP_SERVER_TICK_RATE,
+  MP_SNAPSHOT_RATE,
+} from '@/game/multiplayer/config';
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+interface ServerPlayerMeta {
+  lastInputSeq: number;
+  inferredLoss: number;
+  history: Array<{ t: number; snapshot: NetPlayerSnapshot }>;
+}
+
+interface RoomServerState {
+  lastTickAt: number;
+  tickAccumulatorMs: number;
+  tickCounter: number;
+  tickWindowStart: number;
+  tickRateNow: number;
+  lastSnapshotAt: number;
+  snapshotCounter: number;
+  snapshotWindowStart: number;
+  snapshotRateNow: number;
+}
 
 type RoomMap = Map<string, {
   id: string;
   seed: number;
   hostId: string;
   players: Map<string, NetPlayerState>;
+  playerMeta: Map<string, ServerPlayerMeta>;
+  server: RoomServerState;
   createdAt: number;
 }>;
 
-const PLAYER_TTL_MS = 30_000;
-const ROOM_TTL_MS = 20 * 60_000;
+const PLAYER_TTL_MS = 8 * 60_000;
+const ROOM_TTL_MS = 2 * 60 * 60_000;
+const EMPTY_ROOM_GRACE_MS = 12 * 60_000;
+const MAX_PLAYER_SPEED_PX_PER_SEC = 880;
+const MAX_PLAYER_FALL_SPEED_PX_PER_SEC = 1600;
+const MAX_POSITION_BURST = 240;
 
 declare global {
   // eslint-disable-next-line no-var
@@ -20,6 +53,29 @@ declare global {
 function getRooms(): RoomMap {
   if (!global.__infiniteMpRooms) global.__infiniteMpRooms = new Map();
   return global.__infiniteMpRooms;
+}
+
+function ensureRoomState(room: NonNullable<ReturnType<RoomMap['get']>>): void {
+  const now = Date.now();
+  if (!room.playerMeta) room.playerMeta = new Map();
+  if (!room.server) {
+    room.server = {
+      lastTickAt: now,
+      tickAccumulatorMs: 0,
+      tickCounter: 0,
+      tickWindowStart: now,
+      tickRateNow: MP_SERVER_TICK_RATE,
+      lastSnapshotAt: now,
+      snapshotCounter: 0,
+      snapshotWindowStart: now,
+      snapshotRateNow: MP_SNAPSHOT_RATE,
+    };
+  }
+  for (const [pid] of room.players) {
+    if (!room.playerMeta.has(pid)) {
+      room.playerMeta.set(pid, { lastInputSeq: 0, inferredLoss: 0, history: [] });
+    }
+  }
 }
 
 function randomId(length: number): string {
@@ -36,6 +92,11 @@ function playerId(): string {
 function sanitizeName(name: unknown): string {
   const safe = typeof name === 'string' ? name.trim().slice(0, 20) : '';
   return safe || 'Player';
+}
+
+function normalizeRoomId(value: unknown): string {
+  const raw = typeof value === 'string' ? value : '';
+  return raw.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
 }
 
 function sanitizeSnapshot(snapshot: unknown, characterIdFallback: string): NetPlayerSnapshot {
@@ -56,6 +117,23 @@ function sanitizeSnapshot(snapshot: unknown, characterIdFallback: string): NetPl
   };
 }
 
+function cloneSnapshot(s: NetPlayerSnapshot): NetPlayerSnapshot {
+  return {
+    x: s.x,
+    y: s.y,
+    vx: s.vx,
+    vy: s.vy,
+    facingRight: s.facingRight,
+    onGround: s.onGround,
+    health: s.health,
+    maxHealth: s.maxHealth,
+    characterId: s.characterId,
+    width: s.width,
+    height: s.height,
+    distance: s.distance,
+  };
+}
+
 function roomToResponse(room: ReturnType<RoomMap['get']>): NetRoomState {
   if (!room) throw new Error('missing room');
   return {
@@ -66,11 +144,24 @@ function roomToResponse(room: ReturnType<RoomMap['get']>): NetRoomState {
   };
 }
 
+function json(data: unknown, init?: number | ResponseInit): NextResponse {
+  const response = NextResponse.json(data, typeof init === 'number' ? { status: init } : init);
+  response.headers.set('Cache-Control', 'no-store, max-age=0');
+  return response;
+}
+
 function cleanupRooms(rooms: RoomMap): void {
   const now = Date.now();
   for (const [roomId, room] of rooms.entries()) {
+    ensureRoomState(room);
+    let hasAnyRecentActivity = false;
     for (const [pid, player] of room.players.entries()) {
-      if (now - player.updatedAt > PLAYER_TTL_MS) room.players.delete(pid);
+      const age = now - player.updatedAt;
+      if (age > PLAYER_TTL_MS) {
+        room.players.delete(pid);
+      } else {
+        hasAnyRecentActivity = true;
+      }
     }
 
     if (!room.players.has(room.hostId)) {
@@ -78,10 +169,131 @@ function cleanupRooms(rooms: RoomMap): void {
       if (firstRemaining) room.hostId = firstRemaining.id;
     }
 
-    if (room.players.size === 0 || now - room.createdAt > ROOM_TTL_MS) {
+    const emptyForTooLong = room.players.size === 0 && (now - room.createdAt) > EMPTY_ROOM_GRACE_MS;
+    if (emptyForTooLong || (!hasAnyRecentActivity && (now - room.createdAt > ROOM_TTL_MS))) {
       rooms.delete(roomId);
     }
   }
+}
+
+function stepServerClock(room: NonNullable<ReturnType<RoomMap['get']>>, now: number): void {
+  const server = room.server;
+  const tickMs = 1000 / MP_SERVER_TICK_RATE;
+  const dt = Math.max(0, now - server.lastTickAt);
+  server.lastTickAt = now;
+  server.tickAccumulatorMs += Math.min(250, dt);
+
+  while (server.tickAccumulatorMs >= tickMs) {
+    server.tickAccumulatorMs -= tickMs;
+    server.tickCounter += 1;
+  }
+
+  const tickWindowElapsed = now - server.tickWindowStart;
+  if (tickWindowElapsed >= 1000) {
+    server.tickRateNow = Math.round((server.tickCounter * 1000) / tickWindowElapsed);
+    server.tickCounter = 0;
+    server.tickWindowStart = now;
+  }
+
+  const snapshotWindowElapsed = now - server.snapshotWindowStart;
+  if (snapshotWindowElapsed >= 1000) {
+    server.snapshotRateNow = Math.round((server.snapshotCounter * 1000) / snapshotWindowElapsed);
+    server.snapshotCounter = 0;
+    server.snapshotWindowStart = now;
+  }
+}
+
+function clampSnapshotDelta(
+  previous: NetPlayerSnapshot,
+  incoming: NetPlayerSnapshot,
+  elapsedMs: number,
+): NetPlayerSnapshot {
+  const elapsed = Math.max(0.016, Math.min(0.34, elapsedMs / 1000));
+  const maxDx = MAX_POSITION_BURST + MAX_PLAYER_SPEED_PX_PER_SEC * elapsed;
+  const maxDy = MAX_POSITION_BURST + MAX_PLAYER_FALL_SPEED_PX_PER_SEC * elapsed;
+  const dx = incoming.x - previous.x;
+  const dy = incoming.y - previous.y;
+
+  // Allow large teleports occasionally (portals / scripted movement).
+  const allowTeleport = Math.abs(dx) > 900 || Math.abs(dy) > 700;
+  if (allowTeleport) return incoming;
+
+  const clamp = (value: number, limit: number) => Math.max(-limit, Math.min(limit, value));
+  return {
+    ...incoming,
+    x: previous.x + clamp(dx, maxDx),
+    y: previous.y + clamp(dy, maxDy),
+    vx: clamp(incoming.vx, MAX_PLAYER_SPEED_PX_PER_SEC * 1.35),
+    vy: clamp(incoming.vy, MAX_PLAYER_FALL_SPEED_PX_PER_SEC),
+  };
+}
+
+function updateHistory(meta: ServerPlayerMeta, snapshot: NetPlayerSnapshot, now: number): void {
+  meta.history.push({ t: now, snapshot: cloneSnapshot(snapshot) });
+  const cutoff = now - MP_HISTORY_BUFFER_DURATION_MS;
+  while (meta.history.length > 2 && meta.history[0].t < cutoff) {
+    meta.history.shift();
+  }
+}
+
+/**
+ * Retrieve an historical snapshot closest to client action time.
+ * This keeps lag-comp data bounded and is intentionally server-only.
+ */
+function getSnapshotAtTime(meta: ServerPlayerMeta, at: number): NetPlayerSnapshot | null {
+  if (meta.history.length === 0) return null;
+  if (meta.history.length === 1) return cloneSnapshot(meta.history[0].snapshot);
+
+  for (let i = meta.history.length - 1; i > 0; i--) {
+    const newer = meta.history[i];
+    const older = meta.history[i - 1];
+    if (older.t <= at && newer.t >= at) {
+      const span = Math.max(1, newer.t - older.t);
+      const alpha = Math.max(0, Math.min(1, (at - older.t) / span));
+      const lerp = (a: number, b: number) => a + (b - a) * alpha;
+      return {
+        ...newer.snapshot,
+        x: lerp(older.snapshot.x, newer.snapshot.x),
+        y: lerp(older.snapshot.y, newer.snapshot.y),
+        vx: lerp(older.snapshot.vx, newer.snapshot.vx),
+        vy: lerp(older.snapshot.vy, newer.snapshot.vy),
+      };
+    }
+  }
+
+  return cloneSnapshot(meta.history[meta.history.length - 1].snapshot);
+}
+
+function buildSyncResponse(room: NonNullable<ReturnType<RoomMap['get']>>, localPlayerId: string): NetSyncResponse {
+  let remote: NetPlayerState | null = null;
+  for (const p of room.players.values()) {
+    if (p.id !== localPlayerId) {
+      remote = p;
+      break;
+    }
+  }
+  const local = room.players.get(localPlayerId);
+  const meta = room.playerMeta.get(localPlayerId);
+  return {
+    roomId: room.id,
+    seed: room.seed,
+    hostId: room.hostId,
+    serverTime: Date.now(),
+    serverTickRate: room.server.tickRateNow || MP_SERVER_TICK_RATE,
+    snapshotRate: room.server.snapshotRateNow || MP_SNAPSHOT_RATE,
+    ackInputSeq: meta?.lastInputSeq ?? 0,
+    local: local ? cloneSnapshot(local.snapshot) : sanitizeSnapshot(null, 'knight'),
+    inferredPacketLoss: meta?.inferredLoss ?? 0,
+    remote: remote
+      ? {
+        id: remote.id,
+        name: remote.name,
+        snapshot: remote.snapshot,
+        carryTargetId: remote.carryTargetId,
+        carriedById: remote.carriedById,
+      }
+      : null,
+  };
 }
 
 function applyCarryState(room: ReturnType<RoomMap['get']>, actorId: string, targetId: string | null, dropCarry: boolean): void {
@@ -143,30 +355,32 @@ export async function GET(request: NextRequest) {
   const rooms = getRooms();
   cleanupRooms(rooms);
 
-  const roomId = request.nextUrl.searchParams.get('roomId')?.toUpperCase();
+  const roomId = normalizeRoomId(request.nextUrl.searchParams.get('roomId'));
   if (!roomId) {
-    return NextResponse.json({ error: 'roomId required' }, { status: 400 });
+    return json({ error: 'roomId required' }, 400);
   }
 
   const room = rooms.get(roomId);
   if (!room) {
-    return NextResponse.json({ error: 'Room not found' }, { status: 404 });
+    return json({ error: 'Room not found' }, 404);
   }
+  ensureRoomState(room);
 
-  return NextResponse.json({ room: roomToResponse(room) });
+  return json({ room: roomToResponse(room) });
 }
 
 export async function DELETE(request: NextRequest) {
   const rooms = getRooms();
-  const roomId = request.nextUrl.searchParams.get('roomId')?.toUpperCase();
+  const roomId = normalizeRoomId(request.nextUrl.searchParams.get('roomId'));
   const playerId = request.nextUrl.searchParams.get('playerId') ?? '';
 
   if (!roomId || !playerId) {
-    return NextResponse.json({ error: 'roomId and playerId required' }, { status: 400 });
+    return json({ error: 'roomId and playerId required' }, 400);
   }
 
   const room = rooms.get(roomId);
-  if (!room) return NextResponse.json({ ok: true });
+  if (!room) return json({ ok: true });
+  ensureRoomState(room);
 
   const leaving = room.players.get(playerId);
   if (leaving?.carryTargetId) {
@@ -179,13 +393,15 @@ export async function DELETE(request: NextRequest) {
   }
 
   room.players.delete(playerId);
+  room.playerMeta.delete(playerId);
   if (room.players.size === 0) {
     rooms.delete(roomId);
   } else if (room.hostId === playerId) {
-    room.hostId = room.players.values().next().value.id;
+    const nextHost = room.players.values().next().value as NetPlayerState | undefined;
+    if (nextHost) room.hostId = nextHost.id;
   }
 
-  return NextResponse.json({ ok: true });
+  return json({ ok: true });
 }
 
 export async function POST(request: NextRequest) {
@@ -203,7 +419,7 @@ export async function POST(request: NextRequest) {
   };
 
   if (!body?.action) {
-    return NextResponse.json({ error: 'action required' }, { status: 400 });
+    return json({ error: 'action required' }, 400);
   }
 
   if (body.action === 'create') {
@@ -228,19 +444,34 @@ export async function POST(request: NextRequest) {
       seed,
       hostId: pid,
       players: new Map([[pid, local]]),
+      playerMeta: new Map([[pid, { lastInputSeq: 0, inferredLoss: 0, history: [] }]]),
+      server: {
+        lastTickAt: now,
+        tickAccumulatorMs: 0,
+        tickCounter: 0,
+        tickWindowStart: now,
+        tickRateNow: MP_SERVER_TICK_RATE,
+        lastSnapshotAt: now,
+        snapshotCounter: 0,
+        snapshotWindowStart: now,
+        snapshotRateNow: MP_SNAPSHOT_RATE,
+      },
       createdAt: now,
     });
 
-    return NextResponse.json({ roomId, playerId: pid, seed, room: roomToResponse(rooms.get(roomId)) });
+    return json({ roomId, playerId: pid, seed, room: roomToResponse(rooms.get(roomId)) });
   }
 
   if (body.action === 'join') {
-    const roomId = (body.roomId ?? '').toUpperCase();
+    const roomId = normalizeRoomId(body.roomId);
     const room = rooms.get(roomId);
-    if (!room) return NextResponse.json({ error: 'Room not found' }, { status: 404 });
+    if (!room) return json({
+      error: 'Room not found. Make sure both devices opened the same site URL and room code.',
+    }, 404);
+    ensureRoomState(room);
 
     if (room.players.size >= 4) {
-      return NextResponse.json({ error: 'Room is full' }, { status: 409 });
+      return json({ error: 'Room is full' }, 409);
     }
 
     const pid = playerId();
@@ -253,30 +484,56 @@ export async function POST(request: NextRequest) {
       carriedById: null,
       updatedAt: now,
     });
+    room.playerMeta.set(pid, { lastInputSeq: 0, inferredLoss: 0, history: [] });
 
-    return NextResponse.json({ roomId, playerId: pid, seed: room.seed, hostId: room.hostId, room: roomToResponse(room) });
+    return json({ roomId, playerId: pid, seed: room.seed, hostId: room.hostId, room: roomToResponse(room) });
   }
 
   if (body.action === 'sync') {
     const payload = body.sync;
     if (!payload?.roomId || !payload.playerId) {
-      return NextResponse.json({ error: 'sync.roomId and sync.playerId required' }, { status: 400 });
+      return json({ error: 'sync.roomId and sync.playerId required' }, 400);
     }
 
-    const room = rooms.get(payload.roomId.toUpperCase());
-    if (!room) return NextResponse.json({ error: 'Room not found' }, { status: 404 });
+    const room = rooms.get(normalizeRoomId(payload.roomId));
+    if (!room) return json({ error: 'Room not found' }, 404);
+    ensureRoomState(room);
+    const now = Date.now();
+    stepServerClock(room, now);
 
     const player = room.players.get(payload.playerId);
-    if (!player) return NextResponse.json({ error: 'Player not in room' }, { status: 404 });
+    if (!player) return json({ error: 'Player not in room' }, 404);
+    const meta = room.playerMeta.get(payload.playerId) ?? { lastInputSeq: 0, inferredLoss: 0, history: [] };
+    room.playerMeta.set(payload.playerId, meta);
 
-    player.snapshot = sanitizeSnapshot(payload.snapshot, player.snapshot.characterId);
-    player.updatedAt = Date.now();
+    if (payload.snapshot) {
+      const incoming = sanitizeSnapshot(payload.snapshot, player.snapshot.characterId);
+      const elapsedMs = Math.max(16, now - player.updatedAt);
+      player.snapshot = clampSnapshotDelta(player.snapshot, incoming, elapsedMs);
+    }
+    player.updatedAt = now;
+
+    if (payload.input) {
+      const seq = Math.max(0, Math.floor(payload.input.seq));
+      if (meta.lastInputSeq > 0 && seq > meta.lastInputSeq + 1) {
+        meta.inferredLoss += (seq - meta.lastInputSeq - 1);
+      }
+      meta.lastInputSeq = Math.max(meta.lastInputSeq, seq);
+      // Server-side lag-comp anchor for future hit validation work.
+      void getSnapshotAtTime(meta, Math.max(0, Math.floor(payload.input.clientTime)));
+    }
+    updateHistory(meta, player.snapshot, now);
 
     applyCarryState(room, player.id, payload.carryTargetId ?? null, !!payload.dropCarry);
     applyCarryPose(room);
 
-    return NextResponse.json({ room: roomToResponse(room) });
+    if (now - room.server.lastSnapshotAt >= (1000 / MP_SNAPSHOT_RATE)) {
+      room.server.lastSnapshotAt = now;
+      room.server.snapshotCounter += 1;
+    }
+
+    return json({ sync: buildSyncResponse(room, player.id) });
   }
 
-  return NextResponse.json({ error: 'Unsupported action' }, { status: 400 });
+  return json({ error: 'Unsupported action' }, 400);
 }

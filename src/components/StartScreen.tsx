@@ -9,9 +9,11 @@ import ACHIEVEMENTS, { loadUnlockedAchievements } from '@/lib/achievements';
 interface Props {
   onPlay: (seed?: number) => void;
   onPlayMultiplayer?: (params: { mode: 'host' | 'join'; roomId?: string; playerName: string; seed?: number }) => void;
+  onPlaySplitScreen?: (seed?: number) => void;
+  initialRoomCode?: string;
 }
 
-const StartScreen: FC<Props> = ({ onPlay, onPlayMultiplayer }) => {
+const StartScreen: FC<Props> = ({ onPlay, onPlayMultiplayer, onPlaySplitScreen, initialRoomCode }) => {
   const { stats } = useGameStore();
   const [seedInput, setSeedInput] = useState('');
   const [showSettings, setShowSettings] = useState(false);
@@ -36,6 +38,13 @@ const StartScreen: FC<Props> = ({ onPlay, onPlayMultiplayer }) => {
     const raf = requestAnimationFrame(() => setMounted(true));
     return () => cancelAnimationFrame(raf);
   }, []);
+
+  useEffect(() => {
+    const incomingCode = (initialRoomCode ?? '').trim().toUpperCase();
+    if (!incomingCode) return;
+    setShowMultiplayer(true);
+    setRoomCode(incomingCode);
+  }, [initialRoomCode]);
 
   const handlePlay = () => {
     const seed = seedInput.trim() ? parseInt(seedInput, 10) : undefined;
@@ -70,6 +79,12 @@ const StartScreen: FC<Props> = ({ onPlay, onPlayMultiplayer }) => {
     onPlayMultiplayer({ mode: 'join', roomId: code, playerName: safeName });
   };
 
+  const handleSplitScreen = () => {
+    if (!onPlaySplitScreen) return;
+    const seed = seedInput.trim() ? parseInt(seedInput, 10) : undefined;
+    onPlaySplitScreen(seed);
+  };
+
   return (
     <div
       className="absolute inset-0 flex flex-col items-center justify-center ios-overlay"
@@ -81,7 +96,7 @@ const StartScreen: FC<Props> = ({ onPlay, onPlayMultiplayer }) => {
       <div
         className="flex flex-col items-center w-full"
         style={{
-          maxWidth: 360,
+          maxWidth: 460,
           padding: '0 16px',
           position: 'relative',
           zIndex: 1,
@@ -294,6 +309,15 @@ const StartScreen: FC<Props> = ({ onPlay, onPlayMultiplayer }) => {
                 {showMultiplayer ? 'Hide Multiplayer' : 'Multiplayer (Same Wi-Fi)'}
               </button>
             </div>
+            <div style={{ marginTop: 8 }}>
+              <button
+                className="ios-btn-secondary"
+                onClick={handleSplitScreen}
+                style={{ height: 40, fontSize: 15, width: '100%' }}
+              >
+                Local Split-Screen (2 Players)
+              </button>
+            </div>
           </div>
         </div>
 
@@ -445,32 +469,46 @@ const AppIcon: FC = () => (
 /* ── Keyboard hint with key caps ─────────────────────────────── */
 
 const KeyboardHint: FC = () => (
-  <div
-    style={{
-      position: 'absolute',
-      bottom: 28,
-      display: 'flex',
-      alignItems: 'center',
-      gap: 6,
-      flexWrap: 'wrap',
-      justifyContent: 'center',
-      padding: '0 24px',
-      animation: 'iosFadeIn 0.5s ease 0.5s both',
-      opacity: 0,
-    }}
-  >
-    <span className="ios-keycap">W</span>
-    <span className="ios-keycap">A</span>
-    <span className="ios-keycap">S</span>
-    <span className="ios-keycap">D</span>
-    <span style={{ fontSize: 10, color: 'rgba(235,235,245,0.22)', letterSpacing: '0.04em', margin: '0 2px' }}>·</span>
-    <span className="ios-keycap">Space</span>
-    <span style={{ fontSize: 10, color: 'rgba(235,235,245,0.22)', letterSpacing: '0.04em', margin: '0 2px' }}>to jump</span>
-    <span style={{ fontSize: 10, color: 'rgba(235,235,245,0.22)', letterSpacing: '0.04em', margin: '0 2px' }}>·</span>
-    <span className="ios-keycap">Esc</span>
-    <span style={{ fontSize: 10, color: 'rgba(235,235,245,0.22)', letterSpacing: '0.04em', margin: '0 2px' }}>to pause</span>
-  </div>
+  <KeyboardHintInner />
 );
+
+const KeyboardHintInner: FC = () => {
+  const [isTouch, setIsTouch] = useState(false);
+
+  useEffect(() => {
+    setIsTouch(window.matchMedia('(hover: none) and (pointer: coarse)').matches);
+  }, []);
+
+  if (isTouch) return null;
+
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        bottom: 28,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6,
+        flexWrap: 'wrap',
+        justifyContent: 'center',
+        padding: '0 24px',
+        animation: 'iosFadeIn 0.5s ease 0.5s both',
+        opacity: 0,
+      }}
+    >
+      <span className="ios-keycap">W</span>
+      <span className="ios-keycap">A</span>
+      <span className="ios-keycap">S</span>
+      <span className="ios-keycap">D</span>
+      <span style={{ fontSize: 10, color: 'rgba(235,235,245,0.22)', letterSpacing: '0.04em', margin: '0 2px' }}>·</span>
+      <span className="ios-keycap">Space</span>
+      <span style={{ fontSize: 10, color: 'rgba(235,235,245,0.22)', letterSpacing: '0.04em', margin: '0 2px' }}>to jump</span>
+      <span style={{ fontSize: 10, color: 'rgba(235,235,245,0.22)', letterSpacing: '0.04em', margin: '0 2px' }}>·</span>
+      <span className="ios-keycap">Esc</span>
+      <span style={{ fontSize: 10, color: 'rgba(235,235,245,0.22)', letterSpacing: '0.04em', margin: '0 2px' }}>to pause</span>
+    </div>
+  );
+};
 
 /* ── Settings Panel ──────────────────────────────────────────── */
 

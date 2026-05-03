@@ -2,7 +2,14 @@
  * Input manager — tracks keyboard and touch state for game controls.
  */
 
+import type { NetInputCommand } from '../multiplayer/types';
+
 export type KeyState = 'up' | 'down' | 'pressed';
+
+export interface InputOptions {
+  channel?: string;
+  enableKeyboard?: boolean;
+}
 
 export class InputManager {
   private keys = new Set<string>();
@@ -19,11 +26,18 @@ export class InputManager {
   private touchDashPressed = false;
 
   private handleGameInput: ((e: CustomEvent) => void) | null = null;
+  private readonly inputChannel: string;
+  private readonly keyboardEnabled: boolean;
 
-  constructor() {
+  constructor(options: InputOptions = {}) {
+    this.inputChannel = options.channel ?? 'game-input';
+    this.keyboardEnabled = options.enableKeyboard ?? true;
+
     if (typeof window !== 'undefined') {
-      window.addEventListener('keydown', this.onKeyDown);
-      window.addEventListener('keyup', this.onKeyUp);
+      if (this.keyboardEnabled) {
+        window.addEventListener('keydown', this.onKeyDown);
+        window.addEventListener('keyup', this.onKeyUp);
+      }
 
       // Listen for touch control events from React overlay
       this.handleGameInput = (e: CustomEvent) => {
@@ -61,7 +75,7 @@ export class InputManager {
             break;
         }
       };
-      window.addEventListener('game-input', this.handleGameInput as EventListener);
+      window.addEventListener(this.inputChannel, this.handleGameInput as EventListener);
     }
   }
 
@@ -116,11 +130,38 @@ export class InputManager {
   /** Clean up event listeners */
   destroy(): void {
     if (typeof window !== 'undefined') {
-      window.removeEventListener('keydown', this.onKeyDown);
-      window.removeEventListener('keyup', this.onKeyUp);
+      if (this.keyboardEnabled) {
+        window.removeEventListener('keydown', this.onKeyDown);
+        window.removeEventListener('keyup', this.onKeyUp);
+      }
       if (this.handleGameInput) {
-        window.removeEventListener('game-input', this.handleGameInput as EventListener);
+        window.removeEventListener(this.inputChannel, this.handleGameInput as EventListener);
       }
     }
+  }
+
+  /** Build a compact input command for multiplayer sequencing/reconciliation. */
+  buildNetInputCommand(seq: number, clientTime: number, dtMs: number): NetInputCommand {
+    const moveX: -1 | 0 | 1 = this.isDown('ArrowLeft')
+      ? -1
+      : this.isDown('ArrowRight')
+        ? 1
+        : 0;
+
+    const jumpPressed = this.isDown('Space') || this.isDown('ArrowUp') || this.isDown('KeyW') || this.touchJump;
+    const attackPressed = this.isAttackDown();
+    const dashPressed = this.keys.has('KeyX') || this.keys.has('ShiftLeft') || this.touchDash;
+    const carryPressed = this.keys.has('KeyF');
+
+    return {
+      seq,
+      clientTime,
+      dtMs: Math.max(1, Math.min(150, Math.round(dtMs))),
+      moveX,
+      jumpPressed,
+      attackPressed,
+      dashPressed,
+      carryPressed,
+    };
   }
 }

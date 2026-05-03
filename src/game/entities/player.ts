@@ -346,6 +346,15 @@ export class Player {
     });
   }
 
+  /** Expose movement parameters for net prediction/replay (read-only snapshot). */
+  getMovementTuning(): { speed: number; jumpVelocity: number; gravity: number } {
+    return {
+      speed: this.config.speed,
+      jumpVelocity: this.config.jumpVelocity,
+      gravity: this.config.gravity,
+    };
+  }
+
   get centerX(): number { return this.x + this.width / 2; }
   get centerY(): number { return this.y + this.height / 2; }
   get bottom(): number { return this.y + this.height; }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef, type FC } from 'react';
+import { useEffect, useState, useRef, type FC, type TouchEvent } from 'react';
 import { type GameStats } from '@/game/state/game-state';
 
 interface Props {
@@ -49,10 +49,18 @@ const GameOverScreen: FC<Props> = ({ stats, onRestart, onQuit }) => {
   const displayBest     = useCountUp(stats.highScore,               680, 320);
   const displayDistance = useCountUp(Math.round(stats.distance),    600, 440);
   const displayCoins    = useCountUp(stats.coins,                   550, 520);
+  const handleRestartTouch = (e: TouchEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    onRestart();
+  };
+  const handleQuitTouch = (e: TouchEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    onQuit();
+  };
 
   return (
     <div
-      className="absolute inset-0 flex items-center justify-center"
+      className="absolute inset-0 flex items-center justify-center pointer-events-auto"
       style={{ animation: 'iosFadeIn 0.3s ease' }}
     >
       {/* Frosted overlay */}
@@ -161,13 +169,22 @@ const GameOverScreen: FC<Props> = ({ stats, onRestart, onQuit }) => {
             }}
           >
             <button
+              type="button"
               className="ios-btn-primary ios-btn-shimmer"
               onClick={onRestart}
+              onTouchEnd={handleRestartTouch}
+              onContextMenu={(e) => e.preventDefault()}
               style={{ fontSize: 17 }}
             >
               Play Again
             </button>
-            <button className="ios-btn-gray" onClick={onQuit}>
+            <button
+              type="button"
+              className="ios-btn-gray"
+              onClick={onQuit}
+              onTouchEnd={handleQuitTouch}
+              onContextMenu={(e) => e.preventDefault()}
+            >
               Main Menu
             </button>
           </div>

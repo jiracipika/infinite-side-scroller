@@ -29,7 +29,17 @@ import { getCharacterById } from '../data/characters';
 import type { Platform as PlatformData } from '../world/chunk';
 import { PerformanceProfiler } from './performance-profiler';
 import { EntityPools } from './entity-pools';
-import type { NetPlayerSnapshot } from '../multiplayer/types';
+import type { NetInputCommand, NetPlayerSnapshot } from '../multiplayer/types';
+import type { InputOptions } from '../input/input';
+import {
+  MP_INPUT_BUFFER_SIZE,
+  MP_INTERPOLATION_DELAY_MS,
+  MP_MAX_EXTRAPOLATION_MS,
+  MP_RECONCILE_MEDIUM_THRESHOLD,
+  MP_RECONCILE_SMALL_THRESHOLD,
+  MP_RECONCILE_SMOOTH_SPEED,
+  MP_RECONCILE_SNAP_THRESHOLD,
+} from '../multiplayer/config';
 
 const FIXED_DT = 1 / 60;
 const MAX_ACCUMULATED = 0.1;
@@ -43,6 +53,18 @@ export interface RemotePlayerViewState {
   snapshot: NetPlayerSnapshot;
   carryTargetId: string | null;
   carriedById: string | null;
+  serverTime?: number;
+}
+
+export interface GameEngineOptions {
+  input?: InputOptions;
+}
+
+export interface NetDebugStats {
+  predictionError: number;
+  reconciliationCount: number;
+  interpolationDelayMs: number;
+  remoteBufferSize: number;
 }
 
 /** AABB collision check. expandBy shrinks the player hitbox for forgiving collision. */
@@ -108,6 +130,7 @@ export class GameEngine {
   onStatsUpdate?: (stats: { score: number; coins: number; distance: number; health: number; maxHealth: number; biome: string; powerUps: string[]; fps: number }) => void;
   onLocalPlayerSnapshot?: (snapshot: NetPlayerSnapshot) => void;
   onCarryIntent?: (payload: { targetId: string | null; dropCarry: boolean }) => void;
+  onNetworkDebug?: (stats: NetDebugStats) => void;
 
   private wasOnGround = true;
 
@@ -128,17 +151,24 @@ export class GameEngine {
   private remotePlayerId: string | null = null;
   private remotePlayerName: string | null = null;
   private remotePlayer: Player | null = null;
+  private remoteTargetSnapshot: NetPlayerSnapshot | null = null;
+  private remoteSnapshotBuffer: Array<{ t: number; snapshot: NetPlayerSnapshot }> = [];
   private remoteCarriedByLocal = false;
   private localCarriedByRemote = false;
   private carryHintTimer = 0;
+  private playerBounceCooldown = 0;
+  private reconcileOffsetX = 0;
+  private reconcileOffsetY = 0;
+  private predictionError = 0;
+  private reconciliationCount = 0;
 
-  constructor(canvas: HTMLCanvasElement, seed?: number, characterId?: string) {
+  constructor(canvas: HTMLCanvasElement, seed?: number, characterId?: string, options?: GameEngineOptions) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d')!;
     if (seed !== undefined) this.worldSeed = seed;
     if (characterId) this._characterId = characterId;
 
-    this.input = new InputManager();
+    this.input = new InputManager(options?.input);
     this.camera = new Camera(DEFAULT_CAMERA_CONFIG);
     this.chunkManager = new ChunkManager(this.worldSeed);
     this.player = new Player(DEFAULT_PLAYER_CONFIG);
@@ -185,9 +215,16 @@ export class GameEngine {
     this.remotePlayer = null;
     this.remotePlayerId = null;
     this.remotePlayerName = null;
+    this.remoteTargetSnapshot = null;
+    this.remoteSnapshotBuffer = [];
     this.remoteCarriedByLocal = false;
     this.localCarriedByRemote = false;
     this.carryHintTimer = 0;
+    this.playerBounceCooldown = 0;
+    this.reconcileOffsetX = 0;
+    this.reconcileOffsetY = 0;
+    this.predictionError = 0;
+    this.reconciliationCount = 0;
     this.prepareOpeningFrame();
     // Reset timing to avoid first-frame spike after restart
     this.lastTime = performance.now();
@@ -201,9 +238,16 @@ export class GameEngine {
       this.remotePlayer = null;
       this.remotePlayerId = null;
       this.remotePlayerName = null;
+      this.remoteTargetSnapshot = null;
+      this.remoteSnapshotBuffer = [];
       this.remoteCarriedByLocal = false;
       this.localCarriedByRemote = false;
       this.carryHintTimer = 0;
+      this.playerBounceCooldown = 0;
+      this.reconcileOffsetX = 0;
+      this.reconcileOffsetY = 0;
+      this.predictionError = 0;
+      this.reconciliationCount = 0;
     }
   }
 
@@ -212,6 +256,8 @@ export class GameEngine {
       this.remotePlayer = null;
       this.remotePlayerId = null;
       this.remotePlayerName = null;
+      this.remoteTargetSnapshot = null;
+      this.remoteSnapshotBuffer = [];
       this.remoteCarriedByLocal = false;
       this.localCarriedByRemote = false;
       return;
@@ -219,28 +265,191 @@ export class GameEngine {
 
     this.remotePlayerId = remote.id;
     this.remotePlayerName = remote.name;
+    this.remoteTargetSnapshot = remote.snapshot;
     this.remoteCarriedByLocal = remote.carriedById === this.multiplayerPlayerId;
     this.localCarriedByRemote = remote.carryTargetId === this.multiplayerPlayerId;
 
     if (!this.remotePlayer) {
       this.remotePlayer = new Player(DEFAULT_PLAYER_CONFIG);
       this.remotePlayer.applyCharacter(getCharacterById(remote.snapshot.characterId));
+      this.remotePlayer.x = remote.snapshot.x;
+      this.remotePlayer.y = remote.snapshot.y;
+    }
+
+    const sampleTime = Number.isFinite(remote.serverTime) ? Number(remote.serverTime) : Date.now();
+    const lastSample = this.remoteSnapshotBuffer[this.remoteSnapshotBuffer.length - 1];
+    if (!lastSample || Math.abs(lastSample.snapshot.x - remote.snapshot.x) > 0.5 || Math.abs(lastSample.snapshot.y - remote.snapshot.y) > 0.5) {
+      this.remoteSnapshotBuffer.push({ t: sampleTime, snapshot: remote.snapshot });
+      if (this.remoteSnapshotBuffer.length > 28) {
+        this.remoteSnapshotBuffer.splice(0, this.remoteSnapshotBuffer.length - 28);
+      }
+    } else {
+      lastSample.t = sampleTime;
+      lastSample.snapshot = remote.snapshot;
     }
 
     const rp = this.remotePlayer;
     rp.characterId = remote.snapshot.characterId;
     rp.width = remote.snapshot.width;
     rp.height = remote.snapshot.height;
-    rp.x = remote.snapshot.x;
-    rp.y = remote.snapshot.y;
-    rp.vx = remote.snapshot.vx;
-    rp.vy = remote.snapshot.vy;
-    rp.facingRight = remote.snapshot.facingRight;
-    rp.onGround = remote.snapshot.onGround;
     rp.health = remote.snapshot.health;
     rp.maxHealth = remote.snapshot.maxHealth;
     rp.distance = remote.snapshot.distance;
     rp.alive = remote.snapshot.health > 0;
+  }
+
+  private updateRemotePlayerSmoothing(dt: number): void {
+    if (!this.multiplayerEnabled || !this.remotePlayer || !this.remoteTargetSnapshot) return;
+    if (this.remoteCarriedByLocal) return;
+    if (this.remoteSnapshotBuffer.length === 0) return;
+
+    const rp = this.remotePlayer;
+    const renderTime = Date.now() - MP_INTERPOLATION_DELAY_MS;
+    let from = this.remoteSnapshotBuffer[0];
+    let to = this.remoteSnapshotBuffer[this.remoteSnapshotBuffer.length - 1];
+
+    for (let i = 0; i < this.remoteSnapshotBuffer.length - 1; i++) {
+      const a = this.remoteSnapshotBuffer[i];
+      const b = this.remoteSnapshotBuffer[i + 1];
+      if (a.t <= renderTime && b.t >= renderTime) {
+        from = a;
+        to = b;
+        break;
+      }
+      if (b.t < renderTime) {
+        from = b;
+        to = b;
+      }
+    }
+
+    let target = to.snapshot;
+    if (to.t > from.t && renderTime >= from.t && renderTime <= to.t) {
+      const alpha = (renderTime - from.t) / (to.t - from.t);
+      const lerp = (a: number, b: number) => a + (b - a) * alpha;
+      target = {
+        ...to.snapshot,
+        x: lerp(from.snapshot.x, to.snapshot.x),
+        y: lerp(from.snapshot.y, to.snapshot.y),
+        vx: lerp(from.snapshot.vx, to.snapshot.vx),
+        vy: lerp(from.snapshot.vy, to.snapshot.vy),
+      };
+    } else {
+      const extraMs = Math.max(0, renderTime - to.t);
+      if (extraMs > 0) {
+        const clamped = Math.min(MP_MAX_EXTRAPOLATION_MS, extraMs) / 1000;
+        target = {
+          ...to.snapshot,
+          x: to.snapshot.x + to.snapshot.vx * clamped,
+          y: to.snapshot.y + to.snapshot.vy * clamped,
+        };
+      }
+    }
+
+    const dx = target.x - rp.x;
+    const dy = target.y - rp.y;
+    const distanceSq = dx * dx + dy * dy;
+
+    if (distanceSq > 680 * 680) {
+      rp.x = target.x;
+      rp.y = target.y;
+      rp.vx = target.vx;
+      rp.vy = target.vy;
+    } else {
+      const posAlpha = 1 - Math.exp(-dt * MP_RECONCILE_SMOOTH_SPEED);
+      const velAlpha = 1 - Math.exp(-dt * 7.2);
+      rp.x += dx * posAlpha;
+      rp.y += dy * posAlpha;
+      rp.vx += (target.vx - rp.vx) * velAlpha;
+      rp.vy += (target.vy - rp.vy) * velAlpha;
+    }
+
+    rp.facingRight = target.facingRight;
+    rp.onGround = target.onGround;
+  }
+
+  /** Build sequenced input commands for server ack/reconciliation tracking. */
+  buildNetInputCommand(seq: number, dtMs: number, clientTime: number): NetInputCommand {
+    return this.input.buildNetInputCommand(seq, clientTime, dtMs);
+  }
+
+  private replayPendingInputs(pendingInputs: NetInputCommand[]): void {
+    if (pendingInputs.length === 0) return;
+
+    const replay = pendingInputs.slice(-Math.min(MP_INPUT_BUFFER_SIZE, 20));
+    const tuning = this.player.getMovementTuning();
+    const accel = tuning.speed * 8;
+    const friction = tuning.speed * 10;
+
+    for (const cmd of replay) {
+      const dt = Math.max(1 / 120, Math.min(0.11, cmd.dtMs / 1000));
+
+      const targetVx = cmd.moveX * tuning.speed;
+      if (cmd.moveX < 0) {
+        this.player.vx = Math.max(this.player.vx - accel * dt, targetVx);
+        this.player.facingRight = false;
+      } else if (cmd.moveX > 0) {
+        this.player.vx = Math.min(this.player.vx + accel * dt, targetVx);
+        this.player.facingRight = true;
+      } else if (this.player.vx > 0) {
+        this.player.vx = Math.max(0, this.player.vx - friction * dt);
+      } else if (this.player.vx < 0) {
+        this.player.vx = Math.min(0, this.player.vx + friction * dt);
+      }
+
+      if (cmd.dashPressed) {
+        const dashDir = this.player.facingRight ? 1 : -1;
+        this.player.vx = dashDir * 600;
+      }
+      if (cmd.jumpPressed && this.player.onGround) {
+        this.player.vy = tuning.jumpVelocity;
+        this.player.onGround = false;
+      }
+
+      this.player.vy += tuning.gravity * dt;
+      if (this.player.vy > 900) this.player.vy = 900;
+      this.player.x += this.player.vx * dt;
+      this.player.y += this.player.vy * dt;
+      if (this.player.x < 0) {
+        this.player.x = 0;
+        this.player.vx = 0;
+      }
+    }
+  }
+
+  /** Apply authoritative local snapshot from server with thresholded smooth reconciliation. */
+  reconcileLocalAuthoritative(snapshot: NetPlayerSnapshot, pendingInputs: NetInputCommand[] = []): number {
+    const dx = snapshot.x - this.player.x;
+    const dy = snapshot.y - this.player.y;
+    const error = Math.hypot(dx, dy);
+    this.predictionError = error;
+
+    if (error >= MP_RECONCILE_SNAP_THRESHOLD) {
+      this.player.x = snapshot.x;
+      this.player.y = snapshot.y;
+      this.player.vx = snapshot.vx;
+      this.player.vy = snapshot.vy;
+      this.reconcileOffsetX = 0;
+      this.reconcileOffsetY = 0;
+      this.reconciliationCount += 1;
+      this.replayPendingInputs(pendingInputs);
+      return error;
+    }
+
+    if (error >= MP_RECONCILE_MEDIUM_THRESHOLD) {
+      this.reconcileOffsetX = dx;
+      this.reconcileOffsetY = dy;
+      this.reconciliationCount += 1;
+      this.replayPendingInputs(pendingInputs);
+      return error;
+    }
+
+    if (error >= MP_RECONCILE_SMALL_THRESHOLD) {
+      const blend = 0.18;
+      this.player.x += dx * blend;
+      this.player.y += dy * blend;
+    }
+    if (pendingInputs.length > 0) this.replayPendingInputs(pendingInputs);
+    return error;
   }
 
   getLocalPlayerSnapshot(): NetPlayerSnapshot {
@@ -652,6 +861,29 @@ export class GameEngine {
     );
   }
 
+  private isRemotePlayerStompCollision(dt: number): boolean {
+    if (!this.multiplayerEnabled || !this.remotePlayer) return false;
+    if (this.playerBounceCooldown > 0) return false;
+    if (this.remoteCarriedByLocal || this.localCarriedByRemote) return false;
+    if (this.player.vy <= -60) return false;
+
+    const remote = this.remotePlayer;
+    const playerBottom = this.player.bottom;
+    const previousBottom = playerBottom - this.player.vy * dt;
+    const remoteTop = remote.y;
+    const remoteMid = remote.y + remote.height * 0.62;
+    const centerGrace = 9;
+    const horizontalCenterOverlaps =
+      this.player.centerX >= remote.x - centerGrace &&
+      this.player.centerX <= remote.x + remote.width + centerGrace;
+
+    return (
+      horizontalCenterOverlaps &&
+      (previousBottom <= remoteMid || this.player.centerY < remote.y + remote.height * 0.58) &&
+      playerBottom >= remoteTop - 8
+    );
+  }
+
   private awardEnemyDefeat(enemy: Enemy): void {
     const pts = KILL_SCORES[enemy.type] ?? 100;
     this.player.score += pts;
@@ -692,6 +924,7 @@ export class GameEngine {
 
   private update(dt: number): void {
     this.gameTime += dt;
+    this.playerBounceCooldown = Math.max(0, this.playerBounceCooldown - dt);
 
     // Update chunks — use a position slightly ahead of the player so enemies spawn in view.
     const lookAheadPx = this.camera.x + this.camera.renderX > 0
@@ -785,8 +1018,31 @@ export class GameEngine {
       this.player.score += (this.player.distance - prevDistance);
     }
 
+    if (Math.abs(this.reconcileOffsetX) > 0.01 || Math.abs(this.reconcileOffsetY) > 0.01) {
+      const pull = 1 - Math.exp(-dt * MP_RECONCILE_SMOOTH_SPEED);
+      const ox = this.reconcileOffsetX * pull;
+      const oy = this.reconcileOffsetY * pull;
+      this.player.x += ox;
+      this.player.y += oy;
+      this.reconcileOffsetX -= ox;
+      this.reconcileOffsetY -= oy;
+    }
+
+    this.updateRemotePlayerSmoothing(dt);
     this.handleCarryInteraction(dt);
     this.onLocalPlayerSnapshot?.(this.getLocalPlayerSnapshot());
+
+    if (this.isRemotePlayerStompCollision(dt) && this.remotePlayer) {
+      const remote = this.remotePlayer;
+      const wantsBoostedBounce = this.input.isDown('Space') || this.input.isDown('ArrowUp') || this.input.isDown('KeyW');
+      this.player.y = Math.min(this.player.y, remote.y - this.player.height - 1);
+      this.player.stompBounce(wantsBoostedBounce);
+      remote.vy = Math.max(remote.vy, 120);
+      this.playerBounceCooldown = 0.18;
+      this.camera.shake(1.6, 0.1);
+      this.particles.spawnLanding(this.player.centerX, Math.min(this.player.bottom, remote.y + 2));
+      this.particles.spawnScorePopup(this.player.centerX, this.player.y - 8, 'BOUNCE!', '#93c5fd');
+    }
 
     // Update falling platforms
     for (const h of this.hazards) {
@@ -1020,6 +1276,13 @@ export class GameEngine {
       biome: biome.name,
       powerUps,
       fps: profilerMetrics.fps,
+    });
+
+    this.onNetworkDebug?.({
+      predictionError: this.predictionError,
+      reconciliationCount: this.reconciliationCount,
+      interpolationDelayMs: MP_INTERPOLATION_DELAY_MS,
+      remoteBufferSize: this.remoteSnapshotBuffer.length,
     });
   }
 

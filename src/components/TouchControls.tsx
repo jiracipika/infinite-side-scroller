@@ -12,7 +12,13 @@ import { useEffect, useCallback, useState, type FC } from 'react';
  * Emits 'game-input' CustomEvents consumed by InputManager.
  * Respects iOS safe-area-inset-bottom for notched devices.
  */
-const TouchControls: FC = () => {
+interface TouchControlsProps {
+  channel?: string;
+  compact?: boolean;
+  forceVisible?: boolean;
+}
+
+const TouchControls: FC<TouchControlsProps> = ({ channel = 'game-input', compact = false, forceVisible = false }) => {
   const [leftHeld,   setLeftHeld]   = useState(false);
   const [rightHeld,  setRightHeld]  = useState(false);
   const [jumpHeld,   setJumpHeld]   = useState(false);
@@ -20,8 +26,8 @@ const TouchControls: FC = () => {
   const [dashHeld,   setDashHeld]   = useState(false);
 
   const emit = useCallback((type: string, value: boolean) => {
-    window.dispatchEvent(new CustomEvent('game-input', { detail: { type, value } }));
-  }, []);
+    window.dispatchEvent(new CustomEvent(channel, { detail: { type, value } }));
+  }, [channel]);
 
   const startLeft   = useCallback(() => { setLeftHeld(true);    emit('move-left',    true);  }, [emit]);
   const endLeft     = useCallback(() => { setLeftHeld(false);   emit('move-left',    false); }, [emit]);
@@ -51,7 +57,7 @@ const TouchControls: FC = () => {
     setIsTouchDevice(window.matchMedia('(hover: none) and (pointer: coarse)').matches);
   }, []);
 
-  if (!isTouchDevice) return null;
+  if (!isTouchDevice && !forceVisible) return null;
 
   // Bottom offset — honours iOS safe area (notch/home bar)
   const bottomInset = 'max(24px, env(safe-area-inset-bottom, 24px))';
@@ -64,13 +70,13 @@ const TouchControls: FC = () => {
       {/* ── Left: D-Pad ──────────────────────────────────────── */}
       <div
         className="absolute pointer-events-auto"
-        style={{ bottom: bottomInset, left: 16, display: 'flex', gap: 10 }}
+        style={{ bottom: compact ? 'max(12px, env(safe-area-inset-bottom, 12px))' : bottomInset, left: compact ? 10 : 16, display: 'flex', gap: compact ? 8 : 10 }}
       >
         <TouchBtn
           active={leftHeld}
           onStart={startLeft}
           onEnd={endLeft}
-          size="lg"
+          size={compact ? 'md' : 'lg'}
           aria-label="Move left"
         >
           <ChevronLeft />
@@ -79,7 +85,7 @@ const TouchControls: FC = () => {
           active={rightHeld}
           onStart={startRight}
           onEnd={endRight}
-          size="lg"
+          size={compact ? 'md' : 'lg'}
           aria-label="Move right"
         >
           <ChevronRight />
@@ -90,32 +96,32 @@ const TouchControls: FC = () => {
       <div
         className="absolute pointer-events-auto"
         style={{
-          bottom: bottomInset,
-          right: 16,
+          bottom: compact ? 'max(12px, env(safe-area-inset-bottom, 12px))' : bottomInset,
+          right: compact ? 10 : 16,
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'flex-end',
-          gap: 10,
+          gap: compact ? 8 : 10,
         }}
       >
-        <div style={{ display: 'flex', gap: 10 }}>
+        <div style={{ display: 'flex', gap: compact ? 8 : 10 }}>
           <TouchBtn
             active={dashHeld}
             onStart={startDash}
-            onEnd={endDash}
-            size="sm"
-            tint="orange"
-            aria-label="Dash"
+          onEnd={endDash}
+          size={compact ? 'xs' : 'sm'}
+          tint="orange"
+          aria-label="Dash"
           >
             <DashLabel />
           </TouchBtn>
           <TouchBtn
             active={attackHeld}
             onStart={startAttack}
-            onEnd={endAttack}
-            size="sm"
-            tint="orange"
-            aria-label="Attack"
+          onEnd={endAttack}
+          size={compact ? 'xs' : 'sm'}
+          tint="orange"
+          aria-label="Attack"
           >
             <AtkLabel />
           </TouchBtn>
@@ -124,7 +130,7 @@ const TouchControls: FC = () => {
           active={jumpHeld}
           onStart={startJump}
           onEnd={endJump}
-          size="lg"
+          size={compact ? 'md' : 'lg'}
           tint="blue"
           aria-label="Jump"
         >
@@ -143,7 +149,7 @@ interface TouchBtnProps {
   active: boolean;
   onStart: () => void;
   onEnd: () => void;
-  size: 'sm' | 'lg';
+  size: 'xs' | 'sm' | 'md' | 'lg';
   tint?: 'blue' | 'orange';
   'aria-label': string;
   children: React.ReactNode;
@@ -176,7 +182,7 @@ const TINTS = {
 const TouchBtn: FC<TouchBtnProps> = ({
   active, onStart, onEnd, size, tint, children, 'aria-label': ariaLabel,
 }) => {
-  const dim = size === 'lg' ? 66 : 50;
+  const dim = size === 'lg' ? 66 : size === 'md' ? 56 : size === 'sm' ? 50 : 42;
   const t = TINTS[tint ?? 'none'];
 
   return (
@@ -198,10 +204,14 @@ const TouchBtn: FC<TouchBtnProps> = ({
         transition: 'background 0.07s ease, border-color 0.07s ease, box-shadow 0.1s ease, transform 0.08s ease',
         transform: active ? 'scale(0.92)' : 'scale(1)',
         touchAction: 'none',
+        userSelect: 'none',
+        WebkitUserSelect: 'none',
+        WebkitTouchCallout: 'none',
       }}
-      onTouchStart={(e) => { e.stopPropagation(); onStart(); }}
-      onTouchEnd={(e)   => { e.stopPropagation(); onEnd(); }}
-      onTouchCancel={(e) => { e.stopPropagation(); onEnd(); }}
+      onTouchStart={(e) => { e.preventDefault(); e.stopPropagation(); onStart(); }}
+      onTouchEnd={(e)   => { e.preventDefault(); e.stopPropagation(); onEnd(); }}
+      onTouchCancel={(e) => { e.preventDefault(); e.stopPropagation(); onEnd(); }}
+      onContextMenu={(e) => e.preventDefault()}
     >
       {children}
     </button>

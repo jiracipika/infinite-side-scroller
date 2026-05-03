@@ -13,6 +13,17 @@ export interface NetPlayerSnapshot {
   distance: number;
 }
 
+export interface NetInputCommand {
+  seq: number;
+  clientTime: number;
+  dtMs: number;
+  moveX: -1 | 0 | 1;
+  jumpPressed: boolean;
+  attackPressed: boolean;
+  dashPressed: boolean;
+  carryPressed: boolean;
+}
+
 export interface NetPlayerState {
   id: string;
   name: string;
@@ -32,7 +43,28 @@ export interface NetRoomState {
 export interface NetSyncPayload {
   roomId: string;
   playerId: string;
-  snapshot: NetPlayerSnapshot;
+  // Optional to allow command-only packets between keyframes.
+  snapshot?: NetPlayerSnapshot;
+  input?: NetInputCommand;
   carryTargetId?: string | null;
   dropCarry?: boolean;
+}
+
+export interface NetSyncResponse {
+  roomId: string;
+  seed: number;
+  hostId: string;
+  serverTime: number;
+  serverTickRate: number;
+  snapshotRate: number;
+  ackInputSeq: number;
+  local: NetPlayerSnapshot;
+  inferredPacketLoss: number;
+  remote: {
+    id: string;
+    name: string;
+    snapshot: NetPlayerSnapshot;
+    carryTargetId: string | null;
+    carriedById: string | null;
+  } | null;
 }

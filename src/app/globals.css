@@ -71,6 +71,15 @@ html, body {
   user-select: none;
 }
 
+button,
+[role="button"] {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
 /* ═══ Spring Animations ══════════════════════════════════════════
 
    These simulate iOS spring physics (tension ~200, friction ~25).
