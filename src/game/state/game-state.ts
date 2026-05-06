@@ -11,6 +11,7 @@ export interface GameSettings {
   showFPS: boolean;
   showDebug: boolean;
   reducedParticles: boolean;
+  cameraMode: 'auto' | 'horizontal' | 'vertical';
 }
 
 export interface GameStats {
@@ -40,6 +41,7 @@ export const DEFAULT_SETTINGS: GameSettings = {
   showFPS: false,
   showDebug: false,
   reducedParticles: false,
+  cameraMode: 'auto',
 };
 
 const STORAGE_KEY = 'infinite-side-scroller';

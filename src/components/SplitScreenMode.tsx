@@ -74,9 +74,11 @@ const SplitScreenMode: FC<Props> = ({ seed, onExit }) => {
     const worldSeed = Number.isFinite(seed) ? Number(seed) : Math.floor(Math.random() * 999999);
     const topGame = new GameEngine(topCanvas, worldSeed, selected, {
       input: { channel: 'game-input-top', enableKeyboard: false },
+      cameraMode: 'split',
     });
     const bottomGame = new GameEngine(bottomCanvas, worldSeed, altCharacter, {
       input: { channel: 'game-input-bottom', enableKeyboard: false },
+      cameraMode: 'split',
     });
     topGameRef.current = topGame;
     bottomGameRef.current = bottomGame;

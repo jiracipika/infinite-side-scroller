@@ -1,22 +1,31 @@
 /**
- * Camera system — smoothly follows the player with look-ahead, dead zone, and screen shake.
+ * Camera system — smoothly follows the player with centered framing and screen shake.
  */
 
+export type CameraMode = 'auto' | 'horizontal' | 'vertical' | 'split';
+
 export interface CameraConfig {
-  /** How much to offset the camera (fraction of screen) */
-  lookAheadX: number;
-  /** Dead zone width in pixels */
-  deadZoneX: number;
-  deadZoneY: number;
+  /** Framing profile. Auto picks horizontal/vertical based on aspect ratio. */
+  mode: CameraMode;
+  /** Horizontal focus point as a fraction of screen width. 0.5 keeps the player centered. */
+  focusX: number;
+  /** Vertical focus point for landscape/wide screens. */
+  horizontalFocusY: number;
+  /** Vertical focus point for portrait screens. */
+  verticalFocusY: number;
+  /** Vertical focus point for local split-screen square panes. */
+  splitFocusY: number;
   /** Smoothing factor (0 = no movement, 1 = instant snap) */
   lerpSpeed: number;
 }
 
 export const DEFAULT_CAMERA_CONFIG: CameraConfig = {
-  lookAheadX: 0.15,
-  deadZoneX: 50,
-  deadZoneY: 30,
-  lerpSpeed: 0.12,
+  mode: 'auto',
+  focusX: 0.5,
+  horizontalFocusY: 0.52,
+  verticalFocusY: 0.54,
+  splitFocusY: 0.5,
+  lerpSpeed: 0.14,
 };
 
 export class Camera {
@@ -47,9 +56,28 @@ export class Camera {
     this.config = config;
   }
 
+  setMode(mode: CameraMode): void {
+    this.config = { ...this.config, mode };
+  }
+
   setScreenSize(width: number, height: number): void {
     this.screenWidth = width;
     this.screenHeight = height;
+  }
+
+  private getFocusY(): number {
+    if (this.config.mode === 'split') return this.config.splitFocusY;
+    if (this.config.mode === 'vertical') return this.config.verticalFocusY;
+    if (this.config.mode === 'horizontal') return this.config.horizontalFocusY;
+    return this.screenHeight > this.screenWidth * 1.08
+      ? this.config.verticalFocusY
+      : this.config.horizontalFocusY;
+  }
+
+  private getDesiredPosition(playerX: number, playerY: number): { x: number; y: number } {
+    const desiredX = Math.max(0, playerX - this.screenWidth * this.config.focusX);
+    const desiredY = playerY - this.screenHeight * this.getFocusY();
+    return { x: desiredX, y: desiredY };
   }
 
   /** Trigger a screen shake */
@@ -60,13 +88,11 @@ export class Camera {
   }
 
   update(playerX: number, playerY: number): void {
-    // Desired camera position with look-ahead
-    const desiredX = Math.max(0, playerX - this.screenWidth * (0.5 + this.config.lookAheadX));
-    const desiredY = playerY - this.screenHeight * 0.5;
+    const desired = this.getDesiredPosition(playerX, playerY);
 
     // Always update target — lerp provides the smoothing
-    this.targetX = desiredX;
-    this.targetY = desiredY;
+    this.targetX = desired.x;
+    this.targetY = desired.y;
 
     // Smooth lerp
     this.x += (this.targetX - this.x) * this.config.lerpSpeed;
@@ -92,8 +118,9 @@ export class Camera {
 
   /** Place the camera immediately without lerp for clean starts/restarts. */
   snapTo(playerX: number, playerY: number): void {
-    this.targetX = Math.max(0, playerX - this.screenWidth * (0.5 + this.config.lookAheadX));
-    this.targetY = playerY - this.screenHeight * 0.5;
+    const desired = this.getDesiredPosition(playerX, playerY);
+    this.targetX = desired.x;
+    this.targetY = desired.y;
     this.x = this.targetX;
     this.y = Math.max(-200, this.targetY);
     this.shakeOffsetX = 0;

@@ -87,8 +87,16 @@ const StartScreen: FC<Props> = ({ onPlay, onPlayMultiplayer, onPlaySplitScreen, 
 
   return (
     <div
-      className="absolute inset-0 flex flex-col items-center justify-center ios-overlay"
-      style={{ opacity: mounted ? 1 : 0, transition: 'opacity 0.35s ease' }}
+      className="absolute inset-0 flex flex-col items-center ios-overlay"
+      style={{
+        opacity: mounted ? 1 : 0,
+        transition: 'opacity 0.35s ease',
+        overflowY: 'auto',
+        overflowX: 'hidden',
+        WebkitOverflowScrolling: 'touch',
+        overscrollBehavior: 'contain',
+        padding: 'max(18px, env(safe-area-inset-top, 0px)) 0 max(28px, env(safe-area-inset-bottom, 0px))',
+      }}
     >
       {/* Background star field */}
       <StarField />
@@ -100,15 +108,17 @@ const StartScreen: FC<Props> = ({ onPlay, onPlayMultiplayer, onPlaySplitScreen, 
           padding: '0 16px',
           position: 'relative',
           zIndex: 1,
+          minHeight: 'min-content',
+          margin: 'auto 0',
           animation: mounted ? 'iosSpringIn 0.55s cubic-bezier(0.34,1.56,0.64,1) both' : 'none',
         }}
       >
         {/* ── App Icon + Title ─────────────────────────────── */}
-        <div className="flex flex-col items-center" style={{ marginBottom: 28 }}>
+        <div className="flex flex-col items-center" style={{ marginBottom: 'clamp(14px, 3.2vh, 28px)' }}>
           <AppIcon />
           <h1
             className="ios-large-title"
-            style={{ marginTop: 16, animation: 'iosGlow 5s ease-in-out infinite' }}
+            style={{ marginTop: 'clamp(8px, 1.8vh, 16px)', animation: 'iosGlow 5s ease-in-out infinite' }}
           >
             Infinite
           </h1>
@@ -152,15 +162,15 @@ const StartScreen: FC<Props> = ({ onPlay, onPlayMultiplayer, onPlaySplitScreen, 
             const sel = CHARACTERS.find(c => c.id === selectedChar) ?? CHARACTERS[0];
             return (
               <div style={{
-                padding: '12px 12px 0',
+                padding: 'clamp(8px, 1.4vh, 12px) 12px 0',
                 display: 'flex',
                 gap: 12,
                 alignItems: 'flex-start',
               }}>
                 {/* Big character avatar */}
                 <div style={{
-                  width: 52,
-                  height: 64,
+                  width: 'clamp(42px, 12vw, 52px)',
+                  height: 'clamp(50px, 14vw, 64px)',
                   borderRadius: 10,
                   background: `linear-gradient(135deg, ${sel.bodyColor}dd, ${sel.bodyColor})`,
                   border: `2px solid ${sel.outlineColor}`,
@@ -205,7 +215,7 @@ const StartScreen: FC<Props> = ({ onPlay, onPlayMultiplayer, onPlaySplitScreen, 
           <div style={{
             display: 'flex',
             gap: 0,
-            padding: '8px 8px 10px',
+            padding: 'clamp(6px, 1.2vh, 8px) 8px clamp(7px, 1.4vh, 10px)',
           }}>
             {CHARACTERS.map((c) => (
               <button
@@ -544,6 +554,40 @@ const SettingsPanel: FC = () => {
           value={settings.reducedParticles}
           onChange={(v) => setSettings({ reducedParticles: v })}
         />
+        <CameraModeRow
+          value={settings.cameraMode}
+          onChange={(cameraMode) => setSettings({ cameraMode })}
+        />
+      </div>
+    </div>
+  );
+};
+
+const CameraModeRow: FC<{
+  value: 'auto' | 'horizontal' | 'vertical';
+  onChange: (value: 'auto' | 'horizontal' | 'vertical') => void;
+}> = ({ value, onChange }) => {
+  const modes: Array<{ id: 'auto' | 'horizontal' | 'vertical'; label: string }> = [
+    { id: 'auto', label: 'Auto' },
+    { id: 'horizontal', label: 'Wide' },
+    { id: 'vertical', label: 'Tall' },
+  ];
+
+  return (
+    <div className="ios-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 10 }}>
+      <span className="ios-row-label">Camera</span>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 6 }}>
+        {modes.map((mode) => (
+          <button
+            key={mode.id}
+            type="button"
+            className={value === mode.id ? 'ios-btn-primary' : 'ios-btn-secondary'}
+            onClick={() => onChange(mode.id)}
+            style={{ height: 34, fontSize: 13 }}
+          >
+            {mode.label}
+          </button>
+        ))}
       </div>
     </div>
   );

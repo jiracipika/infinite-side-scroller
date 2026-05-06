@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useCallback, useRef, useState } from 'react';
-import { GameEngine } from '@/game';
+import { GameEngine, type CameraMode } from '@/game';
 import { useGameStore } from '@/components/GameStore';
 import { loadSelectedCharacter } from '@/game/data/characters';
 import StartScreen from '@/components/StartScreen';
@@ -208,6 +208,10 @@ export default function Home() {
       gameRef.current = null;
     };
   }, []); // intentionally empty — engine lives for the page lifetime
+
+  useEffect(() => {
+    gameRef.current?.setCameraMode(settings.cameraMode as CameraMode);
+  }, [settings.cameraMode]);
 
   // Sync engine pause/resume with React state
   useEffect(() => {

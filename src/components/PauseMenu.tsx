@@ -220,6 +220,41 @@ const SettingsPanel: FC = () => {
             onChange={(v) => setSettings({ reducedParticles: v })}
           />
         </div>
+
+        <CameraModeRow
+          value={settings.cameraMode}
+          onChange={(cameraMode) => setSettings({ cameraMode })}
+        />
+      </div>
+    </div>
+  );
+};
+
+const CameraModeRow: FC<{
+  value: 'auto' | 'horizontal' | 'vertical';
+  onChange: (value: 'auto' | 'horizontal' | 'vertical') => void;
+}> = ({ value, onChange }) => {
+  const modes: Array<{ id: 'auto' | 'horizontal' | 'vertical'; label: string }> = [
+    { id: 'auto', label: 'Auto' },
+    { id: 'horizontal', label: 'Wide' },
+    { id: 'vertical', label: 'Tall' },
+  ];
+
+  return (
+    <div className="ios-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 10 }}>
+      <span className="ios-row-label">Camera</span>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 6 }}>
+        {modes.map((mode) => (
+          <button
+            key={mode.id}
+            type="button"
+            className={value === mode.id ? 'ios-btn-primary' : 'ios-btn-secondary'}
+            onClick={() => onChange(mode.id)}
+            style={{ height: 34, fontSize: 13 }}
+          >
+            {mode.label}
+          </button>
+        ))}
       </div>
     </div>
   );

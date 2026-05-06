@@ -3,7 +3,7 @@
  */
 
 export { GameEngine } from './engine/game-engine';
-export { Camera, DEFAULT_CAMERA_CONFIG, type CameraConfig } from './engine/camera';
+export { Camera, DEFAULT_CAMERA_CONFIG, type CameraConfig, type CameraMode } from './engine/camera';
 export { ChunkManager } from './world/chunk-manager';
 export { Chunk, CHUNK_WIDTH } from './world/chunk';
 export { createRng } from './world/rng';

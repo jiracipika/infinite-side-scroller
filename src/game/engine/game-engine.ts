@@ -3,7 +3,7 @@
  * Manages the game loop, updates all systems, and renders each frame.
  */
 
-import { Camera, DEFAULT_CAMERA_CONFIG } from './camera';
+import { Camera, DEFAULT_CAMERA_CONFIG, type CameraMode } from './camera';
 import { ChunkManager } from '../world/chunk-manager';
 import { InputManager } from '../input/input';
 import { Player, DEFAULT_PLAYER_CONFIG } from '../entities/player';
@@ -58,6 +58,7 @@ export interface RemotePlayerViewState {
 
 export interface GameEngineOptions {
   input?: InputOptions;
+  cameraMode?: CameraMode;
 }
 
 export interface NetDebugStats {
@@ -169,7 +170,7 @@ export class GameEngine {
     if (characterId) this._characterId = characterId;
 
     this.input = new InputManager(options?.input);
-    this.camera = new Camera(DEFAULT_CAMERA_CONFIG);
+    this.camera = new Camera({ ...DEFAULT_CAMERA_CONFIG, mode: options?.cameraMode ?? DEFAULT_CAMERA_CONFIG.mode });
     this.chunkManager = new ChunkManager(this.worldSeed);
     this.player = new Player(DEFAULT_PLAYER_CONFIG);
     this.player.applyCharacter(getCharacterById(this._characterId));
@@ -190,6 +191,11 @@ export class GameEngine {
 
   pause(): void { this._state = 'paused'; }
   resume(): void { this._state = 'playing'; this.lastTime = performance.now(); this.accumulated = 0; }
+
+  setCameraMode(mode: CameraMode): void {
+    this.camera.setMode(mode);
+    this.camera.snapTo(this.player.centerX, this.player.centerY);
+  }
 
   setSeed(seed: number, characterId?: string): void {
     this.worldSeed = seed;
@@ -517,20 +523,10 @@ export class GameEngine {
     const hostRect = host?.getBoundingClientRect();
     const canvasRect = this.canvas.getBoundingClientRect();
 
-    const width = Math.max(
-      1,
-      Math.floor(host?.clientWidth ?? 0),
-      Math.floor(hostRect?.width ?? 0),
-      Math.floor(canvasRect.width),
-      Math.floor(window.innerWidth),
-    );
-    const height = Math.max(
-      1,
-      Math.floor(host?.clientHeight ?? 0),
-      Math.floor(hostRect?.height ?? 0),
-      Math.floor(canvasRect.height),
-      Math.floor(window.innerHeight),
-    );
+    const hostWidth = Math.floor(host?.clientWidth || hostRect?.width || canvasRect.width || window.innerWidth);
+    const hostHeight = Math.floor(host?.clientHeight || hostRect?.height || canvasRect.height || window.innerHeight);
+    const width = Math.max(1, hostWidth);
+    const height = Math.max(1, hostHeight);
     const pixelWidth = Math.max(1, Math.floor(width * dpr));
     const pixelHeight = Math.max(1, Math.floor(height * dpr));
 
