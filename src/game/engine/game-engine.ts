@@ -68,6 +68,17 @@ export interface NetDebugStats {
   remoteBufferSize: number;
 }
 
+interface PlayerProjectileSnapshot {
+  x: number;
+  y: number;
+  vx: number;
+  life: number;
+  damage: number;
+  radius: number;
+  color: string;
+  glowColor: string;
+}
+
 /** AABB collision check. expandBy shrinks the player hitbox for forgiving collision. */
 function aabbOverlap(
   a: { x: number; y: number; width: number; height: number },
@@ -157,6 +168,7 @@ export class GameEngine {
   private remoteSnapshotBuffer: Array<{ t: number; snapshot: NetPlayerSnapshot }> = [];
   private remoteCarriedByLocal = false;
   private localCarriedByRemote = false;
+  private remoteProjectiles: PlayerProjectileSnapshot[] = [];
   private carryHintTimer = 0;
   private playerBounceCooldown = 0;
   private reconcileOffsetX = 0;
@@ -226,6 +238,7 @@ export class GameEngine {
     this.remoteSnapshotBuffer = [];
     this.remoteCarriedByLocal = false;
     this.localCarriedByRemote = false;
+    this.remoteProjectiles = [];
     this.carryHintTimer = 0;
     this.playerBounceCooldown = 0;
     this.reconcileOffsetX = 0;
@@ -251,6 +264,7 @@ export class GameEngine {
       this.remoteSnapshotBuffer = [];
       this.remoteCarriedByLocal = false;
       this.localCarriedByRemote = false;
+      this.remoteProjectiles = [];
       this.carryHintTimer = 0;
       this.playerBounceCooldown = 0;
       this.reconcileOffsetX = 0;
@@ -301,6 +315,7 @@ export class GameEngine {
       this.remoteSnapshotBuffer = [];
       this.remoteCarriedByLocal = false;
       this.localCarriedByRemote = false;
+      this.remoteProjectiles = [];
       return;
     }
 
@@ -337,6 +352,26 @@ export class GameEngine {
     rp.maxHealth = remote.snapshot.maxHealth;
     rp.distance = remote.snapshot.distance;
     rp.alive = remote.snapshot.health > 0;
+  }
+
+  getLocalPlayerProjectiles(): PlayerProjectileSnapshot[] {
+    return this.player.projectiles.map((p) => ({
+      x: Math.round(p.x * 10) / 10,
+      y: Math.round(p.y * 10) / 10,
+      vx: Math.round(p.vx * 10) / 10,
+      life: Math.max(0, p.life),
+      damage: p.damage,
+      radius: p.radius,
+      color: p.color,
+      glowColor: p.glowColor,
+    }));
+  }
+
+  setRemotePlayerProjectiles(projectiles: PlayerProjectileSnapshot[]): void {
+    this.remoteProjectiles = projectiles
+      .filter((p) => p.life > 0)
+      .slice(0, 32)
+      .map((p) => ({ ...p }));
   }
 
   private updateRemotePlayerSmoothing(dt: number): void {
@@ -554,6 +589,25 @@ export class GameEngine {
     if (snapshots.length > 0) {
       this.enemies = this.enemies.filter((enemy) => seen.has(enemy.netId));
     }
+  }
+
+  killEnemiesById(ids: string[]): void {
+    if (!ids.length) return;
+    const set = new Set(ids);
+    for (const enemy of this.enemies) {
+      if (!set.has(enemy.netId) || !enemy.alive) continue;
+      enemy.health = 0;
+      enemy.alive = false;
+    }
+  }
+
+  private recentEnemyDefeatIds: string[] = [];
+
+  drainRecentEnemyDefeatIds(): string[] {
+    if (!this.recentEnemyDefeatIds.length) return [];
+    const unique = Array.from(new Set(this.recentEnemyDefeatIds));
+    this.recentEnemyDefeatIds = [];
+    return unique;
   }
 
   private handleCarryInteraction(dt: number): void {
@@ -992,6 +1046,9 @@ export class GameEngine {
     this.player.score += pts;
     this.particles.spawnEnemyDeath(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2);
     this.particles.spawnScorePopup(enemy.x + enemy.width / 2, enemy.y, `+${pts}`);
+    if (this.multiplayerEnabled && !this.multiplayerIsHost) {
+      this.recentEnemyDefeatIds.push(enemy.netId);
+    }
   }
 
   private handleUfoAbduction(enemy: UFO, dt: number): void {
@@ -1446,6 +1503,21 @@ export class GameEngine {
       ctx.beginPath();
       ctx.arc(sx, sy, p.radius + 3, 0, Math.PI * 2);
       ctx.fill();
+    }
+
+    if (this.multiplayerEnabled && this.remoteProjectiles.length > 0) {
+      for (const p of this.remoteProjectiles) {
+        const sx = p.x - this.camera.renderX;
+        const sy = p.y - this.camera.renderY;
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(sx, sy, p.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = p.glowColor;
+        ctx.beginPath();
+        ctx.arc(sx, sy, p.radius + 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
 
     // Player

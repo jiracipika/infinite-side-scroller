@@ -100,13 +100,42 @@ const SplitScreenMode: FC<Props> = ({ seed, onExit }) => {
       bottomGame.pause();
     };
 
-    // Keep split-screen world/enemy state aligned: bottom acts as local authority.
+    // Keep split-screen world aligned: bottom acts as local authority for enemies.
     topGame.setMultiplayerEnabled(true, LOCAL_GUEST_ID, LOCAL_HOST_ID);
     bottomGame.setMultiplayerEnabled(true, LOCAL_HOST_ID, LOCAL_HOST_ID);
 
     const syncTimer = window.setInterval(() => {
-      const hostSnapshots = bottomGame.getEnemySnapshots();
-      topGame.applyEnemySnapshots(hostSnapshots);
+      const topSnapshot = topGame.getLocalPlayerSnapshot();
+      const bottomSnapshot = bottomGame.getLocalPlayerSnapshot();
+      const topProjectiles = topGame.getLocalPlayerProjectiles();
+      const bottomProjectiles = bottomGame.getLocalPlayerProjectiles();
+
+      topGame.setRemotePlayerState({
+        id: LOCAL_HOST_ID,
+        name: 'Bottom Player',
+        snapshot: bottomSnapshot,
+        carryTargetId: null,
+        carriedById: null,
+        serverTime: Date.now(),
+      });
+      bottomGame.setRemotePlayerState({
+        id: LOCAL_GUEST_ID,
+        name: 'Top Player',
+        snapshot: topSnapshot,
+        carryTargetId: null,
+        carriedById: null,
+        serverTime: Date.now(),
+      });
+      topGame.setRemotePlayerProjectiles(bottomProjectiles);
+      bottomGame.setRemotePlayerProjectiles(topProjectiles);
+
+      const hostEnemySnapshots = bottomGame.getEnemySnapshots();
+      topGame.applyEnemySnapshots(hostEnemySnapshots);
+
+      const topKills = topGame.drainRecentEnemyDefeatIds();
+      if (topKills.length > 0) {
+        bottomGame.killEnemiesById(topKills);
+      }
     }, 66);
 
     topGame.start();
@@ -138,11 +167,9 @@ const SplitScreenMode: FC<Props> = ({ seed, onExit }) => {
         }}
       >
         <canvas ref={topCanvasRef} className="absolute inset-0 w-full h-full" />
-        <div style={{ position: 'absolute', inset: 0, transform: 'rotate(180deg)' }}>
-          <TouchControls channel="game-input-top" compact />
-        </div>
-        <SplitHud label="Top Player" stats={topStats} rotated />
-        {topDead && <PaneDeadOverlay onRestart={restartBoth} rotated />}
+        <TouchControls channel="game-input-top" compact />
+        <SplitHud label="Top Player" stats={topStats} />
+        {topDead && <PaneDeadOverlay onRestart={restartBoth} />}
       </div>
 
       <div
