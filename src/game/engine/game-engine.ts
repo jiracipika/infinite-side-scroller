@@ -264,6 +264,34 @@ export class GameEngine {
     this.multiplayerIsHost = !!this.multiplayerEnabled && !!this.multiplayerPlayerId && this.multiplayerPlayerId === hostId;
   }
 
+  private createEnemyFromSnapshot(snapshot: NetEnemySnapshot): Enemy | null {
+    let enemy: Enemy | null = null;
+    switch (snapshot.type) {
+      case 'slime': enemy = new Slime(snapshot.x, snapshot.y, 0); break;
+      case 'beetle': enemy = new Beetle(snapshot.x, snapshot.y, 0); break;
+      case 'wisp': enemy = new Wisp(snapshot.x, snapshot.y, 0); break;
+      case 'bat': enemy = new Bat(snapshot.x, snapshot.y, 0); break;
+      case 'mite': enemy = new Mite(snapshot.x, snapshot.y, 0); break;
+      case 'jumper': enemy = new Jumper(snapshot.x, snapshot.y, 0); break;
+      case 'skeleton': enemy = new Skeleton(snapshot.x, snapshot.y, 0); break;
+      case 'alien': enemy = new Alien(snapshot.x, snapshot.y, 0); break;
+      case 'ufo': enemy = new UFO(snapshot.x, snapshot.y, 0); break;
+      case 'boss': enemy = new Boss(snapshot.x, snapshot.y, 0); break;
+      default: return null;
+    }
+
+    enemy.netId = snapshot.id;
+    enemy.x = snapshot.x;
+    enemy.y = snapshot.y;
+    enemy.vx = snapshot.vx;
+    enemy.vy = snapshot.vy;
+    enemy.health = snapshot.health;
+    enemy.alive = snapshot.alive;
+    enemy.facingRight = snapshot.facingRight;
+    enemy.onGround = snapshot.onGround;
+    return enemy;
+  }
+
   setRemotePlayerState(remote: RemotePlayerViewState | null): void {
     if (!this.multiplayerEnabled || !remote) {
       this.remotePlayer = null;
@@ -504,9 +532,15 @@ export class GameEngine {
   applyEnemySnapshots(snapshots: NetEnemySnapshot[]): void {
     if (!this.multiplayerEnabled || this.multiplayerIsHost) return;
     const byId = new Map(this.enemies.map((enemy) => [enemy.netId, enemy]));
+    const seen = new Set<string>();
     for (const snapshot of snapshots) {
+      seen.add(snapshot.id);
       const enemy = byId.get(snapshot.id);
-      if (!enemy) continue;
+      if (!enemy) {
+        const spawned = this.createEnemyFromSnapshot(snapshot);
+        if (spawned) this.enemies.push(spawned);
+        continue;
+      }
       enemy.x += (snapshot.x - enemy.x) * 0.65;
       enemy.y += (snapshot.y - enemy.y) * 0.65;
       enemy.vx = snapshot.vx;
@@ -515,6 +549,10 @@ export class GameEngine {
       enemy.alive = snapshot.alive;
       enemy.facingRight = snapshot.facingRight;
       enemy.onGround = snapshot.onGround;
+    }
+
+    if (snapshots.length > 0) {
+      this.enemies = this.enemies.filter((enemy) => seen.has(enemy.netId));
     }
   }
 

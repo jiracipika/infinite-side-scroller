@@ -19,6 +19,8 @@ interface Props {
 
 const DIVIDER_HEIGHT = 58;
 const FRAME_GAP = 10;
+const LOCAL_HOST_ID = 'local-bottom';
+const LOCAL_GUEST_ID = 'local-top';
 
 const SplitScreenMode: FC<Props> = ({ seed, onExit }) => {
   const topCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -98,10 +100,20 @@ const SplitScreenMode: FC<Props> = ({ seed, onExit }) => {
       bottomGame.pause();
     };
 
+    // Keep split-screen world/enemy state aligned: bottom acts as local authority.
+    topGame.setMultiplayerEnabled(true, LOCAL_GUEST_ID, LOCAL_HOST_ID);
+    bottomGame.setMultiplayerEnabled(true, LOCAL_HOST_ID, LOCAL_HOST_ID);
+
+    const syncTimer = window.setInterval(() => {
+      const hostSnapshots = bottomGame.getEnemySnapshots();
+      topGame.applyEnemySnapshots(hostSnapshots);
+    }, 66);
+
     topGame.start();
     bottomGame.start();
 
     return () => {
+      window.clearInterval(syncTimer);
       topGame.destroy();
       bottomGame.destroy();
       topGameRef.current = null;
@@ -126,7 +138,9 @@ const SplitScreenMode: FC<Props> = ({ seed, onExit }) => {
         }}
       >
         <canvas ref={topCanvasRef} className="absolute inset-0 w-full h-full" />
-        <TouchControls channel="game-input-top" compact />
+        <div style={{ position: 'absolute', inset: 0, transform: 'rotate(180deg)' }}>
+          <TouchControls channel="game-input-top" compact />
+        </div>
         <SplitHud label="Top Player" stats={topStats} rotated />
         {topDead && <PaneDeadOverlay onRestart={restartBoth} rotated />}
       </div>
