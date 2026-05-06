@@ -60,6 +60,7 @@ interface MultiplayerSession {
   roomId: string;
   playerId: string;
   playerName: string;
+  hostId: string;
 }
 
 interface NetOverlayStats {
@@ -337,6 +338,7 @@ export default function Home() {
         roomId: result.roomId,
         playerId: result.playerId,
         playerName: params.playerName,
+        hostId: result.room.hostId,
       };
       syncInFlightRef.current = false;
       syncSeqRef.current = 0;
@@ -367,7 +369,7 @@ export default function Home() {
       }
       startGame(result.seed);
       gameRef.current?.setSeed(result.seed, charId);
-      gameRef.current?.setMultiplayerEnabled(true, result.playerId);
+      gameRef.current?.setMultiplayerEnabled(true, result.playerId, result.room.hostId);
       applyRemotePlayerState(result.room, result.playerId);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to start multiplayer';
@@ -391,7 +393,7 @@ export default function Home() {
     const nextSeed = activeSession ? seed : Math.floor(Math.random() * 999999);
     startGame(nextSeed);
     gameRef.current?.setSeed(nextSeed, loadSelectedCharacter());
-    gameRef.current?.setMultiplayerEnabled(!!activeSession, activeSession?.playerId ?? null);
+    gameRef.current?.setMultiplayerEnabled(!!activeSession, activeSession?.playerId ?? null, activeSession?.hostId ?? null);
     pendingCarryIntentRef.current = null;
     syncInFlightRef.current = false;
     syncSeqRef.current = 0;
@@ -546,6 +548,7 @@ export default function Home() {
           playerId: session.playerId,
           snapshot: includeSnapshot ? localSnapshot : undefined,
           input,
+          enemies: session.playerId === session.hostId ? game.getEnemySnapshots() : undefined,
           carryTargetId: carryIntent?.targetId,
           dropCarry: carryIntent?.dropCarry ?? false,
         };
@@ -554,6 +557,14 @@ export default function Home() {
         if (seq < appliedSyncSeqRef.current) return;
         appliedSyncSeqRef.current = seq;
         applyRemotePlayerFromState(result.sync.remote, result.sync.serverTime);
+        game.applyEnemySnapshots(result.sync.enemies);
+        if (result.sync.hostId !== session.hostId) {
+          multiplayerSessionRef.current = { ...session, hostId: result.sync.hostId };
+          setMultiplayerSession((current) => current && current.roomId === session.roomId
+            ? { ...current, hostId: result.sync.hostId }
+            : current);
+          game.setMultiplayerHostId(result.sync.hostId);
+        }
 
         if (includeSnapshot) {
           lastSentSnapshotRef.current = localSnapshot;

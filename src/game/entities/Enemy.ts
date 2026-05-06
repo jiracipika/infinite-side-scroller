@@ -8,6 +8,7 @@ export type EnemyType = 'slime' | 'beetle' | 'wisp' | 'bat' | 'mite' | 'skeleton
 export type AIState = 'idle' | 'patrol' | 'chase' | 'attack';
 
 export abstract class Enemy {
+  netId: string;
   x: number;
   y: number;
   vx = 0;
@@ -48,6 +49,7 @@ export abstract class Enemy {
     this.maxHealth = this.health;
     this.damage = config?.damage ?? 1;
     this.chunkId = config?.chunkId ?? 0;
+    this.netId = `${type}:${this.chunkId}:${Math.round(x)}:${Math.round(y)}`;
   }
 
   /** Apply difficulty multipliers */

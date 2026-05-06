@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import type { NetPlayerSnapshot, NetPlayerState, NetRoomState, NetSyncPayload, NetSyncResponse } from '@/game/multiplayer/types';
+import type { NetEnemySnapshot, NetPlayerSnapshot, NetPlayerState, NetRoomState, NetSyncPayload, NetSyncResponse } from '@/game/multiplayer/types';
 import {
   MP_HISTORY_BUFFER_DURATION_MS,
   MP_SERVER_TICK_RATE,
@@ -33,6 +33,7 @@ type RoomMap = Map<string, {
   seed: number;
   hostId: string;
   players: Map<string, NetPlayerState>;
+  enemies: NetEnemySnapshot[];
   playerMeta: Map<string, ServerPlayerMeta>;
   server: RoomServerState;
   createdAt: number;
@@ -76,6 +77,7 @@ function ensureRoomState(room: NonNullable<ReturnType<RoomMap['get']>>): void {
       room.playerMeta.set(pid, { lastInputSeq: 0, inferredLoss: 0, history: [] });
     }
   }
+  if (!Array.isArray(room.enemies)) room.enemies = [];
 }
 
 function randomId(length: number): string {
@@ -132,6 +134,25 @@ function cloneSnapshot(s: NetPlayerSnapshot): NetPlayerSnapshot {
     height: s.height,
     distance: s.distance,
   };
+}
+
+function sanitizeEnemies(value: unknown): NetEnemySnapshot[] {
+  if (!Array.isArray(value)) return [];
+  return value.slice(0, 80).map((raw) => {
+    const e = (raw ?? {}) as Partial<NetEnemySnapshot>;
+    return {
+      id: typeof e.id === 'string' ? e.id.slice(0, 80) : '',
+      type: typeof e.type === 'string' ? e.type.slice(0, 24) : 'enemy',
+      x: Number.isFinite(e.x) ? Number(e.x) : 0,
+      y: Number.isFinite(e.y) ? Number(e.y) : 0,
+      vx: Number.isFinite(e.vx) ? Number(e.vx) : 0,
+      vy: Number.isFinite(e.vy) ? Number(e.vy) : 0,
+      health: Number.isFinite(e.health) ? Math.max(0, Number(e.health)) : 1,
+      alive: e.alive !== false,
+      facingRight: !!e.facingRight,
+      onGround: !!e.onGround,
+    };
+  }).filter((e) => e.id);
 }
 
 function roomToResponse(room: ReturnType<RoomMap['get']>): NetRoomState {
@@ -284,6 +305,7 @@ function buildSyncResponse(room: NonNullable<ReturnType<RoomMap['get']>>, localP
     ackInputSeq: meta?.lastInputSeq ?? 0,
     local: local ? cloneSnapshot(local.snapshot) : sanitizeSnapshot(null, 'knight'),
     inferredPacketLoss: meta?.inferredLoss ?? 0,
+    enemies: room.enemies,
     remote: remote
       ? {
         id: remote.id,
@@ -444,6 +466,7 @@ export async function POST(request: NextRequest) {
       seed,
       hostId: pid,
       players: new Map([[pid, local]]),
+      enemies: [],
       playerMeta: new Map([[pid, { lastInputSeq: 0, inferredLoss: 0, history: [] }]]),
       server: {
         lastTickAt: now,
@@ -526,6 +549,9 @@ export async function POST(request: NextRequest) {
 
     applyCarryState(room, player.id, payload.carryTargetId ?? null, !!payload.dropCarry);
     applyCarryPose(room);
+    if (player.id === room.hostId && payload.enemies) {
+      room.enemies = sanitizeEnemies(payload.enemies);
+    }
 
     if (now - room.server.lastSnapshotAt >= (1000 / MP_SNAPSHOT_RATE)) {
       room.server.lastSnapshotAt = now;

@@ -13,6 +13,19 @@ export interface NetPlayerSnapshot {
   distance: number;
 }
 
+export interface NetEnemySnapshot {
+  id: string;
+  type: string;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  health: number;
+  alive: boolean;
+  facingRight: boolean;
+  onGround: boolean;
+}
+
 export interface NetInputCommand {
   seq: number;
   clientTime: number;
@@ -46,6 +59,7 @@ export interface NetSyncPayload {
   // Optional to allow command-only packets between keyframes.
   snapshot?: NetPlayerSnapshot;
   input?: NetInputCommand;
+  enemies?: NetEnemySnapshot[];
   carryTargetId?: string | null;
   dropCarry?: boolean;
 }
@@ -60,6 +74,7 @@ export interface NetSyncResponse {
   ackInputSeq: number;
   local: NetPlayerSnapshot;
   inferredPacketLoss: number;
+  enemies: NetEnemySnapshot[];
   remote: {
     id: string;
     name: string;

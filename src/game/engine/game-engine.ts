@@ -29,7 +29,7 @@ import { getCharacterById } from '../data/characters';
 import type { Platform as PlatformData } from '../world/chunk';
 import { PerformanceProfiler } from './performance-profiler';
 import { EntityPools } from './entity-pools';
-import type { NetInputCommand, NetPlayerSnapshot } from '../multiplayer/types';
+import type { NetEnemySnapshot, NetInputCommand, NetPlayerSnapshot } from '../multiplayer/types';
 import type { InputOptions } from '../input/input';
 import {
   MP_INPUT_BUFFER_SIZE,
@@ -149,6 +149,7 @@ export class GameEngine {
   private _characterId: string = 'knight';
   private multiplayerEnabled = false;
   private multiplayerPlayerId: string | null = null;
+  private multiplayerIsHost = false;
   private remotePlayerId: string | null = null;
   private remotePlayerName: string | null = null;
   private remotePlayer: Player | null = null;
@@ -237,10 +238,12 @@ export class GameEngine {
     this.accumulated = 0;
   }
 
-  setMultiplayerEnabled(enabled: boolean, localPlayerId?: string | null): void {
+  setMultiplayerEnabled(enabled: boolean, localPlayerId?: string | null, hostId?: string | null): void {
     this.multiplayerEnabled = enabled;
     this.multiplayerPlayerId = localPlayerId ?? null;
+    this.multiplayerIsHost = !!enabled && !!localPlayerId && !!hostId && localPlayerId === hostId;
     if (!enabled) {
+      this.multiplayerIsHost = false;
       this.remotePlayer = null;
       this.remotePlayerId = null;
       this.remotePlayerName = null;
@@ -255,6 +258,10 @@ export class GameEngine {
       this.predictionError = 0;
       this.reconciliationCount = 0;
     }
+  }
+
+  setMultiplayerHostId(hostId: string | null): void {
+    this.multiplayerIsHost = !!this.multiplayerEnabled && !!this.multiplayerPlayerId && this.multiplayerPlayerId === hostId;
   }
 
   setRemotePlayerState(remote: RemotePlayerViewState | null): void {
@@ -473,6 +480,42 @@ export class GameEngine {
       height: this.player.height,
       distance: this.player.distance,
     };
+  }
+
+  getEnemySnapshots(): NetEnemySnapshot[] {
+    const centerX = this.player.centerX;
+    return this.enemies
+      .filter((enemy) => Math.abs(enemy.x - centerX) < 2600)
+      .slice(0, 80)
+      .map((enemy) => ({
+        id: enemy.netId,
+        type: enemy.type,
+        x: Math.round(enemy.x * 10) / 10,
+        y: Math.round(enemy.y * 10) / 10,
+        vx: Math.round(enemy.vx * 10) / 10,
+        vy: Math.round(enemy.vy * 10) / 10,
+        health: enemy.health,
+        alive: enemy.alive,
+        facingRight: enemy.facingRight,
+        onGround: enemy.onGround,
+      }));
+  }
+
+  applyEnemySnapshots(snapshots: NetEnemySnapshot[]): void {
+    if (!this.multiplayerEnabled || this.multiplayerIsHost) return;
+    const byId = new Map(this.enemies.map((enemy) => [enemy.netId, enemy]));
+    for (const snapshot of snapshots) {
+      const enemy = byId.get(snapshot.id);
+      if (!enemy) continue;
+      enemy.x += (snapshot.x - enemy.x) * 0.65;
+      enemy.y += (snapshot.y - enemy.y) * 0.65;
+      enemy.vx = snapshot.vx;
+      enemy.vy = snapshot.vy;
+      enemy.health = snapshot.health;
+      enemy.alive = snapshot.alive;
+      enemy.facingRight = snapshot.facingRight;
+      enemy.onGround = snapshot.onGround;
+    }
   }
 
   private handleCarryInteraction(dt: number): void {
@@ -1094,9 +1137,11 @@ export class GameEngine {
     for (const enemy of this.enemies) {
       if (!enemy.alive) continue;
 
-      enemy.update(dt, this.player.centerX, this.player.centerY);
-      this.updateEnemyGround(enemy, enemyPlatforms, dt);
-      if (enemy instanceof UFO) this.handleUfoAbduction(enemy, dt);
+      if (!this.multiplayerEnabled || this.multiplayerIsHost) {
+        enemy.update(dt, this.player.centerX, this.player.centerY);
+        this.updateEnemyGround(enemy, enemyPlatforms, dt);
+        if (enemy instanceof UFO) this.handleUfoAbduction(enemy, dt);
+      }
 
       // Enemy-player collision — shrink player hitbox 4px for forgiving feel
       if (aabbOverlap(playerBounds, enemy.getBounds(), 4)) {
