@@ -843,6 +843,7 @@ export class GameEngine {
     const previousBottom = playerBottom - this.player.vy * dt;
     const enemyTop = enemy.y;
     const enemyMid = enemy.y + enemy.height * 0.62;
+    const topContact = playerBottom <= enemy.y + Math.max(10, enemy.height * 0.72);
     const centerGrace = 8;
     const horizontalCenterOverlaps =
       this.player.centerX >= enemy.x - centerGrace &&
@@ -852,9 +853,34 @@ export class GameEngine {
     return (
       this.player.vy > -80 &&
       horizontalCenterOverlaps &&
-      (previousBottom <= enemyMid || this.player.centerY < enemy.y + enemy.height * 0.55) &&
+      (topContact || previousBottom <= enemyMid || this.player.centerY < enemy.y + enemy.height * 0.55) &&
       playerBottom >= enemyTop - 8
     );
+  }
+
+  private separatePlayerFromEnemy(enemy: Enemy): void {
+    const playerBounds = this.player.getBounds();
+    const enemyBounds = enemy.getBounds();
+    const overlapX = Math.min(
+      playerBounds.x + playerBounds.width - enemyBounds.x,
+      enemyBounds.x + enemyBounds.width - playerBounds.x,
+    );
+    const overlapY = Math.min(
+      playerBounds.y + playerBounds.height - enemyBounds.y,
+      enemyBounds.y + enemyBounds.height - playerBounds.y,
+    );
+    if (overlapX <= 0 || overlapY <= 0) return;
+
+    if (overlapY < overlapX && this.player.centerY < enemy.y + enemy.height * 0.55) {
+      this.player.y = enemy.y - this.player.height - 1;
+      this.player.vy = Math.min(this.player.vy, -120);
+      return;
+    }
+
+    const pushDir = this.player.centerX < enemy.x + enemy.width / 2 ? -1 : 1;
+    this.player.x += pushDir * (overlapX + 3);
+    this.player.vx = pushDir * Math.max(180, Math.abs(this.player.vx));
+    this.player.vy = Math.min(this.player.vy, -120);
   }
 
   private isRemotePlayerStompCollision(dt: number): boolean {
@@ -1103,6 +1129,9 @@ export class GameEngine {
             this.player.vy = -250;
             this.camera.shake(6, 0.3);
             this.particles.spawnScorePopup(this.player.centerX, this.player.y - 10, '-1 ♥', '#ef4444');
+            this.separatePlayerFromEnemy(enemy);
+          } else {
+            this.separatePlayerFromEnemy(enemy);
           }
         }
       }
