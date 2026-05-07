@@ -24,7 +24,7 @@ export const DEFAULT_CAMERA_CONFIG: CameraConfig = {
   focusX: 0.5,
   horizontalFocusY: 0.52,
   verticalFocusY: 0.54,
-  splitFocusY: 0.5,
+  splitFocusY: 0.56,
   lerpSpeed: 0.14,
 };
 

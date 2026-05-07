@@ -136,7 +136,7 @@ const SplitScreenMode: FC<Props> = ({ seed, onExit }) => {
       if (topKills.length > 0) {
         bottomGame.killEnemiesById(topKills);
       }
-    }, 66);
+    }, 33);
 
     topGame.start();
     bottomGame.start();
@@ -161,15 +161,19 @@ const SplitScreenMode: FC<Props> = ({ seed, onExit }) => {
           overflow: 'hidden',
           boxShadow: '0 12px 32px rgba(0,0,0,0.5)',
           border: '1px solid rgba(148,163,184,0.26)',
-          transform: 'rotate(180deg)',
-          transformOrigin: 'center center',
           background: '#000',
         }}
       >
-        <canvas ref={topCanvasRef} className="absolute inset-0 w-full h-full" />
-        <TouchControls channel="game-input-top" compact />
-        <SplitHud label="Top Player" stats={topStats} />
-        {topDead && <PaneDeadOverlay onRestart={restartBoth} />}
+        <canvas
+          ref={topCanvasRef}
+          className="absolute inset-0 w-full h-full"
+          style={{ transform: 'rotate(180deg)', transformOrigin: 'center center' }}
+        />
+        <div style={{ position: 'absolute', inset: 0, transform: 'rotate(180deg)', transformOrigin: 'center center' }}>
+          <TouchControls channel="game-input-top" compact />
+        </div>
+        <SplitHud label="Top Player" stats={topStats} rotated />
+        {topDead && <PaneDeadOverlay onRestart={restartBoth} rotated />}
       </div>
 
       <div
