@@ -177,6 +177,9 @@ export class GameEngine {
   private reconciliationCount = 0;
   private mpRespawnTimer = 0;
   private respawnDeathCount = 0;
+  private comboCount = 0;
+  private comboTimer = 0;
+  private lastKillTime = 0;
 
   constructor(canvas: HTMLCanvasElement, seed?: number, characterId?: string, options?: GameEngineOptions) {
     this.canvas = canvas;
@@ -430,11 +433,13 @@ export class GameEngine {
     const distanceSq = dx * dx + dy * dy;
 
     if (distanceSq > 680 * 680) {
+      // Large teleport: snap immediately
       rp.x = target.x;
       rp.y = target.y;
       rp.vx = target.vx;
       rp.vy = target.vy;
     } else {
+      // Smooth interpolation with velocity-aware prediction
       const posAlpha = 1 - Math.exp(-dt * MP_RECONCILE_SMOOTH_SPEED);
       const velAlpha = 1 - Math.exp(-dt * 7.2);
       rp.x += dx * posAlpha;
@@ -1047,14 +1052,29 @@ export class GameEngine {
 
   private awardEnemyDefeat(enemy: Enemy): void {
     const pts = KILL_SCORES[enemy.type] ?? 100;
-    this.player.score += pts;
+    
+    // Combo system: kills within 2s of each other stack a multiplier
+    const now = this.gameTime;
+    if (now - this.lastKillTime < 2.0) {
+      this.comboCount = Math.min(this.comboCount + 1, 10);
+    } else {
+      this.comboCount = 1;
+    }
+    this.lastKillTime = now;
+    this.comboTimer = 1.8;
+    
+    const comboMultiplier = 1 + (this.comboCount - 1) * 0.15;
+    const finalPts = Math.round(pts * comboMultiplier);
+    this.player.score += finalPts;
     this.particles.spawnEnemyDeath(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2);
-    this.particles.spawnScorePopup(enemy.x + enemy.width / 2, enemy.y, `+${pts}`);
+    
+    const label = this.comboCount > 1 ? `+${finalPts} x${this.comboCount}` : `+${finalPts}`;
+    this.particles.spawnScorePopup(enemy.x + enemy.width / 2, enemy.y, label);
+    
     if (this.multiplayerEnabled) {
       if (!this.multiplayerIsHost) {
         this.recentEnemyDefeatIds.push(enemy.netId);
       }
-      // Both players see the kill effect regardless of who killed it
       this.camera.shake(1.5, 0.08);
     }
   }
@@ -1093,6 +1113,15 @@ export class GameEngine {
   private update(dt: number): void {
     this.gameTime += dt;
     this.playerBounceCooldown = Math.max(0, this.playerBounceCooldown - dt);
+
+    // Combo timer decay
+    if (this.comboTimer > 0) {
+      this.comboTimer -= dt;
+      if (this.comboTimer <= 0) {
+        this.comboCount = 0;
+        this.comboTimer = 0;
+      }
+    }
 
     // Update chunks — use a position slightly ahead of the player so enemies spawn in view.
     const lookAheadPx = this.camera.x + this.camera.renderX > 0
@@ -1562,6 +1591,7 @@ export class GameEngine {
       this.renderer.drawPlayer(this.remotePlayer, this.camera);
       const rsx = this.remotePlayer.x - this.camera.renderX + this.remotePlayer.width / 2;
       const rsy = this.remotePlayer.y - this.camera.renderY - 8;
+      // Name background
       ctx.fillStyle = 'rgba(0,0,0,0.45)';
       ctx.fillRect(rsx - 48, rsy - 12, 96, 14);
       ctx.fillStyle = '#e2e8f0';
@@ -1569,6 +1599,18 @@ export class GameEngine {
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(this.remotePlayerName ?? 'Peer', rsx, rsy - 5);
+      // Remote health bar
+      const hbWidth = 40;
+      const hbHeight = 3;
+      const hbX = rsx - hbWidth / 2;
+      const hbY = rsy - 18;
+      const remoteMaxHp = Math.max(1, this.remotePlayer.maxHealth);
+      const remoteHpRatio = Math.max(0, Math.min(1, this.remotePlayer.health / remoteMaxHp));
+      ctx.fillStyle = 'rgba(0,0,0,0.4)';
+      ctx.fillRect(hbX, hbY, hbWidth, hbHeight);
+      const hpColor = remoteHpRatio > 0.5 ? '#22c55e' : remoteHpRatio > 0.25 ? '#f59e0b' : '#ef4444';
+      ctx.fillStyle = hpColor;
+      ctx.fillRect(hbX, hbY, hbWidth * remoteHpRatio, hbHeight);
     }
 
     // Shield visual
@@ -1664,6 +1706,33 @@ export class GameEngine {
     }
 
     this.renderer.drawParticles(this.particles.getParticles(), this.camera);
+
+    // Respawn countdown overlay
+    if (this.multiplayerEnabled && !this.player.alive && this.mpRespawnTimer > 0) {
+      const remaining = Math.max(0, 1.2 - this.mpRespawnTimer);
+      ctx.fillStyle = 'rgba(0,0,0,0.35)';
+      ctx.fillRect(0, 0, width, height);
+      ctx.fillStyle = '#38bdf8';
+      ctx.font = 'bold 28px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('RESPAWNING...', width / 2, height / 2 - 20);
+      ctx.font = 'bold 36px ui-monospace, monospace';
+      ctx.fillText(remaining.toFixed(1) + 's', width / 2, height / 2 + 20);
+    }
+
+    // Combo display
+    if (this.comboTimer > 0 && this.comboCount > 1) {
+      const alpha = Math.min(1, this.comboTimer / 0.5);
+      ctx.fillStyle = `rgba(251,191,36,${alpha * 0.9})`;
+      ctx.font = 'bold 22px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(`COMBO x${this.comboCount}`, width / 2, 80);
+      ctx.fillStyle = `rgba(251,191,36,${alpha * 0.4})`;
+      ctx.font = '12px ui-monospace, monospace';
+      ctx.fillText(`${Math.round((1 + (this.comboCount - 1) * 0.15) * 100)}% score`, width / 2, 100);
+    }
 
     // Pause overlay
     if (this._state === 'paused') {
