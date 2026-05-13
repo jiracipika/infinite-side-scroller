@@ -175,6 +175,8 @@ export class GameEngine {
   private reconcileOffsetY = 0;
   private predictionError = 0;
   private reconciliationCount = 0;
+  private mpRespawnTimer = 0;
+  private respawnDeathCount = 0;
 
   constructor(canvas: HTMLCanvasElement, seed?: number, characterId?: string, options?: GameEngineOptions) {
     this.canvas = canvas;
@@ -211,6 +213,8 @@ export class GameEngine {
   }
 
   setSeed(seed: number, characterId?: string): void {
+    this.mpRespawnTimer = 0;
+    this.respawnDeathCount = 0;
     this.worldSeed = seed;
     if (characterId) this._characterId = characterId;
     this.chunkManager = new ChunkManager(this.worldSeed);
@@ -1046,8 +1050,12 @@ export class GameEngine {
     this.player.score += pts;
     this.particles.spawnEnemyDeath(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2);
     this.particles.spawnScorePopup(enemy.x + enemy.width / 2, enemy.y, `+${pts}`);
-    if (this.multiplayerEnabled && !this.multiplayerIsHost) {
-      this.recentEnemyDefeatIds.push(enemy.netId);
+    if (this.multiplayerEnabled) {
+      if (!this.multiplayerIsHost) {
+        this.recentEnemyDefeatIds.push(enemy.netId);
+      }
+      // Both players see the kill effect regardless of who killed it
+      this.camera.shake(1.5, 0.08);
     }
   }
 
@@ -1417,9 +1425,35 @@ export class GameEngine {
     }
 
     if (!this.player.alive) {
-      this._state = 'gameover';
-      this.camera.shake(8, 0.5);
-      this.onGameOver?.();
+      if (this.multiplayerEnabled) {
+        // In multiplayer, auto-respawn after brief invulnerability
+        if (this.player.health <= 0 && this.player.maxHealth > 0) {
+          this.mpRespawnTimer += dt;
+          if (this.mpRespawnTimer >= 1.2) {
+            this.mpRespawnTimer = 0;
+            this.player.health = Math.max(1, Math.ceil(this.player.maxHealth * 0.5));
+            this.player.alive = true;
+            this.player.invulnerable = true;
+            this.player.invulnerableTimer = 2.0;
+            // Respawn near ground
+            const spawnX = this.player.centerX;
+            const groundY = this.getGroundY(spawnX);
+            if (Number.isFinite(groundY)) {
+              this.player.y = groundY - this.player.height - 30;
+            } else {
+              this.player.y = 300;
+            }
+            this.player.vy = -200;
+            this.player.vx = Math.max(80, Math.abs(this.player.vx)) * (this.player.facingRight ? 1 : -1);
+            this.particles.spawnScorePopup(this.player.centerX, this.player.y - 16, 'RESPAWN!', '#38bdf8');
+            this.camera.shake(4, 0.2);
+          }
+        }
+      } else {
+        this._state = 'gameover';
+        this.camera.shake(8, 0.5);
+        this.onGameOver?.();
+      }
     }
 
     // Power-ups for HUD
@@ -1566,6 +1600,56 @@ export class GameEngine {
       const sx = this.player.x - this.camera.renderX - this.player.dashDirection * 20;
       const sy = this.player.y - this.camera.renderY;
       ctx.fillRect(sx, sy, this.player.width, this.player.height);
+    }
+
+    // Speed lines when moving fast (dashing or speed boost)
+    const speed = Math.abs(this.player.vx);
+    if (speed > 400 || this.player.dashing) {
+      const intensity = Math.min(1, (speed - 400) / 300);
+      const lineCount = Math.floor(3 + intensity * 5);
+      ctx.strokeStyle = `rgba(255,255,255,${0.08 + intensity * 0.12})`;
+      ctx.lineWidth = 1;
+      for (let i = 0; i < lineCount; i++) {
+        const lx = (this.player.facingRight ? this.player.x - this.camera.renderX - 8 : this.player.x - this.camera.renderX + this.player.width + 8) + Math.sin(this.gameTime * 12 + i * 2.3) * 4;
+        const ly = this.player.y - this.camera.renderY + (i / lineCount) * this.player.height;
+        const len = 12 + intensity * 18;
+        ctx.beginPath();
+        ctx.moveTo(lx, ly);
+        ctx.lineTo(lx - (this.player.facingRight ? len : -len), ly);
+        ctx.stroke();
+      }
+    }
+
+    // Remote player off-screen indicator arrow
+    if (this.multiplayerEnabled && this.remotePlayer) {
+      const rx = this.remotePlayer.x - this.camera.renderX + this.remotePlayer.width / 2;
+      const ry = this.remotePlayer.y - this.camera.renderY + this.remotePlayer.height / 2;
+      const margin = 30;
+      const offScreen = rx < -margin || rx > width + margin || ry < -margin || ry > height + margin;
+      if (offScreen) {
+        // Clamp indicator to screen edges
+        const ix = Math.max(margin, Math.min(width - margin, rx));
+        const iy = Math.max(margin, Math.min(height - margin, ry));
+        const angle = Math.atan2(ry - height / 2, rx - width / 2);
+        ctx.save();
+        ctx.translate(ix, iy);
+        ctx.rotate(angle);
+        ctx.fillStyle = 'rgba(56,189,248,0.8)';
+        ctx.beginPath();
+        ctx.moveTo(10, 0);
+        ctx.lineTo(-5, -6);
+        ctx.lineTo(-5, 6);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+        // Distance label
+        const dist = Math.round(Math.hypot(rx - width / 2, ry - height / 2));
+        ctx.fillStyle = 'rgba(56,189,248,0.6)';
+        ctx.font = '10px ui-monospace, monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(`${dist}px`, ix, iy + 14);
+      }
     }
 
     if (this.multiplayerEnabled && this.remotePlayer && this.carryHintTimer > 0) {
