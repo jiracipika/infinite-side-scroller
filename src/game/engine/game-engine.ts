@@ -1401,8 +1401,9 @@ export class GameEngine {
       }
     }
 
-    // Camera
-    this.camera.update(this.player.centerX, this.player.centerY);
+    // Camera — bias toward remote player Y in multiplayer so neither floats off-screen
+    const remoteY = (this.multiplayerEnabled && this.remotePlayer) ? this.remotePlayer.centerY : undefined;
+    this.camera.update(this.player.centerX, this.player.centerY, remoteY);
 
     // Particles
     const biome = getBiomeAt(this.player.centerX);

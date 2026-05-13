@@ -14,10 +14,10 @@ import { createMultiplayerRoom, joinMultiplayerRoom, leaveMultiplayerRoom, syncM
 import type { NetInputCommand, NetPlayerSnapshot, NetRoomState, NetSyncResponse } from '@/game/multiplayer/types';
 import { MP_INPUT_BUFFER_SIZE, MP_INTERPOLATION_DELAY_MS } from '@/game/multiplayer/config';
 
-const LAN_SYNC_BASE_MS = 95;
-const WAN_SYNC_BASE_MS = 155;
-const SYNC_MIN_MS = 70;
-const SYNC_MAX_MS = 260;
+const LAN_SYNC_BASE_MS = 60;
+const WAN_SYNC_BASE_MS = 110;
+const SYNC_MIN_MS = 40;
+const SYNC_MAX_MS = 200;
 const SNAPSHOT_KEEPALIVE_MS = 240;
 const SNAPSHOT_DELTA_EPS = 0.45;
 

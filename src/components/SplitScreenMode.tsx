@@ -136,7 +136,7 @@ const SplitScreenMode: FC<Props> = ({ seed, onExit }) => {
       if (topKills.length > 0) {
         bottomGame.killEnemiesById(topKills);
       }
-    }, 33);
+    }, 16);
 
     topGame.start();
     bottomGame.start();
