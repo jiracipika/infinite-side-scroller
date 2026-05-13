@@ -139,10 +139,16 @@ export class GameEngine {
   difficulty = getDifficulty(0);
 
   onGameOver?: () => void;
-  onStatsUpdate?: (stats: { score: number; coins: number; distance: number; health: number; maxHealth: number; biome: string; powerUps: string[]; fps: number }) => void;
+  onStatsUpdate?: (stats: { score: number; coins: number; distance: number; health: number; maxHealth: number; lives: number; biome: string; powerUps: string[]; fps: number }) => void;
   onLocalPlayerSnapshot?: (snapshot: NetPlayerSnapshot) => void;
   onCarryIntent?: (payload: { targetId: string | null; dropCarry: boolean }) => void;
   onNetworkDebug?: (stats: NetDebugStats) => void;
+  onRemotePlayerLifeAward?: () => void;
+
+  /** Called by remote player handler when the remote player earns a life from coins. */
+  grantLocalPlayerLife(): void {
+    this.player.addLife();
+  }
 
   private wasOnGround = true;
 
@@ -1379,6 +1385,13 @@ export class GameEngine {
             this.player.addCoins(1);
             this.particles.spawnCoinSparkle(c.x + c.width / 2, c.y + c.height / 2);
             this.particles.spawnScorePopup(c.x, c.y, '+10', '#fbbf24');
+            if (this.player.checkCoinLifeAward()) {
+              this.particles.spawnScorePopup(c.x, c.y - 20, '+1 UP!', '#22c55e');
+              // In multiplayer, also award a life to the remote player
+              if (this.multiplayerEnabled && this.onRemotePlayerLifeAward) {
+                this.onRemotePlayerLifeAward();
+              }
+            }
             break;
           case 'health':
             if (this.player.health < this.player.maxHealth) {
@@ -1454,31 +1467,30 @@ export class GameEngine {
     }
 
     if (!this.player.alive) {
-      if (this.multiplayerEnabled) {
-        // In multiplayer, auto-respawn after brief invulnerability
-        if (this.player.health <= 0 && this.player.maxHealth > 0) {
-          this.mpRespawnTimer += dt;
-          if (this.mpRespawnTimer >= 1.2) {
-            this.mpRespawnTimer = 0;
-            this.player.health = Math.max(1, Math.ceil(this.player.maxHealth * 0.5));
-            this.player.alive = true;
-            this.player.invulnerable = true;
-            this.player.invulnerableTimer = 2.0;
-            // Respawn near ground
-            const spawnX = this.player.centerX;
-            const groundY = this.getGroundY(spawnX);
-            if (Number.isFinite(groundY)) {
-              this.player.y = groundY - this.player.height - 30;
-            } else {
-              this.player.y = 300;
-            }
-            this.player.vy = -200;
-            this.player.vx = Math.max(80, Math.abs(this.player.vx)) * (this.player.facingRight ? 1 : -1);
-            this.particles.spawnScorePopup(this.player.centerX, this.player.y - 16, 'RESPAWN!', '#38bdf8');
-            this.camera.shake(4, 0.2);
+      if (this.player.spendLife()) {
+        // Lives remain — respawn after brief invulnerability timer
+        this.mpRespawnTimer += dt;
+        if (this.mpRespawnTimer >= 1.2) {
+          this.mpRespawnTimer = 0;
+          this.player.alive = true;
+          this.player.health = this.player.maxHealth;
+          this.player.invulnerable = true;
+          this.player.invulnerableTimer = 2.0;
+          // Respawn near ground
+          const spawnX = this.player.centerX;
+          const groundY = this.getGroundY(spawnX);
+          if (Number.isFinite(groundY)) {
+            this.player.y = groundY - this.player.height - 30;
+          } else {
+            this.player.y = 300;
           }
+          this.player.vy = -200;
+          this.player.vx = Math.max(80, Math.abs(this.player.vx)) * (this.player.facingRight ? 1 : -1);
+          this.particles.spawnScorePopup(this.player.centerX, this.player.y - 16, `RESPAWN! (${this.player.lives} lives)`, '#38bdf8');
+          this.camera.shake(4, 0.2);
         }
       } else {
+        // No lives left — game over
         this._state = 'gameover';
         this.camera.shake(8, 0.5);
         this.onGameOver?.();
@@ -1502,6 +1514,7 @@ export class GameEngine {
       distance: this.player.distance,
       health: this.player.health,
       maxHealth: this.player.maxHealth,
+      lives: this.player.lives,
       biome: biome.name,
       powerUps,
       fps: profilerMetrics.fps,
@@ -1707,10 +1720,10 @@ export class GameEngine {
 
     this.renderer.drawParticles(this.particles.getParticles(), this.camera);
 
-    // Respawn countdown overlay
-    if (this.multiplayerEnabled && !this.player.alive && this.mpRespawnTimer > 0) {
+    // Respawn countdown overlay (shown when alive=false and respawn timer is ticking)
+    if (!this.player.alive && this.mpRespawnTimer > 0) {
       const remaining = Math.max(0, 1.2 - this.mpRespawnTimer);
-      ctx.fillStyle = 'rgba(0,0,0,0.35)';
+      ctx.fillStyle = 'rgba(0,0,0,0.45)';
       ctx.fillRect(0, 0, width, height);
       ctx.fillStyle = '#38bdf8';
       ctx.font = 'bold 28px -apple-system, BlinkMacSystemFont, sans-serif';
@@ -1719,6 +1732,9 @@ export class GameEngine {
       ctx.fillText('RESPAWNING...', width / 2, height / 2 - 20);
       ctx.font = 'bold 36px ui-monospace, monospace';
       ctx.fillText(remaining.toFixed(1) + 's', width / 2, height / 2 + 20);
+      ctx.font = 'bold 16px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillText(`${this.player.lives} ${this.player.lives === 1 ? 'life' : 'lives'} remaining`, width / 2, height / 2 + 56);
     }
 
     // Combo display

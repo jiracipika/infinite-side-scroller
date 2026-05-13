@@ -46,11 +46,13 @@ export class Player {
   vy = 0;
   width: number;
   height: number;
-  health = 3;
-  maxHealth = 3;
+  health = 2;
+  maxHealth = 2;
   alive = true;
   score = 0;
   coins = 0;
+  lives = 2;
+  private lastLifeAwardCoins = 0;
   distance = 0;
   distanceTraveled = 0;
 
@@ -380,6 +382,39 @@ export class Player {
   addCoins(amount: number): void {
     this.coins += amount;
     this.score += amount * 10;
+  }
+
+  /** Check if 100-coin threshold crossed; returns true if a life was awarded. */
+  checkCoinLifeAward(): boolean {
+    const prevMilestone = Math.floor(this.lastLifeAwardCoins / 100);
+    const currMilestone = Math.floor(this.coins / 100);
+    if (currMilestone > prevMilestone) {
+      this.lastLifeAwardCoins = currMilestone * 100;
+      this.lives += (currMilestone - prevMilestone);
+      return true;
+    }
+    return false;
+  }
+
+  /** Reset lives and coin tracking for a new game. */
+  resetLives(): void {
+    this.lives = 2;
+    this.lastLifeAwardCoins = 0;
+    this.health = this.maxHealth;
+    this.alive = true;
+  }
+
+  /** Spend a life to respawn. Returns false if no lives remain. */
+  spendLife(): boolean {
+    if (this.lives <= 0) return false;
+    this.lives -= 1;
+    this.health = this.maxHealth;
+    this.alive = true;
+    return true;
+  }
+
+  addLife(): void {
+    this.lives += 1;
   }
 
   getBounds() {

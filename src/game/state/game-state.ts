@@ -21,6 +21,7 @@ export interface GameStats {
   distance: number;
   health: number;
   maxHealth: number;
+  lives: number;
   biome: string;
   fps: number;
   powerUps: string[];

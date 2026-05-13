@@ -10,6 +10,7 @@ interface LocalStats {
   distance: number;
   health: number;
   maxHealth: number;
+  lives: number;
 }
 
 interface Props {
@@ -29,8 +30,8 @@ const SplitScreenMode: FC<Props> = ({ seed, onExit }) => {
   const bottomGameRef = useRef<GameEngine | null>(null);
 
   const [viewport, setViewport] = useState({ width: 390, height: 844 });
-  const [topStats, setTopStats] = useState<LocalStats>({ score: 0, distance: 0, health: 3, maxHealth: 3 });
-  const [bottomStats, setBottomStats] = useState<LocalStats>({ score: 0, distance: 0, health: 3, maxHealth: 3 });
+  const [topStats, setTopStats] = useState<LocalStats>({ score: 0, distance: 0, health: 2, maxHealth: 2, lives: 2 });
+  const [bottomStats, setBottomStats] = useState<LocalStats>({ score: 0, distance: 0, health: 2, maxHealth: 2, lives: 2 });
   const [topDead, setTopDead] = useState(false);
   const [bottomDead, setBottomDead] = useState(false);
 
@@ -86,11 +87,16 @@ const SplitScreenMode: FC<Props> = ({ seed, onExit }) => {
     bottomGameRef.current = bottomGame;
 
     topGame.onStatsUpdate = (s) => {
-      setTopStats({ score: s.score, distance: s.distance, health: s.health, maxHealth: s.maxHealth });
+      setTopStats({ score: s.score, distance: s.distance, health: s.health, maxHealth: s.maxHealth, lives: s.lives });
     };
     bottomGame.onStatsUpdate = (s) => {
-      setBottomStats({ score: s.score, distance: s.distance, health: s.health, maxHealth: s.maxHealth });
+      setBottomStats({ score: s.score, distance: s.distance, health: s.health, maxHealth: s.maxHealth, lives: s.lives });
     };
+
+    // Cross-engine life awards: when either player earns a life from coins, both get it
+    topGame.onRemotePlayerLifeAward = () => { bottomGame.grantLocalPlayerLife(); };
+    bottomGame.onRemotePlayerLifeAward = () => { topGame.grantLocalPlayerLife(); };
+
     topGame.onGameOver = () => {
       setTopDead(true);
       topGame.pause();
@@ -277,11 +283,13 @@ const SplitHud: FC<{ label: string; stats: LocalStats; rotated?: boolean }> = ({
             padding: '4px 8px',
             display: 'flex',
             gap: 2,
+            alignItems: 'center',
           }}
         >
           {hearts.map((alive, i) => (
             <span key={i} style={{ fontSize: 11, opacity: alive ? 1 : 0.35 }}>{alive ? '❤️' : '🖤'}</span>
           ))}
+          <span style={{ fontSize: 9, color: '#94a3b8', marginLeft: 3, fontWeight: 700 }}>x{stats.lives}</span>
         </div>
       </div>
     </div>
