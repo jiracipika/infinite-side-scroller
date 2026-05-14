@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useRef, type FC, type TouchEvent } from 'react';
 import { type GameStats } from '@/game/state/game-state';
+import { addLeaderboardEntry, loadLeaderboardAvatarId, loadLeaderboardName } from '@/lib/leaderboard';
+import { loadSelectedCharacter } from '@/game/data/characters';
 
 interface Props {
   stats: GameStats;
@@ -43,6 +45,7 @@ const useCountUp = (target: number, duration = 750, delay = 0): number => {
 /* ── Screen ─────────────────────────────────────────────────── */
 
 const GameOverScreen: FC<Props> = ({ stats, onRestart, onQuit }) => {
+  const submittedRef = useRef(false);
   const isNewHighScore = stats.score >= stats.highScore && stats.score > 0;
 
   const displayScore    = useCountUp(stats.score,                   820, 200);
@@ -57,6 +60,21 @@ const GameOverScreen: FC<Props> = ({ stats, onRestart, onQuit }) => {
     e.preventDefault();
     onQuit();
   };
+
+  useEffect(() => {
+    if (submittedRef.current) return;
+    const hasMeaningfulRun = stats.score > 0 || stats.coins > 0 || stats.distance > 0;
+    if (!hasMeaningfulRun) return;
+    submittedRef.current = true;
+    addLeaderboardEntry({
+      name: loadLeaderboardName(),
+      avatarId: loadLeaderboardAvatarId(),
+      score: stats.score,
+      distance: Math.round(stats.distance),
+      coins: stats.coins,
+      characterId: loadSelectedCharacter(),
+    });
+  }, [stats.coins, stats.distance, stats.score]);
 
   return (
     <div

@@ -27,11 +27,6 @@
       "favicon": "./assets/favicon.png"
     },
     "scheme": "issmobile",
-    "extra": {
-      "eas": {
-        "projectId": null
-      }
-    },
     "experiments": {
       "typedRoutes": true
     },

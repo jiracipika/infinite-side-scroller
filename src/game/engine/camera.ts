@@ -24,7 +24,7 @@ export const DEFAULT_CAMERA_CONFIG: CameraConfig = {
   focusX: 0.5,
   horizontalFocusY: 0.52,
   verticalFocusY: 0.54,
-  splitFocusY: 0.70,
+  splitFocusY: 0.56,
   lerpSpeed: 0.14,
 };
 
@@ -74,23 +74,9 @@ export class Camera {
       : this.config.horizontalFocusY;
   }
 
-  /** Compute desired camera position, optionally framing two players. */
-  private getDesiredPosition(
-    playerX: number,
-    playerY: number,
-    secondaryY?: number,
-  ): { x: number; y: number } {
+  private getDesiredPosition(playerX: number, playerY: number): { x: number; y: number } {
     const desiredX = Math.max(0, playerX - this.screenWidth * this.config.focusX);
-
-    // In split mode, bias camera toward the lower of the two players so
-    // neither player floats off the top of the viewport.
-    let focusY = playerY;
-    if (this.config.mode === 'split' && secondaryY !== undefined) {
-      // Weighted blend: 60% local player, 40% secondary to keep both visible
-      focusY = playerY * 0.6 + secondaryY * 0.4;
-    }
-
-    const desiredY = focusY - this.screenHeight * this.getFocusY();
+    const desiredY = playerY - this.screenHeight * this.getFocusY();
     return { x: desiredX, y: desiredY };
   }
 
@@ -101,8 +87,8 @@ export class Camera {
     this.shakeTimer = this.shakeDuration;
   }
 
-  update(playerX: number, playerY: number, secondaryY?: number): void {
-    const desired = this.getDesiredPosition(playerX, playerY, secondaryY);
+  update(playerX: number, playerY: number): void {
+    const desired = this.getDesiredPosition(playerX, playerY);
 
     // Always update target — lerp provides the smoothing
     this.targetX = desired.x;
@@ -131,8 +117,8 @@ export class Camera {
   }
 
   /** Place the camera immediately without lerp for clean starts/restarts. */
-  snapTo(playerX: number, playerY: number, secondaryY?: number): void {
-    const desired = this.getDesiredPosition(playerX, playerY, secondaryY);
+  snapTo(playerX: number, playerY: number): void {
+    const desired = this.getDesiredPosition(playerX, playerY);
     this.targetX = desired.x;
     this.targetY = desired.y;
     this.x = this.targetX;

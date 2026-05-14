@@ -14,7 +14,6 @@ export interface CharacterDef {
   maxHealth: number;
   width: number;
   height: number;
-  defaultWeapon: string; // weapon ID from weapons.ts
 }
 
 export const CHARACTERS: CharacterDef[] = [
@@ -27,10 +26,9 @@ export const CHARACTERS: CharacterDef[] = [
     eyeColor: '#fff',
     speed: 1.0,
     jumpVelocity: 1.0,
-    maxHealth: 2,
+    maxHealth: 3,
     width: 24,
     height: 32,
-    defaultWeapon: 'broadsword',
   },
   {
     id: 'ninja',
@@ -44,7 +42,6 @@ export const CHARACTERS: CharacterDef[] = [
     maxHealth: 2,
     width: 20,
     height: 30,
-    defaultWeapon: 'shuriken',
   },
   {
     id: 'tank',
@@ -55,10 +52,9 @@ export const CHARACTERS: CharacterDef[] = [
     eyeColor: '#fff',
     speed: 0.7,
     jumpVelocity: 0.85,
-    maxHealth: 2,
+    maxHealth: 5,
     width: 28,
     height: 36,
-    defaultWeapon: 'shield_bash',
   },
   {
     id: 'mage',
@@ -72,7 +68,6 @@ export const CHARACTERS: CharacterDef[] = [
     maxHealth: 2,
     width: 22,
     height: 34,
-    defaultWeapon: 'magic_bolt',
   },
   {
     id: 'ranger',
@@ -83,7 +78,7 @@ export const CHARACTERS: CharacterDef[] = [
     eyeColor: '#dcfce7',
     speed: 1.15,
     jumpVelocity: 1.05,
-    maxHealth: 2,
+    maxHealth: 3,
     width: 22,
     height: 32,
   },
@@ -96,7 +91,7 @@ export const CHARACTERS: CharacterDef[] = [
     eyeColor: '#67e8f9',
     speed: 0.95,
     jumpVelocity: 0.95,
-    maxHealth: 2,
+    maxHealth: 4,
     width: 24,
     height: 33,
   },
@@ -122,7 +117,7 @@ export const CHARACTERS: CharacterDef[] = [
     eyeColor: '#ecfeff',
     speed: 0.96,
     jumpVelocity: 1.08,
-    maxHealth: 2,
+    maxHealth: 4,
     width: 23,
     height: 33,
   },

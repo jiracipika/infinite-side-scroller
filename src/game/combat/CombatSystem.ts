@@ -5,7 +5,6 @@
 import { Player } from '../entities/player';
 import { Enemy, Skeleton, Boss, Projectile } from '../entities';
 import { Collectible } from '../entities/Collectibles';
-import { getWeaponById } from '../data/weapons';
 
 export interface ScoreState {
   enemiesDefeated: number;
@@ -91,62 +90,6 @@ export class CombatSystem {
       c.animTimer += dt;
       if (this.rectsOverlap(c, player.getBounds())) {
         this.pickupCollectible(player, c);
-      }
-    }
-
-    // === Player weapon attacks ===
-
-    // Melee attacks (broadsword, shield bash)
-    if (player.isAttacking) {
-      const meleeHitbox = player.getMeleeHitbox();
-      if (meleeHitbox) {
-        for (const enemy of this.enemies) {
-          if (!enemy.alive) continue;
-          if (this.rectsOverlap(meleeHitbox, enemy.getBounds())) {
-            // Mark enemy as hit this swing to avoid multi-hit
-            if (!(enemy as any)._meleeHit) {
-              (enemy as any)._meleeHit = true;
-              enemy.takeDamage(player.currentWeapon.damage);
-              // Knockback for shield bash
-              if (player.currentWeapon.knockback) {
-                const dir = player.facingRight ? 1 : -1;
-                enemy.vx = dir * player.currentWeapon.knockback;
-                enemy.vy = -150;
-              }
-              if (!enemy.alive) {
-                this.score.enemiesDefeated++;
-                player.score += 50;
-              }
-            }
-          }
-        }
-      }
-    } else {
-      // Reset melee hit flags when not attacking
-      for (const enemy of this.enemies) {
-        if ((enemy as any)._meleeHit) {
-          (enemy as any)._meleeHit = false;
-        }
-      }
-    }
-
-    // Player projectiles hitting enemies
-    for (const proj of player.projectiles) {
-      if (proj.life <= 0) continue;
-      for (const enemy of this.enemies) {
-        if (!enemy.alive) continue;
-        if (this.rectsOverlap(
-          { x: proj.x - 4, y: proj.y - 4, width: 8, height: 8 },
-          enemy.getBounds()
-        )) {
-          enemy.takeDamage(proj.damage);
-          proj.life = 0;
-          if (!enemy.alive) {
-            this.score.enemiesDefeated++;
-            player.score += 50;
-          }
-          break; // projectile can only hit one enemy
-        }
       }
     }
 

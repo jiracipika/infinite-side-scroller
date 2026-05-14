@@ -13,11 +13,28 @@ import SplitScreenMode from '@/components/SplitScreenMode';
 import { createMultiplayerRoom, joinMultiplayerRoom, leaveMultiplayerRoom, syncMultiplayerRoom } from '@/game/multiplayer/client';
 import type { NetInputCommand, NetPlayerSnapshot, NetRoomState, NetSyncResponse } from '@/game/multiplayer/types';
 import { MP_INPUT_BUFFER_SIZE, MP_INTERPOLATION_DELAY_MS } from '@/game/multiplayer/config';
+import {
+  addRunRewards,
+  buildProgressionBonuses,
+  clearPendingContinueSlot,
+  clearSlotCheckpoint,
+  getTodayIsoDay,
+  hasPlayedDailyChallenge,
+  loadActiveSaveSlotId,
+  loadSaveSlots,
+  markDailyChallengePlayed,
+  saveSlotCheckpoint,
+  takePendingContinueSlot,
+  type SaveSlotId,
+} from '@/lib/progression';
+import { issueRunToken, submitRunScore, type RunMode } from '@/lib/online-leaderboard';
+import { loadLeaderboardAvatarId, loadLeaderboardName } from '@/lib/leaderboard';
+import { loadGhostRun, upsertGhostRun } from '@/lib/ghost-runs';
 
-const LAN_SYNC_BASE_MS = 60;
-const WAN_SYNC_BASE_MS = 110;
-const SYNC_MIN_MS = 40;
-const SYNC_MAX_MS = 200;
+const LAN_SYNC_BASE_MS = 95;
+const WAN_SYNC_BASE_MS = 155;
+const SYNC_MIN_MS = 70;
+const SYNC_MAX_MS = 260;
 const SNAPSHOT_KEEPALIVE_MS = 240;
 const SNAPSHOT_DELTA_EPS = 0.45;
 
@@ -26,6 +43,27 @@ const quantize = (n: number, precision: number = 1) => {
   const p = 10 ** precision;
   return Math.round(n * p) / p;
 };
+
+function sampleReplayPath(points: Array<{ distance: number; x: number; y: number }>): Array<{ distance: number; x: number; y: number }> {
+  if (!Array.isArray(points) || points.length === 0) return [];
+  const sampled: Array<{ distance: number; x: number; y: number }> = [];
+  let previousDistance = -1;
+  for (let i = 0; i < points.length; i += 2) {
+    const point = points[i];
+    if (!point) continue;
+    if (!Number.isFinite(point.distance) || !Number.isFinite(point.x) || !Number.isFinite(point.y)) continue;
+    const distance = Math.max(0, Math.floor(point.distance));
+    if (distance <= previousDistance) continue;
+    sampled.push({
+      distance,
+      x: quantize(point.x, 1),
+      y: quantize(point.y, 1),
+    });
+    previousDistance = distance;
+    if (sampled.length >= 1600) break;
+  }
+  return sampled;
+}
 
 function compactSnapshot(s: NetPlayerSnapshot): NetPlayerSnapshot {
   return {
@@ -75,6 +113,15 @@ interface NetOverlayStats {
   interpolationDelayMs: number;
 }
 
+function getDailySeed(dayIso: string): number {
+  let hash = 2166136261;
+  for (let i = 0; i < dayIso.length; i++) {
+    hash ^= dayIso.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return Math.abs(hash % 900000) + 100000;
+}
+
 export default function Home() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameRef = useRef<GameEngine | null>(null);
@@ -116,6 +163,10 @@ export default function Home() {
   const syncRttEwmaMsRef = useRef(140);
   const syncIntervalMsRef = useRef(150);
   const syncAbortRef = useRef<AbortController | null>(null);
+  const activeSaveSlotRef = useRef<SaveSlotId>('slot1');
+  const runModeRef = useRef<RunMode>('standard');
+  const runTokenRef = useRef<string | null>(null);
+  const runSeedRef = useRef<number>(42);
   const {
     state, stats, settings, seed,
     startGame, pauseGame, resumeGame, gameOver, quitToMenu, updateStats,
@@ -138,6 +189,17 @@ export default function Home() {
     const jitterMs = clamp(Number(params.get('netJitter') ?? 0) || 0, 0, 1000);
     const lossChance = clamp((Number(params.get('netLoss') ?? 0) || 0) / 100, 0, 0.95);
     netEmulationRef.current = { lagMs, jitterMs, lossChance };
+    activeSaveSlotRef.current = loadActiveSaveSlotId();
+  }, []);
+
+  const applyProgressionFromSlot = useCallback((slotId?: SaveSlotId) => {
+    const game = gameRef.current;
+    if (!game) return;
+    const resolvedId = slotId ?? loadActiveSaveSlotId();
+    activeSaveSlotRef.current = resolvedId;
+    const slot = loadSaveSlots().find((s) => s.id === resolvedId);
+    const bonuses = buildProgressionBonuses(slot?.unlockedUpgradeIds ?? []);
+    game.setProgressionBonuses(bonuses);
   }, []);
 
   const buildInviteUrl = useCallback((roomId: string) => {
@@ -240,6 +302,12 @@ export default function Home() {
   const handlePlay = useCallback((seed?: number) => {
     const s = seed ?? Math.floor(Math.random() * 999999);
     const charId = loadSelectedCharacter();
+    const pendingContinueSlot = takePendingContinueSlot();
+    const targetSlotId = pendingContinueSlot ?? loadActiveSaveSlotId();
+    applyProgressionFromSlot(targetSlotId);
+    runModeRef.current = 'standard';
+    runSeedRef.current = s;
+    runTokenRef.current = null;
     setMultiplayerSession(null);
     setMultiplayerNotice(null);
     setHostInviteUrl(null);
@@ -277,7 +345,128 @@ export default function Home() {
     gameRef.current?.setMultiplayerEnabled(false);
     startGame(s);
     gameRef.current?.setSeed(s, charId);
-  }, [startGame]);
+    const slotGhost = loadGhostRun(targetSlotId);
+    gameRef.current?.setGhostPath(slotGhost?.points ?? []);
+    void issueRunToken({
+      playerName: loadLeaderboardName(),
+      avatarId: loadLeaderboardAvatarId(),
+      mode: 'standard',
+      seed: s,
+    })
+      .then((issued) => {
+        runTokenRef.current = issued.token;
+        runSeedRef.current = issued.seed;
+      })
+      .catch(() => {
+        runTokenRef.current = null;
+      });
+    const slot = loadSaveSlots().find((entry) => entry.id === targetSlotId);
+    if (pendingContinueSlot && slot?.checkpoint) {
+      gameRef.current?.restoreRunCheckpoint(slot.checkpoint);
+    } else {
+      clearPendingContinueSlot();
+      clearSlotCheckpoint(targetSlotId);
+    }
+  }, [applyProgressionFromSlot, startGame]);
+
+  const handlePlayDailyChallenge = useCallback(() => {
+    const slotId = loadActiveSaveSlotId();
+    const day = getTodayIsoDay();
+    if (hasPlayedDailyChallenge(slotId, day)) {
+      setMultiplayerNotice('Daily challenge already used for this save slot today');
+      return;
+    }
+    const seed = getDailySeed(day);
+    const charId = loadSelectedCharacter();
+    applyProgressionFromSlot(slotId);
+    runModeRef.current = 'daily';
+    runSeedRef.current = seed;
+    runTokenRef.current = null;
+    startGame(seed);
+    gameRef.current?.setSeed(seed, charId);
+    const slotGhost = loadGhostRun(slotId);
+    gameRef.current?.setGhostPath(slotGhost?.points ?? []);
+    void issueRunToken({
+      playerName: loadLeaderboardName(),
+      avatarId: loadLeaderboardAvatarId(),
+      mode: 'daily',
+      seed,
+    })
+      .then((issued) => {
+        runTokenRef.current = issued.token;
+        runSeedRef.current = issued.seed;
+      })
+      .catch(() => {
+        runTokenRef.current = null;
+      });
+    setMultiplayerNotice(`Daily challenge: ${day}`);
+  }, [applyProgressionFromSlot, startGame]);
+
+  const handlePlayOnlineGhostRace = useCallback((payload: {
+    entry: { name: string; seed: number; badge: string };
+    replayPath: Array<{ distance: number; x: number; y: number }>;
+  }) => {
+    const s = payload.entry.seed;
+    const charId = loadSelectedCharacter();
+    const targetSlotId = loadActiveSaveSlotId();
+    applyProgressionFromSlot(targetSlotId);
+    runModeRef.current = 'standard';
+    runSeedRef.current = s;
+    runTokenRef.current = null;
+    setMultiplayerSession(null);
+    setMultiplayerNotice(`Ghost race vs ${payload.entry.name} (${payload.entry.badge})`);
+    setHostInviteUrl(null);
+    setShowHostInvite(false);
+    syncInFlightRef.current = false;
+    syncSeqRef.current = 0;
+    appliedSyncSeqRef.current = 0;
+    inFlightSinceRef.current = 0;
+    syncRttEwmaMsRef.current = 140;
+    syncIntervalMsRef.current = 150;
+    syncAbortRef.current?.abort();
+    syncAbortRef.current = null;
+    inputSeqRef.current = 0;
+    pendingInputsRef.current = [];
+    lastSentSnapshotRef.current = null;
+    lastSentAtRef.current = 0;
+    lastResponseAtRef.current = 0;
+    responseCounterRef.current = 0;
+    responseWindowStartRef.current = 0;
+    lastRttRef.current = 0;
+    jitterEwmaRef.current = 0;
+    sentInputCountRef.current = 0;
+    droppedInputCountRef.current = 0;
+    setNetOverlay({
+      rttMs: 0,
+      jitterMs: 0,
+      inferredLoss: 0,
+      serverTickRate: 0,
+      snapshotRate: 0,
+      clientSnapshotRate: 0,
+      predictionError: 0,
+      reconciliationCount: 0,
+      interpolationDelayMs: MP_INTERPOLATION_DELAY_MS,
+    });
+    gameRef.current?.setMultiplayerEnabled(false);
+    startGame(s);
+    gameRef.current?.setSeed(s, charId);
+    gameRef.current?.setGhostPath(payload.replayPath);
+    clearPendingContinueSlot();
+    clearSlotCheckpoint(targetSlotId);
+    void issueRunToken({
+      playerName: loadLeaderboardName(),
+      avatarId: loadLeaderboardAvatarId(),
+      mode: 'standard',
+      seed: s,
+    })
+      .then((issued) => {
+        runTokenRef.current = issued.token;
+        runSeedRef.current = issued.seed;
+      })
+      .catch(() => {
+        runTokenRef.current = null;
+      });
+  }, [applyProgressionFromSlot, startGame]);
 
   const handlePlaySplitScreen = useCallback((seed?: number) => {
     const session = multiplayerSessionRef.current;
@@ -329,6 +518,9 @@ export default function Home() {
 
   const handlePlayMultiplayer = useCallback(async (params: { mode: 'host' | 'join'; roomId?: string; playerName: string; seed?: number }) => {
     const charId = loadSelectedCharacter();
+    applyProgressionFromSlot(loadActiveSaveSlotId());
+    runModeRef.current = 'standard';
+    runTokenRef.current = null;
     try {
       const result = params.mode === 'host'
         ? await createMultiplayerRoom({ playerName: params.playerName, characterId: charId, seed: params.seed })
@@ -376,7 +568,7 @@ export default function Home() {
       const host = typeof window !== 'undefined' ? window.location.host : '';
       setMultiplayerNotice(`${message}${host ? ` (both devices must use ${host})` : ''}`);
     }
-  }, [applyRemotePlayerState, buildInviteUrl, startGame]);
+  }, [applyProgressionFromSlot, applyRemotePlayerState, buildInviteUrl, startGame]);
 
   const handlePause = useCallback(() => {
     pauseGame();
@@ -392,7 +584,28 @@ export default function Home() {
     const activeSession = multiplayerSessionRef.current;
     const nextSeed = activeSession ? seed : Math.floor(Math.random() * 999999);
     startGame(nextSeed);
+    runSeedRef.current = nextSeed;
+    if (!activeSession) {
+      runModeRef.current = 'standard';
+      runTokenRef.current = null;
+      void issueRunToken({
+        playerName: loadLeaderboardName(),
+        avatarId: loadLeaderboardAvatarId(),
+        mode: 'standard',
+        seed: nextSeed,
+      })
+        .then((issued) => {
+          runTokenRef.current = issued.token;
+          runSeedRef.current = issued.seed;
+        })
+        .catch(() => {
+          runTokenRef.current = null;
+        });
+    }
+    applyProgressionFromSlot(loadActiveSaveSlotId());
     gameRef.current?.setSeed(nextSeed, loadSelectedCharacter());
+    const slotGhost = loadGhostRun(loadActiveSaveSlotId());
+    gameRef.current?.setGhostPath(slotGhost?.points ?? []);
     gameRef.current?.setMultiplayerEnabled(!!activeSession, activeSession?.playerId ?? null, activeSession?.hostId ?? null);
     pendingCarryIntentRef.current = null;
     syncInFlightRef.current = false;
@@ -414,7 +627,9 @@ export default function Home() {
     jitterEwmaRef.current = 0;
     sentInputCountRef.current = 0;
     droppedInputCountRef.current = 0;
-  }, [seed, startGame]);
+    clearPendingContinueSlot();
+    clearSlotCheckpoint(loadActiveSaveSlotId());
+  }, [applyProgressionFromSlot, seed, startGame]);
 
   const handleQuit = useCallback(() => {
     const session = multiplayerSessionRef.current;
@@ -425,6 +640,8 @@ export default function Home() {
     setMultiplayerNotice(null);
     setHostInviteUrl(null);
     setShowHostInvite(false);
+    runTokenRef.current = null;
+    runModeRef.current = 'standard';
     pendingCarryIntentRef.current = null;
     syncInFlightRef.current = false;
     syncSeqRef.current = 0;
@@ -446,9 +663,16 @@ export default function Home() {
     sentInputCountRef.current = 0;
     droppedInputCountRef.current = 0;
     gameRef.current?.setMultiplayerEnabled(false);
+    if (!session && state !== 'gameover') {
+      const slotId = loadActiveSaveSlotId();
+      const checkpoint = gameRef.current?.exportRunCheckpoint();
+      if (checkpoint) {
+        saveSlotCheckpoint(slotId, checkpoint);
+      }
+    }
     quitToMenu();
     gameRef.current?.setSeed(42, loadSelectedCharacter()); // restore demo world on menu
-  }, [quitToMenu]);
+  }, [quitToMenu, state]);
 
   const handleExitSplitScreen = useCallback(() => {
     setSplitScreenSeed(null);
@@ -654,6 +878,68 @@ export default function Home() {
     return () => window.clearTimeout(timer);
   }, [multiplayerNotice]);
 
+  useEffect(() => {
+    if (state !== 'playing' || !!multiplayerSession || splitScreenSeed !== null) return;
+    const slotId = loadActiveSaveSlotId();
+    activeSaveSlotRef.current = slotId;
+    applyProgressionFromSlot(slotId);
+
+    const saveNow = () => {
+      const checkpoint = gameRef.current?.exportRunCheckpoint();
+      if (!checkpoint) return;
+      saveSlotCheckpoint(slotId, checkpoint);
+    };
+
+    const initialTimer = window.setTimeout(saveNow, 900);
+    const interval = window.setInterval(saveNow, 2400);
+    return () => {
+      window.clearTimeout(initialTimer);
+      window.clearInterval(interval);
+    };
+  }, [applyProgressionFromSlot, multiplayerSession, splitScreenSeed, state]);
+
+  const previousStateRef = useRef(state);
+  useEffect(() => {
+    const prev = previousStateRef.current;
+    if (prev === 'playing' && state === 'gameover' && !multiplayerSession && splitScreenSeed === null) {
+      const slotId = activeSaveSlotRef.current || loadActiveSaveSlotId();
+      addRunRewards(slotId, {
+        coins: stats.coins,
+        score: stats.score,
+        distance: Math.round(stats.distance),
+      });
+      if (runModeRef.current === 'daily') {
+        markDailyChallengePlayed(slotId, getTodayIsoDay());
+      }
+      const ghostPoints = gameRef.current?.exportGhostPath() ?? [];
+      if (ghostPoints.length > 10) {
+        upsertGhostRun({
+          slotId,
+          seed: runSeedRef.current,
+          bestScore: stats.score,
+          bestDistance: Math.round(stats.distance),
+          points: ghostPoints,
+          updatedAt: Date.now(),
+        });
+      }
+      const token = runTokenRef.current;
+      if (token) {
+        void submitRunScore({
+          token,
+          mode: runModeRef.current,
+          seed: runSeedRef.current,
+          score: stats.score,
+          distance: Math.round(stats.distance),
+          coins: stats.coins,
+          characterId: loadSelectedCharacter(),
+          replayPath: sampleReplayPath(ghostPoints),
+        }).catch(() => {});
+      }
+      clearSlotCheckpoint(slotId);
+    }
+    previousStateRef.current = state;
+  }, [multiplayerSession, splitScreenSeed, state, stats.coins, stats.distance, stats.score]);
+
   return (
     <main className="fixed inset-0 overflow-hidden bg-black select-none">
       <canvas
@@ -668,8 +954,10 @@ export default function Home() {
           {state === 'menu' && !splitScreenSeed && (
             <StartScreen
               onPlay={handlePlay}
+              onPlayDailyChallenge={handlePlayDailyChallenge}
               onPlayMultiplayer={handlePlayMultiplayer}
               onPlaySplitScreen={handlePlaySplitScreen}
+              onPlayOnlineGhostRace={handlePlayOnlineGhostRace}
               initialRoomCode={prefillRoomCode}
             />
           )}

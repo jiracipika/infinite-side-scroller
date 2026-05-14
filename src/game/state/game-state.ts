@@ -21,13 +21,9 @@ export interface GameStats {
   distance: number;
   health: number;
   maxHealth: number;
-  lives: number;
   biome: string;
   fps: number;
   powerUps: string[];
-  comboCount?: number;
-  comboMultiplier?: number;
-  dayPhase?: 'dawn' | 'day' | 'dusk' | 'night';
 }
 
 export interface GameCallbacks {

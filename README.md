@@ -1,36 +1,52 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Infinite Side Scroller
 
-## Getting Started
+Cross-platform endless side scroller with:
 
-First, run the development server:
+- Web game (Next.js) for desktop + mobile browsers
+- Nearby multiplayer (same Wi-Fi rooms)
+- Local split-screen mode
+- 3-slot save system per device
+- Coin bank + shop upgrades (10 unlocks)
+- Local leaderboard
+
+## Web (Desktop + Mobile Browser)
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Mobile App (Expo, iOS + Android)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run mobile:dev
+```
 
-## Learn More
+Or platform-specific:
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npm run mobile:ios
+npm run mobile:android
+npm run mobile:web
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Save Slots + Shop
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+From the main menu:
 
-## Deploy on Vercel
+1. Open `Saves + Shop`
+2. Pick one of 3 save slots
+3. Use coins earned from runs to buy upgrades
+4. Use `Continue` to resume from the last autosaved checkpoint in that slot
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Progression is stored locally on-device.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Build
+
+```bash
+npm run build
+npm run start
+```
+

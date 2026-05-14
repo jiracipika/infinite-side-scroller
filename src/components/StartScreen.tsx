@@ -5,23 +5,72 @@ import { useGameStore } from './GameStore';
 import { CHARACTERS, saveSelectedCharacter, loadSelectedCharacter } from '@/game/data/characters';
 import AchievementsModal from './AchievementsModal';
 import ACHIEVEMENTS, { loadUnlockedAchievements } from '@/lib/achievements';
+import {
+  AVATAR_PRESETS,
+  clearLeaderboard,
+  getAvatarPreset,
+  loadLeaderboard,
+  loadLeaderboardAvatarId,
+  loadLeaderboardName,
+  saveLeaderboardAvatarId,
+  sanitizeLeaderboardName,
+  saveLeaderboardName,
+  type LeaderboardEntry,
+} from '@/lib/leaderboard';
+import {
+  SHOP_UPGRADES,
+  clearPendingContinueSlot,
+  getTodayIsoDay,
+  hasPlayedDailyChallenge,
+  loadActiveSaveSlotId,
+  loadSaveSlots,
+  purchaseUpgrade,
+  renameSaveSlot,
+  resetSaveSlot,
+  setActiveSaveSlotId,
+  setPendingContinueSlot,
+  type SaveSlot,
+  type SaveSlotId,
+} from '@/lib/progression';
+import { fetchOnlineLeaderboard, fetchOnlineReplay, type OnlineBoardScope, type OnlineEntry } from '@/lib/online-leaderboard';
 
 interface Props {
   onPlay: (seed?: number) => void;
+  onPlayDailyChallenge?: () => void;
   onPlayMultiplayer?: (params: { mode: 'host' | 'join'; roomId?: string; playerName: string; seed?: number }) => void;
   onPlaySplitScreen?: (seed?: number) => void;
+  onPlayOnlineGhostRace?: (payload: { entry: OnlineEntry; replayPath: Array<{ distance: number; x: number; y: number }> }) => void;
   initialRoomCode?: string;
 }
 
-const StartScreen: FC<Props> = ({ onPlay, onPlayMultiplayer, onPlaySplitScreen, initialRoomCode }) => {
+const StartScreen: FC<Props> = ({
+  onPlay,
+  onPlayDailyChallenge,
+  onPlayMultiplayer,
+  onPlaySplitScreen,
+  onPlayOnlineGhostRace,
+  initialRoomCode,
+}) => {
   const { stats } = useGameStore();
   const [seedInput, setSeedInput] = useState('');
   const [showSettings, setShowSettings] = useState(false);
   const [showMultiplayer, setShowMultiplayer] = useState(false);
   const [playerName, setPlayerName] = useState('Player');
+  const [avatarId, setAvatarId] = useState(AVATAR_PRESETS[0].id);
   const [roomCode, setRoomCode] = useState('');
   const [mpError, setMpError] = useState('');
   const [showAchievements, setShowAchievements] = useState(false);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [showProgression, setShowProgression] = useState(false);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [onlineScope, setOnlineScope] = useState<OnlineBoardScope>('global');
+  const [onlineEntries, setOnlineEntries] = useState<OnlineEntry[]>([]);
+  const [onlineBoardLabel, setOnlineBoardLabel] = useState('');
+  const [onlineSeasonLabel, setOnlineSeasonLabel] = useState('');
+  const [loadingReplayId, setLoadingReplayId] = useState('');
+  const [saveSlots, setSaveSlots] = useState<SaveSlot[]>([]);
+  const [activeSlotId, setActiveSlot] = useState<SaveSlotId>('slot1');
+  const [progressionMessage, setProgressionMessage] = useState('');
   const [achieveCount, setAchieveCount] = useState(0);
   const [mounted, setMounted] = useState(false);
   const [selectedChar, setSelectedChar] = useState('knight');
@@ -35,6 +84,21 @@ const StartScreen: FC<Props> = ({ onPlay, onPlayMultiplayer, onPlaySplitScreen, 
   }, []);
 
   useEffect(() => {
+    const storedName = loadLeaderboardName();
+    setPlayerName(storedName);
+    setAvatarId(loadLeaderboardAvatarId());
+    setLeaderboard(loadLeaderboard());
+    setSaveSlots(loadSaveSlots());
+    setActiveSlot(loadActiveSaveSlotId());
+  }, []);
+
+  useEffect(() => {
+    if (!progressionMessage) return;
+    const timer = window.setTimeout(() => setProgressionMessage(''), 2300);
+    return () => window.clearTimeout(timer);
+  }, [progressionMessage]);
+
+  useEffect(() => {
     const raf = requestAnimationFrame(() => setMounted(true));
     return () => cancelAnimationFrame(raf);
   }, []);
@@ -46,7 +110,34 @@ const StartScreen: FC<Props> = ({ onPlay, onPlayMultiplayer, onPlaySplitScreen, 
     setRoomCode(incomingCode);
   }, [initialRoomCode]);
 
+  useEffect(() => {
+    if (!showLeaderboard) return;
+    let closed = false;
+    void fetchOnlineLeaderboard(onlineScope, 12)
+      .then((result) => {
+        if (closed) return;
+        setOnlineEntries(result.entries);
+        setOnlineBoardLabel(result.key);
+        setOnlineSeasonLabel(result.season.label);
+      })
+      .catch(() => {
+        if (closed) return;
+        setOnlineEntries([]);
+        setOnlineBoardLabel('');
+        setOnlineSeasonLabel('');
+      });
+    return () => {
+      closed = true;
+    };
+  }, [onlineScope, showLeaderboard]);
+
   const handlePlay = () => {
+    setActiveSaveSlotId(activeSlotId);
+    clearPendingContinueSlot();
+    const safeName = sanitizeLeaderboardName(playerName);
+    setPlayerName(safeName);
+    saveLeaderboardName(safeName);
+    saveLeaderboardAvatarId(avatarId);
     const seed = seedInput.trim() ? parseInt(seedInput, 10) : undefined;
     onPlay(seed);
   };
@@ -54,18 +145,20 @@ const StartScreen: FC<Props> = ({ onPlay, onPlayMultiplayer, onPlaySplitScreen, 
   const handleHostMultiplayer = () => {
     if (!onPlayMultiplayer) return;
     const seed = seedInput.trim() ? parseInt(seedInput, 10) : undefined;
-    const safeName = playerName.trim().slice(0, 20);
+    const safeName = sanitizeLeaderboardName(playerName);
     if (!safeName) {
       setMpError('Enter a player name');
       return;
     }
+    saveLeaderboardName(safeName);
+    saveLeaderboardAvatarId(avatarId);
     setMpError('');
     onPlayMultiplayer({ mode: 'host', playerName: safeName, seed });
   };
 
   const handleJoinMultiplayer = () => {
     if (!onPlayMultiplayer) return;
-    const safeName = playerName.trim().slice(0, 20);
+    const safeName = sanitizeLeaderboardName(playerName);
     const code = roomCode.trim().toUpperCase();
     if (!safeName) {
       setMpError('Enter a player name');
@@ -75,8 +168,23 @@ const StartScreen: FC<Props> = ({ onPlay, onPlayMultiplayer, onPlaySplitScreen, 
       setMpError('Enter a valid room code');
       return;
     }
+    saveLeaderboardName(safeName);
+    saveLeaderboardAvatarId(avatarId);
     setMpError('');
     onPlayMultiplayer({ mode: 'join', roomId: code, playerName: safeName });
+  };
+
+  const handlePlayOnlineGhost = async (entryId: string) => {
+    if (!onPlayOnlineGhostRace) return;
+    setLoadingReplayId(entryId);
+    try {
+      const replay = await fetchOnlineReplay(entryId);
+      onPlayOnlineGhostRace({ entry: replay.entry, replayPath: replay.replayPath });
+    } catch {
+      setProgressionMessage('Replay unavailable right now');
+    } finally {
+      setLoadingReplayId('');
+    }
   };
 
   const handleSplitScreen = () => {
@@ -84,6 +192,67 @@ const StartScreen: FC<Props> = ({ onPlay, onPlayMultiplayer, onPlaySplitScreen, 
     const seed = seedInput.trim() ? parseInt(seedInput, 10) : undefined;
     onPlaySplitScreen(seed);
   };
+
+  const handleDailyChallengeClick = () => {
+    if (!onPlayDailyChallenge) return;
+    const safeName = sanitizeLeaderboardName(playerName);
+    setPlayerName(safeName);
+    saveLeaderboardName(safeName);
+    saveLeaderboardAvatarId(avatarId);
+    onPlayDailyChallenge();
+  };
+
+  const handleLeaderboardToggle = () => {
+    if (!showLeaderboard) {
+      setLeaderboard(loadLeaderboard());
+      setOnlineScope('global');
+    }
+    setShowLeaderboard((v) => !v);
+  };
+
+  const handleSelectSaveSlot = (slotId: SaveSlotId) => {
+    setActiveSlot(slotId);
+    setActiveSaveSlotId(slotId);
+  };
+
+  const handleContinueFromSlot = (slotId: SaveSlotId) => {
+    const slot = saveSlots.find((s) => s.id === slotId);
+    if (!slot?.checkpoint) {
+      setProgressionMessage('No saved checkpoint in that slot');
+      return;
+    }
+    setActiveSaveSlotId(slotId);
+    setPendingContinueSlot(slotId);
+    onPlay(slot.checkpoint.seed);
+  };
+
+  const handleRenameSlot = (slotId: SaveSlotId) => {
+    const slot = saveSlots.find((s) => s.id === slotId);
+    if (!slot) return;
+    const next = window.prompt('Rename save slot', slot.name)?.trim();
+    if (!next) return;
+    const updated = renameSaveSlot(slotId, next);
+    setSaveSlots(updated);
+  };
+
+  const handleResetSlot = (slotId: SaveSlotId) => {
+    const confirmed = window.confirm('Reset this save slot? This clears coins, upgrades, and checkpoint.');
+    if (!confirmed) return;
+    const updated = resetSaveSlot(slotId);
+    setSaveSlots(updated);
+  };
+
+  const handleBuyUpgrade = (upgradeId: string) => {
+    const result = purchaseUpgrade(activeSlotId, upgradeId);
+    setSaveSlots(result.slots);
+    setProgressionMessage(result.ok ? 'Upgrade purchased' : (result.reason ?? 'Purchase failed'));
+  };
+
+  const activeSlot = useMemo(
+    () => saveSlots.find((s) => s.id === activeSlotId) ?? null,
+    [activeSlotId, saveSlots],
+  );
+  const dailyUsed = useMemo(() => hasPlayedDailyChallenge(activeSlotId, getTodayIsoDay()), [activeSlotId]);
 
   return (
     <div
@@ -293,6 +462,36 @@ const StartScreen: FC<Props> = ({ onPlay, onPlayMultiplayer, onPlaySplitScreen, 
               style={{ height: 40, fontSize: 15, marginBottom: 8 }}
               onKeyDown={(e) => e.key === 'Enter' && handlePlay()}
             />
+            <input
+              type="text"
+              value={playerName}
+              onChange={(e) => setPlayerName(e.target.value.slice(0, 20))}
+              onBlur={() => {
+                const safe = sanitizeLeaderboardName(playerName);
+                setPlayerName(safe);
+                saveLeaderboardName(safe);
+              }}
+              placeholder="Profile Name"
+              className="ios-text-field"
+              style={{ height: 38, fontSize: 14, marginBottom: 8 }}
+              maxLength={20}
+            />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, minmax(0, 1fr))', gap: 4, marginBottom: 8 }}>
+              {AVATAR_PRESETS.map((preset) => (
+                <button
+                  key={preset.id}
+                  className={avatarId === preset.id ? 'ios-btn-primary' : 'ios-btn-secondary'}
+                  style={{ height: 30, fontSize: 14, lineHeight: 1, padding: 0 }}
+                  onClick={() => {
+                    setAvatarId(preset.id);
+                    saveLeaderboardAvatarId(preset.id);
+                  }}
+                  title={preset.label}
+                >
+                  {preset.icon}
+                </button>
+              ))}
+            </div>
             <div style={{ display: 'flex', gap: 8 }}>
               <button
                 className="ios-btn-secondary"
@@ -307,6 +506,24 @@ const StartScreen: FC<Props> = ({ onPlay, onPlayMultiplayer, onPlaySplitScreen, 
                 style={{ height: 40, fontSize: 15, flex: 1 }}
               >
                 {showSettings ? 'Hide Settings' : 'Settings'}
+              </button>
+            </div>
+            <div style={{ marginTop: 8 }}>
+              <button
+                className="ios-btn-secondary"
+                onClick={handleLeaderboardToggle}
+                style={{ height: 40, fontSize: 15, width: '100%' }}
+              >
+                {showLeaderboard ? 'Hide Leaderboard' : 'Leaderboard'}
+              </button>
+            </div>
+            <div style={{ marginTop: 8 }}>
+              <button
+                className="ios-btn-secondary"
+                onClick={() => setShowProgression((v) => !v)}
+                style={{ height: 40, fontSize: 15, width: '100%' }}
+              >
+                {showProgression ? 'Hide Saves + Shop' : 'Saves + Shop'}
               </button>
             </div>
 
@@ -328,6 +545,18 @@ const StartScreen: FC<Props> = ({ onPlay, onPlayMultiplayer, onPlaySplitScreen, 
                 Local Split-Screen (2 Players)
               </button>
             </div>
+            {onPlayDailyChallenge && (
+              <div style={{ marginTop: 8 }}>
+                <button
+                  className="ios-btn-secondary"
+                  onClick={handleDailyChallengeClick}
+                  disabled={dailyUsed}
+                  style={{ height: 40, fontSize: 15, width: '100%' }}
+                >
+                  {dailyUsed ? 'Daily Challenge (Completed)' : 'Daily Challenge'}
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -340,7 +569,13 @@ const StartScreen: FC<Props> = ({ onPlay, onPlayMultiplayer, onPlaySplitScreen, 
             <input
               type="text"
               value={playerName}
-              onChange={(e) => setPlayerName(e.target.value)}
+              onChange={(e) => setPlayerName(e.target.value.slice(0, 20))}
+              onBlur={() => {
+                const safe = sanitizeLeaderboardName(playerName);
+                setPlayerName(safe);
+                saveLeaderboardName(safe);
+                saveLeaderboardAvatarId(avatarId);
+              }}
               placeholder="Your Name"
               className="ios-text-field"
               style={{ height: 38, fontSize: 14, marginBottom: 8 }}
@@ -375,6 +610,217 @@ const StartScreen: FC<Props> = ({ onPlay, onPlayMultiplayer, onPlaySplitScreen, 
             style={{ width: '100%', marginTop: 10, animation: 'iosSlideDown 0.32s cubic-bezier(0.34,1.56,0.64,1) both' }}
           >
             <SettingsPanel />
+          </div>
+        )}
+
+        {showLeaderboard && (
+          <div
+            className="ios-card"
+            style={{ width: '100%', marginTop: 10, padding: 10, animation: 'iosSlideDown 0.24s ease both' }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 2px 8px' }}>
+              <p className="ios-section-header">Top Runs</p>
+              <button
+                className="ios-btn-secondary"
+                onClick={() => {
+                  clearLeaderboard();
+                  setLeaderboard([]);
+                }}
+                style={{ width: 94, height: 30, fontSize: 12 }}
+              >
+                Clear
+              </button>
+            </div>
+            {leaderboard.length === 0 ? (
+              <p className="ios-caption2" style={{ color: 'var(--ios-label3)', padding: '2px 4px 8px' }}>
+                No runs yet. Finish a game to add your first score.
+              </p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 240, overflowY: 'auto' }}>
+                {leaderboard.slice(0, 20).map((entry, idx) => (
+                  <div
+                    key={entry.id}
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: '32px 1fr auto',
+                      alignItems: 'center',
+                      gap: 8,
+                      background: 'rgba(15,23,42,0.35)',
+                      border: '1px solid rgba(148,163,184,0.18)',
+                      borderRadius: 10,
+                      padding: '7px 8px',
+                    }}
+                  >
+                    <div className="ios-caption2" style={{ color: 'var(--ios-label2)', fontWeight: 700 }}>
+                      #{idx + 1}
+                    </div>
+                    <div style={{ minWidth: 0 }}>
+                      <div className="ios-footnote" style={{ color: 'var(--ios-label)', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {getAvatarPreset(entry.avatarId).icon} {entry.name}
+                      </div>
+                      <div className="ios-caption2" style={{ color: 'var(--ios-label3)' }}>
+                        {entry.distance}m • {entry.coins} coins
+                      </div>
+                    </div>
+                    <div className="ios-footnote" style={{ color: 'var(--ios-yellow)', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+                      {entry.score.toLocaleString()}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div style={{ marginTop: 10, marginBottom: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <p className="ios-section-header">Online Board</p>
+                <span className="ios-caption2" style={{ color: 'var(--ios-label3)' }}>{onlineSeasonLabel || 'Season'}</span>
+              </div>
+              <span className="ios-caption2" style={{ color: 'var(--ios-label3)' }}>{onlineBoardLabel || onlineScope}</span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0,1fr))', gap: 6, marginBottom: 8 }}>
+              {(['global', 'weekly', 'daily'] as OnlineBoardScope[]).map((scope) => (
+                <button
+                  key={scope}
+                  className={onlineScope === scope ? 'ios-btn-primary' : 'ios-btn-secondary'}
+                  style={{ height: 32, fontSize: 12 }}
+                  onClick={() => setOnlineScope(scope)}
+                >
+                  {scope}
+                </button>
+              ))}
+            </div>
+            {onlineEntries.length === 0 ? (
+              <p className="ios-caption2" style={{ color: 'var(--ios-label3)', padding: '2px 4px 8px' }}>
+                No online entries yet for this board.
+              </p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 220, overflowY: 'auto' }}>
+                {onlineEntries.map((entry, idx) => (
+                  <div
+                    key={entry.id}
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: '32px 1fr auto',
+                      alignItems: 'center',
+                      gap: 8,
+                      background: 'rgba(15,23,42,0.35)',
+                      border: '1px solid rgba(148,163,184,0.18)',
+                      borderRadius: 10,
+                      padding: '7px 8px',
+                    }}
+                  >
+                    <div className="ios-caption2" style={{ color: 'var(--ios-label2)', fontWeight: 700 }}>
+                      #{idx + 1}
+                    </div>
+                    <div style={{ minWidth: 0 }}>
+                      <div className="ios-footnote" style={{ color: 'var(--ios-label)', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {getAvatarPreset(entry.avatarId).icon} {entry.name}
+                      </div>
+                      <div className="ios-caption2" style={{ color: 'var(--ios-label3)' }}>
+                        {entry.distance}m • {entry.coins} coins • {entry.badge}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                      <div className="ios-footnote" style={{ color: 'var(--ios-yellow)', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+                        {entry.score.toLocaleString()}
+                      </div>
+                      {entry.hasReplay && onPlayOnlineGhostRace && (
+                        <button
+                          className="ios-btn-secondary"
+                          style={{ height: 26, minWidth: 70, fontSize: 11 }}
+                          onClick={() => { void handlePlayOnlineGhost(entry.id); }}
+                          disabled={loadingReplayId === entry.id}
+                        >
+                          {loadingReplayId === entry.id ? 'Loading...' : 'Race'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {showProgression && (
+          <div
+            className="ios-card"
+            style={{ width: '100%', marginTop: 10, padding: 10, animation: 'iosSlideDown 0.24s ease both' }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 2px 8px' }}>
+              <p className="ios-section-header">Save Slots</p>
+              <span className="ios-caption2" style={{ color: 'var(--ios-yellow)' }}>
+                Bank: {activeSlot?.bankCoins ?? 0} coins
+              </span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
+              {saveSlots.map((slot) => (
+                <button
+                  key={slot.id}
+                  className={slot.id === activeSlotId ? 'ios-btn-primary' : 'ios-btn-secondary'}
+                  style={{ minHeight: 74, padding: 8, display: 'flex', flexDirection: 'column', gap: 3 }}
+                  onClick={() => handleSelectSaveSlot(slot.id)}
+                >
+                  <span style={{ fontSize: 11, fontWeight: 700 }}>{slot.name}</span>
+                  <span style={{ fontSize: 10, opacity: 0.9 }}>{slot.bankCoins}c</span>
+                  <span style={{ fontSize: 9, opacity: 0.75 }}>{slot.checkpoint ? 'Checkpoint' : 'No Save'}</span>
+                </button>
+              ))}
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, marginTop: 8 }}>
+              <button className="ios-btn-secondary" style={{ height: 34, fontSize: 12 }} onClick={() => handleContinueFromSlot(activeSlotId)}>
+                Continue
+              </button>
+              <button className="ios-btn-secondary" style={{ height: 34, fontSize: 12 }} onClick={() => handleRenameSlot(activeSlotId)}>
+                Rename
+              </button>
+              <button className="ios-btn-secondary" style={{ height: 34, fontSize: 12 }} onClick={() => handleResetSlot(activeSlotId)}>
+                Reset
+              </button>
+            </div>
+
+            <div style={{ marginTop: 10, marginBottom: 6 }} className="ios-section-header">Shop (10 Upgrades)</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 220, overflowY: 'auto' }}>
+              {SHOP_UPGRADES.map((upgrade) => {
+                const owned = !!activeSlot?.unlockedUpgradeIds.includes(upgrade.id);
+                const canAfford = (activeSlot?.bankCoins ?? 0) >= upgrade.cost;
+                return (
+                  <div
+                    key={upgrade.id}
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: '1fr auto',
+                      gap: 8,
+                      alignItems: 'center',
+                      background: 'rgba(15,23,42,0.35)',
+                      border: '1px solid rgba(148,163,184,0.18)',
+                      borderRadius: 10,
+                      padding: '7px 8px',
+                    }}
+                  >
+                    <div>
+                      <div className="ios-footnote" style={{ color: 'var(--ios-label)', fontWeight: 700 }}>{upgrade.name}</div>
+                      <div className="ios-caption2" style={{ color: 'var(--ios-label3)' }}>
+                        {upgrade.description} • {upgrade.cost}c
+                      </div>
+                    </div>
+                    <button
+                      className={owned ? 'ios-btn-secondary' : 'ios-btn-primary'}
+                      style={{ height: 30, minWidth: 74, fontSize: 11 }}
+                      disabled={owned || !canAfford}
+                      onClick={() => handleBuyUpgrade(upgrade.id)}
+                    >
+                      {owned ? 'Owned' : canAfford ? 'Buy' : 'Locked'}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+            {progressionMessage && (
+              <p className="ios-caption2" style={{ color: 'var(--ios-yellow)', marginTop: 8, paddingLeft: 2 }}>
+                {progressionMessage}
+              </p>
+            )}
           </div>
         )}
       </div>

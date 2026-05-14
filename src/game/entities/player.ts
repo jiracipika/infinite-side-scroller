@@ -5,10 +5,7 @@
 import { InputManager } from '../input/input';
 import type { Platform } from '../world/chunk';
 import type { CharacterDef } from '../data/characters';
-import type { WeaponDef } from '../data/weapons';
-import { getWeaponForCharacter } from '../data/weapons';
-import type { PlayerProjectile } from '../data/weapons';
-import { playSFX } from '../audio/SoundEngine';
+import { DEFAULT_PROGRESSION_BONUSES, type PlayerProgressionBonuses } from '../../lib/progression';
 
 export interface PlayerConfig {
   startX: number;
@@ -30,6 +27,19 @@ export const DEFAULT_PLAYER_CONFIG: PlayerConfig = {
   height: 32,
 };
 
+export type WeaponType = 'orb' | 'slingshot' | 'bow';
+
+export interface PlayerProjectile {
+  x: number;
+  y: number;
+  vx: number;
+  life: number;
+  damage: number;
+  radius: number;
+  color: string;
+  glowColor: string;
+}
+
 export class Player {
   x: number;
   y: number;
@@ -49,16 +59,6 @@ export class Player {
 
   invulnerable = false;
   invulnerableTimer = 0;
-
-  // Weapon system
-  currentWeapon: WeaponDef;
-  projectiles: PlayerProjectile[] = [];
-  private shootCooldown = 0;
-
-  // Melee attack state
-  isAttacking = false;
-  attackTimer = 0;
-  attackArc = { start: 0, current: 0 }; // current angle during swing
 
   // Dash attack
   dashing = false;
@@ -80,15 +80,8 @@ export class Player {
   // Speed boost
   speedBoostTimer = 0;
 
-  // Invincibility power-up
-  invincibilityActive = false;
-  invincibilityTimer = 0;
-
-  // Time slow power-up
-  timeSlowActive = false;
-  timeSlowTimer = 0;
-
   private config: PlayerConfig;
+  private baseSpeed: number;
   onGround = false;
   facingRight = true;
   wallSliding = false;
@@ -96,14 +89,31 @@ export class Player {
   private wasOnGround = false;
   private coyoteTimer = 0;
   private readonly COYOTE_TIME = 0.1; // seconds of coyote time
+  private jumpBufferTimer = 0;
+  private readonly JUMP_BUFFER_TIME = 0.12;
+
+  // Projectiles
+  projectiles: PlayerProjectile[] = [];
+  private shootCooldown = 0;
+  private weaponType: WeaponType = 'orb';
+  private weaponTimer = 0;
+  private healerRegenTimer = 0;
+  private healingAuraTimer = 0;
+  private healingAuraTickTimer = 0;
+  private progressionBonuses: PlayerProgressionBonuses = { ...DEFAULT_PROGRESSION_BONUSES };
+  private autoReviveUsed = false;
+  private coinFractionRemainder = 0;
+  private characterSpeedScale = 1;
+  private characterJumpScale = 1;
+  private baseMaxHealth = 3;
 
   constructor(config: PlayerConfig = DEFAULT_PLAYER_CONFIG) {
     this.config = config;
+    this.baseSpeed = config.speed;
     this.x = config.startX;
     this.y = config.startY;
     this.width = config.width;
     this.height = config.height;
-    this.currentWeapon = getWeaponForCharacter('knight');
   }
 
   /** Apply a character definition's stats and visuals */
@@ -111,9 +121,9 @@ export class Player {
     this.characterId = char.id;
     this.width = char.width;
     this.height = char.height;
-    this.maxHealth = char.maxHealth;
-    this.health = char.maxHealth;
-    this.currentWeapon = getWeaponForCharacter(char.id);
+    this.baseMaxHealth = char.maxHealth;
+    this.characterSpeedScale = char.speed;
+    this.characterJumpScale = char.jumpVelocity;
     this.config = {
       ...DEFAULT_PLAYER_CONFIG,
       speed: DEFAULT_PLAYER_CONFIG.speed * char.speed,
@@ -121,9 +131,34 @@ export class Player {
       width: char.width,
       height: char.height,
     };
+    this.baseSpeed = this.config.speed;
+    this.applyProgressionBonuses(this.progressionBonuses);
+    this.health = this.maxHealth;
+    this.weaponType = this.getBaseWeaponForCharacter();
+    this.weaponTimer = 0;
+    this.healerRegenTimer = 0;
+    this.healingAuraTimer = 0;
+    this.healingAuraTickTimer = 0;
+    this.autoReviveUsed = false;
+    this.coinFractionRemainder = 0;
   }
 
-  update(dt: number, input: InputManager, groundY: number, platforms: Platform[] = [], enemies?: { x: number; y: number; width: number; height: number; alive: boolean }[]): void {
+  applyProgressionBonuses(bonuses: PlayerProgressionBonuses): void {
+    this.progressionBonuses = { ...DEFAULT_PROGRESSION_BONUSES, ...bonuses };
+    const previousMax = this.maxHealth;
+    this.config = {
+      ...this.config,
+      speed: DEFAULT_PLAYER_CONFIG.speed * this.characterSpeedScale * this.progressionBonuses.speedMultiplier,
+      jumpVelocity: DEFAULT_PLAYER_CONFIG.jumpVelocity * this.characterJumpScale * this.progressionBonuses.jumpMultiplier,
+    };
+    this.baseSpeed = this.config.speed;
+    this.maxHealth = Math.max(1, Math.floor(this.baseMaxHealth + this.progressionBonuses.extraMaxHealth));
+    if (this.health > this.maxHealth) this.health = this.maxHealth;
+    if (this.health >= previousMax) this.health = this.maxHealth;
+    this.autoReviveUsed = false;
+  }
+
+  update(dt: number, input: InputManager, groundY: number, platforms: Platform[] = []): void {
     // Tick timers (dt-based)
     if (this.invulnerableTimer > 0) {
       this.invulnerableTimer -= dt;
@@ -135,25 +170,34 @@ export class Player {
     if (this.dashCooldown > 0) this.dashCooldown -= dt;
     if (this.shieldTimer > 0) { this.shieldTimer -= dt; if (this.shieldTimer <= 0) this.shieldActive = false; }
     if (this.magnetTimer > 0) { this.magnetTimer -= dt; if (this.magnetTimer <= 0) this.magnetActive = false; }
-    if (this.speedBoostTimer > 0) { this.speedBoostTimer -= dt; if (this.speedBoostTimer <= 0) this.config.speed = DEFAULT_PLAYER_CONFIG.speed; }
+    if (this.speedBoostTimer > 0) { this.speedBoostTimer -= dt; if (this.speedBoostTimer <= 0) this.config.speed = this.baseSpeed; }
+    if (this.jumpBufferTimer > 0) this.jumpBufferTimer = Math.max(0, this.jumpBufferTimer - dt);
     if (this.shootCooldown > 0) this.shootCooldown -= dt;
-    if (this.invincibilityTimer > 0) { this.invincibilityTimer -= dt; if (this.invincibilityTimer <= 0) this.invincibilityActive = false; }
-    if (this.timeSlowTimer > 0) { this.timeSlowTimer -= dt; if (this.timeSlowTimer <= 0) this.timeSlowActive = false; }
-
-    // Melee attack timer
-    if (this.isAttacking) {
-      this.attackTimer -= dt;
-      // Animate the arc: interpolate from arcStart to arcEnd over attackDuration
-      const weapon = this.currentWeapon;
-      const duration = weapon.attackDuration ?? 0.25;
-      const progress = 1 - Math.max(0, this.attackTimer) / duration;
-      const arcStart = weapon.arcStart ?? -Math.PI / 3;
-      const arcEnd = weapon.arcEnd ?? Math.PI / 3;
-      this.attackArc.current = arcStart + (arcEnd - arcStart) * progress;
-      if (this.attackTimer <= 0) {
-        this.isAttacking = false;
-        this.attackTimer = 0;
+    if (this.weaponTimer > 0) {
+      this.weaponTimer -= dt;
+      if (this.weaponTimer <= 0) {
+        this.weaponTimer = 0;
+        this.weaponType = this.getBaseWeaponForCharacter();
       }
+    }
+    if (this.characterId === 'healer' && this.health < this.maxHealth && this.alive) {
+      this.healerRegenTimer += dt;
+      if (this.healerRegenTimer >= 5.2) {
+        this.healerRegenTimer = 0;
+        this.heal(1);
+      }
+    } else {
+      this.healerRegenTimer = 0;
+    }
+    if (this.healingAuraTimer > 0 && this.alive) {
+      this.healingAuraTimer = Math.max(0, this.healingAuraTimer - dt);
+      this.healingAuraTickTimer += dt;
+      if (this.healingAuraTickTimer >= 2.2) {
+        this.healingAuraTickTimer = 0;
+        this.heal(1);
+      }
+    } else {
+      this.healingAuraTickTimer = 0;
     }
 
     // Dash attack
@@ -161,11 +205,10 @@ export class Player {
     if (wantDash && this.dashCooldown <= 0 && !this.dashing) {
       this.dashing = true;
       this.dashTimer = this.DASH_DURATION;
-      this.dashCooldown = this.DASH_COOLDOWN;
+      this.dashCooldown = this.DASH_COOLDOWN * this.progressionBonuses.dashCooldownMultiplier;
       this.dashDirection = this.facingRight ? 1 : -1;
       this.invulnerable = true;
       this.invulnerableTimer = Math.max(this.invulnerableTimer, this.DASH_DURATION);
-      playSFX('dash');
     }
 
     if (this.dashing) {
@@ -180,7 +223,7 @@ export class Player {
       this.y += this.vy * dt;
       if (this.x < 0) { this.x = 0; this.vx = 0; }
       this.distanceTraveled += Math.abs(this.vx * dt);
-      this._updateProjectiles(dt, enemies);
+      this._updateProjectiles(dt);
       return;
     }
 
@@ -203,13 +246,25 @@ export class Player {
       else if (this.vx < 0) this.vx = Math.min(0, this.vx + friction * dt);
     }
 
-    // Shoot / attack using weapon system (KeyZ or KeyE)
+    // Shoot projectile (KeyZ or KeyE)
     const wantShoot = input.isPressed('KeyZ') || input.isPressed('KeyE');
-    if (wantShoot && this.shootCooldown <= 0 && !this.isAttacking) {
-      this._fireWeapon(enemies);
+    if (wantShoot && this.shootCooldown <= 0) {
+      const shot = this.getShotProfile();
+      this.projectiles.push({
+        x: this.x + (this.facingRight ? this.width : 0),
+        y: this.y + this.height / 2,
+        vx: this.facingRight ? shot.speed : -shot.speed,
+        life: shot.life,
+        damage: shot.damage,
+        radius: shot.radius,
+        color: shot.color,
+        glowColor: shot.glowColor,
+      });
+      this.shootCooldown = shot.cooldown;
     }
 
     const wantJump = input.isPressed('Space') || input.isPressed('ArrowUp') || input.isPressed('KeyW');
+    if (wantJump) this.jumpBufferTimer = this.JUMP_BUFFER_TIME;
 
     // Wall slide — only if falling and pressing toward wall
     this.wallSliding = false;
@@ -220,26 +275,7 @@ export class Player {
       }
     }
 
-    if (wantJump) {
-      if (this.onGround || this.coyoteTimer < this.COYOTE_TIME) {
-        this.vy = this.config.jumpVelocity;
-        this.onGround = false;
-        this.coyoteTimer = this.COYOTE_TIME; // consume coyote time
-        this.touchingWall = false;
-        this.wallSliding = false;
-        playSFX('jump');
-      } else if (this.wallSliding) {
-        this.vy = this.config.jumpVelocity * 0.9;
-        this.vx = this.facingRight ? -maxSpeed * 0.7 : maxSpeed * 0.7;
-        this.facingRight = !this.facingRight;
-        this.touchingWall = false;
-        this.wallSliding = false;
-        playSFX('jump');
-      } else if (this.canDoubleJump) {
-        this.useDoubleJump();
-        playSFX('doubleJump');
-      }
-    }
+    this.tryConsumeJump(maxSpeed);
 
     this.vy += this.config.gravity * dt;
     if (this.vy > 900) this.vy = 900; // terminal velocity
@@ -287,155 +323,71 @@ export class Player {
     if (!this.onGround && this.wasOnGround) this.coyoteTimer = 0; // just left ground, start coyote timer
     if (!this.onGround) this.coyoteTimer += dt;
 
+    // If jump was buffered slightly before landing, consume it immediately.
+    if (this.jumpBufferTimer > 0 && this.onGround) {
+      this.tryConsumeJump(maxSpeed);
+    }
+
     this.distanceTraveled += Math.abs(this.vx * dt);
 
-    this._updateProjectiles(dt, enemies);
+    this._updateProjectiles(dt);
   }
 
-  /** Fire the current weapon */
-  private _fireWeapon(enemies?: { x: number; y: number; width: number; height: number; alive: boolean }[]): void {
-    const weapon = this.currentWeapon;
-    this.shootCooldown = weapon.cooldown;
+  private tryConsumeJump(maxSpeed: number): boolean {
+    if (this.jumpBufferTimer <= 0) return false;
 
-    if (weapon.type === 'melee') {
-      // Melee attack: start the swing animation
-      this.isAttacking = true;
-      this.attackTimer = weapon.attackDuration ?? 0.25;
-      this.attackArc = {
-        start: weapon.arcStart ?? -Math.PI / 3,
-        current: weapon.arcStart ?? -Math.PI / 3,
-      };
-      playSFX('attack_swing');
-    } else if (weapon.type === 'ranged') {
-      // Ranged: spawn projectiles in a spread pattern
-      playSFX('shoot');
-      const count = weapon.projectileCount ?? 1;
-      const spread = weapon.spreadAngle ?? 0;
-      const speed = weapon.projectileSpeed ?? 400;
-      const dir = this.facingRight ? 1 : -1;
-      const baseAngle = this.facingRight ? 0 : Math.PI;
-
-      for (let i = 0; i < count; i++) {
-        const offset = (i - (count - 1) / 2) * spread;
-        const angle = baseAngle + offset;
-        this.projectiles.push({
-          x: this.x + (this.facingRight ? this.width : 0),
-          y: this.y + this.height / 2,
-          vx: Math.cos(angle) * speed,
-          vy: Math.sin(angle) * speed,
-          life: weapon.range / speed,
-          damage: weapon.damage,
-          weaponId: weapon.id,
-          trail: [],
-        });
-      }
-    } else if (weapon.type === 'homing') {
-      // Homing: spawn a single projectile that curves toward nearest enemy
-      const speed = weapon.projectileSpeed ?? 300;
-      const dir = this.facingRight ? 1 : -1;
-      let targetAngle = this.facingRight ? 0 : Math.PI;
-
-      // Find nearest enemy to aim roughly toward
-      if (enemies && enemies.length > 0) {
-        let nearestDist = Infinity;
-        let nearestEnemy: { x: number; y: number; width: number; height: number } | null = null;
-        for (const e of enemies) {
-          if (!e.alive) continue;
-          const dx = (e.x + e.width / 2) - (this.x + this.width / 2);
-          const dy = (e.y + e.height / 2) - (this.y + this.height / 2);
-          const dist = dx * dx + dy * dy;
-          if (dist < nearestDist) {
-            nearestDist = dist;
-            nearestEnemy = e;
-          }
-        }
-        if (nearestEnemy) {
-          const dx = (nearestEnemy.x + nearestEnemy.width / 2) - (this.x + this.width / 2);
-          const dy = (nearestEnemy.y + nearestEnemy.height / 2) - (this.y + this.height / 2);
-          targetAngle = Math.atan2(dy, dx);
-        }
-      }
-
-      this.projectiles.push({
-        x: this.x + (this.facingRight ? this.width : 0),
-        y: this.y + this.height / 2,
-        vx: Math.cos(targetAngle) * speed,
-        vy: Math.sin(targetAngle) * speed,
-        life: weapon.range / speed,
-        damage: weapon.damage,
-        weaponId: weapon.id,
-        homingStrength: weapon.homingStrength ?? 4,
-        trail: [],
-      });
+    if (this.onGround || this.coyoteTimer < this.COYOTE_TIME) {
+      this.vy = this.config.jumpVelocity;
+      this.onGround = false;
+      this.coyoteTimer = this.COYOTE_TIME; // consume coyote time
+      this.touchingWall = false;
+      this.wallSliding = false;
+      this.jumpBufferTimer = 0;
+      return true;
     }
+
+    if (this.wallSliding) {
+      this.vy = this.config.jumpVelocity * 0.9;
+      this.vx = this.facingRight ? -maxSpeed * 0.7 : maxSpeed * 0.7;
+      this.facingRight = !this.facingRight;
+      this.touchingWall = false;
+      this.wallSliding = false;
+      this.jumpBufferTimer = 0;
+      return true;
+    }
+
+    if (this.canDoubleJump) {
+      this.useDoubleJump();
+      this.jumpBufferTimer = 0;
+      return true;
+    }
+
+    return false;
   }
 
-  private _updateProjectiles(dt: number, enemies?: { x: number; y: number; width: number; height: number; alive: boolean }[]): void {
+  private _updateProjectiles(dt: number) {
     this.projectiles = this.projectiles.filter(p => {
-      // Store trail position for rendering
-      if (p.trail) {
-        p.trail.push({ x: p.x, y: p.y });
-        if (p.trail.length > 6) p.trail.shift();
-      }
-
-      // Homing: steer toward nearest enemy
-      if (p.homingStrength && enemies && enemies.length > 0) {
-        let nearestDist = Infinity;
-        let nearestEnemy: { x: number; y: number; width: number; height: number } | null = null;
-        for (const e of enemies) {
-          if (!e.alive) continue;
-          const dx = (e.x + e.width / 2) - p.x;
-          const dy = (e.y + e.height / 2) - p.y;
-          const dist = dx * dx + dy * dy;
-          if (dist < nearestDist) {
-            nearestDist = dist;
-            nearestEnemy = e;
-          }
-        }
-        if (nearestEnemy) {
-          const dx = (nearestEnemy.x + nearestEnemy.width / 2) - p.x;
-          const dy = (nearestEnemy.y + nearestEnemy.height / 2) - p.y;
-          const targetAngle = Math.atan2(dy, dx);
-          const currentAngle = Math.atan2(p.vy, p.vx);
-          let angleDiff = targetAngle - currentAngle;
-          // Normalize to [-PI, PI]
-          while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
-          while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
-          const turnRate = p.homingStrength * dt;
-          const newAngle = currentAngle + Math.sign(angleDiff) * Math.min(Math.abs(angleDiff), turnRate);
-          const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
-          p.vx = Math.cos(newAngle) * speed;
-          p.vy = Math.sin(newAngle) * speed;
-        }
-      }
-
       p.x += p.vx * dt;
-      p.y += p.vy * dt;
       p.life -= dt;
       return p.life > 0;
     });
+  }
+
+  /** Expose movement parameters for net prediction/replay (read-only snapshot). */
+  getMovementTuning(): { speed: number; jumpVelocity: number; gravity: number } {
+    return {
+      speed: this.config.speed,
+      jumpVelocity: this.config.jumpVelocity,
+      gravity: this.config.gravity,
+    };
   }
 
   get centerX(): number { return this.x + this.width / 2; }
   get centerY(): number { return this.y + this.height / 2; }
   get bottom(): number { return this.y + this.height; }
 
-  /** Get the melee attack hitbox (area in front of the player during attack) */
-  getMeleeHitbox(): { x: number; y: number; width: number; height: number } | null {
-    if (!this.isAttacking) return null;
-    const weapon = this.currentWeapon;
-    const range = weapon.range;
-    const dir = this.facingRight ? 1 : -1;
-    return {
-      x: this.facingRight ? this.x + this.width : this.x - range,
-      y: this.y - 4,
-      width: range,
-      height: this.height + 8,
-    };
-  }
-
   takeDamage(amount: number): boolean {
-    if (this.invulnerable || !this.alive || this.invincibilityActive) return false;
+    if (this.invulnerable || !this.alive) return false;
     if (this.shieldActive) {
       this.shieldActive = false;
       this.shieldTimer = 0;
@@ -453,8 +405,14 @@ export class Player {
   }
 
   addCoins(amount: number): void {
-    this.coins += amount;
-    this.score += amount * 10;
+    const total = amount * this.progressionBonuses.coinMultiplier + this.coinFractionRemainder;
+    const gained = Math.max(0, Math.floor(total));
+    this.coinFractionRemainder = Math.max(0, total - gained);
+    this.coins += gained;
+    this.score += gained * 10;
+    if (this.progressionBonuses.healOnCoinChance > 0 && this.health < this.maxHealth && Math.random() < this.progressionBonuses.healOnCoinChance) {
+      this.heal(1);
+    }
   }
 
   getBounds() {
@@ -463,33 +421,63 @@ export class Player {
 
   isStomping(): boolean { return this.vy > 0; }
 
-  stompBounce(): void {
-    this.vy = this.config.jumpVelocity * 0.6;
+  stompBounce(boosted: boolean = false): void {
+    this.vy = this.config.jumpVelocity * (boosted ? 0.82 : 0.58);
+    this.onGround = false;
+    this.hasDoubleJumped = false;
   }
 
   applySpeedBoost(multiplier: number, duration: number = 5): void {
-    this.config.speed = DEFAULT_PLAYER_CONFIG.speed * multiplier;
+    this.config.speed = this.baseSpeed * multiplier;
     this.speedBoostTimer = duration;
   }
 
   applyShield(duration: number = 8): void {
     this.shieldActive = true;
-    this.shieldTimer = duration;
+    this.shieldTimer = duration * this.progressionBonuses.shieldDurationMultiplier;
   }
 
   applyMagnet(duration: number = 8): void {
     this.magnetActive = true;
-    this.magnetTimer = duration;
+    this.magnetTimer = duration * this.progressionBonuses.magnetDurationMultiplier;
   }
 
-  applyInvincibility(duration: number = 5): void {
-    this.invincibilityActive = true;
-    this.invincibilityTimer = duration;
+  equipWeapon(type: WeaponType, duration: number = 10): void {
+    this.weaponType = type;
+    this.weaponTimer = Math.max(this.weaponTimer, duration);
   }
 
-  applyTimeSlow(duration: number = 6): void {
-    this.timeSlowActive = true;
-    this.timeSlowTimer = duration;
+  applyHealingAura(duration: number = 10): void {
+    this.healingAuraTimer = Math.max(this.healingAuraTimer, duration);
+    this.healingAuraTickTimer = 0;
+  }
+
+  get currentWeapon(): WeaponType {
+    return this.weaponType;
+  }
+
+  get hasWeaponPickup(): boolean {
+    return this.weaponTimer > 0;
+  }
+
+  get healingAuraActive(): boolean {
+    return this.healingAuraTimer > 0;
+  }
+
+  get magnetRadius(): number {
+    return 150 + this.progressionBonuses.magnetRadiusBonus;
+  }
+
+  tryAutoRevive(): boolean {
+    if (!this.progressionBonuses.autoReviveOnce || this.autoReviveUsed || this.alive) return false;
+    this.autoReviveUsed = true;
+    this.alive = true;
+    this.health = Math.max(1, Math.ceil(this.maxHealth * 0.5));
+    this.invulnerable = true;
+    this.invulnerableTimer = Math.max(this.invulnerableTimer, 2.5);
+    this.vy = this.config.jumpVelocity * 0.75;
+    this.onGround = false;
+    return true;
   }
 
   private _doubleJump = false;
@@ -509,5 +497,54 @@ export class Player {
       this.vy = this.config.jumpVelocity;
       this.hasDoubleJumped = true;
     }
+  }
+
+  private getBaseWeaponForCharacter(): WeaponType {
+    return this.characterId === 'ranger' ? 'bow' : 'orb';
+  }
+
+  private getShotProfile(): {
+    speed: number;
+    life: number;
+    damage: number;
+    cooldown: number;
+    radius: number;
+    color: string;
+    glowColor: string;
+  } {
+    if (this.weaponType === 'slingshot') {
+      return {
+        speed: 540 * this.progressionBonuses.projectileSpeedMultiplier,
+        life: 1.2,
+        damage: 1 + this.progressionBonuses.projectileDamageBonus,
+        cooldown: 0.18,
+        radius: 3,
+        color: '#f59e0b',
+        glowColor: 'rgba(251,191,36,0.45)',
+      };
+    }
+
+    if (this.weaponType === 'bow') {
+      const rangerBonus = this.characterId === 'ranger';
+      return {
+        speed: (rangerBonus ? 790 : 740) * this.progressionBonuses.projectileSpeedMultiplier,
+        life: 1.7,
+        damage: (rangerBonus ? 3 : 2) + this.progressionBonuses.projectileDamageBonus,
+        cooldown: rangerBonus ? 0.24 : 0.31,
+        radius: 3,
+        color: rangerBonus ? '#facc15' : '#f59e0b',
+        glowColor: rangerBonus ? 'rgba(250,204,21,0.45)' : 'rgba(245,158,11,0.38)',
+      };
+    }
+
+    return {
+      speed: 400 * this.progressionBonuses.projectileSpeedMultiplier,
+      life: 1.5,
+      damage: 1 + this.progressionBonuses.projectileDamageBonus,
+      cooldown: 0.3,
+      radius: 4,
+      color: '#60a5fa',
+      glowColor: 'rgba(147,197,253,0.5)',
+    };
   }
 }

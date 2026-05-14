@@ -10,7 +10,6 @@ interface LocalStats {
   distance: number;
   health: number;
   maxHealth: number;
-  lives: number;
 }
 
 interface Props {
@@ -30,8 +29,8 @@ const SplitScreenMode: FC<Props> = ({ seed, onExit }) => {
   const bottomGameRef = useRef<GameEngine | null>(null);
 
   const [viewport, setViewport] = useState({ width: 390, height: 844 });
-  const [topStats, setTopStats] = useState<LocalStats>({ score: 0, distance: 0, health: 2, maxHealth: 2, lives: 2 });
-  const [bottomStats, setBottomStats] = useState<LocalStats>({ score: 0, distance: 0, health: 2, maxHealth: 2, lives: 2 });
+  const [topStats, setTopStats] = useState<LocalStats>({ score: 0, distance: 0, health: 3, maxHealth: 3 });
+  const [bottomStats, setBottomStats] = useState<LocalStats>({ score: 0, distance: 0, health: 3, maxHealth: 3 });
   const [topDead, setTopDead] = useState(false);
   const [bottomDead, setBottomDead] = useState(false);
 
@@ -87,16 +86,11 @@ const SplitScreenMode: FC<Props> = ({ seed, onExit }) => {
     bottomGameRef.current = bottomGame;
 
     topGame.onStatsUpdate = (s) => {
-      setTopStats({ score: s.score, distance: s.distance, health: s.health, maxHealth: s.maxHealth, lives: s.lives });
+      setTopStats({ score: s.score, distance: s.distance, health: s.health, maxHealth: s.maxHealth });
     };
     bottomGame.onStatsUpdate = (s) => {
-      setBottomStats({ score: s.score, distance: s.distance, health: s.health, maxHealth: s.maxHealth, lives: s.lives });
+      setBottomStats({ score: s.score, distance: s.distance, health: s.health, maxHealth: s.maxHealth });
     };
-
-    // Cross-engine life awards: when either player earns a life from coins, both get it
-    topGame.onRemotePlayerLifeAward = () => { bottomGame.grantLocalPlayerLife(); };
-    bottomGame.onRemotePlayerLifeAward = () => { topGame.grantLocalPlayerLife(); };
-
     topGame.onGameOver = () => {
       setTopDead(true);
       topGame.pause();
@@ -142,7 +136,7 @@ const SplitScreenMode: FC<Props> = ({ seed, onExit }) => {
       if (topKills.length > 0) {
         bottomGame.killEnemiesById(topKills);
       }
-    }, 16);
+    }, 33);
 
     topGame.start();
     bottomGame.start();
@@ -170,16 +164,19 @@ const SplitScreenMode: FC<Props> = ({ seed, onExit }) => {
           background: '#000',
         }}
       >
-        <canvas
-          ref={topCanvasRef}
-          className="absolute inset-0 w-full h-full"
-          style={{ transform: 'rotate(180deg)', transformOrigin: 'center center' }}
-        />
-        <div style={{ position: 'absolute', inset: 0, transform: 'rotate(180deg)', transformOrigin: 'center center' }}>
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            transform: 'rotate(180deg)',
+            transformOrigin: 'center center',
+          }}
+        >
+          <canvas ref={topCanvasRef} className="absolute inset-0 w-full h-full" />
           <TouchControls channel="game-input-top" compact />
+          <SplitHud label="Top Player" stats={topStats} />
+          {topDead && <PaneDeadOverlay onRestart={restartBoth} />}
         </div>
-        <SplitHud label="Top Player" stats={topStats} rotated />
-        {topDead && <PaneDeadOverlay onRestart={restartBoth} rotated />}
       </div>
 
       <div
@@ -230,7 +227,7 @@ const SplitScreenMode: FC<Props> = ({ seed, onExit }) => {
 
 export default SplitScreenMode;
 
-const SplitHud: FC<{ label: string; stats: LocalStats; rotated?: boolean }> = ({ label, stats, rotated = false }) => {
+const SplitHud: FC<{ label: string; stats: LocalStats }> = ({ label, stats }) => {
   const hearts = Array.from({ length: stats.maxHealth }, (_, i) => i < stats.health);
   return (
     <div
@@ -243,7 +240,6 @@ const SplitHud: FC<{ label: string; stats: LocalStats; rotated?: boolean }> = ({
         justifyContent: 'space-between',
         alignItems: 'center',
         pointerEvents: 'none',
-        transform: rotated ? 'rotate(180deg)' : undefined,
       }}
     >
       <div
@@ -283,20 +279,18 @@ const SplitHud: FC<{ label: string; stats: LocalStats; rotated?: boolean }> = ({
             padding: '4px 8px',
             display: 'flex',
             gap: 2,
-            alignItems: 'center',
           }}
         >
           {hearts.map((alive, i) => (
             <span key={i} style={{ fontSize: 11, opacity: alive ? 1 : 0.35 }}>{alive ? '❤️' : '🖤'}</span>
           ))}
-          <span style={{ fontSize: 9, color: '#94a3b8', marginLeft: 3, fontWeight: 700 }}>x{stats.lives}</span>
         </div>
       </div>
     </div>
   );
 };
 
-const PaneDeadOverlay: FC<{ onRestart: () => void; rotated?: boolean }> = ({ onRestart, rotated = false }) => (
+const PaneDeadOverlay: FC<{ onRestart: () => void }> = ({ onRestart }) => (
   <div
     style={{
       position: 'absolute',
@@ -305,7 +299,6 @@ const PaneDeadOverlay: FC<{ onRestart: () => void; rotated?: boolean }> = ({ onR
       alignItems: 'center',
       justifyContent: 'center',
       background: 'rgba(0,0,0,0.58)',
-      transform: rotated ? 'rotate(180deg)' : undefined,
       pointerEvents: 'none',
     }}
   >
