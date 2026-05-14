@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, useEffect, type FC } from 'react';
+import { useRef, useState, useEffect, useCallback, type FC } from 'react';
 import { type GameStats, type GameSettings } from '@/game/state/game-state';
 
 interface Props {
@@ -32,6 +32,29 @@ const HUD: FC<Props> = ({ stats, settings }) => {
       if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
     };
   }, [stats.score]);
+
+  // Combo flash animation
+  const prevComboRef = useRef(stats.comboCount ?? 0);
+  const [comboFlash, setComboFlash] = useState(false);
+  const comboTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    const cc = stats.comboCount ?? 0;
+    if (cc > prevComboRef.current) {
+      if (comboTimerRef.current) clearTimeout(comboTimerRef.current);
+      setComboFlash(true);
+      comboTimerRef.current = setTimeout(() => setComboFlash(false), 200);
+    }
+    prevComboRef.current = cc;
+    return () => {
+      if (comboTimerRef.current) clearTimeout(comboTimerRef.current);
+    };
+  }, [stats.comboCount]);
+
+  const dayIcon = stats.dayPhase === 'night' ? '🌙'
+    : stats.dayPhase === 'dusk' ? '🌅'
+    : stats.dayPhase === 'dawn' ? '🌄'
+    : '☀️';
 
   return (
     <>
@@ -110,7 +133,7 @@ const HUD: FC<Props> = ({ stats, settings }) => {
             )}
           </div>
 
-          {/* ── Center: Score + Distance ────────────────────────── */}
+          {/* ── Center: Score + Distance + Combo ──────────────────── */}
           <div
             style={{
               flex: 1,
@@ -148,9 +171,31 @@ const HUD: FC<Props> = ({ stats, settings }) => {
             >
               {Math.round(stats.distance)}m
             </div>
+
+            {/* Combo counter */}
+            {(stats.comboCount ?? 0) > 1 && (
+              <div
+                key={comboFlash ? 'flash' : 'idle'}
+                style={{
+                  marginTop: 4,
+                  padding: '2px 10px',
+                  borderRadius: 10,
+                  background: 'rgba(251, 191, 36, 0.25)',
+                  border: '1px solid rgba(251, 191, 36, 0.4)',
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: '#fbbf24',
+                  fontVariantNumeric: 'tabular-nums',
+                  animation: comboFlash ? 'scoreFlash 0.2s ease both' : undefined,
+                  textShadow: '0 0 8px rgba(251, 191, 36, 0.5)',
+                }}
+              >
+                {stats.comboCount} COMBO x{stats.comboMultiplier}
+              </div>
+            )}
           </div>
 
-          {/* ── Right: Biome + FPS ──────────────────────────────── */}
+          {/* ── Right: Biome + Day/Night + FPS ─────────────────── */}
           <div
             style={{
               display: 'flex',
@@ -180,6 +225,20 @@ const HUD: FC<Props> = ({ stats, settings }) => {
                 {stats.biome}
               </span>
             </div>
+
+            {/* Day/Night indicator */}
+            <div
+              key={stats.dayPhase}
+              className="ios-hud-pill"
+              style={{
+                fontSize: 12,
+                lineHeight: 1,
+                animation: 'biomeReveal 0.3s cubic-bezier(0.34,1.56,0.64,1) both',
+              }}
+            >
+              {dayIcon}
+            </div>
+
             {settings.showFPS && (
               <span
                 style={{
@@ -197,7 +256,92 @@ const HUD: FC<Props> = ({ stats, settings }) => {
 
         </div>
       </div>
+
+      {/* ── Minimap (bottom-right) ──────────────────────────────── */}
+      <Minimap stats={stats} />
     </>
+  );
+};
+
+/* ── Minimap Component ──────────────────────────────────────────── */
+const Minimap: FC<{ stats: GameStats }> = ({ stats }) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  const draw = useCallback((ctx: CanvasRenderingContext2D) => {
+    const w = 120;
+    const h = 30;
+    ctx.clearRect(0, 0, w, h);
+
+    // Background
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+    ctx.roundRect(0, 0, w, h, 6);
+    ctx.fill();
+
+    // Ground line
+    const groundY = h * 0.7;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(4, groundY);
+    ctx.lineTo(w - 4, groundY);
+    ctx.stroke();
+
+    // Player position indicator (maps distance to minimap width)
+    const maxDist = Math.max(stats.distance + 500, 2000);
+    const px = 4 + ((stats.distance % maxDist) / maxDist) * (w - 8);
+    ctx.fillStyle = '#fbbf24';
+    ctx.beginPath();
+    ctx.arc(px, groundY - 4, 3, 0, Math.PI * 2);
+    ctx.fill();
+    // Player glow
+    ctx.fillStyle = 'rgba(251, 191, 36, 0.3)';
+    ctx.beginPath();
+    ctx.arc(px, groundY - 4, 6, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Terrain profile (procedural)
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let x = 4; x < w - 4; x += 3) {
+      const worldX = (x / w) * maxDist;
+      // Simple hash terrain for visual
+      const h2 = Math.sin(worldX * 0.01) * 4 + Math.sin(worldX * 0.037) * 2;
+      const ty = groundY - 3 + h2;
+      if (x === 4) ctx.moveTo(x, ty);
+      else ctx.lineTo(x, ty);
+    }
+    ctx.stroke();
+
+    // Health bar at bottom of minimap
+    const healthPct = stats.health / stats.maxHealth;
+    const barW = (w - 8) * healthPct;
+    ctx.fillStyle = healthPct > 0.5 ? 'rgba(34, 197, 94, 0.4)' : healthPct > 0.25 ? 'rgba(251, 191, 36, 0.5)' : 'rgba(239, 68, 68, 0.6)';
+    ctx.fillRect(4, h - 4, barW, 2);
+  }, [stats.distance, stats.health, stats.maxHealth]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    draw(ctx);
+  }, [draw]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      width={120}
+      height={30}
+      style={{
+        position: 'absolute',
+        bottom: 16,
+        right: 16,
+        zIndex: 10,
+        pointerEvents: 'none',
+        opacity: 0.8,
+      }}
+    />
   );
 };
 

@@ -7,14 +7,21 @@ import { Camera } from '../engine/camera';
 import { Chunk, CHUNK_WIDTH } from '../world/chunk';
 import { Player } from '../entities/player';
 import { getCharacterById } from '../data/characters';
+import { getWeaponById } from '../data/weapons';
 import { Particle } from '../entities/particles';
 import { getBlendedBiomeColors } from '../world/biomes';
 import type { Collectible } from '../entities/Collectibles';
 import { TerrainCache } from '../engine/terrain-cache';
 
+interface BiomeColors {
+  groundDark: string;
+  ground: string;
+  sky: string;
+}
+
 export class GameRenderer {
   private terrainCache: TerrainCache;
-  private cacheEnabled = false;
+  private cacheEnabled = true;
   private ctx: CanvasRenderingContext2D;
   private width = 0;
   private height = 0;
@@ -30,23 +37,13 @@ export class GameRenderer {
   }
 
   drawSky(camera: Camera): void {
-    const centerX = camera.x + this.width / 2;
+    const centerX = camera.renderX + this.width / 2;
     const colors = getBlendedBiomeColors(centerX);
 
     const gradient = this.ctx.createLinearGradient(0, 0, 0, this.height);
     gradient.addColorStop(0, colors.sky);
     gradient.addColorStop(1, colors.skyGradient);
     this.ctx.fillStyle = gradient;
-    this.ctx.fillRect(0, 0, this.width, this.height);
-
-    // World-anchored atmospheric haze so it doesn't look like a screen filter
-    // attached to the player/camera movement.
-    const hazeStartY = 250 - camera.y;
-    const hazeEndY = 780 - camera.y;
-    const hazeGradient = this.ctx.createLinearGradient(0, hazeStartY, 0, hazeEndY);
-    hazeGradient.addColorStop(0, 'rgba(255,255,255,0)');
-    hazeGradient.addColorStop(1, 'rgba(255,255,255,0.07)');
-    this.ctx.fillStyle = hazeGradient;
     this.ctx.fillRect(0, 0, this.width, this.height);
   }
 
@@ -57,8 +54,12 @@ export class GameRenderer {
   }
 
   private drawMountains(camera: Camera, parallaxFactor: number, amplitude: number, color: string, baseY: number): void {
-    const offsetX = camera.x * parallaxFactor;
-    const offsetY = 0;
+    const offsetX = camera.renderX * parallaxFactor;
+    // Background mountains are decorative — ignore camera Y so they never
+    // clip when the player moves vertically (camera.renderY changes).
+    // Apply only a very subtle parallax capped to ±50px for a depth feel.
+    const rawOffsetY = camera.renderY * parallaxFactor * 0.3;
+    const offsetY = Math.max(-50, Math.min(50, rawOffsetY));
 
     this.ctx.fillStyle = color;
     this.ctx.beginPath();
@@ -77,7 +78,7 @@ export class GameRenderer {
   }
 
   private drawClouds(camera: Camera): void {
-    const offsetX = camera.x * 0.05;
+    const offsetX = camera.renderX * 0.05;
     this.ctx.fillStyle = '#ffffff40';
 
     for (let i = 0; i < 8; i++) {
@@ -100,10 +101,10 @@ export class GameRenderer {
 
       if (this.cacheEnabled && this.terrainCache.has(chunk.index)) {
         // Draw from cache
-        const cachedCanvas = this.terrainCache.get(chunk.index);
-        if (cachedCanvas) {
+        const cachedData = this.terrainCache.get(chunk.index);
+        if (cachedData) {
           const screen = camera.worldToScreen(chunk.worldX, 0);
-          this.ctx.drawImage(cachedCanvas, screen.x, screen.y);
+          this.ctx.putImageData(cachedData, screen.x, screen.y);
           continue;
         }
       }
@@ -115,6 +116,11 @@ export class GameRenderer {
 
   private drawChunkTerrain(chunk: Chunk, camera: Camera, shouldCache: boolean = false): void {
     const ctx = this.ctx;
+    const colors = getBlendedBiomeColors(chunk.worldX + 400) as {
+      groundDark: string;
+      ground: string;
+      sky: string;
+    };
 
     // If caching, create an offscreen canvas
     if (shouldCache) {
@@ -127,30 +133,32 @@ export class GameRenderer {
       if (!offCtx) return;
 
       // Draw terrain to offscreen canvas
-      this.drawTerrainToContext(offCtx, chunk, cacheWidth, cacheHeight, 0, 0);
+      this.drawTerrainToContext(offCtx, chunk, colors, cacheWidth, cacheHeight, 0);
 
-      // Cache the transparent canvas itself; drawImage preserves destination sky.
-      this.terrainCache.set(chunk.index, offscreen);
+      // Cache the result
+      const imageData = offCtx.getImageData(0, 0, cacheWidth, cacheHeight);
+      this.terrainCache.set(chunk.index, imageData);
     }
 
     // Draw to main canvas
-    this.drawTerrainToContext(ctx, chunk, this.width, this.height, chunk.worldX - camera.renderX, -camera.renderY);
+    this.drawTerrainToContext(ctx, chunk, colors, this.width, this.height, camera.renderX - chunk.worldX);
   }
 
   private drawTerrainToContext(
     ctx: CanvasRenderingContext2D,
     chunk: Chunk,
+    colors: BiomeColors,
     canvasWidth: number,
     canvasHeight: number,
-    offsetX: number,
-    offsetY: number
+    offsetX: number
   ): void {
+    ctx.fillStyle = colors.groundDark;
     ctx.beginPath();
     let started = false;
     for (let i = 0; i < chunk.heights.length; i++) {
       const worldX = chunk.worldX + i * 4;
       const screenX = worldX - chunk.worldX + offsetX;
-      const screenY = chunk.heights[i] + offsetY;
+      const screenY = chunk.heights[i];
       if (!started) { ctx.moveTo(screenX, screenY); started = true; }
       else { ctx.lineTo(screenX, screenY); }
     }
@@ -158,80 +166,31 @@ export class GameRenderer {
     ctx.lineTo(lastScreenX, canvasHeight + 10);
     ctx.lineTo(offsetX, canvasHeight + 10);
     ctx.closePath();
+    ctx.fill();
 
-    ctx.save();
-    ctx.clip();
-    // Paint in short world-space strips so biome/chunk transitions blend instead
-    // of becoming vertical walls at chunk boundaries.
-    const stripWidth = 18;
-    for (let localX = 0; localX <= CHUNK_WIDTH; localX += stripWidth) {
-      const worldX = chunk.worldX + localX;
-      const stripColors = getBlendedBiomeColors(worldX);
-      const soilGradient = ctx.createLinearGradient(0, 0, 0, canvasHeight);
-      soilGradient.addColorStop(0, this.shadeHexColor(stripColors.groundDark, 12));
-      soilGradient.addColorStop(0.45, stripColors.groundDark);
-      soilGradient.addColorStop(1, this.shadeHexColor(stripColors.groundDark, -35));
-      ctx.fillStyle = soilGradient;
-      ctx.fillRect(localX + offsetX - 1, 0, stripWidth + 2, canvasHeight + 10);
-    }
-    ctx.restore();
-
-    // Layered ground texture. Deterministic math keeps cached chunks stable.
-    ctx.save();
-    ctx.globalAlpha = 0.16;
-    ctx.lineWidth = 1;
-    for (let i = 8; i < chunk.heights.length; i += 14) {
-      const localX = i * 4;
-      const worldX = chunk.worldX + localX;
-      const fleckColors = getBlendedBiomeColors(worldX);
-      const screenX = localX + offsetX;
-      const surfaceY = chunk.heights[i] + offsetY;
-      const fleckY = surfaceY + 22 + ((Math.sin((worldX + chunk.index * 37) * 0.047) + 1) * 34);
-      const fleckW = 8 + ((i + chunk.index) % 5) * 3;
-      ctx.strokeStyle = this.shadeHexColor(fleckColors.groundDark, -22);
-      ctx.beginPath();
-      ctx.moveTo(screenX, fleckY);
-      ctx.lineTo(screenX + fleckW, fleckY + Math.sin(worldX * 0.03) * 2);
-      ctx.stroke();
-    }
-    ctx.restore();
-
-    // Grass cap and highlight
-    ctx.lineWidth = 7;
-    for (let i = 0; i < chunk.heights.length - 1; i++) {
+    // Grass line
+    ctx.strokeStyle = colors.ground;
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    for (let i = 0; i < chunk.heights.length; i++) {
       const worldX = chunk.worldX + i * 4;
-      const capColors = getBlendedBiomeColors(worldX);
-      ctx.strokeStyle = this.shadeHexColor(capColors.ground, -15);
-      ctx.beginPath();
-      ctx.moveTo(i * 4 + offsetX, chunk.heights[i] + offsetY);
-      ctx.lineTo((i + 1) * 4 + offsetX, chunk.heights[i + 1] + offsetY);
-      ctx.stroke();
+      const screenX = worldX - chunk.worldX + offsetX;
+      const screenY = chunk.heights[i];
+      if (i === 0) ctx.moveTo(screenX, screenY);
+      else ctx.lineTo(screenX, screenY);
     }
-
-    ctx.lineWidth = 3;
-    for (let i = 0; i < chunk.heights.length - 1; i++) {
-      const worldX = chunk.worldX + i * 4;
-      const capColors = getBlendedBiomeColors(worldX);
-      ctx.strokeStyle = this.shadeHexColor(capColors.ground, 24);
-      const screenX = i * 4 + offsetX;
-      const screenY = chunk.heights[i] - 1 + offsetY;
-      ctx.beginPath();
-      ctx.moveTo(screenX, screenY);
-      ctx.lineTo((i + 1) * 4 + offsetX, chunk.heights[i + 1] - 1 + offsetY);
-      ctx.stroke();
-    }
+    ctx.stroke();
 
     // Caves
     for (const cave of chunk.caves) {
       const caveScreenX = cave.x - chunk.worldX + offsetX;
-      const caveColors = getBlendedBiomeColors(cave.x);
-      ctx.fillStyle = caveColors.sky;
+      ctx.fillStyle = colors.sky;
       ctx.globalAlpha = 0.7;
-      ctx.fillRect(caveScreenX, cave.y + offsetY, cave.width, cave.height);
+      ctx.fillRect(caveScreenX, cave.y, cave.width, cave.height);
       ctx.globalAlpha = 1.0;
-      ctx.strokeStyle = caveColors.groundDark;
+      ctx.strokeStyle = colors.groundDark;
       ctx.lineWidth = 2;
-      ctx.strokeRect(caveScreenX, cave.y + offsetY, cave.width, cave.height);
+      ctx.strokeRect(caveScreenX, cave.y, cave.width, cave.height);
     }
   }
 
@@ -247,16 +206,11 @@ export class GameRenderer {
         }
         const screen = camera.worldToScreen(platform.x, platY);
         if (screen.x + platform.width < 0 || screen.x > this.width) continue;
-        const beamGradient = ctx.createLinearGradient(0, screen.y, 0, screen.y + 10);
-        beamGradient.addColorStop(0, this.shadeHexColor(colors.platform, 18));
-        beamGradient.addColorStop(1, this.shadeHexColor(colors.platform, -22));
-        ctx.fillStyle = beamGradient;
-        ctx.fillRect(screen.x, screen.y, platform.width, 10);
-        ctx.fillStyle = 'rgba(255,255,255,0.18)';
-        ctx.fillRect(screen.x + 2, screen.y + 1, Math.max(0, platform.width - 4), 2);
-        ctx.strokeStyle = this.shadeHexColor(colors.groundDark, -20);
+        ctx.fillStyle = colors.platform;
+        ctx.fillRect(screen.x, screen.y, platform.width, 8);
+        ctx.strokeStyle = colors.groundDark;
         ctx.lineWidth = 1;
-        ctx.strokeRect(screen.x, screen.y, platform.width, 10);
+        ctx.strokeRect(screen.x, screen.y, platform.width, 8);
         // Small glow for moving platforms
         if (platform.moveAmp) {
           ctx.fillStyle = 'rgba(255,255,255,0.08)';
@@ -312,16 +266,6 @@ export class GameRenderer {
     ctx.strokeStyle = '#555'; ctx.lineWidth = 1; ctx.stroke();
   }
 
-  private shadeHexColor(hex: string, amount: number): string {
-    const clean = hex.replace('#', '');
-    if (clean.length !== 6) return hex;
-    const clamp = (value: number) => Math.max(0, Math.min(255, value));
-    const r = clamp(parseInt(clean.slice(0, 2), 16) + amount);
-    const g = clamp(parseInt(clean.slice(2, 4), 16) + amount);
-    const b = clamp(parseInt(clean.slice(4, 6), 16) + amount);
-    return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
-  }
-
   private drawBush(x: number, y: number, scale: number, variant: number): void {
     const ctx = this.ctx;
     const s = scale;
@@ -331,366 +275,270 @@ export class GameRenderer {
     ctx.beginPath(); ctx.arc(x + 7 * s, y - 4 * s, 7 * s, 0, Math.PI * 2); ctx.fill();
   }
 
-  private drawRoundedRect(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number): void {
-    const r = Math.min(radius, width / 2, height / 2);
-    ctx.beginPath();
-    ctx.moveTo(x + r, y);
-    ctx.lineTo(x + width - r, y);
-    ctx.quadraticCurveTo(x + width, y, x + width, y + r);
-    ctx.lineTo(x + width, y + height - r);
-    ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
-    ctx.lineTo(x + r, y + height);
-    ctx.quadraticCurveTo(x, y + height, x, y + height - r);
-    ctx.lineTo(x, y + r);
-    ctx.quadraticCurveTo(x, y, x + r, y);
-    ctx.closePath();
-  }
-
   drawPlayer(player: Player, camera: Camera): void {
     const ctx = this.ctx;
     const screen = camera.worldToScreen(player.x, player.y);
     const char = getCharacterById(player.characterId);
-    const w = player.width;
-    const h = player.height;
-    const moving = Math.abs(player.vx) > 30;
-    const stride = Math.sin(player.distanceTraveled * 0.22) * (moving ? 2.6 : 0.8);
-    const bob = player.onGround ? Math.abs(stride) * 0.22 : -1.5;
-    const sy = screen.y + bob;
+    const weapon = player.currentWeapon;
 
-    ctx.save();
+    // Invulnerability flash — blink using timer
     if (player.invulnerable && !player.dashing) {
+      // Blink: 6 blinks per second (3Hz flash)
       const blinkRate = 6;
       const t = player.invulnerableTimer * blinkRate;
-      ctx.globalAlpha = Math.floor(t) % 2 === 0 ? 0.42 : 1.0;
+      ctx.globalAlpha = Math.floor(t) % 2 === 0 ? 0.4 : 1.0;
+    }
+    const w = player.width;
+    const h = player.height;
+
+    // Body
+    ctx.fillStyle = char.bodyColor;
+    ctx.fillRect(screen.x, screen.y, w, h);
+
+    // Eyes on the facing side
+    const eyeX = player.facingRight ? screen.x + w - 12 : screen.x + 4;
+    ctx.fillStyle = char.eyeColor;
+    ctx.fillRect(eyeX, screen.y + 6, 4, 4);
+    ctx.fillRect(eyeX + 6, screen.y + 6, 4, 4);
+    ctx.fillStyle = '#000';
+    ctx.fillRect(eyeX + 2, screen.y + 8, 2, 2);
+    ctx.fillRect(eyeX + 8, screen.y + 8, 2, 2);
+
+    // Outline
+    ctx.strokeStyle = char.outlineColor;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(screen.x, screen.y, w, h);
+
+    // Wall slide indicator
+    if (player.wallSliding) {
+      ctx.fillStyle = '#ffffff60';
+      const slideX = player.facingRight ? screen.x + w : screen.x - 2;
+      ctx.fillRect(slideX, screen.y + 4, 2, h - 8);
     }
 
-    // Grounded shadow
-    ctx.fillStyle = 'rgba(0,0,0,0.24)';
-    ctx.beginPath();
-    ctx.ellipse(screen.x + w / 2, sy + h + 4, w * 0.42, h * 0.16, 0, 0, Math.PI * 2);
-    ctx.fill();
+    // === WEAPON RENDERING ===
+    const facing = player.facingRight ? 1 : -1;
+    const handX = player.facingRight ? screen.x + w : screen.x;
+    const handY = screen.y + h * 0.4;
 
-    ctx.translate(screen.x + w / 2, sy + h / 2);
-    ctx.scale(player.facingRight ? 1 : -1, 1);
-    ctx.translate(-w / 2, -h / 2);
+    if (weapon.id === 'broadsword') {
+      // Knight sword: rectangle extending from hand
+      ctx.save();
+      const pivotX = handX;
+      const pivotY = handY;
+      ctx.translate(pivotX, pivotY);
+      if (player.isAttacking) {
+        ctx.rotate(player.attackArc.current);
+      } else {
+        ctx.rotate(facing > 0 ? -0.2 : Math.PI + 0.2);
+      }
+      // Blade
+      ctx.fillStyle = weapon.color;
+      ctx.fillRect(0, -2, 22 * (player.facingRight ? 1 : -1), 4);
+      // Hilt
+      ctx.fillStyle = '#8b4513';
+      ctx.fillRect(-2 * (player.facingRight ? 1 : -1), -4, 4 * (player.facingRight ? 1 : -1), 8);
+      // Tip
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(18 * (player.facingRight ? 1 : -1), -1, 4 * (player.facingRight ? 1 : -1), 2);
+      ctx.restore();
+    } else if (weapon.id === 'shuriken') {
+      // Ninja: small star shapes in hand
+      ctx.save();
+      ctx.fillStyle = weapon.color;
+      const starSize = 4;
+      if (!player.isAttacking) {
+        // Draw a star in hand
+        this._drawStar(ctx, handX + facing * 4, handY, starSize);
+      }
+      ctx.restore();
+    } else if (weapon.id === 'shield_bash') {
+      // Tank: shield on arm
+      ctx.save();
+      const shieldX = player.facingRight ? screen.x + w - 2 : screen.x - 10;
+      ctx.fillStyle = weapon.color;
+      // Shield body (rounded rect approximated)
+      ctx.fillRect(shieldX, screen.y + 4, 12, h - 8);
+      ctx.fillStyle = weapon.glowColor;
+      ctx.fillRect(shieldX + 2, screen.y + 8, 8, h - 16);
+      // Shield emblem
+      ctx.fillStyle = '#daa520';
+      ctx.fillRect(shieldX + 4, screen.y + h / 2 - 3, 4, 6);
 
-    // Cape/scarf sits behind the silhouette and gives direction at a glance.
-    const capeColor = char.id === 'ninja' ? 'rgba(239,68,68,0.55)' : 'rgba(185,28,28,0.42)';
-    ctx.fillStyle = capeColor;
+      // Shockwave during attack
+      if (player.isAttacking) {
+        const progress = 1 - Math.max(0, player.attackTimer) / (weapon.attackDuration ?? 0.2);
+        const radius = 20 + progress * 25;
+        ctx.strokeStyle = '#daa520';
+        ctx.lineWidth = 2;
+        ctx.globalAlpha = 1 - progress;
+        ctx.beginPath();
+        ctx.arc(handX + facing * 10, handY, radius, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
+      ctx.restore();
+    } else if (weapon.id === 'magic_bolt') {
+      // Mage: staff with glowing orb
+      ctx.save();
+      // Staff line
+      ctx.strokeStyle = '#8b6914';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(handX, handY + 8);
+      ctx.lineTo(handX + facing * 14, handY - 12);
+      ctx.stroke();
+      // Glowing orb at tip
+      const orbX = handX + facing * 14;
+      const orbY = handY - 12;
+      ctx.fillStyle = weapon.color;
+      ctx.beginPath();
+      ctx.arc(orbX, orbY, 4, 0, Math.PI * 2);
+      ctx.fill();
+      // Glow
+      ctx.fillStyle = weapon.glowColor;
+      ctx.beginPath();
+      ctx.arc(orbX, orbY, 7, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    ctx.globalAlpha = 1.0;
+  }
+
+  /** Draw a small 4-pointed star shape */
+  private _drawStar(ctx: CanvasRenderingContext2D, cx: number, cy: number, size: number): void {
     ctx.beginPath();
-    ctx.moveTo(4, 10);
-    ctx.lineTo(-7 - Math.max(0, stride), 16);
-    ctx.lineTo(4, h - 7);
+    for (let i = 0; i < 4; i++) {
+      const angle = (i / 4) * Math.PI * 2 - Math.PI / 2;
+      const outerX = cx + Math.cos(angle) * size;
+      const outerY = cy + Math.sin(angle) * size;
+      const innerAngle = ((i + 0.5) / 4) * Math.PI * 2 - Math.PI / 2;
+      const innerX = cx + Math.cos(innerAngle) * size * 0.4;
+      const innerY = cy + Math.sin(innerAngle) * size * 0.4;
+      if (i === 0) ctx.moveTo(outerX, outerY);
+      else ctx.lineTo(outerX, outerY);
+      ctx.lineTo(innerX, innerY);
+    }
     ctx.closePath();
     ctx.fill();
-
-    // Legs and boots
-    ctx.fillStyle = this.shadeHexColor(char.outlineColor, -18);
-    ctx.fillRect(5, h - 11, 5, 10 + stride);
-    ctx.fillRect(w - 10, h - 11, 5, 10 - stride);
-    ctx.fillStyle = '#111827';
-    ctx.fillRect(3, h - 2, 8, 3);
-    ctx.fillRect(w - 11, h - 2, 8, 3);
-
-    const torso = ctx.createLinearGradient(0, 4, 0, h - 7);
-    torso.addColorStop(0, this.shadeHexColor(char.bodyColor, 22));
-    torso.addColorStop(1, char.outlineColor);
-    ctx.fillStyle = torso;
-    this.drawRoundedRect(ctx, 2, 8, w - 4, h - 11, 5);
-    ctx.fill();
-
-    ctx.strokeStyle = this.shadeHexColor(char.outlineColor, -22);
-    ctx.lineWidth = 1.2;
-    ctx.stroke();
-
-    // Character-specific accents keep unlocks from looking like recolors.
-    if (char.id === 'mage') {
-      ctx.fillStyle = '#312e81';
-      ctx.beginPath();
-      ctx.moveTo(w / 2, -2);
-      ctx.lineTo(2, 12);
-      ctx.lineTo(w - 2, 12);
-      ctx.closePath();
-      ctx.fill();
-      ctx.fillStyle = '#fef08a';
-      ctx.fillRect(w / 2 + 2, 4, 2, 2);
-    } else if (char.id === 'ranger') {
-      ctx.fillStyle = '#166534';
-      ctx.fillRect(3, 7, w - 6, 2);
-      ctx.fillStyle = '#65a30d';
-      ctx.fillRect(2, 11, w - 4, 2);
-      ctx.strokeStyle = '#86efac';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(2, h - 13);
-      ctx.lineTo(w - 2, h - 20);
-      ctx.stroke();
-    } else if (char.id === 'cyborg') {
-      ctx.fillStyle = '#0f172a';
-      ctx.fillRect(3, 9, w - 6, 3);
-      ctx.fillStyle = '#22d3ee';
-      ctx.fillRect(5, 10, w - 10, 1.6);
-      ctx.fillStyle = '#334155';
-      ctx.fillRect(-2, 13, 4, 9);
-      ctx.fillRect(w - 2, 13, 4, 9);
-    } else if (char.id === 'spirit') {
-      ctx.fillStyle = 'rgba(221,214,254,0.75)';
-      ctx.beginPath();
-      ctx.moveTo(3, h - 10);
-      ctx.quadraticCurveTo(w / 2, h - 1, w - 3, h - 10);
-      ctx.closePath();
-      ctx.fill();
-      ctx.fillStyle = '#a78bfa';
-      ctx.fillRect(4, 7, w - 8, 2);
-    } else if (char.id === 'healer') {
-      ctx.fillStyle = '#0d9488';
-      ctx.fillRect(3, 9, w - 6, 3);
-      ctx.strokeStyle = '#ccfbf1';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(w / 2, 6);
-      ctx.lineTo(w / 2, h - 12);
-      ctx.moveTo(6, h - 16);
-      ctx.lineTo(w - 6, h - 16);
-      ctx.stroke();
-    } else if (char.id === 'tank') {
-      ctx.fillStyle = 'rgba(255,255,255,0.18)';
-      ctx.fillRect(4, 11, w - 8, 5);
-      ctx.fillStyle = '#334155';
-      ctx.fillRect(-2, 13, 5, 10);
-      ctx.fillRect(w - 3, 13, 5, 10);
-    } else if (char.id === 'ninja') {
-      ctx.fillStyle = '#0f172a';
-      this.drawRoundedRect(ctx, 3, 3, w - 6, 15, 5);
-      ctx.fill();
-      ctx.fillStyle = '#dc2626';
-      ctx.fillRect(4, 10, w - 8, 3);
-    } else {
-      ctx.fillStyle = '#94a3b8';
-      ctx.fillRect(4, 5, w - 8, 5);
-      ctx.fillStyle = '#fbbf24';
-      ctx.fillRect(w / 2 - 1, 1, 2, 5);
-    }
-
-    // Head / face
-    ctx.fillStyle = char.id === 'ninja' ? '#111827' : '#e2e8f0';
-    this.drawRoundedRect(ctx, 4, 4, w - 8, 12, 4);
-    ctx.fill();
-    ctx.strokeStyle = this.shadeHexColor(char.outlineColor, -18);
-    ctx.stroke();
-
-    if (char.id === 'knight' || char.id === 'tank' || char.id === 'cyborg') {
-      ctx.fillStyle = '#0f172a';
-      ctx.fillRect(7, 8, w - 14, 4);
-      ctx.fillStyle = char.eyeColor;
-      ctx.fillRect(w - 11, 9, 3, 2);
-    } else {
-      ctx.fillStyle = char.eyeColor;
-      ctx.fillRect(w - 13, 8, 3, 3);
-      ctx.fillRect(w - 8, 8, 3, 3);
-      ctx.fillStyle = '#020617';
-      ctx.fillRect(w - 12, 9, 1, 1);
-      ctx.fillRect(w - 7, 9, 1, 1);
-    }
-
-    // Chest highlight
-    ctx.fillStyle = 'rgba(255,255,255,0.18)';
-    ctx.fillRect(5, 18, w - 10, 3);
-
-    // Dash accent
-    if (player.dashing) {
-      ctx.fillStyle = 'rgba(125,211,252,0.42)';
-      ctx.fillRect(-8, 8, 8, h - 12);
-    }
-
-    // Wall-slide sparks
-    if (player.wallSliding) {
-      ctx.fillStyle = '#fef08a';
-      ctx.fillRect(w + 1, h - 9, 2, 2);
-      ctx.fillRect(w + 3, h - 5, 2, 2);
-    }
-
-    ctx.restore();
-    ctx.globalAlpha = 1;
   }
 
   drawCollectible(c: Collectible, camera: Camera): void {
     const ctx = this.ctx;
     const screen = camera.worldToScreen(c.x, c.y);
-    const bob = c.type === 'portal' ? Math.sin(c.animTimer * 2) * 1.5 : Math.sin(c.animTimer * 3) * 3;
+    const bob = Math.sin(c.animTimer * 3) * 3;
     const sy = screen.y + bob;
-    const cx = screen.x + c.width / 2;
-    const cy = sy + c.height / 2;
-    const radius = c.width / 2;
 
     ctx.save();
     switch (c.type) {
       case 'coin': {
-        this.drawCollectibleOrb(cx, cy, radius, '#fde68a', '#f59e0b');
-        ctx.strokeStyle = '#7c2d12';
-        ctx.lineWidth = 1.5;
+        // Gold coin
+        ctx.fillStyle = '#fbbf24';
         ctx.beginPath();
-        ctx.arc(cx, cy, radius * 0.52, 0, Math.PI * 2);
-        ctx.stroke();
+        ctx.arc(screen.x + c.width / 2, sy + c.height / 2, c.width / 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#f59e0b';
         ctx.beginPath();
-        ctx.moveTo(cx - 2, cy - 4);
-        ctx.lineTo(cx + 2, cy - 4);
-        ctx.lineTo(cx - 2, cy + 4);
-        ctx.lineTo(cx + 2, cy + 4);
-        ctx.stroke();
+        ctx.arc(screen.x + c.width / 2, sy + c.height / 2, c.width / 3, 0, Math.PI * 2);
+        ctx.fill();
+        // $ symbol
+        ctx.fillStyle = '#92400e';
+        ctx.font = 'bold 10px system-ui';
+        ctx.textAlign = 'center';
+        ctx.fillText('$', screen.x + c.width / 2, sy + c.height / 2 + 4);
         break;
       }
       case 'health': {
-        this.drawCollectibleOrb(cx, cy, radius, '#fca5a5', '#dc2626');
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(cx - 1.5, cy - 5, 3, 10);
-        ctx.fillRect(cx - 5, cy - 1.5, 10, 3);
+        ctx.fillStyle = '#ef4444';
+        ctx.font = `${c.width}px system-ui`;
+        ctx.textAlign = 'center';
+        ctx.fillText('♥', screen.x + c.width / 2, sy + c.height);
         break;
       }
       case 'speedBoost': {
-        this.drawCollectibleOrb(cx, cy, radius, '#93c5fd', '#2563eb');
-        ctx.fillStyle = '#eff6ff';
+        ctx.fillStyle = '#3b82f6';
         ctx.beginPath();
-        ctx.moveTo(cx + 1, cy - 6);
-        ctx.lineTo(cx - 3, cy - 1);
-        ctx.lineTo(cx + 0.5, cy - 1);
-        ctx.lineTo(cx - 1, cy + 6);
-        ctx.lineTo(cx + 4, cy);
-        ctx.lineTo(cx + 1, cy);
-        ctx.closePath();
+        ctx.arc(screen.x + c.width / 2, sy + c.height / 2, c.width / 2, 0, Math.PI * 2);
         ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 12px system-ui';
+        ctx.textAlign = 'center';
+        ctx.fillText('⚡', screen.x + c.width / 2, sy + c.height / 2 + 4);
         break;
       }
       case 'doubleJump': {
-        this.drawCollectibleOrb(cx, cy, radius, '#d8b4fe', '#9333ea');
-        ctx.strokeStyle = '#faf5ff';
-        ctx.lineWidth = 1.8;
+        ctx.fillStyle = '#a855f7';
         ctx.beginPath();
-        ctx.moveTo(cx - 5, cy + 3);
-        ctx.lineTo(cx - 1.5, cy - 2);
-        ctx.lineTo(cx + 2, cy + 3);
-        ctx.moveTo(cx - 2, cy + 5);
-        ctx.lineTo(cx + 1.5, cy);
-        ctx.lineTo(cx + 5, cy + 5);
-        ctx.stroke();
+        ctx.arc(screen.x + c.width / 2, sy + c.height / 2, c.width / 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 10px system-ui';
+        ctx.textAlign = 'center';
+        ctx.fillText('⇈', screen.x + c.width / 2, sy + c.height / 2 + 4);
         break;
       }
       case 'shield': {
-        this.drawCollectibleOrb(cx, cy, radius, '#67e8f9', '#0891b2');
-        ctx.fillStyle = '#ecfeff';
+        ctx.fillStyle = '#06b6d4';
         ctx.beginPath();
-        ctx.moveTo(cx, cy - 6);
-        ctx.lineTo(cx + 5, cy - 3);
-        ctx.lineTo(cx + 4, cy + 4);
-        ctx.lineTo(cx, cy + 7);
-        ctx.lineTo(cx - 4, cy + 4);
-        ctx.lineTo(cx - 5, cy - 3);
-        ctx.closePath();
+        ctx.arc(screen.x + c.width / 2, sy + c.height / 2, c.width / 2, 0, Math.PI * 2);
         ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 12px system-ui';
+        ctx.textAlign = 'center';
+        ctx.fillText('🛡', screen.x + c.width / 2, sy + c.height / 2 + 5);
         break;
       }
       case 'magnet': {
-        this.drawCollectibleOrb(cx, cy, radius, '#fdba74', '#ea580c');
-        ctx.strokeStyle = '#fff7ed';
-        ctx.lineWidth = 3;
+        ctx.fillStyle = '#f59e0b';
         ctx.beginPath();
-        ctx.arc(cx, cy - 1, 4, Math.PI * 0.15, Math.PI * 0.85, true);
-        ctx.stroke();
-        ctx.fillStyle = '#dc2626';
-        ctx.fillRect(cx - 6, cy + 1, 4, 3);
-        ctx.fillStyle = '#2563eb';
-        ctx.fillRect(cx + 2, cy + 1, 4, 3);
+        ctx.arc(screen.x + c.width / 2, sy + c.height / 2, c.width / 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 12px system-ui';
+        ctx.textAlign = 'center';
+        ctx.fillText('🧲', screen.x + c.width / 2, sy + c.height / 2 + 5);
         break;
       }
-      case 'slingshot': {
-        this.drawCollectibleOrb(cx, cy, radius, '#fed7aa', '#d97706');
-        ctx.strokeStyle = '#7c2d12';
+      case 'invincibility': {
+        // Pulsing golden star
+        const starPulse = 0.8 + 0.2 * Math.sin(c.animTimer * 6);
+        ctx.fillStyle = `rgba(251, 191, 36, ${starPulse})`;
+        ctx.beginPath();
+        ctx.arc(screen.x + c.width / 2, sy + c.height / 2, c.width / 2, 0, Math.PI * 2);
+        ctx.fill();
+        // Glow
+        ctx.fillStyle = `rgba(251, 191, 36, ${starPulse * 0.3})`;
+        ctx.beginPath();
+        ctx.arc(screen.x + c.width / 2, sy + c.height / 2, c.width * 0.8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 14px system-ui';
+        ctx.textAlign = 'center';
+        ctx.fillText('★', screen.x + c.width / 2, sy + c.height / 2 + 5);
+        break;
+      }
+      case 'timeSlow': {
+        // Swirling purple clock
+        ctx.fillStyle = '#818cf8';
+        ctx.beginPath();
+        ctx.arc(screen.x + c.width / 2, sy + c.height / 2, c.width / 2, 0, Math.PI * 2);
+        ctx.fill();
+        // Spinning ring
+        ctx.strokeStyle = '#c4b5fd';
         ctx.lineWidth = 2;
+        const angle = c.animTimer * 3;
         ctx.beginPath();
-        ctx.moveTo(cx - 4, cy + 5);
-        ctx.quadraticCurveTo(cx - 7, cy - 1, cx - 2, cy - 6);
-        ctx.moveTo(cx + 4, cy + 5);
-        ctx.quadraticCurveTo(cx + 7, cy - 1, cx + 2, cy - 6);
+        ctx.arc(screen.x + c.width / 2, sy + c.height / 2, c.width / 2 + 3, angle, angle + Math.PI * 1.5);
         ctx.stroke();
-        ctx.strokeStyle = '#fef3c7';
-        ctx.lineWidth = 1.2;
-        ctx.beginPath();
-        ctx.moveTo(cx - 2, cy - 6);
-        ctx.lineTo(cx + 2, cy - 6);
-        ctx.stroke();
-        break;
-      }
-      case 'bow': {
-        this.drawCollectibleOrb(cx, cy, radius, '#fde047', '#ca8a04');
-        ctx.strokeStyle = '#78350f';
-        ctx.lineWidth = 1.8;
-        ctx.beginPath();
-        ctx.arc(cx - 1, cy, 5.5, Math.PI * 1.55, Math.PI * 0.45);
-        ctx.stroke();
-        ctx.strokeStyle = '#fefce8';
-        ctx.lineWidth = 1.2;
-        ctx.beginPath();
-        ctx.moveTo(cx + 3.8, cy - 5);
-        ctx.lineTo(cx + 3.8, cy + 5);
-        ctx.stroke();
-        ctx.fillStyle = '#1f2937';
-        ctx.fillRect(cx + 0.8, cy - 1, 6, 2);
-        break;
-      }
-      case 'healingAura': {
-        this.drawCollectibleOrb(cx, cy, radius, '#99f6e4', '#0f766e');
-        ctx.strokeStyle = '#ecfeff';
-        ctx.lineWidth = 1.4;
-        ctx.beginPath();
-        ctx.arc(cx, cy, 6, 0, Math.PI * 2);
-        ctx.arc(cx, cy, 3, 0, Math.PI * 2);
-        ctx.stroke();
-        break;
-      }
-      case 'portal': {
-        const pipeW = c.width;
-        const pipeH = c.height;
-        const px = screen.x;
-        const py = sy;
-        ctx.fillStyle = '#14532d';
-        this.drawRoundedRect(ctx, px, py + 7, pipeW, pipeH - 7, 6);
-        ctx.fill();
-        ctx.fillStyle = '#22c55e';
-        this.drawRoundedRect(ctx, px - 3, py, pipeW + 6, 10, 5);
-        ctx.fill();
-        ctx.strokeStyle = '#052e16';
-        ctx.lineWidth = 1.5;
-        this.drawRoundedRect(ctx, px - 3, py, pipeW + 6, 10, 5);
-        ctx.stroke();
-        ctx.fillStyle = 'rgba(2,6,23,0.6)';
-        this.drawRoundedRect(ctx, px + 5, py + 4, pipeW - 10, 6, 3);
-        ctx.fill();
-        ctx.fillStyle = 'rgba(34,197,94,0.15)';
-        ctx.fillRect(px + 2, py + 12, pipeW - 4, pipeH - 14);
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 12px system-ui';
+        ctx.textAlign = 'center';
+        ctx.fillText('⏳', screen.x + c.width / 2, sy + c.height / 2 + 5);
         break;
       }
     }
     ctx.restore();
-  }
-
-  private drawCollectibleOrb(cx: number, cy: number, radius: number, glowColor: string, baseColor: string): void {
-    const ctx = this.ctx;
-    const grad = ctx.createRadialGradient(cx - radius * 0.35, cy - radius * 0.4, 1, cx, cy, radius);
-    grad.addColorStop(0, glowColor);
-    grad.addColorStop(1, baseColor);
-    ctx.fillStyle = grad;
-    ctx.beginPath();
-    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.strokeStyle = 'rgba(15,23,42,0.45)';
-    ctx.lineWidth = 1;
-    ctx.stroke();
-
-    ctx.fillStyle = 'rgba(255,255,255,0.28)';
-    ctx.beginPath();
-    ctx.arc(cx - radius * 0.35, cy - radius * 0.35, radius * 0.32, 0, Math.PI * 2);
-    ctx.fill();
   }
 
   /** Clear the terrain cache */

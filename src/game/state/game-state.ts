@@ -25,6 +25,9 @@ export interface GameStats {
   biome: string;
   fps: number;
   powerUps: string[];
+  comboCount?: number;
+  comboMultiplier?: number;
+  dayPhase?: 'dawn' | 'day' | 'dusk' | 'night';
 }
 
 export interface GameCallbacks {

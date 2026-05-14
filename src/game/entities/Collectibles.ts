@@ -2,19 +2,7 @@
  * Collectible types: coins, health, speed boost, double jump
  */
 
-import type { EnemyType } from './Enemy';
-
-export type CollectibleType =
-  | 'coin'
-  | 'health'
-  | 'speedBoost'
-  | 'doubleJump'
-  | 'shield'
-  | 'magnet'
-  | 'slingshot'
-  | 'bow'
-  | 'healingAura'
-  | 'portal';
+export type CollectibleType = 'coin' | 'health' | 'speedBoost' | 'doubleJump' | 'shield' | 'magnet' | 'invincibility' | 'timeSlow';
 
 export interface Collectible {
   x: number;
@@ -26,35 +14,7 @@ export interface Collectible {
   collected: boolean;
   animTimer: number;
   value: number; // score value for coins, duration for boosts
-  portalTargetX?: number;
-  portalFlavor?: 'bunker' | 'shortcut';
 }
-
-const ENEMY_HEIGHTS: Record<string, number> = {
-  slime: 24,
-  beetle: 16,
-  wisp: 18,
-  bat: 20,
-  mite: 18,
-  jumper: 28,
-  skeleton: 44,
-  alien: 34,
-  ufo: 28,
-  boss: 64,
-};
-
-const ENEMY_WIDTHS: Record<string, number> = {
-  slime: 28,
-  beetle: 22,
-  wisp: 18,
-  bat: 28,
-  mite: 20,
-  jumper: 24,
-  skeleton: 28,
-  alien: 26,
-  ufo: 58,
-  boss: 56,
-};
 
 /** Create a collectible */
 export function createCollectible(
@@ -67,10 +27,8 @@ export function createCollectible(
     doubleJump: { w: 20, h: 20, value: 10 },
     shield: { w: 20, h: 20, value: 1 },
     magnet: { w: 20, h: 20, value: 8 },
-    slingshot: { w: 20, h: 20, value: 10 },
-    bow: { w: 20, h: 20, value: 12 },
-    healingAura: { w: 20, h: 20, value: 9 },
-    portal: { w: 34, h: 48, value: 1 },
+    invincibility: { w: 22, h: 22, value: 5 },
+    timeSlow: { w: 22, h: 22, value: 4 },
   };
   const s = sizes[type];
   return { x, y, width: s.w, height: s.h, type, chunkId, collected: false, animTimer: 0, value: s.value };
@@ -84,7 +42,6 @@ export function spawnCollectiblesForChunk(
   platforms: { x: number; y: number; width: number }[],
   rng: (seed: number) => number,
   terrainHeights?: number[],
-  progressionLevel: number = Math.max(0, Math.floor(chunkX / 2400)),
 ): Collectible[] {
   const collectibles: Collectible[] = [];
   // Simple seeded RNG based on chunk
@@ -96,14 +53,13 @@ export function spawnCollectiblesForChunk(
     // Determine type
     const typeRoll = rng(base + g * 10 + 3);
     let type: CollectibleType = 'coin';
-    if (typeRoll > 0.97 && progressionLevel >= 3) type = 'healingAura';
-    else if (typeRoll > 0.95 && progressionLevel >= 2) type = 'bow';
-    else if (typeRoll > 0.92 && progressionLevel >= 1) type = 'slingshot';
-    else if (typeRoll > 0.88) type = 'shield';
-    else if (typeRoll > 0.83) type = 'magnet';
-    else if (typeRoll > 0.78) type = 'health';
-    else if (typeRoll > 0.73) type = 'speedBoost';
-    else if (typeRoll > 0.68) type = 'doubleJump';
+    if (typeRoll > 0.96) type = 'invincibility';
+    else if (typeRoll > 0.93) type = 'timeSlow';
+    else if (typeRoll > 0.89) type = 'shield';
+    else if (typeRoll > 0.85) type = 'magnet';
+    else if (typeRoll > 0.81) type = 'health';
+    else if (typeRoll > 0.77) type = 'speedBoost';
+    else if (typeRoll > 0.73) type = 'doubleJump';
 
     const count = type === 'coin' ? 3 + Math.floor(rng(base + g * 10 + 4) * 4) : 1;
 
@@ -132,18 +88,6 @@ export function spawnCollectiblesForChunk(
     }
   }
 
-  // Pipe-like portals for bunker shortcuts.
-  if (progressionLevel >= 1 && terrainHeights && terrainHeights.length > 0 && rng(base + 904) > 0.82) {
-    const localX = 80 + rng(base + 905) * (chunkWidth - 160);
-    const heightIdx = Math.min(Math.floor(localX / 4), terrainHeights.length - 1);
-    const groundY = terrainHeights[Math.max(heightIdx, 0)];
-    const portal = createCollectible(chunkX + localX, groundY - 44, 'portal', chunkId);
-    const jumpAhead = 520 + Math.floor(rng(base + 906) * 620);
-    portal.portalTargetX = chunkX + localX + jumpAhead;
-    portal.portalFlavor = rng(base + 907) > 0.5 ? 'bunker' : 'shortcut';
-    collectibles.push(portal);
-  }
-
   return collectibles;
 }
 
@@ -157,40 +101,29 @@ export function spawnEnemiesForChunk(
   rng: (seed: number) => number,
   terrainHeights?: number[],
   chunkWorldX?: number,
-  progressionLevel: number = Math.max(0, Math.floor(((chunkWorldX ?? chunkId * 800) / 2500))),
-): { type: EnemyType; x: number; y: number; chunkId: number }[] {
-  const enemies: { type: EnemyType; x: number; y: number; chunkId: number }[] = [];
+): { type: string; x: number; y: number; chunkId: number }[] {
+  const enemies: { type: string; x: number; y: number; chunkId: number }[] = [];
   const base = chunkId * 7777;
-  const count = 2 + Math.floor(rng(base + 100) * 4) + Math.min(3, Math.floor(progressionLevel / 2));
-  const enemyPool: EnemyType[] = ['slime', 'beetle'];
-  if (progressionLevel >= 1) enemyPool.push('wisp');
-  if (progressionLevel >= 1) enemyPool.push('jumper');
-  if (progressionLevel >= 2) enemyPool.push('skeleton');
-  if (progressionLevel >= 2) enemyPool.push('mite');
-  if (progressionLevel >= 3) enemyPool.push('alien');
-  if (progressionLevel >= 3) enemyPool.push('bat');
-  if (progressionLevel >= 4) enemyPool.push('ufo');
-  const advancedPool = enemyPool.filter((t) => t !== 'slime' && t !== 'beetle');
+  const count = 2 + Math.floor(rng(base + 100) * 4);
 
   for (let i = 0; i < count; i++) {
-    let type: EnemyType;
-    if (i === 0 && progressionLevel >= 1 && advancedPool.length > 0) {
-      const advancedRoll = rng(base + 990 + progressionLevel * 17);
-      type = advancedPool[Math.min(advancedPool.length - 1, Math.floor(advancedRoll * advancedPool.length))];
-    } else {
-      const roll = rng(base + i * 20 + 102);
-      type = enemyPool[Math.min(enemyPool.length - 1, Math.floor(roll * enemyPool.length))];
-    }
+    const roll = rng(base + i * 20 + 102);
+
+    let type: string;
+    if (roll < 0.35) type = 'slime';
+    else if (roll < 0.55) type = 'bat';
+    else if (roll < 0.75) type = 'jumper';
+    else type = 'skeleton';
 
     // Place on platform if available and enemy type benefits from it
-    if (platforms.length > 0 && (type === 'bat' || type === 'wisp' || type === 'ufo' || rng(base + i * 20 + 104) < 0.3)) {
+    if (platforms.length > 0 && (type === 'bat' || rng(base + i * 20 + 104) < 0.3)) {
       const platIdx = Math.floor(rng(base + i * 20 + 101) * platforms.length);
       if (platIdx < platforms.length) {
         const plat = platforms[platIdx];
         enemies.push({
           type,
-          x: plat.x + rng(base + i * 20 + 103) * Math.max(1, plat.width - (ENEMY_WIDTHS[type] ?? 28)),
-          y: type === 'ufo' ? plat.y - 140 : type === 'wisp' ? plat.y - 72 : plat.y - (ENEMY_HEIGHTS[type] ?? 30),
+          x: plat.x + rng(base + i * 20 + 103) * plat.width,
+          y: plat.y - 30,
           chunkId,
         });
         continue;
@@ -208,7 +141,7 @@ export function spawnEnemiesForChunk(
       enemies.push({
         type,
         x: chunkWorldX + x,
-        y: type === 'ufo' ? groundY - 165 : type === 'wisp' ? groundY - 95 : groundY - (ENEMY_HEIGHTS[type] ?? 30),
+        y: groundY - 30,
         chunkId,
       });
     }
@@ -222,7 +155,7 @@ export function spawnEnemiesForChunk(
       enemies.push({
         type: 'boss',
         x: plat.x + plat.width / 2 - 28,
-        y: plat.y - ENEMY_HEIGHTS.boss,
+        y: plat.y - 70,
         chunkId,
       });
     } else if (terrainHeights && terrainHeights.length > 0 && chunkWorldX !== undefined) {
@@ -231,7 +164,7 @@ export function spawnEnemiesForChunk(
       enemies.push({
         type: 'boss',
         x: chunkWorldX + CHUNK_WIDTH / 2 - 28,
-        y: terrainHeights[midIdx] - ENEMY_HEIGHTS.boss,
+        y: terrainHeights[midIdx] - 70,
         chunkId,
       });
     }

@@ -14,6 +14,7 @@ export interface CharacterDef {
   maxHealth: number;
   width: number;
   height: number;
+  defaultWeapon: string; // weapon ID from weapons.ts
 }
 
 export const CHARACTERS: CharacterDef[] = [
@@ -29,6 +30,7 @@ export const CHARACTERS: CharacterDef[] = [
     maxHealth: 2,
     width: 24,
     height: 32,
+    defaultWeapon: 'broadsword',
   },
   {
     id: 'ninja',
@@ -42,6 +44,7 @@ export const CHARACTERS: CharacterDef[] = [
     maxHealth: 2,
     width: 20,
     height: 30,
+    defaultWeapon: 'shuriken',
   },
   {
     id: 'tank',
@@ -55,6 +58,7 @@ export const CHARACTERS: CharacterDef[] = [
     maxHealth: 2,
     width: 28,
     height: 36,
+    defaultWeapon: 'shield_bash',
   },
   {
     id: 'mage',
@@ -68,6 +72,7 @@ export const CHARACTERS: CharacterDef[] = [
     maxHealth: 2,
     width: 22,
     height: 34,
+    defaultWeapon: 'magic_bolt',
   },
   {
     id: 'ranger',
