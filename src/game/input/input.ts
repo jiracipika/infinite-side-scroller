@@ -9,6 +9,7 @@ export type KeyState = 'up' | 'down' | 'pressed';
 export interface InputOptions {
   channel?: string;
   enableKeyboard?: boolean;
+  keyboardScheme?: 'all' | 'wasd' | 'arrows';
 }
 
 export class InputManager {
@@ -28,10 +29,12 @@ export class InputManager {
   private handleGameInput: ((e: CustomEvent) => void) | null = null;
   private readonly inputChannel: string;
   private readonly keyboardEnabled: boolean;
+  private readonly keyboardScheme: 'all' | 'wasd' | 'arrows';
 
   constructor(options: InputOptions = {}) {
     this.inputChannel = options.channel ?? 'game-input';
     this.keyboardEnabled = options.enableKeyboard ?? true;
+    this.keyboardScheme = options.keyboardScheme ?? 'all';
 
     if (typeof window !== 'undefined') {
       if (this.keyboardEnabled) {
@@ -80,6 +83,7 @@ export class InputManager {
   }
 
   private onKeyDown = (e: KeyboardEvent): void => {
+    if (!this.acceptsKey(e.code)) return;
     this.keys.add(e.code);
     if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) {
       e.preventDefault();
@@ -90,9 +94,17 @@ export class InputManager {
     this.keys.delete(e.code);
   };
 
+  private acceptsKey(code: string): boolean {
+    if (this.keyboardScheme === 'all') return true;
+    if (this.keyboardScheme === 'wasd') {
+      return ['KeyA', 'KeyD', 'KeyW', 'KeyE', 'KeyQ', 'KeyF'].includes(code);
+    }
+    return ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'KeyJ', 'KeyK', 'ShiftRight'].includes(code);
+  }
+
   /** Check if a key or virtual button is currently held down */
   isDown(code: string): boolean {
-    if (this.keys.has(code)) return true;
+    if (this.acceptsKey(code) && this.keys.has(code)) return true;
     // Map touch controls to key codes
     if (code === 'ArrowLeft' || code === 'KeyA') return this.touchLeft;
     if (code === 'ArrowRight' || code === 'KeyD') return this.touchRight;
@@ -101,7 +113,17 @@ export class InputManager {
 
   /** Check if a key or virtual button was just pressed this frame */
   isPressed(code: string): boolean {
-    if (this.keys.has(code) && !this.prevKeys.has(code)) return true;
+    if (this.acceptsKey(code) && this.keys.has(code) && !this.prevKeys.has(code)) return true;
+    if (code === 'KeyX') {
+      if (this.acceptsKey('KeyQ') && this.keys.has('KeyQ') && !this.prevKeys.has('KeyQ')) return true;
+      if (this.acceptsKey('KeyK') && this.keys.has('KeyK') && !this.prevKeys.has('KeyK')) return true;
+    }
+    if (code === 'ShiftLeft' && this.acceptsKey('ShiftRight') && this.keys.has('ShiftRight') && !this.prevKeys.has('ShiftRight')) {
+      return true;
+    }
+    if (code === 'KeyZ' && this.acceptsKey('KeyJ') && this.keys.has('KeyJ') && !this.prevKeys.has('KeyJ')) {
+      return true;
+    }
     if ((code === 'Space' || code === 'ArrowUp' || code === 'KeyW') && this.touchJumpPressed) {
       return true;
     }
@@ -116,7 +138,11 @@ export class InputManager {
 
   /** Check if attack is held */
   isAttackDown(): boolean {
-    return this.keys.has('KeyE') || this.keys.has('KeyJ') || this.touchAttack;
+    return (
+      (this.acceptsKey('KeyE') && this.keys.has('KeyE'))
+      || (this.acceptsKey('KeyJ') && this.keys.has('KeyJ'))
+      || this.touchAttack
+    );
   }
 
   /** Call at end of frame to snapshot current key state for next-frame press detection */
@@ -142,16 +168,21 @@ export class InputManager {
 
   /** Build a compact input command for multiplayer sequencing/reconciliation. */
   buildNetInputCommand(seq: number, clientTime: number, dtMs: number): NetInputCommand {
-    const moveX: -1 | 0 | 1 = this.isDown('ArrowLeft')
+    const moveX: -1 | 0 | 1 = (this.isDown('ArrowLeft') || this.isDown('KeyA'))
       ? -1
-      : this.isDown('ArrowRight')
+      : (this.isDown('ArrowRight') || this.isDown('KeyD'))
         ? 1
         : 0;
 
     const jumpPressed = this.isDown('Space') || this.isDown('ArrowUp') || this.isDown('KeyW') || this.touchJump;
     const attackPressed = this.isAttackDown();
-    const dashPressed = this.keys.has('KeyX') || this.keys.has('ShiftLeft') || this.touchDash;
-    const carryPressed = this.keys.has('KeyF');
+    const dashPressed = (
+      (this.acceptsKey('KeyQ') && this.keys.has('KeyQ'))
+      || (this.acceptsKey('KeyK') && this.keys.has('KeyK'))
+      || (this.acceptsKey('ShiftRight') && this.keys.has('ShiftRight'))
+      || this.touchDash
+    );
+    const carryPressed = this.acceptsKey('KeyF') && this.keys.has('KeyF');
 
     return {
       seq,
