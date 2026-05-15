@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState, type FC } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FC, type RefObject } from 'react';
 import { GameEngine } from '@/game';
 import TouchControls from './TouchControls';
 import { loadSelectedCharacter } from '@/game/data/characters';
@@ -29,6 +29,8 @@ const SplitScreenMode: FC<Props> = ({ seed, onExit }) => {
   const bottomGameRef = useRef<GameEngine | null>(null);
 
   const [viewport, setViewport] = useState({ width: 390, height: 844 });
+  const [viewportReady, setViewportReady] = useState(false);
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
   const [topStats, setTopStats] = useState<LocalStats>({ score: 0, distance: 0, health: 3, maxHealth: 3 });
   const [bottomStats, setBottomStats] = useState<LocalStats>({ score: 0, distance: 0, health: 3, maxHealth: 3 });
   const [topDead, setTopDead] = useState(false);
@@ -37,10 +39,18 @@ const SplitScreenMode: FC<Props> = ({ seed, onExit }) => {
   const selected = loadSelectedCharacter();
   const altCharacter = useMemo(() => (selected === 'ninja' ? 'ranger' : 'ninja'), [selected]);
 
-  const paneSize = useMemo(() => {
+  const isDesktopLayout = viewportReady && !isTouchDevice && viewport.width >= 780;
+
+  const mobilePaneSize = useMemo(() => {
     const safeWidth = Math.max(220, viewport.width - 14);
     const safeHeight = Math.max(220, (viewport.height - DIVIDER_HEIGHT - FRAME_GAP * 2) / 2);
     return Math.floor(Math.min(safeWidth, safeHeight));
+  }, [viewport.height, viewport.width]);
+
+  const desktopPaneSize = useMemo(() => {
+    const width = Math.floor(Math.min(820, Math.max(280, (viewport.width - 128) / 2)));
+    const height = Math.floor(Math.min(540, Math.max(260, viewport.height - 96), width * 0.66));
+    return { width, height };
   }, [viewport.height, viewport.width]);
 
   const restartBoth = useCallback(() => {
@@ -58,10 +68,13 @@ const SplitScreenMode: FC<Props> = ({ seed, onExit }) => {
 
   useEffect(() => {
     const onResize = () => {
+      const touch = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
       setViewport({
         width: window.innerWidth,
         height: window.innerHeight,
       });
+      setIsTouchDevice(touch);
+      setViewportReady(true);
     };
     onResize();
     window.addEventListener('resize', onResize);
@@ -71,15 +84,23 @@ const SplitScreenMode: FC<Props> = ({ seed, onExit }) => {
   useEffect(() => {
     const topCanvas = topCanvasRef.current;
     const bottomCanvas = bottomCanvasRef.current;
-    if (!topCanvas || !bottomCanvas) return;
+    if (!viewportReady || !topCanvas || !bottomCanvas) return;
 
     const worldSeed = Number.isFinite(seed) ? Number(seed) : Math.floor(Math.random() * 999999);
     const topGame = new GameEngine(topCanvas, worldSeed, selected, {
-      input: { channel: 'game-input-top', enableKeyboard: false },
+      input: {
+        channel: 'game-input-top',
+        enableKeyboard: !isTouchDevice,
+        keyboardScheme: 'wasd',
+      },
       cameraMode: 'split',
     });
     const bottomGame = new GameEngine(bottomCanvas, worldSeed, altCharacter, {
-      input: { channel: 'game-input-bottom', enableKeyboard: false },
+      input: {
+        channel: 'game-input-bottom',
+        enableKeyboard: !isTouchDevice,
+        keyboardScheme: 'arrows',
+      },
       cameraMode: 'split',
     });
     topGameRef.current = topGame;
@@ -148,40 +169,74 @@ const SplitScreenMode: FC<Props> = ({ seed, onExit }) => {
       topGameRef.current = null;
       bottomGameRef.current = null;
     };
-  }, [altCharacter, seed, selected]);
+  }, [altCharacter, isTouchDevice, seed, selected, viewportReady]);
+
+  if (isDesktopLayout) {
+    return (
+      <div className="absolute inset-0 z-40 bg-[#030712] flex items-center justify-center overflow-hidden">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 18, padding: 18, width: '100%' }}>
+          <SplitPane
+            canvasRef={topCanvasRef}
+            label="WASD Player"
+            stats={topStats}
+            dead={topDead}
+            onRestart={restartBoth}
+            width={desktopPaneSize.width}
+            height={desktopPaneSize.height}
+          />
+
+          <div
+            style={{
+              width: 84,
+              minHeight: desktopPaneSize.height,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'stretch',
+              justifyContent: 'center',
+              gap: 10,
+            }}
+          >
+            <button className="ios-btn-gray" style={{ height: 42, fontSize: 13 }} onClick={onExit}>
+              Exit
+            </button>
+            <button className="ios-btn-primary" style={{ height: 42, fontSize: 13 }} onClick={restartBoth}>
+              Restart
+            </button>
+            <KeyboardLegend title="Left" keys="W A S D / E / Q" />
+            <KeyboardLegend title="Right" keys="Arrows / J / K" />
+          </div>
+
+          <SplitPane
+            canvasRef={bottomCanvasRef}
+            label="Arrow Player"
+            stats={bottomStats}
+            dead={bottomDead}
+            onRestart={restartBoth}
+            width={desktopPaneSize.width}
+            height={desktopPaneSize.height}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="absolute inset-0 z-40 bg-[#030712] flex flex-col items-center justify-center overflow-hidden">
-      <div
-        style={{
-          width: paneSize,
-          height: paneSize,
-          position: 'relative',
-          borderRadius: 14,
-          overflow: 'hidden',
-          boxShadow: '0 12px 32px rgba(0,0,0,0.5)',
-          border: '1px solid rgba(148,163,184,0.26)',
-          background: '#000',
-        }}
-      >
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            transform: 'rotate(180deg)',
-            transformOrigin: 'center center',
-          }}
-        >
-          <canvas ref={topCanvasRef} className="absolute inset-0 w-full h-full" />
-          <TouchControls channel="game-input-top" compact />
-          <SplitHud label="Top Player" stats={topStats} />
-          {topDead && <PaneDeadOverlay onRestart={restartBoth} />}
-        </div>
-      </div>
+      <SplitPane
+        canvasRef={topCanvasRef}
+        label="Top Player"
+        stats={topStats}
+        dead={topDead}
+        onRestart={restartBoth}
+        width={mobilePaneSize}
+        height={mobilePaneSize}
+        rotated
+        touchChannel="game-input-top"
+      />
 
       <div
         style={{
-          width: paneSize,
+          width: mobilePaneSize,
           height: DIVIDER_HEIGHT,
           margin: `${FRAME_GAP}px 0`,
           display: 'flex',
@@ -204,28 +259,81 @@ const SplitScreenMode: FC<Props> = ({ seed, onExit }) => {
         </button>
       </div>
 
-      <div
-        style={{
-          width: paneSize,
-          height: paneSize,
-          position: 'relative',
-          borderRadius: 14,
-          overflow: 'hidden',
-          boxShadow: '0 12px 32px rgba(0,0,0,0.5)',
-          border: '1px solid rgba(148,163,184,0.26)',
-          background: '#000',
-        }}
-      >
-        <canvas ref={bottomCanvasRef} className="absolute inset-0 w-full h-full" />
-        <TouchControls channel="game-input-bottom" compact />
-        <SplitHud label="Bottom Player" stats={bottomStats} />
-        {bottomDead && <PaneDeadOverlay onRestart={restartBoth} />}
-      </div>
+      <SplitPane
+        canvasRef={bottomCanvasRef}
+        label="Bottom Player"
+        stats={bottomStats}
+        dead={bottomDead}
+        onRestart={restartBoth}
+        width={mobilePaneSize}
+        height={mobilePaneSize}
+        touchChannel="game-input-bottom"
+      />
     </div>
   );
 };
 
 export default SplitScreenMode;
+
+const SplitPane: FC<{
+  canvasRef: RefObject<HTMLCanvasElement>;
+  label: string;
+  stats: LocalStats;
+  dead: boolean;
+  onRestart: () => void;
+  width: number;
+  height: number;
+  rotated?: boolean;
+  touchChannel?: string;
+}> = ({ canvasRef, label, stats, dead, onRestart, width, height, rotated = false, touchChannel }) => (
+  <div
+    style={{
+      width,
+      height,
+      position: 'relative',
+      borderRadius: 14,
+      overflow: 'hidden',
+      boxShadow: '0 12px 32px rgba(0,0,0,0.5)',
+      border: '1px solid rgba(148,163,184,0.26)',
+      background: '#000',
+      flexShrink: 0,
+    }}
+  >
+    <div
+      style={{
+        position: 'absolute',
+        inset: 0,
+        transform: rotated ? 'rotate(180deg)' : 'none',
+        transformOrigin: 'center center',
+      }}
+    >
+      <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />
+      {touchChannel && <TouchControls channel={touchChannel} compact />}
+      <SplitHud label={label} stats={stats} />
+      {dead && <PaneDeadOverlay onRestart={onRestart} />}
+    </div>
+  </div>
+);
+
+const KeyboardLegend: FC<{ title: string; keys: string }> = ({ title, keys }) => (
+  <div
+    style={{
+      borderRadius: 8,
+      border: '1px solid rgba(148,163,184,0.25)',
+      background: 'rgba(15,23,42,0.72)',
+      padding: '8px 7px',
+      color: '#e2e8f0',
+      textAlign: 'center',
+    }}
+  >
+    <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', opacity: 0.82 }}>
+      {title}
+    </div>
+    <div style={{ marginTop: 4, fontSize: 10, lineHeight: 1.25, opacity: 0.7 }}>
+      {keys}
+    </div>
+  </div>
+);
 
 const SplitHud: FC<{ label: string; stats: LocalStats }> = ({ label, stats }) => {
   const hearts = Array.from({ length: stats.maxHealth }, (_, i) => i < stats.health);
