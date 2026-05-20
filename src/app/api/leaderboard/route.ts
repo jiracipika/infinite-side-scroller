@@ -35,6 +35,9 @@ interface RunTokenPayload {
 interface LeaderboardStore {
   entries: Entry[];
   replays: Record<string, Array<{ distance: number; x: number; y: number }>>;
+  usedTokenDigests: Record<string, number>;
+  issueRateByIp: Record<string, number[]>;
+  submitRateByIp: Record<string, number[]>;
 }
 
 declare global {
@@ -45,11 +48,19 @@ declare global {
 }
 
 const MAX_ENTRIES = 600;
+const MAX_ENTRIES_PER_SEASON = 220;
+const MAX_SEASONS_STORED = 8;
 const MAX_SCORE_PER_SECOND = 2400;
 const MAX_SPEED_PX_PER_SEC = 1200;
 const MAX_REPLAY_POINTS = 1600;
+const MAX_SCORE = 20_000_000;
+const MAX_DISTANCE = 2_000_000;
+const MAX_COINS = 250_000;
 const SEASON_LENGTH_DAYS = Math.max(7, Number(process.env.LEADERBOARD_SEASON_DAYS ?? 30) || 30);
 const SEASON_ANCHOR_UTC = Date.UTC(2026, 0, 1, 0, 0, 0, 0);
+const RATE_WINDOW_MS = 60_000;
+const MAX_ISSUE_TOKEN_PER_MINUTE = 45;
+const MAX_SUBMIT_PER_MINUTE = 75;
 const AVATAR_IDS = new Set([
   'robot_blue',
   'knight',
@@ -69,9 +80,33 @@ function json(data: unknown, status: number = 200): NextResponse {
 
 function getStore(): LeaderboardStore {
   if (!global.__issLeaderboardStore) {
-    global.__issLeaderboardStore = { entries: [], replays: {} };
+    global.__issLeaderboardStore = {
+      entries: [],
+      replays: {},
+      usedTokenDigests: {},
+      issueRateByIp: {},
+      submitRateByIp: {},
+    };
   }
   return global.__issLeaderboardStore;
+}
+
+function getClientIp(request: NextRequest): string {
+  const viaForwarded = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
+  const viaRealIp = request.headers.get('x-real-ip')?.trim();
+  const raw = viaForwarded || viaRealIp || 'local';
+  return raw.slice(0, 64);
+}
+
+function checkRateLimit(buckets: Record<string, number[]>, key: string, limit: number, now: number): boolean {
+  const next = (buckets[key] ?? []).filter((ts) => now - ts <= RATE_WINDOW_MS);
+  if (next.length >= limit) {
+    buckets[key] = next;
+    return false;
+  }
+  next.push(now);
+  buckets[key] = next;
+  return true;
 }
 
 function getSecret(): string {
@@ -91,6 +126,13 @@ function scopeKey(scope: BoardScope, createdAt: number): string {
     return copy.toISOString().slice(0, 10);
   }
   return 'all';
+}
+
+function seasonIndexFromId(seasonId: string): number | null {
+  const match = /^S(\d+)$/.exec(seasonId);
+  if (!match) return null;
+  const parsed = Number(match[1]);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed - 1 : null;
 }
 
 function sanitizeName(name: unknown): string {
@@ -115,6 +157,22 @@ function getSeasonMeta(ts: number = Date.now()): { id: string; label: string; st
   return {
     id,
     label: `${id} • ${startDate}`,
+    startedAt,
+    endsAt,
+  };
+}
+
+function getSeasonMetaFromId(seasonId: string): { id: string; label: string; startedAt: number; endsAt: number } | null {
+  const index = seasonIndexFromId(seasonId);
+  if (index === null) return null;
+  const msPerDay = 24 * 60 * 60 * 1000;
+  const seasonLengthMs = SEASON_LENGTH_DAYS * msPerDay;
+  const startedAt = SEASON_ANCHOR_UTC + index * seasonLengthMs;
+  const endsAt = startedAt + seasonLengthMs;
+  const startDate = new Date(startedAt).toISOString().slice(0, 10);
+  return {
+    id: `S${index + 1}`,
+    label: `S${index + 1} • ${startDate}`,
     startedAt,
     endsAt,
   };
@@ -200,6 +258,10 @@ function sortEntries(entries: Entry[]): Entry[] {
   });
 }
 
+function tokenDigest(token: string): string {
+  return crypto.createHash('sha1').update(token).digest('hex');
+}
+
 function badgeForRank(rank: number): string {
   if (rank === 1) return 'Legend';
   if (rank <= 3) return 'Diamond';
@@ -213,6 +275,58 @@ function withBadges(entries: Entry[]): Entry[] {
     ...entry,
     badge: badgeForRank(idx + 1),
   }));
+}
+
+function withUniqueDisplayNames(entries: Entry[]): Entry[] {
+  const counts = new Map<string, number>();
+  return entries.map((entry) => {
+    const key = entry.name.trim().toLowerCase();
+    const next = (counts.get(key) ?? 0) + 1;
+    counts.set(key, next);
+    if (next <= 1) return entry;
+    return { ...entry, name: `${entry.name} #${next}` };
+  });
+}
+
+function pruneStore(store: LeaderboardStore, now: number): void {
+  const currentSeason = getSeasonMeta(now).id;
+  const seasonIds = Array.from(new Set(store.entries.map((entry) => entry.seasonId)))
+    .sort((a, b) => (seasonIndexFromId(b) ?? 0) - (seasonIndexFromId(a) ?? 0))
+    .slice(0, MAX_SEASONS_STORED);
+
+  if (!seasonIds.includes(currentSeason)) {
+    seasonIds.unshift(currentSeason);
+  }
+
+  const kept: Entry[] = [];
+  for (const seasonId of seasonIds) {
+    const budget = seasonId === currentSeason ? MAX_ENTRIES_PER_SEASON : Math.floor(MAX_ENTRIES_PER_SEASON * 0.75);
+    const top = sortEntries(store.entries.filter((entry) => entry.seasonId === seasonId)).slice(0, budget);
+    kept.push(...top);
+  }
+
+  const hardCap = sortEntries(kept).slice(0, MAX_ENTRIES);
+  const keepIds = new Set(hardCap.map((entry) => entry.id));
+  store.entries = hardCap;
+  for (const replayId of Object.keys(store.replays)) {
+    if (!keepIds.has(replayId)) delete store.replays[replayId];
+  }
+
+  const tokenCutoff = now - (3 * 24 * 60 * 60_000);
+  for (const [digest, usedAt] of Object.entries(store.usedTokenDigests)) {
+    if (usedAt < tokenCutoff) delete store.usedTokenDigests[digest];
+  }
+
+  for (const [ip, stamps] of Object.entries(store.issueRateByIp)) {
+    const fresh = stamps.filter((ts) => now - ts <= RATE_WINDOW_MS);
+    if (fresh.length === 0) delete store.issueRateByIp[ip];
+    else store.issueRateByIp[ip] = fresh;
+  }
+  for (const [ip, stamps] of Object.entries(store.submitRateByIp)) {
+    const fresh = stamps.filter((ts) => now - ts <= RATE_WINDOW_MS);
+    if (fresh.length === 0) delete store.submitRateByIp[ip];
+    else store.submitRateByIp[ip] = fresh;
+  }
 }
 
 function validateRun(params: {
@@ -229,6 +343,9 @@ function validateRun(params: {
   if (tokenPayload.seed !== seed) return { ok: false, reason: 'seed mismatch' };
   if (submittedAt > tokenPayload.expiresAt + 30_000) return { ok: false, reason: 'token expired' };
   if (submittedAt < tokenPayload.issuedAt - 10_000) return { ok: false, reason: 'bad timestamp' };
+  if (score > MAX_SCORE || distance > MAX_DISTANCE || coins > MAX_COINS) {
+    return { ok: false, reason: 'value out of range' };
+  }
 
   const elapsedSec = Math.max(5, Math.min(7200, (submittedAt - tokenPayload.issuedAt) / 1000));
   if (distance > elapsedSec * MAX_SPEED_PX_PER_SEC) return { ok: false, reason: 'distance too high' };
@@ -238,9 +355,11 @@ function validateRun(params: {
 }
 
 export async function GET(request: NextRequest) {
+  const store = getStore();
+  pruneStore(store, Date.now());
+
   const replayEntryId = request.nextUrl.searchParams.get('replay');
   if (replayEntryId) {
-    const store = getStore();
     const entry = store.entries.find((item) => item.id === replayEntryId);
     if (!entry) return json({ error: 'replay not found' }, 404);
     const replayPath = store.replays[entry.id] ?? [];
@@ -251,28 +370,40 @@ export async function GET(request: NextRequest) {
   const scopeParam = request.nextUrl.searchParams.get('scope') ?? 'global';
   const scope: BoardScope = scopeParam === 'daily' || scopeParam === 'weekly' ? scopeParam : 'global';
   const now = Date.now();
+  const requestedSeasonId = (request.nextUrl.searchParams.get('season') ?? '').toUpperCase().trim();
+  const requestedSeason = getSeasonMetaFromId(requestedSeasonId);
   const key = scopeKey(scope, now);
   const limit = Math.max(1, Math.min(50, Number(request.nextUrl.searchParams.get('limit') ?? 20) || 20));
-  const season = getSeasonMeta(now);
+  const season = requestedSeason ?? getSeasonMeta(now);
 
-  const store = getStore();
   const seasonScoped = store.entries.filter((entry) => entry.seasonId === season.id);
-  const entries = withBadges(sortEntries(
+  const entries = withUniqueDisplayNames(withBadges(sortEntries(
     seasonScoped.filter((entry) => {
       if (scope === 'global') return true;
       return scopeKey(scope, entry.createdAt) === key;
     }),
-  )).slice(0, limit);
+  ))).slice(0, limit);
+
+  const availableSeasons = Array.from(new Set(store.entries.map((entry) => entry.seasonId)))
+    .map((seasonId) => getSeasonMetaFromId(seasonId))
+    .filter((meta): meta is NonNullable<typeof meta> => !!meta)
+    .sort((a, b) => b.startedAt - a.startedAt)
+    .slice(0, MAX_SEASONS_STORED);
 
   return json({
     scope,
     key,
     season,
+    availableSeasons,
     entries,
   });
 }
 
 export async function POST(request: NextRequest) {
+  const now = Date.now();
+  const store = getStore();
+  const ip = getClientIp(request);
+
   const body = await request.json().catch(() => null) as null | {
     action?: 'issue-token' | 'submit';
     playerName?: string;
@@ -290,9 +421,13 @@ export async function POST(request: NextRequest) {
   if (!body?.action) return json({ error: 'action required' }, 400);
 
   if (body.action === 'issue-token') {
+    if (!checkRateLimit(store.issueRateByIp, ip, MAX_ISSUE_TOKEN_PER_MINUTE, now)) {
+      return json({ error: 'rate limited: too many token requests' }, 429);
+    }
+
     const mode = body.mode === 'daily' ? 'daily' : 'standard';
     const seed = Number.isFinite(body.seed) ? Math.floor(Number(body.seed)) : Math.floor(Math.random() * 999999);
-    const issuedAt = Date.now();
+    const issuedAt = now;
     const expiresAt = issuedAt + 2 * 60 * 60_000;
     const payload: RunTokenPayload = {
       playerName: sanitizeName(body.playerName ?? 'Player'),
@@ -311,16 +446,22 @@ export async function POST(request: NextRequest) {
   }
 
   if (body.action === 'submit') {
+    if (!checkRateLimit(store.submitRateByIp, ip, MAX_SUBMIT_PER_MINUTE, now)) {
+      return json({ error: 'rate limited: too many submissions' }, 429);
+    }
+
     const token = typeof body.token === 'string' ? body.token : '';
     const payload = decodeToken(token);
     if (!payload) return json({ error: 'invalid token' }, 401);
+    const digest = tokenDigest(token);
+    if (store.usedTokenDigests[digest]) return json({ error: 'run token already used' }, 409);
 
     const mode = body.mode === 'daily' ? 'daily' : 'standard';
     const seed = Number.isFinite(body.seed) ? Math.floor(Number(body.seed)) : payload.seed;
     const score = Number.isFinite(body.score) ? Math.max(0, Math.floor(Number(body.score))) : 0;
     const distance = Number.isFinite(body.distance) ? Math.max(0, Math.floor(Number(body.distance))) : 0;
     const coins = Number.isFinite(body.coins) ? Math.max(0, Math.floor(Number(body.coins))) : 0;
-    const submittedAt = Date.now();
+    const submittedAt = now;
 
     const validation = validateRun({
       tokenPayload: payload,
@@ -335,7 +476,6 @@ export async function POST(request: NextRequest) {
       return json({ error: `run rejected: ${validation.reason}` }, 422);
     }
 
-    const store = getStore();
     const season = getSeasonMeta(submittedAt);
     const replayPath = sanitizeReplayPath(body.replayPath);
     const entry: Entry = {
@@ -354,19 +494,11 @@ export async function POST(request: NextRequest) {
       createdAt: submittedAt,
     };
     store.entries.push(entry);
+    store.usedTokenDigests[digest] = submittedAt;
     if (replayPath.length > 0) {
       store.replays[entry.id] = replayPath;
     }
-    if (store.entries.length > MAX_ENTRIES) {
-      const kept = sortEntries(store.entries).slice(0, MAX_ENTRIES);
-      const keepIds = new Set(kept.map((item) => item.id));
-      store.entries = kept;
-      for (const replayId of Object.keys(store.replays)) {
-        if (!keepIds.has(replayId)) {
-          delete store.replays[replayId];
-        }
-      }
-    }
+    pruneStore(store, submittedAt);
 
     return json({ ok: true, entry: { ...entry, badge: 'Bronze' } });
   }
