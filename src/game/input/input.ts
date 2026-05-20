@@ -99,7 +99,7 @@ export class InputManager {
     if (this.keyboardScheme === 'wasd') {
       return ['KeyA', 'KeyD', 'KeyW', 'KeyE', 'KeyQ', 'KeyF'].includes(code);
     }
-    return ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'KeyJ', 'KeyK', 'ShiftRight'].includes(code);
+    return ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'KeyJ', 'KeyK', 'KeyL', 'ShiftRight'].includes(code);
   }
 
   /** Check if a key or virtual button is currently held down */
@@ -123,6 +123,10 @@ export class InputManager {
     }
     if (code === 'KeyZ' && this.acceptsKey('KeyJ') && this.keys.has('KeyJ') && !this.prevKeys.has('KeyJ')) {
       return true;
+    }
+    if (code === 'KeyF') {
+      if (this.acceptsKey('ArrowDown') && this.keys.has('ArrowDown') && !this.prevKeys.has('ArrowDown')) return true;
+      if (this.acceptsKey('KeyL') && this.keys.has('KeyL') && !this.prevKeys.has('KeyL')) return true;
     }
     if ((code === 'Space' || code === 'ArrowUp' || code === 'KeyW') && this.touchJumpPressed) {
       return true;
@@ -183,6 +187,10 @@ export class InputManager {
       || this.touchDash
     );
     const carryPressed = this.acceptsKey('KeyF') && this.keys.has('KeyF');
+    const carryAltPressed = (
+      (this.acceptsKey('ArrowDown') && this.keys.has('ArrowDown'))
+      || (this.acceptsKey('KeyL') && this.keys.has('KeyL'))
+    );
 
     return {
       seq,
@@ -192,7 +200,7 @@ export class InputManager {
       jumpPressed,
       attackPressed,
       dashPressed,
-      carryPressed,
+      carryPressed: carryPressed || carryAltPressed,
     };
   }
 }
