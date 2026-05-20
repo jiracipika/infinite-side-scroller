@@ -75,6 +75,10 @@ export interface NetSyncResponse {
   local: NetPlayerSnapshot;
   inferredPacketLoss: number;
   enemies: NetEnemySnapshot[];
+  enemyVersion: number;
+  enemyChecksum: number;
+  authoritativeDistance: number;
+  encounterChunk: number;
   remote: {
     id: string;
     name: string;
