@@ -157,6 +157,10 @@ const SplitScreenMode: FC<Props> = ({ seed, onExit }) => {
       if (topKills.length > 0) {
         bottomGame.killEnemiesById(topKills);
       }
+      const bottomKills = bottomGame.drainRecentEnemyDefeatIds();
+      if (bottomKills.length > 0) {
+        topGame.killEnemiesById(bottomKills);
+      }
     }, 33);
 
     topGame.start();
@@ -202,8 +206,8 @@ const SplitScreenMode: FC<Props> = ({ seed, onExit }) => {
             <button className="ios-btn-primary" style={{ height: 42, fontSize: 13 }} onClick={restartBoth}>
               Restart
             </button>
-            <KeyboardLegend title="Left" keys="W A S D / E / Q" />
-            <KeyboardLegend title="Right" keys="Arrows / J / K" />
+            <KeyboardLegend title="Left" keys="W A S D / E / Q / F" />
+            <KeyboardLegend title="Right" keys="Arrows / J / K / L" />
           </div>
 
           <SplitPane
