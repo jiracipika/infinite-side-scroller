@@ -24,7 +24,7 @@ export const DEFAULT_CAMERA_CONFIG: CameraConfig = {
   focusX: 0.5,
   horizontalFocusY: 0.52,
   verticalFocusY: 0.54,
-  splitFocusY: 0.56,
+  splitFocusY: 0.6,
   lerpSpeed: 0.14,
 };
 
@@ -94,9 +94,21 @@ export class Camera {
     this.targetX = desired.x;
     this.targetY = desired.y;
 
+    const splitMode = this.config.mode === 'split';
+    const lerpSpeed = splitMode ? Math.max(this.config.lerpSpeed, 0.24) : this.config.lerpSpeed;
+
     // Smooth lerp
-    this.x += (this.targetX - this.x) * this.config.lerpSpeed;
-    this.y += (this.targetY - this.y) * this.config.lerpSpeed;
+    this.x += (this.targetX - this.x) * lerpSpeed;
+    this.y += (this.targetY - this.y) * lerpSpeed;
+
+    // In split-screen, recenter aggressively if we drift too far from the desired track
+    // (e.g. resize/orientation timing or a long frame hitch).
+    if (splitMode) {
+      const maxDriftX = this.screenWidth * 0.62;
+      const maxDriftY = this.screenHeight * 0.58;
+      if (Math.abs(this.targetX - this.x) > maxDriftX) this.x = this.targetX;
+      if (Math.abs(this.targetY - this.y) > maxDriftY) this.y = this.targetY;
+    }
 
     // Don't go above sky
     if (this.y < -200) this.y = -200;
