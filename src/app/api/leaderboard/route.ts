@@ -372,9 +372,12 @@ export async function GET(request: NextRequest) {
   const now = Date.now();
   const requestedSeasonId = (request.nextUrl.searchParams.get('season') ?? '').toUpperCase().trim();
   const requestedSeason = getSeasonMetaFromId(requestedSeasonId);
-  const key = scopeKey(scope, now);
   const limit = Math.max(1, Math.min(50, Number(request.nextUrl.searchParams.get('limit') ?? 20) || 20));
   const season = requestedSeason ?? getSeasonMeta(now);
+  const scopeAnchorTime = requestedSeason
+    ? Math.min(now, Math.max(requestedSeason.startedAt, requestedSeason.endsAt - 1))
+    : now;
+  const key = scopeKey(scope, scopeAnchorTime);
 
   const seasonScoped = store.entries.filter((entry) => entry.seasonId === season.id);
   const entries = withUniqueDisplayNames(withBadges(sortEntries(
