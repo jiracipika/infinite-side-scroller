@@ -111,6 +111,9 @@ interface NetOverlayStats {
   predictionError: number;
   reconciliationCount: number;
   interpolationDelayMs: number;
+  enemyVersion: number;
+  encounterChunk: number;
+  authoritativeDistance: number;
 }
 
 function getDailySeed(dayIso: string): number {
@@ -142,6 +145,9 @@ export default function Home() {
     predictionError: 0,
     reconciliationCount: 0,
     interpolationDelayMs: MP_INTERPOLATION_DELAY_MS,
+    enemyVersion: 0,
+    encounterChunk: 0,
+    authoritativeDistance: 0,
   });
   const pendingCarryIntentRef = useRef<{ targetId: string | null; dropCarry: boolean } | null>(null);
   const inputSeqRef = useRef(0);
@@ -341,6 +347,9 @@ export default function Home() {
       predictionError: 0,
       reconciliationCount: 0,
       interpolationDelayMs: MP_INTERPOLATION_DELAY_MS,
+      enemyVersion: 0,
+      encounterChunk: 0,
+      authoritativeDistance: 0,
     });
     gameRef.current?.setMultiplayerEnabled(false);
     startGame(s);
@@ -446,6 +455,9 @@ export default function Home() {
       predictionError: 0,
       reconciliationCount: 0,
       interpolationDelayMs: MP_INTERPOLATION_DELAY_MS,
+      enemyVersion: 0,
+      encounterChunk: 0,
+      authoritativeDistance: 0,
     });
     gameRef.current?.setMultiplayerEnabled(false);
     startGame(s);
@@ -781,7 +793,10 @@ export default function Home() {
         if (seq < appliedSyncSeqRef.current) return;
         appliedSyncSeqRef.current = seq;
         applyRemotePlayerFromState(result.sync.remote, result.sync.serverTime);
-        game.applyEnemySnapshots(result.sync.enemies);
+        game.applyEnemySnapshots(result.sync.enemies, {
+          version: result.sync.enemyVersion,
+          checksum: result.sync.enemyChecksum,
+        });
         if (result.sync.hostId !== session.hostId) {
           multiplayerSessionRef.current = { ...session, hostId: result.sync.hostId };
           setMultiplayerSession((current) => current && current.roomId === session.roomId
@@ -835,6 +850,9 @@ export default function Home() {
             serverTickRate: result.sync.serverTickRate,
             snapshotRate: result.sync.snapshotRate,
             clientSnapshotRate: quantize(rate, 1),
+            enemyVersion: result.sync.enemyVersion,
+            encounterChunk: result.sync.encounterChunk,
+            authoritativeDistance: result.sync.authoritativeDistance,
           }));
         }
       } catch (error) {
@@ -1007,7 +1025,7 @@ export default function Home() {
           Room {multiplayerSession.roomId}
         </div>
       )}
-      {state === 'playing' && multiplayerSession && (
+      {state === 'playing' && multiplayerSession && settings.showDebug && (
         <div
           className="absolute left-3 z-20 pointer-events-none"
           style={{
@@ -1035,6 +1053,9 @@ export default function Home() {
           <div>Pred Err {netOverlay.predictionError}px</div>
           <div>Reconciles {netOverlay.reconciliationCount}</div>
           <div>Interp {netOverlay.interpolationDelayMs}ms</div>
+          <div>Enemy Ver {netOverlay.enemyVersion}</div>
+          <div>Encounter {netOverlay.encounterChunk}</div>
+          <div>Auth Dist {Math.round(netOverlay.authoritativeDistance)}m</div>
         </div>
       )}
       {state === 'playing' && showHostInvite && hostInviteUrl && (

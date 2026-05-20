@@ -176,6 +176,8 @@ export class GameEngine {
   private remoteCarriedByLocal = false;
   private localCarriedByRemote = false;
   private remoteProjectiles: PlayerProjectileSnapshot[] = [];
+  private lastEnemyVersionApplied = -1;
+  private lastEnemyChecksumApplied = 0;
   private carryHintTimer = 0;
   private playerBounceCooldown = 0;
   private reconcileOffsetX = 0;
@@ -253,6 +255,8 @@ export class GameEngine {
     this.remoteCarriedByLocal = false;
     this.localCarriedByRemote = false;
     this.remoteProjectiles = [];
+    this.lastEnemyVersionApplied = -1;
+    this.lastEnemyChecksumApplied = 0;
     this.carryHintTimer = 0;
     this.playerBounceCooldown = 0;
     this.reconcileOffsetX = 0;
@@ -386,6 +390,8 @@ export class GameEngine {
       this.remoteCarriedByLocal = false;
       this.localCarriedByRemote = false;
       this.remoteProjectiles = [];
+      this.lastEnemyVersionApplied = -1;
+      this.lastEnemyChecksumApplied = 0;
       return;
     }
 
@@ -637,8 +643,28 @@ export class GameEngine {
       }));
   }
 
-  applyEnemySnapshots(snapshots: NetEnemySnapshot[]): void {
+  applyEnemySnapshots(
+    snapshots: NetEnemySnapshot[],
+    options?: { version?: number; checksum?: number },
+  ): void {
     if (!this.multiplayerEnabled || this.multiplayerIsHost) return;
+
+    const version = Number.isFinite(options?.version) ? Math.max(0, Math.floor(options!.version as number)) : null;
+    const checksum = Number.isFinite(options?.checksum) ? Math.max(0, Math.floor(options!.checksum as number)) : null;
+    if (version !== null) {
+      if (version < this.lastEnemyVersionApplied) return;
+      if (version === this.lastEnemyVersionApplied && checksum !== null && checksum === this.lastEnemyChecksumApplied) {
+        return;
+      }
+    }
+
+    if (version !== null && snapshots.length === 0 && version > this.lastEnemyVersionApplied) {
+      this.enemies = [];
+      this.lastEnemyVersionApplied = version;
+      this.lastEnemyChecksumApplied = checksum ?? 0;
+      return;
+    }
+
     const byId = new Map(this.enemies.map((enemy) => [enemy.netId, enemy]));
     const seen = new Set<string>();
     for (const snapshot of snapshots) {
@@ -659,9 +685,9 @@ export class GameEngine {
       enemy.onGround = snapshot.onGround;
     }
 
-    if (snapshots.length > 0) {
-      this.enemies = this.enemies.filter((enemy) => seen.has(enemy.netId));
-    }
+    this.enemies = this.enemies.filter((enemy) => seen.has(enemy.netId));
+    if (version !== null) this.lastEnemyVersionApplied = version;
+    if (checksum !== null) this.lastEnemyChecksumApplied = checksum;
   }
 
   killEnemiesById(ids: string[]): void {
