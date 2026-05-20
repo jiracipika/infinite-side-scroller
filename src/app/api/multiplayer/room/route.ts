@@ -34,6 +34,8 @@ type RoomMap = Map<string, {
   hostId: string;
   players: Map<string, NetPlayerState>;
   enemies: NetEnemySnapshot[];
+  enemyVersion: number;
+  enemyChecksum: number;
   playerMeta: Map<string, ServerPlayerMeta>;
   server: RoomServerState;
   createdAt: number;
@@ -78,6 +80,8 @@ function ensureRoomState(room: NonNullable<ReturnType<RoomMap['get']>>): void {
     }
   }
   if (!Array.isArray(room.enemies)) room.enemies = [];
+  if (!Number.isFinite(room.enemyVersion)) room.enemyVersion = 0;
+  if (!Number.isFinite(room.enemyChecksum)) room.enemyChecksum = 0;
 }
 
 function randomId(length: number): string {
@@ -153,6 +157,34 @@ function sanitizeEnemies(value: unknown): NetEnemySnapshot[] {
       onGround: !!e.onGround,
     };
   }).filter((e) => e.id);
+}
+
+function checksumEnemies(enemies: NetEnemySnapshot[]): number {
+  let hash = 2166136261;
+  const prime = 16777619;
+  for (const enemy of enemies) {
+    hash ^= enemy.id.length;
+    hash = Math.imul(hash, prime);
+    hash ^= enemy.type.length;
+    hash = Math.imul(hash, prime);
+    hash ^= Math.floor(enemy.x * 10);
+    hash = Math.imul(hash, prime);
+    hash ^= Math.floor(enemy.y * 10);
+    hash = Math.imul(hash, prime);
+    hash ^= Math.floor(enemy.vx * 10);
+    hash = Math.imul(hash, prime);
+    hash ^= Math.floor(enemy.vy * 10);
+    hash = Math.imul(hash, prime);
+    hash ^= enemy.health | 0;
+    hash = Math.imul(hash, prime);
+    hash ^= enemy.alive ? 1 : 0;
+    hash = Math.imul(hash, prime);
+    hash ^= enemy.facingRight ? 1 : 0;
+    hash = Math.imul(hash, prime);
+    hash ^= enemy.onGround ? 1 : 0;
+    hash = Math.imul(hash, prime);
+  }
+  return (hash >>> 0);
 }
 
 function roomToResponse(room: ReturnType<RoomMap['get']>): NetRoomState {
@@ -294,7 +326,10 @@ function buildSyncResponse(room: NonNullable<ReturnType<RoomMap['get']>>, localP
     }
   }
   const local = room.players.get(localPlayerId);
+  const host = room.players.get(room.hostId);
   const meta = room.playerMeta.get(localPlayerId);
+  const authoritativeDistance = host?.snapshot.distance ?? Math.max(0, ...Array.from(room.players.values()).map((p) => p.snapshot.distance));
+  const encounterChunk = Math.max(0, Math.floor((host?.snapshot.x ?? (authoritativeDistance * 50)) / 800));
   return {
     roomId: room.id,
     seed: room.seed,
@@ -306,6 +341,10 @@ function buildSyncResponse(room: NonNullable<ReturnType<RoomMap['get']>>, localP
     local: local ? cloneSnapshot(local.snapshot) : sanitizeSnapshot(null, 'knight'),
     inferredPacketLoss: meta?.inferredLoss ?? 0,
     enemies: room.enemies,
+    enemyVersion: room.enemyVersion,
+    enemyChecksum: room.enemyChecksum,
+    authoritativeDistance,
+    encounterChunk,
     remote: remote
       ? {
         id: remote.id,
@@ -467,6 +506,8 @@ export async function POST(request: NextRequest) {
       hostId: pid,
       players: new Map([[pid, local]]),
       enemies: [],
+      enemyVersion: 0,
+      enemyChecksum: 0,
       playerMeta: new Map([[pid, { lastInputSeq: 0, inferredLoss: 0, history: [] }]]),
       server: {
         lastTickAt: now,
@@ -550,7 +591,16 @@ export async function POST(request: NextRequest) {
     applyCarryState(room, player.id, payload.carryTargetId ?? null, !!payload.dropCarry);
     applyCarryPose(room);
     if (player.id === room.hostId && payload.enemies) {
-      room.enemies = sanitizeEnemies(payload.enemies);
+      const nextEnemies = sanitizeEnemies(payload.enemies);
+      const nextChecksum = checksumEnemies(nextEnemies);
+      if (
+        nextEnemies.length !== room.enemies.length
+        || nextChecksum !== room.enemyChecksum
+      ) {
+        room.enemies = nextEnemies;
+        room.enemyChecksum = nextChecksum;
+        room.enemyVersion += 1;
+      }
     }
 
     if (now - room.server.lastSnapshotAt >= (1000 / MP_SNAPSHOT_RATE)) {
