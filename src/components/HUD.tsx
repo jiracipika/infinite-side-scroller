@@ -33,6 +33,24 @@ const HUD: FC<Props> = ({ stats, settings }) => {
     };
   }, [stats.score]);
 
+  // Combo flash animation
+  const prevComboRef = useRef(stats.comboCount ?? 0);
+  const [comboFlash, setComboFlash] = useState(false);
+  const comboTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    const cc = stats.comboCount ?? 0;
+    if (cc > prevComboRef.current) {
+      if (comboTimerRef.current) clearTimeout(comboTimerRef.current);
+      setComboFlash(true);
+      comboTimerRef.current = setTimeout(() => setComboFlash(false), 200);
+    }
+    prevComboRef.current = cc;
+    return () => {
+      if (comboTimerRef.current) clearTimeout(comboTimerRef.current);
+    };
+  }, [stats.comboCount]);
+
   return (
     <>
       {/* Low health vignette — fullscreen pulsing red edge */}

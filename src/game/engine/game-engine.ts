@@ -32,6 +32,7 @@ import { EntityPools } from './entity-pools';
 import type { NetEnemySnapshot, NetInputCommand, NetPlayerSnapshot } from '../multiplayer/types';
 import type { InputOptions } from '../input/input';
 import { DEFAULT_PROGRESSION_BONUSES, type PlayerProgressionBonuses, type RunCheckpoint } from '../../lib/progression';
+import type { LevelConfig } from '../data/levels';
 import {
   MP_INPUT_BUFFER_SIZE,
   MP_INTERPOLATION_DELAY_MS,
@@ -146,7 +147,23 @@ export class GameEngine {
   difficulty = getDifficulty(0);
 
   onGameOver?: () => void;
-  onStatsUpdate?: (stats: { score: number; coins: number; distance: number; health: number; maxHealth: number; biome: string; powerUps: string[]; fps: number }) => void;
+  onLevelComplete?: (result: { score: number; coins: number; distance: number; timeMs: number; enemiesDefeated: number }) => void;
+  onStatsUpdate?: (stats: {
+    score: number;
+    coins: number;
+    distance: number;
+    health: number;
+    maxHealth: number;
+    lives: number;
+    biome: string;
+    powerUps: string[];
+    fps: number;
+    comboCount?: number;
+    comboMultiplier?: number;
+    dayPhase?: 'dawn' | 'day' | 'dusk' | 'night';
+    levelTimeRemaining?: number;
+    levelTarget?: number;
+  }) => void;
   onLocalPlayerSnapshot?: (snapshot: NetPlayerSnapshot) => void;
   onCarryIntent?: (payload: { targetId: string | null; dropCarry: boolean }) => void;
   onNetworkDebug?: (stats: NetDebugStats) => void;
@@ -163,6 +180,10 @@ export class GameEngine {
 
   // Game time for animations
   private gameTime = 0;
+  private levelConfig: LevelConfig | null = null;
+  private levelTimeRemaining = 0;
+  private levelCompleted = false;
+  private enemiesDefeated = 0;
 
   private _characterId: string = 'knight';
   private multiplayerEnabled = false;
@@ -247,6 +268,9 @@ export class GameEngine {
     this.currentQualityLevel = 'high';
     this.particles.setReducedParticles(false);
     this.gameTime = 0;
+    this.levelTimeRemaining = this.levelConfig?.timeLimit ?? 0;
+    this.levelCompleted = false;
+    this.enemiesDefeated = 0;
     this.remotePlayer = null;
     this.remotePlayerId = null;
     this.remotePlayerName = null;
@@ -270,6 +294,19 @@ export class GameEngine {
     // Reset timing to avoid first-frame spike after restart
     this.lastTime = performance.now();
     this.accumulated = 0;
+  }
+
+  /** Configure the engine for level-based play. */
+  setLevel(config: LevelConfig): void {
+    this.levelConfig = config;
+    this.setSeed(config.seed, this._characterId);
+    this.levelTimeRemaining = config.timeLimit ?? 0;
+    this.levelCompleted = false;
+    this.enemiesDefeated = 0;
+  }
+
+  getGameTimeMs(): number {
+    return this.gameTime * 1000;
   }
 
   setMultiplayerEnabled(enabled: boolean, localPlayerId?: string | null, hostId?: string | null): void {
@@ -1145,6 +1182,7 @@ export class GameEngine {
   private awardEnemyDefeat(enemy: Enemy): void {
     const pts = KILL_SCORES[enemy.type] ?? 100;
     this.player.score += pts;
+    this.enemiesDefeated += 1;
     this.particles.spawnEnemyDeath(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2);
     this.particles.spawnScorePopup(enemy.x + enemy.width / 2, enemy.y, `+${pts}`);
     if (this.multiplayerEnabled && !this.multiplayerIsHost) {
@@ -1524,6 +1562,29 @@ export class GameEngine {
     const screenH = this.camera.viewportHeight;
     this.particles.update(this.camera.x, this.camera.y, screenW, screenH, biome.type, dt);
 
+    // Level mode: target distance / time limit completion.
+    if (this.levelConfig && !this.levelCompleted) {
+      if (this.levelConfig.timeLimit !== null) {
+        this.levelTimeRemaining = Math.max(0, this.levelTimeRemaining - dt);
+        if (this.levelTimeRemaining <= 0 && this.player.distance < this.levelConfig.targetDistance) {
+          this.player.alive = false;
+        }
+      }
+
+      if (this.player.distance >= this.levelConfig.targetDistance) {
+        this.levelCompleted = true;
+        this._state = 'paused';
+        this.onLevelComplete?.({
+          score: Math.max(0, Math.floor(this.player.score)),
+          coins: Math.max(0, Math.floor(this.player.coins)),
+          distance: Math.max(0, Math.floor(this.player.distance)),
+          timeMs: Math.max(0, Math.floor(this.gameTime * 1000)),
+          enemiesDefeated: this.enemiesDefeated,
+        });
+        return;
+      }
+    }
+
     // Death by falling
     if (this.player.y > 1500) {
       this.player.alive = false;
@@ -1557,9 +1618,17 @@ export class GameEngine {
       distance: this.player.distance,
       health: this.player.health,
       maxHealth: this.player.maxHealth,
+      lives: this.player.lives,
       biome: biome.name,
       powerUps,
       fps: profilerMetrics.fps,
+      comboCount: 0,
+      comboMultiplier: 1,
+      dayPhase: 'day',
+      ...(this.levelConfig ? {
+        levelTimeRemaining: this.levelConfig.timeLimit !== null ? this.levelTimeRemaining : undefined,
+        levelTarget: this.levelConfig.targetDistance,
+      } : {}),
     });
 
     this.onNetworkDebug?.({

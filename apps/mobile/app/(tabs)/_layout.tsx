@@ -1,6 +1,10 @@
+import React from 'react';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Platform } from 'react-native';
+
+const TabIcon = ({ name, color, size }: { name: React.ComponentProps<typeof Ionicons>['name']; color: string; size: number }) =>
+  React.createElement(Ionicons, { name, size, color });
 
 export default function TabLayout() {
   return (
@@ -18,7 +22,7 @@ export default function TabLayout() {
         options={{
           title: 'Game',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="game-controller" size={size} color={color} />
+            <TabIcon name="game-controller" size={size} color={color} />
           ),
         }}
       />
@@ -27,7 +31,7 @@ export default function TabLayout() {
         options={{
           title: 'Settings',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="settings" size={size} color={color} />
+            <TabIcon name="settings" size={size} color={color} />
           ),
         }}
       />
@@ -36,7 +40,7 @@ export default function TabLayout() {
         options={{
           title: 'Leaderboard',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="trophy" size={size} color={color} />
+            <TabIcon name="trophy" size={size} color={color} />
           ),
         }}
       />

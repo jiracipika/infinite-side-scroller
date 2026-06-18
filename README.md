@@ -1,6 +1,6 @@
-# Infinite Side Scroller
+# Dashverse
 
-Cross-platform endless side scroller with:
+Cross-platform endless side-scrolling dash adventure with:
 
 - Web game (Next.js) for desktop + mobile browsers
 - Nearby multiplayer (same Wi-Fi rooms)
