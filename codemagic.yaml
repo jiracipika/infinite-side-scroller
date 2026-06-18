@@ -1,59 +1,174 @@
+# Codemagic CI/CD configuration for Dashverse
+# Web remains the root Next.js/Vercel app. Mobile builds live in apps/mobile.
+
 workflows:
-  release-both:
-    name: "Infinite Side Scroller: Build iOS (TestFlight) + Android (Play)"
-    max_build_duration: 120
-    instance_type: mac_mini_m2
+  android-debug:
+    name: Android Debug APK
+    max_build_duration: 45
+    instance_type: linux
     environment:
-      groups:
-        - app_store_connect
-        - google_play
+      node: 20
       vars:
-        XCODE_WORKSPACE: "ios/App/App.xcworkspace"
-        XCODE_SCHEME: "App"
-        BUNDLE_ID: "com.infinitesidescroller.app"
-        JAVA_HOME: /Library/Java/JavaVirtualMachines/zulu-17.jdk/Contents/Home
-        PACKAGE_NAME: "com.infinitesidescroller.app"
-        node: 20
-      android_signing:
-        - akey
-      triggering:
-        events:
-          - push
-        branch_patterns:
-          - pattern: 'main'
-            include: true
-          - pattern: 'master'
-            include: true
+        EXPO_PUBLIC: "true"
     scripts:
-      - name: Set up keystore
+      - name: Install root dependencies
         script: |
-          echo $CM_KEYSTORE | base64 --decode > $CM_KEYSTORE_PATH
-      - name: Install npm dependencies
-        script: |
-          cd apps/mobile
-          npm install
-      - name: Build web app and sync with Capacitor
+          npm ci || npm install
+      - name: Install mobile dependencies
         script: |
           cd apps/mobile
-          npm run build
-          npx cap sync android
-          npx cap sync ios
-      - name: Build Android App Bundle
+          npm ci || npm install
+      - name: Bundle game engine into mobile WebView asset
+        script: |
+          node apps/mobile/scripts/bundle-game-html.js
+      - name: Generate Android native project
+        script: |
+          cd apps/mobile
+          npx expo prebuild --platform android --clean --no-install
+      - name: Build debug APK
         script: |
           cd apps/mobile/android
-          ./gradlew assembleRelease -Pandroid.injected.signing.store.file=$CM_KEYSTORE_PATH -Pandroid.injected.signing.store.password=$CM_KEYSTORE_PASSWORD -Pandroid.injected.signing.key.alias=$CM_KEY_ALIAS -Pandroid.injected.signing.key.password=$CM_KEY_PASSWORD
-          ./gradlew bundleRelease -Pandroid.injected.signing.store.file=$CM_KEYSTORE_PATH -Pandroid.injected.signing.store.password=$CM_KEYSTORE_PASSWORD -Pandroid.injected.signing.key.alias=$CM_KEY_ALIAS -Pandroid.injected.signing.key.password=$CM_KEY_PASSWORD
+          ./gradlew assembleDebug
     artifacts:
-      - apps/mobile/android/app/build/outputs/**/*.aab
-      - apps/mobile/android/app/build/outputs/**/*.apk
-    publishing:
-      email:
-        recipients:
-          - rajingajadhar@gmail.com
-        notify:
-          success: true
-          failure: true
-      google_play:
-        credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
-        track: internal
-        submit_as_draft: false
+      - apps/mobile/android/app/build/outputs/apk/debug/*.apk
+      - apps/mobile/android/app/build/reports/**/*
+
+  android-release:
+    name: Android Release AAB
+    max_build_duration: 60
+    instance_type: linux
+    environment:
+      node: 20
+      groups:
+        - android_keystore_credentials
+      vars:
+        EXPO_PUBLIC: "true"
+    scripts:
+      - name: Install root dependencies
+        script: |
+          npm ci || npm install
+      - name: Install mobile dependencies
+        script: |
+          cd apps/mobile
+          npm ci || npm install
+      - name: Bundle game engine into mobile WebView asset
+        script: |
+          node apps/mobile/scripts/bundle-game-html.js
+      - name: Generate Android native project
+        script: |
+          cd apps/mobile
+          npx expo prebuild --platform android --clean --no-install
+      - name: Build release AAB
+        script: |
+          cd apps/mobile/android
+          if [ -n "$CM_KEYSTORE_PATH" ]; then
+            ./gradlew bundleRelease \
+              -Pandroid.injected.signing.store.file="$CM_KEYSTORE_PATH" \
+              -Pandroid.injected.signing.store.password="$CM_KEYSTORE_PASSWORD" \
+              -Pandroid.injected.signing.key.alias="$CM_KEY_ALIAS" \
+              -Pandroid.injected.signing.key.password="$CM_KEY_PASSWORD"
+          else
+            echo "No Android keystore env found; building unsigned release bundle. Configure android_keystore_credentials before store release."
+            ./gradlew bundleRelease
+          fi
+    artifacts:
+      - apps/mobile/android/app/build/outputs/bundle/release/*.aab
+      - apps/mobile/android/app/build/reports/**/*
+
+  ios-release:
+    name: iOS Release IPA
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      node: 20
+      xcode: latest
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.dashverse.app
+      vars:
+        EXPO_PUBLIC: "true"
+    scripts:
+      - name: Install root dependencies
+        script: |
+          npm ci || npm install
+      - name: Install mobile dependencies
+        script: |
+          cd apps/mobile
+          npm ci || npm install
+      - name: Bundle game engine into mobile WebView asset
+        script: |
+          node apps/mobile/scripts/bundle-game-html.js
+      - name: Generate iOS native project
+        script: |
+          cd apps/mobile
+          npx expo prebuild --platform ios --clean --no-install
+      - name: Install CocoaPods
+        script: |
+          cd apps/mobile/ios
+          pod install
+      - name: Build IPA
+        script: |
+          xcode-project build-ipa \
+            --workspace apps/mobile/ios/Dashverse.xcworkspace \
+            --scheme Dashverse
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - apps/mobile/ios/*.xcarchive
+
+  release-both:
+    name: Release Android + iOS
+    max_build_duration: 90
+    instance_type: mac_mini_m2
+    environment:
+      node: 20
+      xcode: latest
+      groups:
+        - android_keystore_credentials
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.dashverse.app
+      vars:
+        EXPO_PUBLIC: "true"
+    scripts:
+      - name: Install root dependencies
+        script: |
+          npm ci || npm install
+      - name: Install mobile dependencies
+        script: |
+          cd apps/mobile
+          npm ci || npm install
+      - name: Bundle game engine into mobile WebView asset
+        script: |
+          node apps/mobile/scripts/bundle-game-html.js
+      - name: Generate native Android and iOS projects
+        script: |
+          cd apps/mobile
+          npx expo prebuild --clean --no-install
+      - name: Build Android AAB
+        script: |
+          cd apps/mobile/android
+          if [ -n "$CM_KEYSTORE_PATH" ]; then
+            ./gradlew bundleRelease \
+              -Pandroid.injected.signing.store.file="$CM_KEYSTORE_PATH" \
+              -Pandroid.injected.signing.store.password="$CM_KEYSTORE_PASSWORD" \
+              -Pandroid.injected.signing.key.alias="$CM_KEY_ALIAS" \
+              -Pandroid.injected.signing.key.password="$CM_KEY_PASSWORD"
+          else
+            echo "No Android keystore env found; building unsigned release bundle. Configure android_keystore_credentials before store release."
+            ./gradlew bundleRelease
+          fi
+      - name: Install CocoaPods
+        script: |
+          cd apps/mobile/ios
+          pod install
+      - name: Build iOS IPA
+        script: |
+          xcode-project build-ipa \
+            --workspace apps/mobile/ios/Dashverse.xcworkspace \
+            --scheme Dashverse
+    artifacts:
+      - apps/mobile/android/app/build/outputs/bundle/release/*.aab
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - apps/mobile/ios/*.xcarchive
