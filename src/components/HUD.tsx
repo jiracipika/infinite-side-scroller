@@ -133,6 +133,51 @@ const HUD: FC<Props> = ({ stats, settings }) => {
             >
               {Math.round(stats.distance)}m
             </div>
+
+            {/* Level progress bar */}
+            {stats.levelTarget && stats.levelTarget > 0 && (
+              <div style={{ marginTop: 4, width: 80 }}>
+                <div style={{ height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.12)', overflow: 'hidden' }}>
+                  <div style={{
+                    height: '100%',
+                    borderRadius: 2,
+                    width: `${Math.min(100, (stats.distance / stats.levelTarget) * 100)}%`,
+                    background: 'linear-gradient(90deg, #30D158, #0A84FF)',
+                    transition: 'width 0.3s ease',
+                  }} />
+                </div>
+                {stats.levelTimeRemaining !== undefined && stats.levelTimeRemaining > 0 && (
+                  <div style={{
+                    fontSize: 10, fontWeight: 700, color: stats.levelTimeRemaining < 10 ? '#FF453A' : '#5AC8FA',
+                    marginTop: 2, textAlign: 'center', fontVariantNumeric: 'tabular-nums',
+                  }}>
+                    {Math.ceil(stats.levelTimeRemaining)}s
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Combo counter */}
+            {(stats.comboCount ?? 0) > 1 && (
+              <div
+                key={comboFlash ? 'flash' : 'idle'}
+                style={{
+                  marginTop: 4,
+                  padding: '2px 10px',
+                  borderRadius: 10,
+                  background: 'rgba(251, 191, 36, 0.25)',
+                  border: '1px solid rgba(251, 191, 36, 0.4)',
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: '#fbbf24',
+                  fontVariantNumeric: 'tabular-nums',
+                  animation: comboFlash ? 'scoreFlash 0.2s ease both' : undefined,
+                  textShadow: '0 0 8px rgba(251, 191, 36, 0.5)',
+                }}
+              >
+                {stats.comboCount} COMBO x{stats.comboMultiplier}
+              </div>
+            )}
           </div>
 
           {/* ── Right: Biome + FPS ──────────────────────────────── */}

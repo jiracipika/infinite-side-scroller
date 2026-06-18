@@ -323,8 +323,8 @@ const HUD: React.FC<{ stats: GameStats; onPause: () => void }> = ({ stats, onPau
 const MenuOverlay: React.FC<{ onPlay: (seed?: number) => void; highScore: number }> = ({ onPlay, highScore }) => (
   <LinearGradient colors={['rgba(0,0,0,0.7)', 'rgba(26,26,46,0.9)']} style={styles.overlay}>
     <View style={styles.menuContent}>
-      <Text style={styles.title}>Infinite</Text>
-      <Text style={styles.subtitle}>SIDE SCROLLER</Text>
+      <Text style={styles.title}>Dashverse</Text>
+      <Text style={styles.subtitle}>DASH THROUGH BOUNDLESS WORLDS</Text>
       <View style={styles.divider} />
 
       {highScore > 0 && (

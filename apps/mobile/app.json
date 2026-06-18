@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Infinite Side Scroller",
-    "slug": "infinite-side-scroller",
+    "name": "Dashverse",
+    "slug": "dashverse",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -12,9 +12,11 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.dashverse.app"
     },
     "android": {
+      "package": "com.dashverse.app",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -26,7 +28,12 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "scheme": "issmobile",
+    "scheme": "dashverse",
+    "extra": {
+      "eas": {
+        "projectId": null
+      }
+    },
     "experiments": {
       "typedRoutes": true
     },

@@ -54,6 +54,8 @@ export class Player {
   coins = 0;
   distance = 0;
   distanceTraveled = 0;
+  lives = 2;
+  private coinsAtLastLife = 0;
 
   characterId: string = 'knight';
 
@@ -413,6 +415,16 @@ export class Player {
     if (this.progressionBonuses.healOnCoinChance > 0 && this.health < this.maxHealth && Math.random() < this.progressionBonuses.healOnCoinChance) {
       this.heal(1);
     }
+    // Award an extra life every 100 coins after progression multipliers are applied.
+    if (this.coins - this.coinsAtLastLife >= 100) {
+      this.coinsAtLastLife = Math.floor(this.coins / 100) * 100;
+      this.lives++;
+    }
+  }
+
+  /** Grant an extra life (used by cross-player life awards). */
+  grantLife(): void {
+    this.lives++;
   }
 
   getBounds() {

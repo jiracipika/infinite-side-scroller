@@ -10,7 +10,12 @@ import GameOverScreen from '@/components/GameOverScreen';
 import HUD from '@/components/HUD';
 import TouchControls from '@/components/TouchControls';
 import SplitScreenMode from '@/components/SplitScreenMode';
-import { createMultiplayerRoom, joinMultiplayerRoom, leaveMultiplayerRoom, syncMultiplayerRoom } from '@/game/multiplayer/client';
+import LevelSelectScreen from '@/components/LevelSelectScreen';
+import LevelCompleteScreen from '@/components/LevelCompleteScreen';
+import type { LevelConfig } from '@/game/data/levels';
+import { ALL_LEVELS } from '@/game/data/levels';
+import { createMultiplayerRoom, joinMultiplayerRoom, leaveMultiplayerRoom, syncMultiplayerRoom, postRTCOffer, postRTCAnswer, getRTCSignal, clearRTCSignal } from '@/game/multiplayer/client';
+import { RTCTransport, isRTCAvailable, type RTCMessage, type RTCSyncMessage } from '@/game/multiplayer/rtc';
 import type { NetInputCommand, NetPlayerSnapshot, NetRoomState, NetSyncResponse } from '@/game/multiplayer/types';
 import { MP_INPUT_BUFFER_SIZE, MP_INTERPOLATION_DELAY_MS } from '@/game/multiplayer/config';
 import {
@@ -162,6 +167,18 @@ export default function Home() {
   const sentInputCountRef = useRef(0);
   const droppedInputCountRef = useRef(0);
   const netEmulationRef = useRef({ lagMs: 0, jitterMs: 0, lossChance: 0 });
+
+  // WebRTC P2P state — when connected, sync flows device-to-device
+  const rtcRef = useRef<RTCTransport | null>(null);
+  const rtcConnectedRef = useRef(false);
+  const remoteRTCDataRef = useRef<RTCSyncMessage | null>(null);
+  const remotePlayerInfoRef = useRef<{ id: string; name: string } | null>(null);
+  const [rtcStatus, setRtcStatus] = useState<'off' | 'connecting' | 'connected' | 'failed'>('off');
+
+  // Level mode state
+  const [currentLevel, setCurrentLevel] = useState<LevelConfig | null>(null);
+  const [levelResult, setLevelResult] = useState<{ score: number; coins: number; distance: number; timeMs: number; enemiesDefeated: number } | null>(null);
+  const currentLevelRef = useRef<LevelConfig | null>(null);
   const syncInFlightRef = useRef(false);
   const syncSeqRef = useRef(0);
   const appliedSyncSeqRef = useRef(0);
@@ -176,13 +193,16 @@ export default function Home() {
   const {
     state, stats, settings, seed,
     startGame, pauseGame, resumeGame, gameOver, quitToMenu, updateStats,
+    goToLevelSelect, goToLevelComplete,
   } = useGameStore();
 
   // Boot the engine once; keep callbacks current via refs to avoid restarts
   const onStatsRef = useRef(updateStats);
   const onGameOverRef = useRef(gameOver);
+  const onLevelCompleteRef = useRef(goToLevelComplete);
   onStatsRef.current = updateStats;
   onGameOverRef.current = gameOver;
+  onLevelCompleteRef.current = goToLevelComplete;
   multiplayerSessionRef.current = multiplayerSession;
 
   useEffect(() => {
@@ -228,7 +248,7 @@ export default function Home() {
   const handleShareInvite = useCallback(async () => {
     if (!hostInviteUrl) return;
     const sharePayload = {
-      title: 'Infinite Side Scroller',
+      title: 'Dashverse',
       text: 'Join my room on the same Wi-Fi:',
       url: hostInviteUrl,
     };
@@ -246,7 +266,7 @@ export default function Home() {
 
   const handleTextInvite = useCallback(() => {
     if (!hostInviteUrl || typeof window === 'undefined') return;
-    const text = encodeURIComponent(`Join my Infinite Side Scroller room: ${hostInviteUrl}`);
+    const text = encodeURIComponent(`Join my Dashverse room: ${hostInviteUrl}`);
     window.location.href = `sms:&body=${text}`;
   }, [hostInviteUrl]);
 
@@ -258,6 +278,35 @@ export default function Home() {
 
     game.onStatsUpdate = (s) => onStatsRef.current(s);
     game.onGameOver = () => onGameOverRef.current();
+    game.onLevelComplete = (result) => {
+      // Use a ref to avoid stale closure
+      const level = currentLevelRef.current;
+      if (level) {
+        // Directly update state since this is called from the game loop
+        setLevelResult(result);
+        onLevelCompleteRef.current();
+        // Update localStorage progress
+        try {
+          const stored = localStorage.getItem('iss-level-progress');
+          const progress = stored ? JSON.parse(stored) : {};
+          if (!progress[level.id]) progress[level.id] = { stars: 0, bestScore: 0, unlocked: true };
+          const p = progress[level.id];
+          if (result.score >= level.starThresholds.three) p.stars = 3;
+          else if (result.score >= level.starThresholds.two) p.stars = Math.max(p.stars, 2);
+          else if (result.score >= level.starThresholds.one) p.stars = Math.max(p.stars, 1);
+          p.bestScore = Math.max(p.bestScore, result.score);
+          const idx = ALL_LEVELS.findIndex(l => l.id === level.id);
+          if (idx >= 0 && idx < ALL_LEVELS.length - 1) {
+            const next = ALL_LEVELS[idx + 1];
+            if (next && next.mode === level.mode) {
+              if (!progress[next.id]) progress[next.id] = { stars: 0, bestScore: 0, unlocked: false };
+              progress[next.id].unlocked = true;
+            }
+          }
+          localStorage.setItem('iss-level-progress', JSON.stringify(progress));
+        } catch {}
+      }
+    };
     game.onCarryIntent = (payload) => {
       pendingCarryIntentRef.current = payload;
     };
@@ -354,6 +403,9 @@ export default function Home() {
     gameRef.current?.setMultiplayerEnabled(false);
     startGame(s);
     gameRef.current?.setSeed(s, charId);
+    // Clear level state when playing endless/standard mode.
+    setCurrentLevel(null);
+    currentLevelRef.current = null;
     const slotGhost = loadGhostRun(targetSlotId);
     gameRef.current?.setGhostPath(slotGhost?.points ?? []);
     void issueRunToken({
@@ -393,6 +445,8 @@ export default function Home() {
     runTokenRef.current = null;
     startGame(seed);
     gameRef.current?.setSeed(seed, charId);
+    setCurrentLevel(null);
+    currentLevelRef.current = null;
     const slotGhost = loadGhostRun(slotId);
     gameRef.current?.setGhostPath(slotGhost?.points ?? []);
     void issueRunToken({
@@ -463,6 +517,8 @@ export default function Home() {
     startGame(s);
     gameRef.current?.setSeed(s, charId);
     gameRef.current?.setGhostPath(payload.replayPath);
+    setCurrentLevel(null);
+    currentLevelRef.current = null;
     clearPendingContinueSlot();
     clearSlotCheckpoint(targetSlotId);
     void issueRunToken({
@@ -479,6 +535,59 @@ export default function Home() {
         runTokenRef.current = null;
       });
   }, [applyProgressionFromSlot, startGame]);
+
+  // ── Level mode handlers ──
+  const handleStartLevel = useCallback((level: LevelConfig) => {
+    const charId = loadSelectedCharacter();
+    setMultiplayerSession(null);
+    setCurrentLevel(level);
+    currentLevelRef.current = level;
+    setLevelResult(null);
+    gameRef.current?.setMultiplayerEnabled(false);
+    startGame(level.seed);
+    gameRef.current?.setLevel(level);
+  }, [startGame]);
+
+  const handleLevelComplete = useCallback((result: { score: number; coins: number; distance: number; timeMs: number; enemiesDefeated: number }) => {
+    setLevelResult(result);
+    goToLevelComplete();
+    // Update level progress in localStorage
+    const level = currentLevelRef.current;
+    if (level) {
+      const { loadProgress, saveProgress, ensureDefault } = require('@/components/LevelSelectScreen');
+      const progress = loadProgress();
+      const p = ensureDefault(progress, level.id);
+      if (result.score >= level.starThresholds.three) p.stars = 3;
+      else if (result.score >= level.starThresholds.two) p.stars = Math.max(p.stars, 2);
+      else if (result.score >= level.starThresholds.one) p.stars = Math.max(p.stars, 1);
+      p.bestScore = Math.max(p.bestScore, result.score);
+      // Unlock next level
+      const idx = ALL_LEVELS.findIndex(l => l.id === level.id);
+      if (idx >= 0 && idx < ALL_LEVELS.length - 1) {
+        const next = ALL_LEVELS[idx + 1];
+        if (next && next.mode === level.mode) {
+          if (!progress[next.id]) progress[next.id] = { stars: 0, bestScore: 0, unlocked: false };
+          progress[next.id].unlocked = true;
+        }
+      }
+      saveProgress(progress);
+    }
+  }, [goToLevelComplete]);
+
+  const handleNextLevel = useCallback(() => {
+    const level = currentLevelRef.current;
+    if (!level) return;
+    const idx = ALL_LEVELS.findIndex(l => l.id === level.id);
+    if (idx >= 0 && idx < ALL_LEVELS.length - 1) {
+      const next = ALL_LEVELS[idx + 1];
+      if (next && next.mode === level.mode) {
+        handleStartLevel(next);
+        return;
+      }
+    }
+    // No next level, go back to level select
+    goToLevelSelect();
+  }, [handleStartLevel, goToLevelSelect]);
 
   const handlePlaySplitScreen = useCallback((seed?: number) => {
     const session = multiplayerSessionRef.current;
@@ -515,6 +624,8 @@ export default function Home() {
     const game = gameRef.current;
     if (!game) return;
     if (remote) {
+      // Track remote identity for WebRTC P2P path
+      remotePlayerInfoRef.current = { id: remote.id, name: remote.name };
       game.setRemotePlayerState({
         id: remote.id,
         name: remote.name,
@@ -558,6 +669,8 @@ export default function Home() {
       jitterEwmaRef.current = 0;
       sentInputCountRef.current = 0;
       droppedInputCountRef.current = 0;
+      remotePlayerInfoRef.current = null;
+      remoteRTCDataRef.current = null;
       setMultiplayerSession(session);
       if (params.mode === 'host') {
         const inviteUrl = buildInviteUrl(result.roomId);
@@ -648,6 +761,12 @@ export default function Home() {
     if (session) {
       void leaveMultiplayerRoom(session.roomId, session.playerId).catch(() => {});
     }
+    // Close WebRTC connection
+    rtcRef.current?.close();
+    rtcRef.current = null;
+    rtcConnectedRef.current = false;
+    setRtcStatus('off');
+    remoteRTCDataRef.current = null;
     setMultiplayerSession(null);
     setMultiplayerNotice(null);
     setHostInviteUrl(null);
@@ -712,6 +831,60 @@ export default function Home() {
       const game = gameRef.current;
       const session = multiplayerSessionRef.current;
       if (!game || !session || cancelled) return;
+
+      // ── WebRTC P2P path — direct device-to-device, skips HTTP entirely ──
+      // On the same Wi-Fi this gives ~1–5 ms RTT vs 40–150 ms for HTTP polling.
+      if (rtcRef.current?.isOpen) {
+        const nowPerf = performance.now();
+        const sinceLastSend = Math.max(16, lastSentAtRef.current ? nowPerf - lastSentAtRef.current : 1000 / 60);
+        lastSentAtRef.current = nowPerf;
+        const commandSeq = ++inputSeqRef.current;
+        const input = game.buildNetInputCommand(commandSeq, sinceLastSend, Date.now());
+        const carryIntent = pendingCarryIntentRef.current;
+        pendingCarryIntentRef.current = null;
+        const localSnapshot = compactSnapshot(game.getLocalPlayerSnapshot());
+
+        rtcRef.current.send({
+          type: 'sync',
+          ts: nowPerf,
+          snapshot: localSnapshot,
+          input,
+          enemies: session.playerId === session.hostId ? game.getEnemySnapshots() : undefined,
+          carryTargetId: carryIntent?.targetId,
+          dropCarry: carryIntent?.dropCarry ?? false,
+        });
+
+        // Apply latest remote data received via data channel
+        const remoteData = remoteRTCDataRef.current;
+        if (remoteData?.snapshot) {
+          const ri = remotePlayerInfoRef.current;
+          game.setRemotePlayerState({
+            id: ri?.id ?? 'remote',
+            name: ri?.name ?? 'Player',
+            snapshot: remoteData.snapshot,
+            carryTargetId: remoteData.carryTargetId ?? null,
+            carriedById: null,
+          });
+        }
+        if (remoteData?.enemies) {
+          game.applyEnemySnapshots(remoteData.enemies);
+        }
+
+        // Sync cross-player kills
+        const localKills = game.drainRecentEnemyDefeatIds();
+        if (localKills.length > 0) {
+          rtcRef.current.send({ type: 'sync', ts: performance.now(), carryTargetId: undefined, dropCarry: false });
+        }
+
+        setNetOverlay(prev => ({
+          ...prev,
+          rttMs: quantize(rtcRef.current?.rtt ?? 0, 1),
+          clientSnapshotRate: quantize(1000 / Math.max(33, sinceLastSend), 1),
+        }));
+
+        schedule(33); // ~30 Hz P2P — much faster than HTTP polling
+        return;
+      }
 
       if (syncInFlightRef.current) {
         const inflightAge = performance.now() - inFlightSinceRef.current;
@@ -881,6 +1054,115 @@ export default function Home() {
     };
   }, [applyRemotePlayerFromState, multiplayerSession, state]);
 
+  // ── WebRTC P2P connection establishment ──────────────────────────────
+  // After a multiplayer session starts, attempt a direct device-to-device
+  // data channel via WebRTC. The HTTP server is used only for the one-time
+  // SDP handshake (signaling); all gameplay sync then flows P2P.
+  // If WebRTC fails, the HTTP polling loop above continues as fallback.
+  useEffect(() => {
+    if (!multiplayerSession || !isRTCAvailable()) return;
+    const session = multiplayerSession;
+    const isHost = session.playerId === session.hostId;
+
+    let cancelled = false;
+    let pingTimer: number | null = null;
+
+    const establish = async () => {
+      // Small delay so both clients have reached 'playing' state
+      await new Promise(r => setTimeout(r, 600));
+      if (cancelled) return;
+
+      const transport = new RTCTransport();
+      rtcRef.current = transport;
+      setRtcStatus('connecting');
+
+      transport.onMessage = (msg) => {
+        if (msg.type === 'sync') {
+          remoteRTCDataRef.current = msg;
+        }
+      };
+      transport.onClose = () => {
+        if (!cancelled) {
+          rtcConnectedRef.current = false;
+          setRtcStatus('failed');
+        }
+      };
+
+      try {
+        if (isHost) {
+          const offer = await transport.createOffer();
+          if (cancelled) return;
+          await postRTCOffer(session.roomId, session.playerId, offer);
+
+          // Poll for the joiner's answer
+          const deadline = Date.now() + 12000;
+          while (!cancelled && Date.now() < deadline) {
+            await new Promise(r => setTimeout(r, 400));
+            if (cancelled) return;
+            const signal = await getRTCSignal(session.roomId).catch(() => null);
+            if (signal?.hasAnswer && signal.answer) {
+              await transport.acceptAnswer(signal.answer);
+              break;
+            }
+          }
+        } else {
+          // Joiner: wait for host's offer
+          const deadline = Date.now() + 12000;
+          while (!cancelled && Date.now() < deadline) {
+            await new Promise(r => setTimeout(r, 400));
+            if (cancelled) return;
+            const signal = await getRTCSignal(session.roomId).catch(() => null);
+            if (signal?.hasOffer && signal.offer) {
+              const answer = await transport.acceptOfferAndAnswer(signal.offer);
+              if (cancelled) return;
+              await postRTCAnswer(session.roomId, answer);
+              break;
+            }
+          }
+        }
+
+        // Wait for the data channel to open
+        const connectDeadline = Date.now() + 8000;
+        while (!cancelled && Date.now() < connectDeadline) {
+          if (transport.isOpen) break;
+          await new Promise(r => setTimeout(r, 100));
+        }
+
+        if (cancelled) return;
+
+        if (transport.isOpen) {
+          rtcConnectedRef.current = true;
+          setRtcStatus('connected');
+          void clearRTCSignal(session.roomId);
+          // Periodic RTT probe
+          pingTimer = window.setInterval(() => {
+            if (transport.isOpen) transport.ping();
+          }, 2000);
+        } else {
+          setRtcStatus('failed');
+          transport.close();
+          rtcRef.current = null;
+        }
+      } catch {
+        if (!cancelled) setRtcStatus('failed');
+        transport.close();
+        rtcRef.current = null;
+      }
+    };
+
+    void establish();
+
+    return () => {
+      cancelled = true;
+      if (pingTimer !== null) clearInterval(pingTimer);
+      rtcConnectedRef.current = false;
+      setRtcStatus('off');
+      rtcRef.current?.close();
+      rtcRef.current = null;
+      remoteRTCDataRef.current = null;
+    };
+  }, [multiplayerSession]);
+
   useEffect(() => {
     return () => {
       const session = multiplayerSessionRef.current;
@@ -973,10 +1255,27 @@ export default function Home() {
             <StartScreen
               onPlay={handlePlay}
               onPlayDailyChallenge={handlePlayDailyChallenge}
+              onLevelSelect={goToLevelSelect}
               onPlayMultiplayer={handlePlayMultiplayer}
               onPlaySplitScreen={handlePlaySplitScreen}
               onPlayOnlineGhostRace={handlePlayOnlineGhostRace}
               initialRoomCode={prefillRoomCode}
+            />
+          )}
+          {state === 'levelselect' && (
+            <LevelSelectScreen
+              onLevelSelect={handleStartLevel}
+              onBack={quitToMenu}
+              onEndlessPlay={handlePlay}
+            />
+          )}
+          {state === 'levelcomplete' && currentLevel && levelResult && (
+            <LevelCompleteScreen
+              level={currentLevel}
+              result={levelResult}
+              onNext={handleNextLevel}
+              onRetry={() => handleStartLevel(currentLevel)}
+              onBack={goToLevelSelect}
             />
           )}
           {state === 'paused' && (
@@ -989,7 +1288,7 @@ export default function Home() {
           {state === 'gameover' && (
             <GameOverScreen
               stats={stats}
-              onRestart={handleRestart}
+              onRestart={currentLevel ? () => handleStartLevel(currentLevel) : handleRestart}
               onQuit={handleQuit}
             />
           )}
@@ -1043,7 +1342,26 @@ export default function Home() {
             WebkitBackdropFilter: 'blur(8px)',
           }}
         >
-          <div>RTT {netOverlay.rttMs}ms</div>
+          <div style={{
+            marginBottom: 4,
+            display: 'flex',
+            gap: 6,
+            alignItems: 'center',
+          }}>
+            <span style={{
+              padding: '1px 6px',
+              borderRadius: 4,
+              fontSize: 9,
+              fontWeight: 700,
+              letterSpacing: '0.04em',
+              background: rtcStatus === 'connected' ? 'rgba(34,197,94,0.2)' : rtcStatus === 'connecting' ? 'rgba(250,204,21,0.2)' : 'rgba(100,116,139,0.2)',
+              color: rtcStatus === 'connected' ? '#22c55e' : rtcStatus === 'connecting' ? '#facc15' : '#94a3b8',
+              border: `1px solid ${rtcStatus === 'connected' ? 'rgba(34,197,94,0.3)' : rtcStatus === 'connecting' ? 'rgba(250,204,21,0.3)' : 'rgba(100,116,139,0.3)'}`,
+            }}>
+              {rtcStatus === 'connected' ? 'P2P' : rtcStatus === 'connecting' ? 'P2P…' : 'HTTP'}
+            </span>
+            <span>RTT {netOverlay.rttMs}ms</span>
+          </div>
           <div>Jitter {netOverlay.jitterMs}ms</div>
           <div>Loss {netOverlay.inferredLoss}%</div>
           <div>Srv Tick {netOverlay.serverTickRate}hz</div>

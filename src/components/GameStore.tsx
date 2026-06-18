@@ -20,6 +20,8 @@ export interface GameStoreAPI {
   resumeGame: () => void;
   gameOver: () => void;
   quitToMenu: () => void;
+  goToLevelSelect: () => void;
+  goToLevelComplete: () => void;
   setSettings: (s: Partial<GameSettings>) => void;
   updateStats: (s: Partial<GameStats>) => void;
 }
@@ -43,6 +45,8 @@ type Action =
   | { type: 'RESUME' }
   | { type: 'GAMEOVER' }
   | { type: 'QUIT_TO_MENU' }
+  | { type: 'LEVEL_SELECT' }
+  | { type: 'LEVEL_COMPLETE' }
   | { type: 'UPDATE_STATS'; stats: Partial<GameStats> }
   | { type: 'SET_SETTINGS'; settings: Partial<GameSettings> };
 
@@ -101,6 +105,10 @@ function reducer(state: State, action: Action): State {
     }
     case 'QUIT_TO_MENU':
       return { ...state, gameState: 'menu' };
+    case 'LEVEL_SELECT':
+      return { ...state, gameState: 'levelselect' };
+    case 'LEVEL_COMPLETE':
+      return { ...state, gameState: 'levelcomplete' };
     case 'UPDATE_STATS':
       return { ...state, stats: { ...state.stats, ...action.stats } };
     case 'SET_SETTINGS':
@@ -136,6 +144,8 @@ export function GameStoreProvider({ children }: { children: ReactNode }) {
     resumeGame: () => dispatch({ type: 'RESUME' }),
     gameOver: () => dispatch({ type: 'GAMEOVER' }),
     quitToMenu: () => dispatch({ type: 'QUIT_TO_MENU' }),
+    goToLevelSelect: () => dispatch({ type: 'LEVEL_SELECT' }),
+    goToLevelComplete: () => dispatch({ type: 'LEVEL_COMPLETE' }),
     setSettings: (s) => dispatch({ type: 'SET_SETTINGS', settings: s }),
     updateStats: (s) => dispatch({ type: 'UPDATE_STATS', stats: s }),
   };

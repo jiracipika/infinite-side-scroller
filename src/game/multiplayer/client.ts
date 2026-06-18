@@ -73,3 +73,38 @@ export async function leaveMultiplayerRoom(roomId: string, playerId: string): Pr
     method: 'DELETE',
   });
 }
+
+/* ── WebRTC signaling helpers ────────────────────────────────────────── */
+
+async function signalRequest(body: Record<string, unknown>): Promise<any> {
+  return requestJson('/api/multiplayer/signal', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+
+/** Host: publish the WebRTC SDP offer so the joiner can fetch it. */
+export async function postRTCOffer(roomId: string, hostId: string, sdp: RTCSessionDescriptionInit): Promise<void> {
+  await signalRequest({ action: 'offer', roomId: normalizeRoomId(roomId), hostId, sdp });
+}
+
+/** Joiner: publish the WebRTC SDP answer so the host can complete the handshake. */
+export async function postRTCAnswer(roomId: string, sdp: RTCSessionDescriptionInit): Promise<void> {
+  await signalRequest({ action: 'answer', roomId: normalizeRoomId(roomId), sdp });
+}
+
+/** Poll the signaling endpoint for the current offer/answer state. */
+export async function getRTCSignal(roomId: string): Promise<{
+  offer: RTCSessionDescriptionInit | null;
+  answer: RTCSessionDescriptionInit | null;
+  hasOffer: boolean;
+  hasAnswer: boolean;
+}> {
+  return signalRequest({ action: 'get', roomId: normalizeRoomId(roomId) });
+}
+
+/** Discard signaling data after the P2P connection is established. */
+export async function clearRTCSignal(roomId: string): Promise<void> {
+  await signalRequest({ action: 'clear', roomId: normalizeRoomId(roomId) }).catch(() => {});
+}

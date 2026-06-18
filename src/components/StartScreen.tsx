@@ -37,6 +37,7 @@ import { fetchOnlineLeaderboard, fetchOnlineReplay, type OnlineBoardScope, type 
 interface Props {
   onPlay: (seed?: number) => void;
   onPlayDailyChallenge?: () => void;
+  onLevelSelect?: () => void;
   onPlayMultiplayer?: (params: { mode: 'host' | 'join'; roomId?: string; playerName: string; seed?: number }) => void;
   onPlaySplitScreen?: (seed?: number) => void;
   onPlayOnlineGhostRace?: (payload: { entry: OnlineEntry; replayPath: Array<{ distance: number; x: number; y: number }> }) => void;
@@ -46,6 +47,7 @@ interface Props {
 const StartScreen: FC<Props> = ({
   onPlay,
   onPlayDailyChallenge,
+  onLevelSelect,
   onPlayMultiplayer,
   onPlaySplitScreen,
   onPlayOnlineGhostRace,
@@ -289,18 +291,18 @@ const StartScreen: FC<Props> = ({
             className="ios-large-title"
             style={{ marginTop: 'clamp(8px, 1.8vh, 16px)', animation: 'iosGlow 5s ease-in-out infinite' }}
           >
-            Infinite
+            Dashverse
           </h1>
           <p
             className="ios-caption2"
             style={{
               marginTop: 5,
-              letterSpacing: '0.28em',
+              letterSpacing: '0.18em',
               textTransform: 'uppercase',
               color: 'rgba(235,235,245,0.35)',
             }}
           >
-            Side Scroller
+            Dash through boundless worlds
           </p>
         </div>
 
@@ -448,6 +450,34 @@ const StartScreen: FC<Props> = ({
             Play
           </button>
         </div>
+
+        {/* ── Level Select button ────────────────────────────── */}
+        {onLevelSelect && (
+          <div style={{ width: '100%', marginBottom: 10 }}>
+            <button
+              onClick={onLevelSelect}
+              style={{
+                width: '100%',
+                height: 48,
+                borderRadius: 12,
+                border: '1px solid rgba(10,132,255,0.25)',
+                background: 'linear-gradient(135deg, rgba(10,132,255,0.1), rgba(94,92,230,0.06))',
+                color: '#fff',
+                fontSize: 17,
+                fontWeight: 600,
+                letterSpacing: '-0.3px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                transition: 'transform 0.15s, box-shadow 0.15s',
+              }}
+            >
+              🏰 Level Select
+            </button>
+          </div>
+        )}
 
         {/* ── Secondary card: seed + settings ─────────────── */}
         <div className="ios-card" style={{ width: '100%' }}>

@@ -2,7 +2,7 @@
  * Game state management — shared between React UI and game engine.
  */
 
-export type GameState = 'menu' | 'playing' | 'paused' | 'gameover';
+export type GameState = 'menu' | 'playing' | 'paused' | 'gameover' | 'levelselect' | 'levelcomplete';
 
 export interface GameSettings {
   masterVolume: number;
@@ -24,6 +24,11 @@ export interface GameStats {
   biome: string;
   fps: number;
   powerUps: string[];
+  comboCount?: number;
+  comboMultiplier?: number;
+  dayPhase?: 'dawn' | 'day' | 'dusk' | 'night';
+  levelTimeRemaining?: number;
+  levelTarget?: number;
 }
 
 export interface GameCallbacks {
@@ -44,7 +49,7 @@ export const DEFAULT_SETTINGS: GameSettings = {
   cameraMode: 'auto',
 };
 
-const STORAGE_KEY = 'infinite-side-scroller';
+const STORAGE_KEY = 'dashverse';
 
 export function loadSettings(): GameSettings {
   if (typeof window === 'undefined') return DEFAULT_SETTINGS;

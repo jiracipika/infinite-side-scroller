@@ -3,13 +3,13 @@ import "./globals.css";
 import { GameStoreProvider } from "@/components/GameStore";
 
 export const metadata: Metadata = {
-  title: "Infinite Side Scroller",
-  description: "A 2D infinite side-scrolling adventure game",
+  title: "Dashverse",
+  description: "An infinite side-scrolling adventure — dash through boundless worlds",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Side Scroller",
+    title: "Dashverse",
   },
 };
 
