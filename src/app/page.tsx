@@ -140,6 +140,7 @@ export default function Home() {
   const [prefillRoomCode, setPrefillRoomCode] = useState('');
   const [hostInviteUrl, setHostInviteUrl] = useState<string | null>(null);
   const [showHostInvite, setShowHostInvite] = useState(false);
+  const [lanInviteOrigin, setLanInviteOrigin] = useState<string | null>(null);
   const [netOverlay, setNetOverlay] = useState<NetOverlayStats>({
     rttMs: 0,
     jitterMs: 0,
@@ -216,6 +217,17 @@ export default function Home() {
     const lossChance = clamp((Number(params.get('netLoss') ?? 0) || 0) / 100, 0, 0.95);
     netEmulationRef.current = { lagMs, jitterMs, lossChance };
     activeSaveSlotRef.current = loadActiveSaveSlotId();
+
+    const isLoopbackHost = /^(localhost|127\.|\[?::1\]?$)/.test(window.location.hostname);
+    if (isLoopbackHost) {
+      fetch('/api/network/origin', { cache: 'no-store' })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data: { preferredOrigin?: string; lanOrigins?: string[] } | null) => {
+          const preferred = data?.preferredOrigin || data?.lanOrigins?.[0];
+          if (preferred) setLanInviteOrigin(preferred);
+        })
+        .catch(() => {});
+    }
   }, []);
 
   const applyProgressionFromSlot = useCallback((slotId?: SaveSlotId) => {
@@ -230,10 +242,17 @@ export default function Home() {
 
   const buildInviteUrl = useCallback((roomId: string) => {
     if (typeof window === 'undefined') return '';
-    const url = new URL(window.location.href);
+    const current = new URL(window.location.href);
+    const inviteOrigin = /^(localhost|127\.|\[?::1\]?$)/.test(current.hostname)
+      ? (lanInviteOrigin ?? current.origin)
+      : current.origin;
+    const url = new URL(`${inviteOrigin}${current.pathname}`);
+    current.searchParams.forEach((value, key) => {
+      if (key !== 'room') url.searchParams.set(key, value);
+    });
     url.searchParams.set('room', roomId);
-    return `${url.origin}${url.pathname}?${url.searchParams.toString()}`;
-  }, []);
+    return url.toString();
+  }, [lanInviteOrigin]);
 
   const handleCopyInvite = useCallback(async () => {
     if (!hostInviteUrl) return;
@@ -673,10 +692,26 @@ export default function Home() {
       remoteRTCDataRef.current = null;
       setMultiplayerSession(session);
       if (params.mode === 'host') {
-        const inviteUrl = buildInviteUrl(result.roomId);
+        let inviteUrl = buildInviteUrl(result.roomId);
+        if (typeof window !== 'undefined' && !lanInviteOrigin && /^(localhost|127\.|\[?::1\]?$)/.test(window.location.hostname)) {
+          const lan = await fetch('/api/network/origin', { cache: 'no-store' })
+            .then((res) => (res.ok ? res.json() : null))
+            .catch(() => null) as { preferredOrigin?: string; lanOrigins?: string[] } | null;
+          const preferred = lan?.preferredOrigin || lan?.lanOrigins?.[0];
+          if (preferred) {
+            setLanInviteOrigin(preferred);
+            const current = new URL(window.location.href);
+            const url = new URL(`${preferred}${current.pathname}`);
+            current.searchParams.forEach((value, key) => {
+              if (key !== 'room') url.searchParams.set(key, value);
+            });
+            url.searchParams.set('room', result.roomId);
+            inviteUrl = url.toString();
+          }
+        }
         setHostInviteUrl(inviteUrl);
         setShowHostInvite(true);
-        const hostOrigin = typeof window !== 'undefined' ? window.location.origin : '';
+        const hostOrigin = typeof window !== 'undefined' ? new URL(inviteUrl).origin : '';
         const hostHint = hostOrigin ? `Share this site URL + code: ${result.roomId}` : `Room ${result.roomId}`;
         setMultiplayerNotice(`Hosting room ${result.roomId}. ${hostHint}`);
       } else {
@@ -693,7 +728,7 @@ export default function Home() {
       const host = typeof window !== 'undefined' ? window.location.host : '';
       setMultiplayerNotice(`${message}${host ? ` (both devices must use ${host})` : ''}`);
     }
-  }, [applyProgressionFromSlot, applyRemotePlayerState, buildInviteUrl, startGame]);
+  }, [applyProgressionFromSlot, applyRemotePlayerState, buildInviteUrl, lanInviteOrigin, startGame]);
 
   const handlePause = useCallback(() => {
     pauseGame();
