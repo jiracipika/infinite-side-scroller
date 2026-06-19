@@ -69,6 +69,10 @@ const MAX_PLAYER_FALL_SPEED_PX_PER_SEC = 1600;
 const MAX_POSITION_BURST = 240;
 const ROOM_STORE_DIR = join(tmpdir(), 'dashverse-multiplayer');
 const ROOM_STORE_FILE = join(ROOM_STORE_DIR, 'rooms.json');
+const ROOM_STORE_KEY = 'dashverse:multiplayer:rooms';
+const REDIS_REST_URL = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL || '';
+const REDIS_REST_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN || '';
+const HAS_REDIS_STORE = !!REDIS_REST_URL && !!REDIS_REST_TOKEN;
 
 function serializeRooms(rooms: RoomMap): SerializedRoomStore {
   return {
@@ -138,6 +142,52 @@ function getRooms(): RoomMap {
   const persisted = readPersistedRooms();
   global.__infiniteMpRooms = persisted ?? global.__infiniteMpRooms ?? new Map();
   return global.__infiniteMpRooms;
+}
+
+async function redisCommand<T>(command: unknown[]): Promise<T | null> {
+  if (!HAS_REDIS_STORE) return null;
+  try {
+    const response = await fetch(`${REDIS_REST_URL.replace(/\/$/, '')}`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${REDIS_REST_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(command),
+      cache: 'no-store',
+    });
+    if (!response.ok) return null;
+    const data = await response.json().catch(() => null) as { result?: T } | null;
+    return data?.result ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function loadRooms(): Promise<RoomMap> {
+  if (HAS_REDIS_STORE) {
+    const raw = await redisCommand<string | null>(['GET', ROOM_STORE_KEY]);
+    if (raw) {
+      try {
+        const rooms = hydrateRooms(JSON.parse(raw) as SerializedRoomStore);
+        global.__infiniteMpRooms = rooms;
+        return rooms;
+      } catch {
+        // Fall back below.
+      }
+    }
+  }
+  return getRooms();
+}
+
+async function saveRooms(rooms: RoomMap): Promise<void> {
+  global.__infiniteMpRooms = rooms;
+  if (HAS_REDIS_STORE) {
+    const payload = JSON.stringify(serializeRooms(rooms));
+    const ok = await redisCommand<string>(['SET', ROOM_STORE_KEY, payload, 'EX', String(Math.ceil(ROOM_TTL_MS / 1000))]);
+    if (ok) return;
+  }
+  persistRooms(rooms);
 }
 
 function ensureRoomState(room: NonNullable<ReturnType<RoomMap['get']>>): void {
@@ -495,9 +545,9 @@ function applyCarryPose(room: ReturnType<RoomMap['get']>): void {
 }
 
 export async function GET(request: NextRequest) {
-  const rooms = getRooms();
+  const rooms = await loadRooms();
   cleanupRooms(rooms);
-  persistRooms(rooms);
+  await saveRooms(rooms);
 
   const roomId = normalizeRoomId(request.nextUrl.searchParams.get('roomId'));
   if (!roomId) {
@@ -514,7 +564,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  const rooms = getRooms();
+  const rooms = await loadRooms();
   const roomId = normalizeRoomId(request.nextUrl.searchParams.get('roomId'));
   const playerId = request.nextUrl.searchParams.get('playerId') ?? '';
 
@@ -524,7 +574,7 @@ export async function DELETE(request: NextRequest) {
 
   const room = rooms.get(roomId);
   if (!room) {
-    persistRooms(rooms);
+    await saveRooms(rooms);
     return json({ ok: true });
   }
   ensureRoomState(room);
@@ -548,14 +598,14 @@ export async function DELETE(request: NextRequest) {
     if (nextHost) room.hostId = nextHost.id;
   }
 
-  persistRooms(rooms);
+  await saveRooms(rooms);
   return json({ ok: true });
 }
 
 export async function POST(request: NextRequest) {
-  const rooms = getRooms();
+  const rooms = await loadRooms();
   cleanupRooms(rooms);
-  persistRooms(rooms);
+  await saveRooms(rooms);
 
   const body = await request.json().catch(() => null) as null | {
     action?: 'create' | 'join' | 'sync';
@@ -611,7 +661,7 @@ export async function POST(request: NextRequest) {
       createdAt: now,
     });
 
-    persistRooms(rooms);
+    await saveRooms(rooms);
     return json({ roomId, playerId: pid, seed, room: roomToResponse(rooms.get(roomId)) });
   }
 
@@ -639,7 +689,7 @@ export async function POST(request: NextRequest) {
     });
     room.playerMeta.set(pid, { lastInputSeq: 0, inferredLoss: 0, history: [] });
 
-    persistRooms(rooms);
+    await saveRooms(rooms);
     return json({ roomId, playerId: pid, seed: room.seed, hostId: room.hostId, room: roomToResponse(room) });
   }
 
@@ -698,7 +748,7 @@ export async function POST(request: NextRequest) {
       room.server.snapshotCounter += 1;
     }
 
-    persistRooms(rooms);
+    await saveRooms(rooms);
     return json({ sync: buildSyncResponse(room, player.id) });
   }
 

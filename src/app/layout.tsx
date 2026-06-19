@@ -5,11 +5,14 @@ import { GameStoreProvider } from "@/components/GameStore";
 export const metadata: Metadata = {
   title: "Dashverse",
   description: "An infinite side-scrolling adventure — dash through boundless worlds",
-  manifest: "/manifest.json",
+  manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
     title: "Dashverse",
+  },
+  other: {
+    "mobile-web-app-capable": "yes",
   },
 };
 
