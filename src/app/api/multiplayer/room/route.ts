@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { tmpdir } from 'os';
+import { join } from 'path';
 import type { NetEnemySnapshot, NetPlayerSnapshot, NetPlayerState, NetRoomState, NetSyncPayload, NetSyncResponse } from '@/game/multiplayer/types';
 import {
   MP_HISTORY_BUFFER_DURATION_MS,
@@ -41,20 +44,99 @@ type RoomMap = Map<string, {
   createdAt: number;
 }>;
 
+interface SerializedRoom {
+  id: string;
+  seed: number;
+  hostId: string;
+  players: NetPlayerState[];
+  enemies: NetEnemySnapshot[];
+  enemyVersion: number;
+  enemyChecksum: number;
+  playerMeta: Array<[string, ServerPlayerMeta]>;
+  server: RoomServerState;
+  createdAt: number;
+}
+
+interface SerializedRoomStore {
+  rooms: SerializedRoom[];
+}
+
 const PLAYER_TTL_MS = 8 * 60_000;
 const ROOM_TTL_MS = 2 * 60 * 60_000;
 const EMPTY_ROOM_GRACE_MS = 12 * 60_000;
 const MAX_PLAYER_SPEED_PX_PER_SEC = 880;
 const MAX_PLAYER_FALL_SPEED_PX_PER_SEC = 1600;
 const MAX_POSITION_BURST = 240;
+const ROOM_STORE_DIR = join(tmpdir(), 'dashverse-multiplayer');
+const ROOM_STORE_FILE = join(ROOM_STORE_DIR, 'rooms.json');
+
+function serializeRooms(rooms: RoomMap): SerializedRoomStore {
+  return {
+    rooms: Array.from(rooms.values()).map((room) => ({
+      id: room.id,
+      seed: room.seed,
+      hostId: room.hostId,
+      players: Array.from(room.players.values()),
+      enemies: room.enemies ?? [],
+      enemyVersion: room.enemyVersion ?? 0,
+      enemyChecksum: room.enemyChecksum ?? 0,
+      playerMeta: Array.from(room.playerMeta?.entries?.() ?? []),
+      server: room.server,
+      createdAt: room.createdAt,
+    })),
+  };
+}
+
+function hydrateRooms(store: SerializedRoomStore | null): RoomMap {
+  const rooms: RoomMap = new Map();
+  for (const raw of store?.rooms ?? []) {
+    if (!raw?.id) continue;
+    const players = new Map<string, NetPlayerState>();
+    for (const player of raw.players ?? []) {
+      if (player?.id) players.set(player.id, player);
+    }
+    rooms.set(raw.id, {
+      id: raw.id,
+      seed: Number.isFinite(raw.seed) ? raw.seed : 42,
+      hostId: raw.hostId,
+      players,
+      enemies: raw.enemies ?? [],
+      enemyVersion: Number.isFinite(raw.enemyVersion) ? raw.enemyVersion : 0,
+      enemyChecksum: Number.isFinite(raw.enemyChecksum) ? raw.enemyChecksum : 0,
+      playerMeta: new Map(raw.playerMeta ?? []),
+      server: raw.server,
+      createdAt: Number.isFinite(raw.createdAt) ? raw.createdAt : Date.now(),
+    });
+  }
+  return rooms;
+}
 
 declare global {
   // eslint-disable-next-line no-var
   var __infiniteMpRooms: RoomMap | undefined;
 }
 
+function readPersistedRooms(): RoomMap | null {
+  try {
+    const parsed = JSON.parse(readFileSync(ROOM_STORE_FILE, 'utf8')) as SerializedRoomStore;
+    return hydrateRooms(parsed);
+  } catch {
+    return null;
+  }
+}
+
+function persistRooms(rooms: RoomMap): void {
+  try {
+    mkdirSync(ROOM_STORE_DIR, { recursive: true });
+    writeFileSync(ROOM_STORE_FILE, JSON.stringify(serializeRooms(rooms)), 'utf8');
+  } catch {
+    // Multiplayer still works in-memory when the filesystem is read-only.
+  }
+}
+
 function getRooms(): RoomMap {
-  if (!global.__infiniteMpRooms) global.__infiniteMpRooms = new Map();
+  const persisted = readPersistedRooms();
+  global.__infiniteMpRooms = persisted ?? global.__infiniteMpRooms ?? new Map();
   return global.__infiniteMpRooms;
 }
 
@@ -415,6 +497,7 @@ function applyCarryPose(room: ReturnType<RoomMap['get']>): void {
 export async function GET(request: NextRequest) {
   const rooms = getRooms();
   cleanupRooms(rooms);
+  persistRooms(rooms);
 
   const roomId = normalizeRoomId(request.nextUrl.searchParams.get('roomId'));
   if (!roomId) {
@@ -440,7 +523,10 @@ export async function DELETE(request: NextRequest) {
   }
 
   const room = rooms.get(roomId);
-  if (!room) return json({ ok: true });
+  if (!room) {
+    persistRooms(rooms);
+    return json({ ok: true });
+  }
   ensureRoomState(room);
 
   const leaving = room.players.get(playerId);
@@ -462,12 +548,14 @@ export async function DELETE(request: NextRequest) {
     if (nextHost) room.hostId = nextHost.id;
   }
 
+  persistRooms(rooms);
   return json({ ok: true });
 }
 
 export async function POST(request: NextRequest) {
   const rooms = getRooms();
   cleanupRooms(rooms);
+  persistRooms(rooms);
 
   const body = await request.json().catch(() => null) as null | {
     action?: 'create' | 'join' | 'sync';
@@ -523,6 +611,7 @@ export async function POST(request: NextRequest) {
       createdAt: now,
     });
 
+    persistRooms(rooms);
     return json({ roomId, playerId: pid, seed, room: roomToResponse(rooms.get(roomId)) });
   }
 
@@ -550,6 +639,7 @@ export async function POST(request: NextRequest) {
     });
     room.playerMeta.set(pid, { lastInputSeq: 0, inferredLoss: 0, history: [] });
 
+    persistRooms(rooms);
     return json({ roomId, playerId: pid, seed: room.seed, hostId: room.hostId, room: roomToResponse(room) });
   }
 
@@ -608,6 +698,7 @@ export async function POST(request: NextRequest) {
       room.server.snapshotCounter += 1;
     }
 
+    persistRooms(rooms);
     return json({ sync: buildSyncResponse(room, player.id) });
   }
 
