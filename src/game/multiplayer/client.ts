@@ -17,11 +17,19 @@ async function requestJson<T>(input: RequestInfo | URL, init?: RequestInit): Pro
   return data as T;
 }
 
+const delay = (ms: number) => new Promise<void>((resolve) => window.setTimeout(resolve, ms));
+
 export async function createMultiplayerRoom(params: {
   playerName: string;
   characterId: string;
   seed?: number;
-}): Promise<{ roomId: string; playerId: string; seed: number; room: NetRoomState }> {
+}): Promise<{
+  roomId: string;
+  playerId: string;
+  seed: number;
+  room: NetRoomState;
+  storeMode?: 'redis' | 'ephemeral' | 'local';
+}> {
   return requestJson('/api/multiplayer/room', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -38,18 +46,39 @@ export async function joinMultiplayerRoom(params: {
   roomId: string;
   playerName: string;
   characterId: string;
-}): Promise<{ roomId: string; playerId: string; seed: number; room: NetRoomState; hostId: string }> {
+}): Promise<{
+  roomId: string;
+  playerId: string;
+  seed: number;
+  room: NetRoomState;
+  hostId: string;
+  storeMode?: 'redis' | 'ephemeral' | 'local';
+}> {
   const roomId = normalizeRoomId(params.roomId);
-  return requestJson('/api/multiplayer/room', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      action: 'join',
-      roomId,
-      playerName: params.playerName,
-      characterId: params.characterId,
-    }),
-  });
+  let lastError: Error | null = null;
+
+  // A newly-created room can briefly be unavailable while a serverless
+  // deployment starts or routes requests across instances.
+  for (let attempt = 0; attempt < 6; attempt++) {
+    try {
+      return await requestJson('/api/multiplayer/room', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'join',
+          roomId,
+          playerName: params.playerName,
+          characterId: params.characterId,
+        }),
+      });
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error('Unable to join room');
+      if (!/room|storage|503/i.test(lastError.message) || attempt === 5) break;
+      await delay(250 + attempt * 250);
+    }
+  }
+
+  throw lastError ?? new Error('Unable to join room');
 }
 
 export async function syncMultiplayerRoom(

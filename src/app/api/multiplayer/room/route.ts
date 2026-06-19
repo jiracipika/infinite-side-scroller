@@ -8,6 +8,7 @@ import {
   MP_SERVER_TICK_RATE,
   MP_SNAPSHOT_RATE,
 } from '@/game/multiplayer/config';
+import { hasSharedRedis, multiplayerStoreMode, redisCommand } from '@/lib/server/redis-rest';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -70,9 +71,6 @@ const MAX_POSITION_BURST = 240;
 const ROOM_STORE_DIR = join(tmpdir(), 'dashverse-multiplayer');
 const ROOM_STORE_FILE = join(ROOM_STORE_DIR, 'rooms.json');
 const ROOM_STORE_KEY = 'dashverse:multiplayer:rooms';
-const REDIS_REST_URL = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL || '';
-const REDIS_REST_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN || '';
-const HAS_REDIS_STORE = !!REDIS_REST_URL && !!REDIS_REST_TOKEN;
 
 function serializeRooms(rooms: RoomMap): SerializedRoomStore {
   return {
@@ -144,28 +142,8 @@ function getRooms(): RoomMap {
   return global.__infiniteMpRooms;
 }
 
-async function redisCommand<T>(command: unknown[]): Promise<T | null> {
-  if (!HAS_REDIS_STORE) return null;
-  try {
-    const response = await fetch(`${REDIS_REST_URL.replace(/\/$/, '')}`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${REDIS_REST_TOKEN}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(command),
-      cache: 'no-store',
-    });
-    if (!response.ok) return null;
-    const data = await response.json().catch(() => null) as { result?: T } | null;
-    return data?.result ?? null;
-  } catch {
-    return null;
-  }
-}
-
 async function loadRooms(): Promise<RoomMap> {
-  if (HAS_REDIS_STORE) {
+  if (hasSharedRedis) {
     const raw = await redisCommand<string | null>(['GET', ROOM_STORE_KEY]);
     if (raw) {
       try {
@@ -182,7 +160,7 @@ async function loadRooms(): Promise<RoomMap> {
 
 async function saveRooms(rooms: RoomMap): Promise<void> {
   global.__infiniteMpRooms = rooms;
-  if (HAS_REDIS_STORE) {
+  if (hasSharedRedis) {
     const payload = JSON.stringify(serializeRooms(rooms));
     const ok = await redisCommand<string>(['SET', ROOM_STORE_KEY, payload, 'EX', String(Math.ceil(ROOM_TTL_MS / 1000))]);
     if (ok) return;
@@ -545,6 +523,15 @@ function applyCarryPose(room: ReturnType<RoomMap['get']>): void {
 }
 
 export async function GET(request: NextRequest) {
+  if (request.nextUrl.searchParams.get('health') === '1') {
+    const storeMode = multiplayerStoreMode();
+    return json({
+      ok: true,
+      storeMode,
+      sharedStorage: storeMode === 'redis',
+    });
+  }
+
   const rooms = await loadRooms();
   cleanupRooms(rooms);
   await saveRooms(rooms);
@@ -560,7 +547,10 @@ export async function GET(request: NextRequest) {
   }
   ensureRoomState(room);
 
-  return json({ room: roomToResponse(room) });
+  return json({
+    room: roomToResponse(room),
+    storeMode: multiplayerStoreMode(),
+  });
 }
 
 export async function DELETE(request: NextRequest) {
@@ -662,15 +652,28 @@ export async function POST(request: NextRequest) {
     });
 
     await saveRooms(rooms);
-    return json({ roomId, playerId: pid, seed, room: roomToResponse(rooms.get(roomId)) });
+    return json({
+      roomId,
+      playerId: pid,
+      seed,
+      room: roomToResponse(rooms.get(roomId)),
+      storeMode: multiplayerStoreMode(),
+    });
   }
 
   if (body.action === 'join') {
     const roomId = normalizeRoomId(body.roomId);
     const room = rooms.get(roomId);
-    if (!room) return json({
-      error: 'Room not found. Make sure both devices opened the same site URL and room code.',
-    }, 404);
+    if (!room) {
+      const storeMode = multiplayerStoreMode();
+      return json({
+        error: storeMode === 'ephemeral'
+          ? 'Room could not be reached because shared multiplayer storage is not configured on this deployment.'
+          : 'Room not found. Make sure both devices opened the same site URL and room code.',
+        code: storeMode === 'ephemeral' ? 'MULTIPLAYER_STORE_UNAVAILABLE' : 'ROOM_NOT_FOUND',
+        storeMode,
+      }, storeMode === 'ephemeral' ? 503 : 404);
+    }
     ensureRoomState(room);
 
     if (room.players.size >= 4) {
@@ -690,7 +693,14 @@ export async function POST(request: NextRequest) {
     room.playerMeta.set(pid, { lastInputSeq: 0, inferredLoss: 0, history: [] });
 
     await saveRooms(rooms);
-    return json({ roomId, playerId: pid, seed: room.seed, hostId: room.hostId, room: roomToResponse(room) });
+    return json({
+      roomId,
+      playerId: pid,
+      seed: room.seed,
+      hostId: room.hostId,
+      room: roomToResponse(room),
+      storeMode: multiplayerStoreMode(),
+    });
   }
 
   if (body.action === 'sync') {

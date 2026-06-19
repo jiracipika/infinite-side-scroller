@@ -50,3 +50,31 @@ npm run build
 npm run start
 ```
 
+## Multiplayer Deployment
+
+Cloud multiplayer requires shared Redis/KV storage. Without it, serverless
+instances cannot see rooms or WebRTC signaling created by another device.
+
+Attach an Upstash Redis or Vercel Marketplace Redis database and expose either
+of these environment-variable pairs to Production and Preview:
+
+```text
+UPSTASH_REDIS_REST_URL
+UPSTASH_REDIS_REST_TOKEN
+```
+
+or:
+
+```text
+KV_REST_API_URL
+KV_REST_API_TOKEN
+```
+
+After deployment, verify the backend at:
+
+```text
+/api/multiplayer/room?health=1
+```
+
+Reliable cross-device rooms report `"storeMode":"redis"` and
+`"sharedStorage":true`.

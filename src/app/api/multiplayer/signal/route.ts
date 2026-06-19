@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { hasSharedRedis, multiplayerStoreMode, redisCommand } from '@/lib/server/redis-rest';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -30,6 +31,7 @@ function getStore(): Map<string, SignalEntry> {
 }
 
 const SIGNAL_TTL_MS = 60_000;
+const SIGNAL_KEY_PREFIX = 'dashverse:multiplayer:signal:';
 
 function cleanup(): void {
   const store = getStore();
@@ -37,6 +39,41 @@ function cleanup(): void {
   for (const [key, entry] of store.entries()) {
     if (now - entry.createdAt > SIGNAL_TTL_MS) store.delete(key);
   }
+}
+
+async function loadEntry(roomId: string): Promise<SignalEntry | null> {
+  if (hasSharedRedis) {
+    const raw = await redisCommand<string | null>(['GET', `${SIGNAL_KEY_PREFIX}${roomId}`]);
+    if (raw) {
+      try {
+        return JSON.parse(raw) as SignalEntry;
+      } catch {
+        // Fall through to the local store.
+      }
+    }
+  }
+  return getStore().get(roomId) ?? null;
+}
+
+async function saveEntry(roomId: string, entry: SignalEntry): Promise<void> {
+  if (hasSharedRedis) {
+    const saved = await redisCommand<string>([
+      'SET',
+      `${SIGNAL_KEY_PREFIX}${roomId}`,
+      JSON.stringify(entry),
+      'EX',
+      String(Math.ceil(SIGNAL_TTL_MS / 1000)),
+    ]);
+    if (saved) return;
+  }
+  getStore().set(roomId, entry);
+}
+
+async function deleteEntry(roomId: string): Promise<void> {
+  if (hasSharedRedis) {
+    await redisCommand<number>(['DEL', `${SIGNAL_KEY_PREFIX}${roomId}`]);
+  }
+  getStore().delete(roomId);
 }
 
 function json(data: unknown, init?: number | ResponseInit): NextResponse {
@@ -56,7 +93,6 @@ function json(data: unknown, init?: number | ResponseInit): NextResponse {
  */
 export async function POST(request: NextRequest) {
   cleanup();
-  const store = getStore();
   const body = await request.json().catch(() => null) as null | {
     action?: string;
     roomId?: string;
@@ -71,31 +107,33 @@ export async function POST(request: NextRequest) {
 
   switch (body.action) {
     case 'offer': {
-      store.set(roomId, {
+      await saveEntry(roomId, {
         offer: body.sdp ?? null,
         answer: null,
         hostId: body.hostId ?? '',
         createdAt: Date.now(),
       });
-      return json({ ok: true });
+      return json({ ok: true, storeMode: multiplayerStoreMode() });
     }
     case 'answer': {
-      const entry = store.get(roomId);
+      const entry = await loadEntry(roomId);
       if (!entry) return json({ error: 'No offer for this room yet' }, 404);
       entry.answer = body.sdp ?? null;
-      return json({ ok: true });
+      await saveEntry(roomId, entry);
+      return json({ ok: true, storeMode: multiplayerStoreMode() });
     }
     case 'get': {
-      const entry = store.get(roomId);
+      const entry = await loadEntry(roomId);
       return json({
         offer: entry?.offer ?? null,
         answer: entry?.answer ?? null,
         hasOffer: !!entry?.offer,
         hasAnswer: !!entry?.answer,
+        storeMode: multiplayerStoreMode(),
       });
     }
     case 'clear': {
-      store.delete(roomId);
+      await deleteEntry(roomId);
       return json({ ok: true });
     }
     default:

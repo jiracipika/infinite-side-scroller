@@ -713,7 +713,11 @@ export default function Home() {
         setShowHostInvite(true);
         const hostOrigin = typeof window !== 'undefined' ? new URL(inviteUrl).origin : '';
         const hostHint = hostOrigin ? `Share this site URL + code: ${result.roomId}` : `Room ${result.roomId}`;
-        setMultiplayerNotice(`Hosting room ${result.roomId}. ${hostHint}`);
+        setMultiplayerNotice(
+          result.storeMode === 'ephemeral'
+            ? `Room ${result.roomId} is ready, but this deployment needs Redis/KV for reliable cross-device joining.`
+            : `Hosting room ${result.roomId}. ${hostHint}`,
+        );
       } else {
         setShowHostInvite(false);
         setHostInviteUrl(null);
