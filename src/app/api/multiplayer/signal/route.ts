@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { tmpdir } from 'os';
+import { join } from 'path';
 import { hasSharedRedis, multiplayerStoreMode, redisCommand } from '@/lib/server/redis-rest';
 
 export const runtime = 'nodejs';
@@ -7,10 +10,9 @@ export const revalidate = 0;
 
 /**
  * WebRTC signaling store — holds SDP offer/answer for each room during the
- * brief P2P handshake. Once the data channel opens this data is discarded.
- *
- * Kept separate from the game room store to avoid touching the complex
- * authoritative server logic in room/route.ts.
+ * brief P2P handshake. Uses Upstash Redis / Vercel KV when configured so host
+ * and guest can land on different serverless instances and still complete the
+ * handshake. Local dev falls back to a small /tmp JSON file + memory.
  */
 
 interface SignalEntry {
@@ -25,20 +27,65 @@ declare global {
   var __issRtcSignals: Map<string, SignalEntry> | undefined;
 }
 
-function getStore(): Map<string, SignalEntry> {
-  if (!global.__issRtcSignals) global.__issRtcSignals = new Map();
+const SIGNAL_TTL_MS = 60_000;
+const SIGNAL_KEY_PREFIX = 'dashverse:multiplayer:signal:';
+const SIGNAL_STORE_DIR = join(tmpdir(), 'dashverse-multiplayer');
+const SIGNAL_STORE_FILE = join(SIGNAL_STORE_DIR, 'rtc-signals.json');
+
+function hydrateStore(raw: unknown): Map<string, SignalEntry> {
+  const store = new Map<string, SignalEntry>();
+  if (!Array.isArray(raw)) return store;
+  for (const item of raw) {
+    if (!Array.isArray(item) || item.length !== 2) continue;
+    const [roomId, entry] = item as [unknown, Partial<SignalEntry>];
+    if (typeof roomId !== 'string' || !entry) continue;
+    store.set(roomId, {
+      offer: entry.offer ?? null,
+      answer: entry.answer ?? null,
+      hostId: typeof entry.hostId === 'string' ? entry.hostId : '',
+      createdAt: Number.isFinite(entry.createdAt) ? Number(entry.createdAt) : Date.now(),
+    });
+  }
+  return store;
+}
+
+function serializeStore(store: Map<string, SignalEntry>): Array<[string, SignalEntry]> {
+  return Array.from(store.entries());
+}
+
+function readFileStore(): Map<string, SignalEntry> | null {
+  try {
+    return hydrateStore(JSON.parse(readFileSync(SIGNAL_STORE_FILE, 'utf8')));
+  } catch {
+    return null;
+  }
+}
+
+function writeFileStore(store: Map<string, SignalEntry>): void {
+  try {
+    mkdirSync(SIGNAL_STORE_DIR, { recursive: true });
+    writeFileSync(SIGNAL_STORE_FILE, JSON.stringify(serializeStore(store)), 'utf8');
+  } catch {
+    // Memory fallback is still enough for same-process local dev.
+  }
+}
+
+function getLocalStore(): Map<string, SignalEntry> {
+  const fileStore = readFileStore();
+  global.__issRtcSignals = fileStore ?? global.__issRtcSignals ?? new Map();
   return global.__issRtcSignals;
 }
 
-const SIGNAL_TTL_MS = 60_000;
-const SIGNAL_KEY_PREFIX = 'dashverse:multiplayer:signal:';
-
-function cleanup(): void {
-  const store = getStore();
+function cleanupLocalStore(store: Map<string, SignalEntry>): void {
   const now = Date.now();
+  let changed = false;
   for (const [key, entry] of store.entries()) {
-    if (now - entry.createdAt > SIGNAL_TTL_MS) store.delete(key);
+    if (now - entry.createdAt > SIGNAL_TTL_MS) {
+      store.delete(key);
+      changed = true;
+    }
   }
+  if (changed) writeFileStore(store);
 }
 
 async function loadEntry(roomId: string): Promise<SignalEntry | null> {
@@ -52,7 +99,9 @@ async function loadEntry(roomId: string): Promise<SignalEntry | null> {
       }
     }
   }
-  return getStore().get(roomId) ?? null;
+  const store = getLocalStore();
+  cleanupLocalStore(store);
+  return store.get(roomId) ?? null;
 }
 
 async function saveEntry(roomId: string, entry: SignalEntry): Promise<void> {
@@ -66,14 +115,19 @@ async function saveEntry(roomId: string, entry: SignalEntry): Promise<void> {
     ]);
     if (saved) return;
   }
-  getStore().set(roomId, entry);
+  const store = getLocalStore();
+  cleanupLocalStore(store);
+  store.set(roomId, entry);
+  writeFileStore(store);
 }
 
 async function deleteEntry(roomId: string): Promise<void> {
   if (hasSharedRedis) {
     await redisCommand<number>(['DEL', `${SIGNAL_KEY_PREFIX}${roomId}`]);
   }
-  getStore().delete(roomId);
+  const store = getLocalStore();
+  store.delete(roomId);
+  writeFileStore(store);
 }
 
 function json(data: unknown, init?: number | ResponseInit): NextResponse {
@@ -92,7 +146,6 @@ function json(data: unknown, init?: number | ResponseInit): NextResponse {
  *   { action: 'clear',  roomId }                  — discard after connected
  */
 export async function POST(request: NextRequest) {
-  cleanup();
   const body = await request.json().catch(() => null) as null | {
     action?: string;
     roomId?: string;
@@ -134,7 +187,7 @@ export async function POST(request: NextRequest) {
     }
     case 'clear': {
       await deleteEntry(roomId);
-      return json({ ok: true });
+      return json({ ok: true, storeMode: multiplayerStoreMode() });
     }
     default:
       return json({ error: 'unknown action' }, 400);

@@ -994,6 +994,10 @@ export default function Home() {
         const payload = {
           roomId: session.roomId,
           playerId: session.playerId,
+          playerName: session.playerName,
+          hostId: session.hostId,
+          seed,
+          characterId: localSnapshot.characterId,
           snapshot: includeSnapshot ? localSnapshot : undefined,
           input,
           enemies: session.playerId === session.hostId ? game.getEnemySnapshots() : undefined,
@@ -1071,7 +1075,11 @@ export default function Home() {
         if (controller.signal.aborted) return;
         if (!cancelled) {
           const msg = error instanceof Error ? error.message : 'Multiplayer sync failed';
-          setMultiplayerNotice(msg);
+          if (/room not found|player not in room/i.test(msg)) {
+            setMultiplayerNotice('Reconnecting multiplayer session...');
+          } else {
+            setMultiplayerNotice(msg);
+          }
         }
       } finally {
         if (syncAbortRef.current === controller) syncAbortRef.current = null;

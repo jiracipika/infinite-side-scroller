@@ -250,6 +250,65 @@ function cloneSnapshot(s: NetPlayerSnapshot): NetPlayerSnapshot {
   };
 }
 
+function initialServerState(now: number): RoomServerState {
+  return {
+    lastTickAt: now,
+    tickAccumulatorMs: 0,
+    tickCounter: 0,
+    tickWindowStart: now,
+    tickRateNow: MP_SERVER_TICK_RATE,
+    lastSnapshotAt: now,
+    snapshotCounter: 0,
+    snapshotWindowStart: now,
+    snapshotRateNow: MP_SNAPSHOT_RATE,
+  };
+}
+
+function createRecoveredPlayer(payload: NetSyncPayload, now: number): NetPlayerState {
+  const characterId = typeof payload.characterId === 'string' && payload.characterId
+    ? payload.characterId
+    : 'knight';
+  return {
+    id: payload.playerId,
+    name: sanitizeName(payload.playerName ?? 'Player'),
+    snapshot: sanitizeSnapshot(payload.snapshot, characterId),
+    carryTargetId: null,
+    carriedById: null,
+    updatedAt: now,
+  };
+}
+
+function recoverRoomFromSync(rooms: RoomMap, payload: NetSyncPayload, now: number): ReturnType<RoomMap['get']> {
+  const roomId = normalizeRoomId(payload.roomId);
+  if (!roomId || !payload.playerId) return undefined;
+  const player = createRecoveredPlayer(payload, now);
+  const hostId = typeof payload.hostId === 'string' && payload.hostId ? payload.hostId : payload.playerId;
+  const seed = Number.isFinite(payload.seed) ? Math.floor(Number(payload.seed)) : 42;
+  rooms.set(roomId, {
+    id: roomId,
+    seed,
+    hostId,
+    players: new Map([[player.id, player]]),
+    enemies: [],
+    enemyVersion: 0,
+    enemyChecksum: 0,
+    playerMeta: new Map([[player.id, { lastInputSeq: 0, inferredLoss: 0, history: [] }]]),
+    server: initialServerState(now),
+    createdAt: now,
+  });
+  return rooms.get(roomId);
+}
+
+function ensurePlayerInRoom(room: NonNullable<ReturnType<RoomMap['get']>>, payload: NetSyncPayload, now: number): NetPlayerState {
+  let player = room.players.get(payload.playerId);
+  if (!player) {
+    player = createRecoveredPlayer(payload, now);
+    room.players.set(player.id, player);
+    room.playerMeta.set(player.id, { lastInputSeq: 0, inferredLoss: 0, history: [] });
+  }
+  return player;
+}
+
 function sanitizeEnemies(value: unknown): NetEnemySnapshot[] {
   if (!Array.isArray(value)) return [];
   return value.slice(0, 80).map((raw) => {
@@ -534,7 +593,6 @@ export async function GET(request: NextRequest) {
 
   const rooms = await loadRooms();
   cleanupRooms(rooms);
-  await saveRooms(rooms);
 
   const roomId = normalizeRoomId(request.nextUrl.searchParams.get('roomId'));
   if (!roomId) {
@@ -595,7 +653,6 @@ export async function DELETE(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const rooms = await loadRooms();
   cleanupRooms(rooms);
-  await saveRooms(rooms);
 
   const body = await request.json().catch(() => null) as null | {
     action?: 'create' | 'join' | 'sync';
@@ -637,17 +694,7 @@ export async function POST(request: NextRequest) {
       enemyVersion: 0,
       enemyChecksum: 0,
       playerMeta: new Map([[pid, { lastInputSeq: 0, inferredLoss: 0, history: [] }]]),
-      server: {
-        lastTickAt: now,
-        tickAccumulatorMs: 0,
-        tickCounter: 0,
-        tickWindowStart: now,
-        tickRateNow: MP_SERVER_TICK_RATE,
-        lastSnapshotAt: now,
-        snapshotCounter: 0,
-        snapshotWindowStart: now,
-        snapshotRateNow: MP_SNAPSHOT_RATE,
-      },
+      server: initialServerState(now),
       createdAt: now,
     });
 
@@ -709,14 +756,16 @@ export async function POST(request: NextRequest) {
       return json({ error: 'sync.roomId and sync.playerId required' }, 400);
     }
 
-    const room = rooms.get(normalizeRoomId(payload.roomId));
+    let room = rooms.get(normalizeRoomId(payload.roomId));
+    const now = Date.now();
+    if (!room) {
+      room = recoverRoomFromSync(rooms, payload, now);
+    }
     if (!room) return json({ error: 'Room not found' }, 404);
     ensureRoomState(room);
-    const now = Date.now();
     stepServerClock(room, now);
 
-    const player = room.players.get(payload.playerId);
-    if (!player) return json({ error: 'Player not in room' }, 404);
+    const player = ensurePlayerInRoom(room, payload, now);
     const meta = room.playerMeta.get(payload.playerId) ?? { lastInputSeq: 0, inferredLoss: 0, history: [] };
     room.playerMeta.set(payload.playerId, meta);
 

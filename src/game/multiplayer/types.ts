@@ -56,6 +56,12 @@ export interface NetRoomState {
 export interface NetSyncPayload {
   roomId: string;
   playerId: string;
+  // Session metadata lets the server repair an active room if a serverless
+  // instance loses in-memory state between sync calls.
+  playerName?: string;
+  hostId?: string;
+  seed?: number;
+  characterId?: string;
   // Optional to allow command-only packets between keyframes.
   snapshot?: NetPlayerSnapshot;
   input?: NetInputCommand;
