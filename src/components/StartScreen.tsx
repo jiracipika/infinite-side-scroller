@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, type FC } from 'react';
+import { useState, useEffect, useMemo, type CSSProperties, type FC, type ReactNode } from 'react';
 import { useGameStore } from './GameStore';
 import { CHARACTERS, saveSelectedCharacter, loadSelectedCharacter } from '@/game/data/characters';
 import AchievementsModal from './AchievementsModal';
@@ -256,9 +256,12 @@ const StartScreen: FC<Props> = ({
   );
   const dailyUsed = useMemo(() => hasPlayedDailyChallenge(activeSlotId, getTodayIsoDay()), [activeSlotId]);
 
+  const selectedCharacter = CHARACTERS.find(c => c.id === selectedChar) ?? CHARACTERS[0];
+  const highScoreLabel = stats.highScore > 0 ? stats.highScore.toLocaleString() : 'New run';
+
   return (
     <div
-      className="absolute inset-0 flex flex-col items-center ios-overlay"
+      className="absolute inset-0 dash-menu-shell"
       style={{
         opacity: mounted ? 1 : 0,
         transition: 'opacity 0.35s ease',
@@ -269,227 +272,126 @@ const StartScreen: FC<Props> = ({
         padding: 'max(18px, env(safe-area-inset-top, 0px)) 0 max(28px, env(safe-area-inset-bottom, 0px))',
       }}
     >
-      {/* Background star field */}
       <StarField />
+      <div className="dash-menu-aurora dash-menu-aurora-a" />
+      <div className="dash-menu-aurora dash-menu-aurora-b" />
 
-      <div
-        className="flex flex-col items-center w-full"
-        style={{
-          maxWidth: 460,
-          padding: '0 16px',
-          position: 'relative',
-          zIndex: 1,
-          minHeight: 'min-content',
-          margin: 'auto 0',
-          animation: mounted ? 'iosSpringIn 0.55s cubic-bezier(0.34,1.56,0.64,1) both' : 'none',
-        }}
+      <main
+        className="dash-menu-stage"
+        style={{ animation: mounted ? 'iosSpringIn 0.55s cubic-bezier(0.34,1.56,0.64,1) both' : 'none' }}
       >
-        {/* ── App Icon + Title ─────────────────────────────── */}
-        <div className="flex flex-col items-center" style={{ marginBottom: 'clamp(14px, 3.2vh, 28px)' }}>
-          <AppIcon />
-          <h1
-            className="ios-large-title"
-            style={{ marginTop: 'clamp(8px, 1.8vh, 16px)', animation: 'iosGlow 5s ease-in-out infinite' }}
-          >
-            Dashverse
-          </h1>
-          <p
-            className="ios-caption2"
-            style={{
-              marginTop: 5,
-              letterSpacing: '0.18em',
-              textTransform: 'uppercase',
-              color: 'rgba(235,235,245,0.35)',
-            }}
-          >
-            Dash through boundless worlds
-          </p>
-        </div>
-
-        {/* ── High Score pill ──────────────────────────────── */}
-        {stats.highScore > 0 && (
-          <div
-            className="ios-hud-pill"
-            style={{ marginBottom: 22, gap: 6, animation: 'iosFadeIn 0.4s ease 0.15s both' }}
-          >
-            <StarIcon />
-            <span className="ios-footnote" style={{ color: 'var(--ios-label3)' }}>Best</span>
-            <span
-              className="ios-footnote"
-              style={{ color: 'var(--ios-label)', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}
-            >
-              {stats.highScore.toLocaleString()}
-            </span>
+        <section className="dash-hero-card">
+          <div className="dash-hero-topline">
+            <span className="dash-status-dot" />
+            Endless arcade runner
           </div>
-        )}
+          <div className="dash-hero-row">
+            <AppIcon />
+            <div className="dash-hero-copy">
+              <h1>Dashverse</h1>
+              <p>Choose a runner, pick a mode, and jump into a cleaner, faster run.</p>
+            </div>
+          </div>
+          <div className="dash-hero-stats">
+            <span>Best: <b>{highScoreLabel}</b></span>
+            <span>Save: <b>{activeSlot?.name ?? 'Slot 1'}</b></span>
+            <span>Bank: <b>{activeSlot?.bankCoins ?? 0}c</b></span>
+          </div>
+        </section>
 
-        {/* ── Character Select ──────────────────────────────── */}
-        <div
-          className="ios-card"
-          style={{ width: '100%', marginBottom: 10, animation: 'iosFadeIn 0.4s ease 0.1s both', overflow: 'hidden' }}
-        >
-          {/* Selected character preview + stats */}
-          {(() => {
-            const sel = CHARACTERS.find(c => c.id === selectedChar) ?? CHARACTERS[0];
-            return (
-              <div style={{
-                padding: 'clamp(8px, 1.4vh, 12px) 12px 0',
-                display: 'flex',
-                gap: 12,
-                alignItems: 'flex-start',
-              }}>
-                {/* Big character avatar */}
-                <div style={{
-                  width: 'clamp(42px, 12vw, 52px)',
-                  height: 'clamp(50px, 14vw, 64px)',
-                  borderRadius: 10,
-                  background: `linear-gradient(135deg, ${sel.bodyColor}dd, ${sel.bodyColor})`,
-                  border: `2px solid ${sel.outlineColor}`,
-                  boxShadow: `0 4px 16px ${sel.bodyColor}44, inset 0 1px 0 rgba(255,255,255,0.15)`,
-                  flexShrink: 0,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  position: 'relative',
-                  overflow: 'hidden',
-                }}>
-                  {/* Eyes */}
-                  <div style={{ display: 'flex', gap: 4, marginTop: -4 }}>
-                    <div style={{ width: 5, height: 5, borderRadius: '50%', background: sel.eyeColor }} />
-                    <div style={{ width: 5, height: 5, borderRadius: '50%', background: sel.eyeColor }} />
-                  </div>
-                  {/* Shine */}
-                  <div style={{
-                    position: 'absolute', top: 4, left: 4, width: 14, height: 20,
-                    background: 'linear-gradient(135deg, rgba(255,255,255,0.25), transparent)',
-                    borderRadius: 6,
-                  }} />
-                </div>
-                {/* Name, desc, stats */}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-                    <span className="ios-row-label" style={{ fontSize: 15, fontWeight: 700 }}>{sel.name}</span>
-                    <span className="ios-caption2" style={{ color: 'var(--ios-label3)' }}>{sel.description}</span>
-                  </div>
-                  {/* Mini stat bars */}
-                  <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    <StatBar label="SPD" value={sel.speed} color="var(--ios-tint)" />
-                    <StatBar label="JMP" value={sel.jumpVelocity} color="var(--ios-green)" />
-                    <StatBar label="HP" value={sel.maxHealth / 5} color="var(--ios-red)" />
-                  </div>
-                </div>
-              </div>
-            );
-          })()}
+        <section className="dash-card dash-character-card">
+          <div className="dash-section-title-row">
+            <div>
+              <p className="dash-eyebrow">Runner</p>
+              <h2>{selectedCharacter.name}</h2>
+            </div>
+            <span className="dash-muted-pill">{selectedCharacter.description}</span>
+          </div>
 
-          {/* Character tabs */}
-          <div style={{
-            display: 'flex',
-            gap: 0,
-            padding: 'clamp(6px, 1.2vh, 8px) 8px clamp(7px, 1.4vh, 10px)',
-          }}>
+          <div className="dash-character-preview">
+            <div
+              className="dash-character-avatar"
+              style={{
+                background: `linear-gradient(145deg, ${selectedCharacter.bodyColor}cc, ${selectedCharacter.bodyColor})`,
+                borderColor: selectedCharacter.outlineColor,
+                boxShadow: `0 14px 36px ${selectedCharacter.bodyColor}30, inset 0 1px 0 rgba(255,255,255,0.18)`,
+              }}
+            >
+              <span style={{ background: selectedCharacter.eyeColor }} />
+              <span style={{ background: selectedCharacter.eyeColor }} />
+            </div>
+            <div className="dash-stat-stack">
+              <StatBar label="SPD" value={selectedCharacter.speed} color="var(--ios-tint)" />
+              <StatBar label="JMP" value={selectedCharacter.jumpVelocity} color="var(--ios-green)" />
+              <StatBar label="HP" value={selectedCharacter.maxHealth / 5} color="var(--ios-red)" />
+            </div>
+          </div>
+
+          <div className="dash-character-grid">
             {CHARACTERS.map((c) => (
               <button
                 key={c.id}
+                type="button"
+                className={`dash-character-chip ${selectedChar === c.id ? 'is-active' : ''}`}
                 onClick={() => { setSelectedChar(c.id); saveSelectedCharacter(c.id); }}
-                style={{
-                  flex: 1,
-                  padding: '8px 2px 6px',
-                  borderRadius: 0,
-                  border: 'none',
-                  background: 'transparent',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: 4,
-                  cursor: 'pointer',
-                  position: 'relative',
-                  transition: 'all 0.2s ease',
-                }}
+                style={{ '--chip-color': c.bodyColor } as CSSProperties}
               >
-                {/* Active indicator dot */}
-                {selectedChar === c.id && (
-                  <div style={{
-                    position: 'absolute', top: 0, left: '25%', right: '25%',
-                    height: 2, borderRadius: 1,
-                    background: c.bodyColor,
-                    boxShadow: `0 0 8px ${c.bodyColor}88`,
-                  }} />
-                )}
-                <div style={{
-                  width: 20,
-                  height: 24,
-                  borderRadius: 5,
-                  background: c.bodyColor,
-                  border: `1.5px solid ${c.outlineColor}`,
-                  opacity: selectedChar === c.id ? 1 : 0.45,
-                  transform: selectedChar === c.id ? 'scale(1.1)' : 'scale(1)',
-                  transition: 'all 0.2s cubic-bezier(0.34,1.56,0.64,1)',
-                  boxShadow: selectedChar === c.id ? `0 2px 10px ${c.bodyColor}55` : 'none',
-                }} />
-                <span className="ios-caption2" style={{
-                  color: selectedChar === c.id ? 'var(--ios-label)' : 'var(--ios-label3)',
-                  fontWeight: selectedChar === c.id ? 700 : 400,
-                  fontSize: 10,
-                  transition: 'all 0.15s ease',
-                }}>
-                  {c.name}
-                </span>
+                <span style={{ background: c.bodyColor, borderColor: c.outlineColor }} />
+                {c.name}
               </button>
             ))}
           </div>
-        </div>
+        </section>
 
-        {/* ── Play button ──────────────────────────────────── */}
-        <div style={{ width: '100%', marginBottom: 10 }}>
-          <button
-            className="ios-btn-primary ios-btn-shimmer"
-            onClick={handlePlay}
-            style={{ fontSize: 18, letterSpacing: '-0.3px' }}
-          >
-            Play
+        <section className="dash-action-grid">
+          <button className="dash-primary-action" onClick={handlePlay}>
+            <span>Play Endless</span>
+            <small>Instant run</small>
           </button>
-        </div>
+          {onLevelSelect && (
+            <button className="dash-secondary-action" onClick={onLevelSelect}>
+              <span>Level Select</span>
+              <small>Adventure + time attack</small>
+            </button>
+          )}
+          <button className="dash-secondary-action" onClick={() => setShowMultiplayer((v) => !v)}>
+            <span>{showMultiplayer ? 'Hide Multiplayer' : 'Same Wi‑Fi'}</span>
+            <small>Host or join a room</small>
+          </button>
+          <button className="dash-secondary-action" onClick={handleSplitScreen}>
+            <span>Split Screen</span>
+            <small>Two players locally</small>
+          </button>
+          {onPlayDailyChallenge && (
+            <button className="dash-secondary-action" onClick={handleDailyChallengeClick} disabled={dailyUsed}>
+              <span>{dailyUsed ? 'Daily Complete' : 'Daily Challenge'}</span>
+              <small>{dailyUsed ? 'Try again tomorrow' : 'One ranked attempt'}</small>
+            </button>
+          )}
+          <button className="dash-secondary-action" onClick={handleLeaderboardToggle}>
+            <span>{showLeaderboard ? 'Hide Leaderboard' : 'Leaderboard'}</span>
+            <small>Local + online runs</small>
+          </button>
+        </section>
 
-        {/* ── Level Select button ────────────────────────────── */}
-        {onLevelSelect && (
-          <div style={{ width: '100%', marginBottom: 10 }}>
-            <button
-              onClick={onLevelSelect}
-              style={{
-                width: '100%',
-                height: 48,
-                borderRadius: 12,
-                border: '1px solid rgba(10,132,255,0.25)',
-                background: 'linear-gradient(135deg, rgba(10,132,255,0.1), rgba(94,92,230,0.06))',
-                color: '#fff',
-                fontSize: 17,
-                fontWeight: 600,
-                letterSpacing: '-0.3px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-                transition: 'transform 0.15s, box-shadow 0.15s',
-              }}
-            >
-              🏰 Level Select
+        <section className="dash-card dash-profile-card">
+          <div className="dash-section-title-row compact">
+            <div>
+              <p className="dash-eyebrow">Profile</p>
+              <h2>Run setup</h2>
+            </div>
+            <button className="dash-text-button" onClick={() => setShowSettings((s) => !s)}>
+              {showSettings ? 'Hide settings' : 'Settings'}
             </button>
           </div>
-        )}
-
-        {/* ── Secondary card: seed + settings ─────────────── */}
-        <div className="ios-card" style={{ width: '100%' }}>
-          <div style={{ padding: '10px 10px 10px' }}>
+          <div className="dash-input-grid">
             <input
               type="text"
               inputMode="numeric"
               value={seedInput}
               onChange={(e) => setSeedInput(e.target.value.replace(/[^0-9]/g, ''))}
-              placeholder="World Seed (optional)"
-              className="ios-text-field"
-              style={{ height: 40, fontSize: 15, marginBottom: 8 }}
+              placeholder="World seed (optional)"
+              className="ios-text-field dash-field"
               onKeyDown={(e) => e.key === 'Enter' && handlePlay()}
             />
             <input
@@ -501,101 +403,34 @@ const StartScreen: FC<Props> = ({
                 setPlayerName(safe);
                 saveLeaderboardName(safe);
               }}
-              placeholder="Profile Name"
-              className="ios-text-field"
-              style={{ height: 38, fontSize: 14, marginBottom: 8 }}
+              placeholder="Profile name"
+              className="ios-text-field dash-field"
               maxLength={20}
             />
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, minmax(0, 1fr))', gap: 4, marginBottom: 8 }}>
-              {AVATAR_PRESETS.map((preset) => (
-                <button
-                  key={preset.id}
-                  className={avatarId === preset.id ? 'ios-btn-primary' : 'ios-btn-secondary'}
-                  style={{ height: 30, fontSize: 14, lineHeight: 1, padding: 0 }}
-                  onClick={() => {
-                    setAvatarId(preset.id);
-                    saveLeaderboardAvatarId(preset.id);
-                  }}
-                  title={preset.label}
-                >
-                  {preset.icon}
-                </button>
-              ))}
-            </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button
-                className="ios-btn-secondary"
-                onClick={() => setShowAchievements(true)}
-                style={{ height: 40, fontSize: 15, flex: 1 }}
-              >
-                🏆 {achieveCount}/{ACHIEVEMENTS.length}
-              </button>
-              <button
-                className="ios-btn-secondary"
-                onClick={() => setShowSettings((s) => !s)}
-                style={{ height: 40, fontSize: 15, flex: 1 }}
-              >
-                {showSettings ? 'Hide Settings' : 'Settings'}
-              </button>
-            </div>
-            <div style={{ marginTop: 8 }}>
-              <button
-                className="ios-btn-secondary"
-                onClick={handleLeaderboardToggle}
-                style={{ height: 40, fontSize: 15, width: '100%' }}
-              >
-                {showLeaderboard ? 'Hide Leaderboard' : 'Leaderboard'}
-              </button>
-            </div>
-            <div style={{ marginTop: 8 }}>
-              <button
-                className="ios-btn-secondary"
-                onClick={() => setShowProgression((v) => !v)}
-                style={{ height: 40, fontSize: 15, width: '100%' }}
-              >
-                {showProgression ? 'Hide Saves + Shop' : 'Saves + Shop'}
-              </button>
-            </div>
-
-            <div style={{ marginTop: 8 }}>
-              <button
-                className="ios-btn-secondary"
-                onClick={() => setShowMultiplayer((v) => !v)}
-                style={{ height: 40, fontSize: 15, width: '100%' }}
-              >
-                {showMultiplayer ? 'Hide Multiplayer' : 'Multiplayer (Same Wi-Fi)'}
-              </button>
-            </div>
-            <div style={{ marginTop: 8 }}>
-              <button
-                className="ios-btn-secondary"
-                onClick={handleSplitScreen}
-                style={{ height: 40, fontSize: 15, width: '100%' }}
-              >
-                Local Split-Screen (2 Players)
-              </button>
-            </div>
-            {onPlayDailyChallenge && (
-              <div style={{ marginTop: 8 }}>
-                <button
-                  className="ios-btn-secondary"
-                  onClick={handleDailyChallengeClick}
-                  disabled={dailyUsed}
-                  style={{ height: 40, fontSize: 15, width: '100%' }}
-                >
-                  {dailyUsed ? 'Daily Challenge (Completed)' : 'Daily Challenge'}
-                </button>
-              </div>
-            )}
           </div>
-        </div>
+          <div className="dash-avatar-row">
+            {AVATAR_PRESETS.map((preset) => (
+              <button
+                key={preset.id}
+                className={`dash-avatar-button ${avatarId === preset.id ? 'is-active' : ''}`}
+                onClick={() => {
+                  setAvatarId(preset.id);
+                  saveLeaderboardAvatarId(preset.id);
+                }}
+                title={preset.label}
+              >
+                {preset.icon}
+              </button>
+            ))}
+          </div>
+          <div className="dash-mini-actions">
+            <button onClick={() => setShowAchievements(true)}>Achievements {achieveCount}/{ACHIEVEMENTS.length}</button>
+            <button onClick={() => setShowProgression((v) => !v)}>{showProgression ? 'Hide Saves + Shop' : 'Saves + Shop'}</button>
+          </div>
+        </section>
 
         {showMultiplayer && (
-          <div
-            className="ios-card"
-            style={{ width: '100%', marginTop: 10, padding: 10, animation: 'iosSlideDown 0.24s ease both' }}
-          >
-            <p className="ios-section-header" style={{ padding: '0 2px 8px' }}>Nearby Multiplayer</p>
+          <MenuPanel title="Nearby multiplayer" subtitle="Use the same site URL on both devices. Host creates a room; guest enters the code.">
             <input
               type="text"
               value={playerName}
@@ -606,265 +441,166 @@ const StartScreen: FC<Props> = ({
                 saveLeaderboardName(safe);
                 saveLeaderboardAvatarId(avatarId);
               }}
-              placeholder="Your Name"
-              className="ios-text-field"
-              style={{ height: 38, fontSize: 14, marginBottom: 8 }}
+              placeholder="Your name"
+              className="ios-text-field dash-field"
               maxLength={20}
             />
             <input
               type="text"
               value={roomCode}
               onChange={(e) => setRoomCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8))}
-              placeholder="Room Code (join only)"
-              className="ios-text-field"
-              style={{ height: 38, fontSize: 14, marginBottom: 8 }}
+              placeholder="Room code (join only)"
+              className="ios-text-field dash-field"
               maxLength={8}
             />
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button className="ios-btn-primary" style={{ height: 40, fontSize: 14, flex: 1 }} onClick={handleHostMultiplayer}>
-                Host Room
-              </button>
-              <button className="ios-btn-secondary" style={{ height: 40, fontSize: 14, flex: 1 }} onClick={handleJoinMultiplayer}>
-                Join Room
-              </button>
+            <div className="dash-two-col">
+              <button className="ios-btn-primary" onClick={handleHostMultiplayer}>Host Room</button>
+              <button className="ios-btn-secondary" onClick={handleJoinMultiplayer}>Join Room</button>
             </div>
-            {mpError && (
-              <p className="ios-caption2" style={{ color: '#f87171', marginTop: 8, paddingLeft: 4 }}>{mpError}</p>
-            )}
-          </div>
+            {mpError && <p className="dash-error-text">{mpError}</p>}
+          </MenuPanel>
         )}
 
-        {/* ── Settings panel ───────────────────────────────── */}
         {showSettings && (
-          <div
-            style={{ width: '100%', marginTop: 10, animation: 'iosSlideDown 0.32s cubic-bezier(0.34,1.56,0.64,1) both' }}
-          >
+          <div className="dash-panel-wrap">
             <SettingsPanel />
           </div>
         )}
 
         {showLeaderboard && (
-          <div
-            className="ios-card"
-            style={{ width: '100%', marginTop: 10, padding: 10, animation: 'iosSlideDown 0.24s ease both' }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 2px 8px' }}>
-              <p className="ios-section-header">Top Runs</p>
-              <button
-                className="ios-btn-secondary"
-                onClick={() => {
-                  clearLeaderboard();
-                  setLeaderboard([]);
-                }}
-                style={{ width: 94, height: 30, fontSize: 12 }}
-              >
-                Clear
-              </button>
+          <MenuPanel title="Top runs" subtitle="Race your local records or load an online ghost replay.">
+            <div className="dash-panel-heading-row">
+              <span>Local records</span>
+              <button onClick={() => { clearLeaderboard(); setLeaderboard([]); }}>Clear</button>
             </div>
             {leaderboard.length === 0 ? (
-              <p className="ios-caption2" style={{ color: 'var(--ios-label3)', padding: '2px 4px 8px' }}>
-                No runs yet. Finish a game to add your first score.
-              </p>
+              <p className="dash-empty-text">No runs yet. Finish a game to add your first score.</p>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 240, overflowY: 'auto' }}>
+              <div className="dash-list-scroll">
                 {leaderboard.slice(0, 20).map((entry, idx) => (
-                  <div
-                    key={entry.id}
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: '32px 1fr auto',
-                      alignItems: 'center',
-                      gap: 8,
-                      background: 'rgba(15,23,42,0.35)',
-                      border: '1px solid rgba(148,163,184,0.18)',
-                      borderRadius: 10,
-                      padding: '7px 8px',
-                    }}
-                  >
-                    <div className="ios-caption2" style={{ color: 'var(--ios-label2)', fontWeight: 700 }}>
-                      #{idx + 1}
-                    </div>
-                    <div style={{ minWidth: 0 }}>
-                      <div className="ios-footnote" style={{ color: 'var(--ios-label)', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {getAvatarPreset(entry.avatarId).icon} {entry.name}
-                      </div>
-                      <div className="ios-caption2" style={{ color: 'var(--ios-label3)' }}>
-                        {entry.distance}m • {entry.coins} coins
-                      </div>
-                    </div>
-                    <div className="ios-footnote" style={{ color: 'var(--ios-yellow)', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
-                      {entry.score.toLocaleString()}
-                    </div>
-                  </div>
+                  <ScoreRow key={entry.id} rank={idx + 1} title={`${getAvatarPreset(entry.avatarId).icon} ${entry.name}`} meta={`${entry.distance}m • ${entry.coins} coins`} score={entry.score} />
                 ))}
               </div>
             )}
-            <div style={{ marginTop: 10, marginBottom: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <p className="ios-section-header">Online Board</p>
-                <span className="ios-caption2" style={{ color: 'var(--ios-label3)' }}>{onlineSeasonLabel || 'Season'}</span>
-              </div>
-              <span className="ios-caption2" style={{ color: 'var(--ios-label3)' }}>{onlineBoardLabel || onlineScope}</span>
+            <div className="dash-panel-heading-row with-margin">
+              <span>Online board</span>
+              <small>{onlineSeasonLabel || 'Season'} • {onlineBoardLabel || onlineScope}</small>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0,1fr))', gap: 6, marginBottom: 8 }}>
+            <div className="dash-tab-grid">
               {(['global', 'weekly', 'daily'] as OnlineBoardScope[]).map((scope) => (
-                <button
-                  key={scope}
-                  className={onlineScope === scope ? 'ios-btn-primary' : 'ios-btn-secondary'}
-                  style={{ height: 32, fontSize: 12 }}
-                  onClick={() => setOnlineScope(scope)}
-                >
+                <button key={scope} className={onlineScope === scope ? 'is-active' : ''} onClick={() => setOnlineScope(scope)}>
                   {scope}
                 </button>
               ))}
             </div>
             {onlineEntries.length === 0 ? (
-              <p className="ios-caption2" style={{ color: 'var(--ios-label3)', padding: '2px 4px 8px' }}>
-                No online entries yet for this board.
-              </p>
+              <p className="dash-empty-text">No online entries yet for this board.</p>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 220, overflowY: 'auto' }}>
+              <div className="dash-list-scroll">
                 {onlineEntries.map((entry, idx) => (
-                  <div
+                  <ScoreRow
                     key={entry.id}
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: '32px 1fr auto',
-                      alignItems: 'center',
-                      gap: 8,
-                      background: 'rgba(15,23,42,0.35)',
-                      border: '1px solid rgba(148,163,184,0.18)',
-                      borderRadius: 10,
-                      padding: '7px 8px',
-                    }}
-                  >
-                    <div className="ios-caption2" style={{ color: 'var(--ios-label2)', fontWeight: 700 }}>
-                      #{idx + 1}
-                    </div>
-                    <div style={{ minWidth: 0 }}>
-                      <div className="ios-footnote" style={{ color: 'var(--ios-label)', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {getAvatarPreset(entry.avatarId).icon} {entry.name}
-                      </div>
-                      <div className="ios-caption2" style={{ color: 'var(--ios-label3)' }}>
-                        {entry.distance}m • {entry.coins} coins • {entry.badge}
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-                      <div className="ios-footnote" style={{ color: 'var(--ios-yellow)', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
-                        {entry.score.toLocaleString()}
-                      </div>
-                      {entry.hasReplay && onPlayOnlineGhostRace && (
-                        <button
-                          className="ios-btn-secondary"
-                          style={{ height: 26, minWidth: 70, fontSize: 11 }}
-                          onClick={() => { void handlePlayOnlineGhost(entry.id); }}
-                          disabled={loadingReplayId === entry.id}
-                        >
-                          {loadingReplayId === entry.id ? 'Loading...' : 'Race'}
-                        </button>
-                      )}
-                    </div>
-                  </div>
+                    rank={idx + 1}
+                    title={`${getAvatarPreset(entry.avatarId).icon} ${entry.name}`}
+                    meta={`${entry.distance}m • ${entry.coins} coins • ${entry.badge}`}
+                    score={entry.score}
+                    action={entry.hasReplay && onPlayOnlineGhostRace ? (
+                      <button onClick={() => { void handlePlayOnlineGhost(entry.id); }} disabled={loadingReplayId === entry.id}>
+                        {loadingReplayId === entry.id ? 'Loading...' : 'Race'}
+                      </button>
+                    ) : null}
+                  />
                 ))}
               </div>
             )}
-          </div>
+          </MenuPanel>
         )}
 
         {showProgression && (
-          <div
-            className="ios-card"
-            style={{ width: '100%', marginTop: 10, padding: 10, animation: 'iosSlideDown 0.24s ease both' }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 2px 8px' }}>
-              <p className="ios-section-header">Save Slots</p>
-              <span className="ios-caption2" style={{ color: 'var(--ios-yellow)' }}>
-                Bank: {activeSlot?.bankCoins ?? 0} coins
-              </span>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
+          <MenuPanel title="Saves + shop" subtitle={`Active bank: ${activeSlot?.bankCoins ?? 0} coins`}>
+            <div className="dash-save-grid">
               {saveSlots.map((slot) => (
                 <button
                   key={slot.id}
-                  className={slot.id === activeSlotId ? 'ios-btn-primary' : 'ios-btn-secondary'}
-                  style={{ minHeight: 74, padding: 8, display: 'flex', flexDirection: 'column', gap: 3 }}
+                  className={slot.id === activeSlotId ? 'is-active' : ''}
                   onClick={() => handleSelectSaveSlot(slot.id)}
                 >
-                  <span style={{ fontSize: 11, fontWeight: 700 }}>{slot.name}</span>
-                  <span style={{ fontSize: 10, opacity: 0.9 }}>{slot.bankCoins}c</span>
-                  <span style={{ fontSize: 9, opacity: 0.75 }}>{slot.checkpoint ? 'Checkpoint' : 'No Save'}</span>
+                  <b>{slot.name}</b>
+                  <span>{slot.bankCoins}c</span>
+                  <small>{slot.checkpoint ? 'Checkpoint ready' : 'No save'}</small>
                 </button>
               ))}
             </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, marginTop: 8 }}>
-              <button className="ios-btn-secondary" style={{ height: 34, fontSize: 12 }} onClick={() => handleContinueFromSlot(activeSlotId)}>
-                Continue
-              </button>
-              <button className="ios-btn-secondary" style={{ height: 34, fontSize: 12 }} onClick={() => handleRenameSlot(activeSlotId)}>
-                Rename
-              </button>
-              <button className="ios-btn-secondary" style={{ height: 34, fontSize: 12 }} onClick={() => handleResetSlot(activeSlotId)}>
-                Reset
-              </button>
+            <div className="dash-three-col">
+              <button onClick={() => handleContinueFromSlot(activeSlotId)}>Continue</button>
+              <button onClick={() => handleRenameSlot(activeSlotId)}>Rename</button>
+              <button onClick={() => handleResetSlot(activeSlotId)}>Reset</button>
             </div>
-
-            <div style={{ marginTop: 10, marginBottom: 6 }} className="ios-section-header">Shop (10 Upgrades)</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 220, overflowY: 'auto' }}>
+            <div className="dash-panel-heading-row with-margin">
+              <span>Shop upgrades</span>
+              <small>10 permanent perks</small>
+            </div>
+            <div className="dash-list-scroll shop">
               {SHOP_UPGRADES.map((upgrade) => {
                 const owned = !!activeSlot?.unlockedUpgradeIds.includes(upgrade.id);
                 const canAfford = (activeSlot?.bankCoins ?? 0) >= upgrade.cost;
                 return (
-                  <div
-                    key={upgrade.id}
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: '1fr auto',
-                      gap: 8,
-                      alignItems: 'center',
-                      background: 'rgba(15,23,42,0.35)',
-                      border: '1px solid rgba(148,163,184,0.18)',
-                      borderRadius: 10,
-                      padding: '7px 8px',
-                    }}
-                  >
+                  <div key={upgrade.id} className="dash-shop-row">
                     <div>
-                      <div className="ios-footnote" style={{ color: 'var(--ios-label)', fontWeight: 700 }}>{upgrade.name}</div>
-                      <div className="ios-caption2" style={{ color: 'var(--ios-label3)' }}>
-                        {upgrade.description} • {upgrade.cost}c
-                      </div>
+                      <b>{upgrade.name}</b>
+                      <span>{upgrade.description} • {upgrade.cost}c</span>
                     </div>
-                    <button
-                      className={owned ? 'ios-btn-secondary' : 'ios-btn-primary'}
-                      style={{ height: 30, minWidth: 74, fontSize: 11 }}
-                      disabled={owned || !canAfford}
-                      onClick={() => handleBuyUpgrade(upgrade.id)}
-                    >
+                    <button disabled={owned || !canAfford} onClick={() => handleBuyUpgrade(upgrade.id)}>
                       {owned ? 'Owned' : canAfford ? 'Buy' : 'Locked'}
                     </button>
                   </div>
                 );
               })}
             </div>
-            {progressionMessage && (
-              <p className="ios-caption2" style={{ color: 'var(--ios-yellow)', marginTop: 8, paddingLeft: 2 }}>
-                {progressionMessage}
-              </p>
-            )}
-          </div>
+            {progressionMessage && <p className="dash-success-text">{progressionMessage}</p>}
+          </MenuPanel>
         )}
-      </div>
+      </main>
 
-      {/* ── Keyboard hint ────────────────────────────────────── */}
-      <KeyboardHint />
-
-      {/* ── Achievements modal ── */}
       {showAchievements && <AchievementsModal onClose={() => { setShowAchievements(false); setAchieveCount(loadUnlockedAchievements().length); }} />}
     </div>
   );
 };
 
 export default StartScreen;
+
+const MenuPanel: FC<{ title: string; subtitle?: string; children: ReactNode }> = ({ title, subtitle, children }) => (
+  <section className="dash-card dash-expand-panel" style={{ animation: 'iosSlideDown 0.24s ease both' }}>
+    <div className="dash-section-title-row compact">
+      <div>
+        <p className="dash-eyebrow">Panel</p>
+        <h2>{title}</h2>
+      </div>
+    </div>
+    {subtitle && <p className="dash-panel-subtitle">{subtitle}</p>}
+    <div className="dash-panel-content">{children}</div>
+  </section>
+);
+
+const ScoreRow: FC<{
+  rank: number;
+  title: string;
+  meta: string;
+  score: number;
+  action?: ReactNode;
+}> = ({ rank, title, meta, score, action }) => (
+  <div className="dash-score-row">
+    <span className="dash-rank">#{rank}</span>
+    <div>
+      <b>{title}</b>
+      <small>{meta}</small>
+    </div>
+    <div className="dash-score-cell">
+      <strong>{score.toLocaleString()}</strong>
+      {action}
+    </div>
+  </div>
+);
 
 /* ── Star field background ────────────────────────────────────── */
 
