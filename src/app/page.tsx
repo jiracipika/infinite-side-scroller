@@ -17,7 +17,7 @@ import { ALL_LEVELS } from '@/game/data/levels';
 import { createMultiplayerRoom, joinMultiplayerRoom, leaveMultiplayerRoom, syncMultiplayerRoom, postRTCOffer, postRTCAnswer, getRTCSignal, clearRTCSignal } from '@/game/multiplayer/client';
 import { RTCTransport, isRTCAvailable, type RTCMessage, type RTCSyncMessage } from '@/game/multiplayer/rtc';
 import type { NetInputCommand, NetPlayerSnapshot, NetRoomState, NetSyncResponse } from '@/game/multiplayer/types';
-import { MP_INPUT_BUFFER_SIZE, MP_INTERPOLATION_DELAY_MS } from '@/game/multiplayer/config';
+import { MP_INPUT_BUFFER_SIZE, MP_INTERPOLATION_DELAY_MS, MP_TICK_MS } from '@/game/multiplayer/config';
 import {
   addRunRewards,
   buildProgressionBonuses,
@@ -36,10 +36,6 @@ import { issueRunToken, submitRunScore, type RunMode } from '@/lib/online-leader
 import { loadLeaderboardAvatarId, loadLeaderboardName } from '@/lib/leaderboard';
 import { loadGhostRun, upsertGhostRun } from '@/lib/ghost-runs';
 
-const LAN_SYNC_BASE_MS = 95;
-const WAN_SYNC_BASE_MS = 155;
-const SYNC_MIN_MS = 70;
-const SYNC_MAX_MS = 260;
 const SNAPSHOT_KEEPALIVE_MS = 240;
 const SNAPSHOT_DELTA_EPS = 0.45;
 
@@ -188,7 +184,7 @@ export default function Home() {
   const appliedSyncSeqRef = useRef(0);
   const inFlightSinceRef = useRef(0);
   const syncRttEwmaMsRef = useRef(140);
-  const syncIntervalMsRef = useRef(150);
+  const syncIntervalMsRef = useRef(MP_TICK_MS);
   const syncAbortRef = useRef<AbortController | null>(null);
   const activeSaveSlotRef = useRef<SaveSlotId>('slot1');
   const runModeRef = useRef<RunMode>('standard');
@@ -395,7 +391,7 @@ export default function Home() {
     appliedSyncSeqRef.current = 0;
     inFlightSinceRef.current = 0;
     syncRttEwmaMsRef.current = 140;
-    syncIntervalMsRef.current = 150;
+    syncIntervalMsRef.current = MP_TICK_MS;
     syncAbortRef.current?.abort();
     syncAbortRef.current = null;
     inputSeqRef.current = 0;
@@ -508,7 +504,7 @@ export default function Home() {
     appliedSyncSeqRef.current = 0;
     inFlightSinceRef.current = 0;
     syncRttEwmaMsRef.current = 140;
-    syncIntervalMsRef.current = 150;
+    syncIntervalMsRef.current = MP_TICK_MS;
     syncAbortRef.current?.abort();
     syncAbortRef.current = null;
     inputSeqRef.current = 0;
@@ -781,7 +777,7 @@ export default function Home() {
     appliedSyncSeqRef.current = 0;
     inFlightSinceRef.current = 0;
     syncRttEwmaMsRef.current = 140;
-    syncIntervalMsRef.current = 150;
+    syncIntervalMsRef.current = MP_TICK_MS;
     syncAbortRef.current?.abort();
     syncAbortRef.current = null;
     inputSeqRef.current = 0;
@@ -822,7 +818,7 @@ export default function Home() {
     appliedSyncSeqRef.current = 0;
     inFlightSinceRef.current = 0;
     syncRttEwmaMsRef.current = 140;
-    syncIntervalMsRef.current = 150;
+    syncIntervalMsRef.current = MP_TICK_MS;
     syncAbortRef.current?.abort();
     syncAbortRef.current = null;
     inputSeqRef.current = 0;
@@ -859,15 +855,14 @@ export default function Home() {
 
     let cancelled = false;
     let timer: number | null = null;
-    const host = typeof window !== 'undefined' ? window.location.hostname : '';
-    const isLikelyLanHost = /^(localhost|127\.|192\.168\.|10\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(host);
-    syncIntervalMsRef.current = isLikelyLanHost ? LAN_SYNC_BASE_MS : WAN_SYNC_BASE_MS;
+    // Tick-based netcode: fixed 25 Hz (40ms) cadence regardless of LAN/WAN.
+    syncIntervalMsRef.current = MP_TICK_MS;
 
     const schedule = (delay: number) => {
       if (cancelled) return;
       timer = window.setTimeout(() => {
         void tick();
-      }, Math.max(40, delay));
+      }, Math.max(0, delay));
     };
 
     const tick = async () => {
@@ -925,7 +920,7 @@ export default function Home() {
           clientSnapshotRate: quantize(1000 / Math.max(33, sinceLastSend), 1),
         }));
 
-        schedule(33); // ~30 Hz P2P — much faster than HTTP polling
+        schedule(MP_TICK_MS); // 25 Hz tick-based P2P sync
         return;
       }
 
@@ -962,7 +957,7 @@ export default function Home() {
           ...prev,
           inferredLoss: quantize(syntheticLoss, 1),
         }));
-        schedule(Math.max(34, syncIntervalMsRef.current * 0.9));
+        schedule(MP_TICK_MS);
         return;
       }
 
@@ -1048,11 +1043,8 @@ export default function Home() {
         const jitterSample = Math.abs(elapsed - lastRttRef.current);
         jitterEwmaRef.current = jitterEwmaRef.current * 0.7 + jitterSample * 0.3;
         lastRttRef.current = elapsed;
+        // Keep RTT EWMA for the net overlay display; cadence is fixed (tick-based).
         syncRttEwmaMsRef.current = syncRttEwmaMsRef.current * 0.75 + elapsed * 0.25;
-        const target = isLikelyLanHost
-          ? Math.max(LAN_SYNC_BASE_MS, syncRttEwmaMsRef.current * 0.75)
-          : Math.max(WAN_SYNC_BASE_MS, syncRttEwmaMsRef.current * 0.82);
-        syncIntervalMsRef.current = clamp(target, SYNC_MIN_MS, SYNC_MAX_MS);
 
         responseCounterRef.current += 1;
         const now = performance.now();
@@ -1098,7 +1090,9 @@ export default function Home() {
         if (syncAbortRef.current === controller) syncAbortRef.current = null;
         syncInFlightRef.current = false;
         const elapsed = performance.now() - startedAt;
-        const nextDelay = Math.max(32, syncIntervalMsRef.current - elapsed);
+        // Maintain the fixed 25 Hz tick: schedule the next sync one tick after
+        // this one started, minus the time already spent in the round-trip.
+        const nextDelay = Math.max(0, MP_TICK_MS - elapsed);
         schedule(nextDelay);
       }
     };

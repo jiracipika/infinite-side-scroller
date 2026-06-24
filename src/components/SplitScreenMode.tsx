@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FC, type RefObj
 import { GameEngine } from '@/game';
 import TouchControls from './TouchControls';
 import { loadSelectedCharacter } from '@/game/data/characters';
+import { MP_TICK_MS } from '@/game/multiplayer/config';
 
 interface LocalStats {
   score: number;
@@ -161,7 +162,7 @@ const SplitScreenMode: FC<Props> = ({ seed, onExit }) => {
       if (bottomKills.length > 0) {
         topGame.killEnemiesById(bottomKills);
       }
-    }, 33);
+    }, MP_TICK_MS);
 
     topGame.start();
     bottomGame.start();
