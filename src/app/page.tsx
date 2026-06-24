@@ -79,6 +79,7 @@ function compactSnapshot(s: NetPlayerSnapshot): NetPlayerSnapshot {
     vy: quantize(s.vy, 1),
     health: Math.round(s.health),
     maxHealth: Math.round(s.maxHealth),
+    alive: s.alive,
     width: Math.round(s.width),
     height: Math.round(s.height),
     distance: Math.round(s.distance),
@@ -93,6 +94,7 @@ function snapshotChanged(a: NetPlayerSnapshot | null, b: NetPlayerSnapshot): boo
     || Math.abs(a.vx - b.vx) > SNAPSHOT_DELTA_EPS
     || Math.abs(a.vy - b.vy) > SNAPSHOT_DELTA_EPS
     || a.health !== b.health
+    || a.alive !== b.alive
     || a.onGround !== b.onGround
     || a.facingRight !== b.facingRight
     || a.characterId !== b.characterId
@@ -136,6 +138,7 @@ export default function Home() {
   const [multiplayerSession, setMultiplayerSession] = useState<MultiplayerSession | null>(null);
   const multiplayerSessionRef = useRef<MultiplayerSession | null>(null);
   const [multiplayerNotice, setMultiplayerNotice] = useState<string | null>(null);
+  const multiplayerNoticeRef = useRef<string | null>(null);
   const [splitScreenSeed, setSplitScreenSeed] = useState<number | null>(null);
   const [prefillRoomCode, setPrefillRoomCode] = useState('');
   const [hostInviteUrl, setHostInviteUrl] = useState<string | null>(null);
@@ -205,6 +208,7 @@ export default function Home() {
   onGameOverRef.current = gameOver;
   onLevelCompleteRef.current = goToLevelComplete;
   multiplayerSessionRef.current = multiplayerSession;
+  multiplayerNoticeRef.current = multiplayerNotice;
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -1006,6 +1010,9 @@ export default function Home() {
         };
         const result = await syncMultiplayerRoom(payload, { signal: controller.signal });
         if (cancelled) return;
+        if (multiplayerNoticeRef.current === 'Reconnecting multiplayer session...' || multiplayerNoticeRef.current === 'Connection hiccup; retrying...') {
+          setMultiplayerNotice(null);
+        }
         if (seq < appliedSyncSeqRef.current) return;
         appliedSyncSeqRef.current = seq;
         applyRemotePlayerFromState(result.sync.remote, result.sync.serverTime);
@@ -1076,7 +1083,13 @@ export default function Home() {
         if (!cancelled) {
           const msg = error instanceof Error ? error.message : 'Multiplayer sync failed';
           if (/room not found|player not in room/i.test(msg)) {
-            setMultiplayerNotice('Reconnecting multiplayer session...');
+            if (performance.now() - lastResponseAtRef.current > 2500) {
+              setMultiplayerNotice('Reconnecting multiplayer session...');
+            }
+          } else if (/aborted|network request failed|failed to fetch/i.test(msg)) {
+            if (performance.now() - lastResponseAtRef.current > 2500) {
+              setMultiplayerNotice('Connection hiccup; retrying...');
+            }
           } else {
             setMultiplayerNotice(msg);
           }

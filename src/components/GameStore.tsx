@@ -33,6 +33,7 @@ const DEFAULT_STATS: GameStats = {
   distance: 0,
   health: 100,
   maxHealth: 100,
+  lives: 2,
   biome: 'Grassland',
   fps: 60,
   powerUps: [],

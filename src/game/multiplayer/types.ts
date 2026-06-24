@@ -7,6 +7,7 @@ export interface NetPlayerSnapshot {
   onGround: boolean;
   health: number;
   maxHealth: number;
+  alive: boolean;
   characterId: string;
   width: number;
   height: number;

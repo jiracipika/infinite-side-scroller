@@ -492,6 +492,26 @@ export class Player {
     return true;
   }
 
+  /**
+   * Spend run coins to recover from death. This is separate from the
+   * progression auto-revive so multiplayer can keep a paid revive in-session.
+   */
+  tryCoinRevive(cost: number = 25): boolean {
+    const reviveCost = Math.max(0, Math.floor(cost));
+    if (this.alive || this.coins < reviveCost) return false;
+
+    this.coins -= reviveCost;
+    this.maxHealth += 1;
+    this.health = Math.max(1, this.maxHealth);
+    this.alive = true;
+    this.invulnerable = true;
+    this.invulnerableTimer = Math.max(this.invulnerableTimer, 2.5);
+    this.vy = this.config.jumpVelocity * 0.7;
+    this.onGround = false;
+    this.hasDoubleJumped = false;
+    return true;
+  }
+
   private _doubleJump = false;
   hasDoubleJumped = false;
   setDoubleJump(enabled: boolean): void {

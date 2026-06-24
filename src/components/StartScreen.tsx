@@ -264,75 +264,118 @@ const StartScreen: FC<Props> = ({
       className="absolute inset-0 dash-menu-shell"
       style={{
         opacity: mounted ? 1 : 0,
-        transition: 'opacity 0.35s ease',
+        transition: 'opacity 0.28s ease',
         overflowY: 'auto',
         overflowX: 'hidden',
         WebkitOverflowScrolling: 'touch',
         overscrollBehavior: 'contain',
-        padding: 'max(18px, env(safe-area-inset-top, 0px)) 0 max(28px, env(safe-area-inset-bottom, 0px))',
+        padding: 'max(16px, env(safe-area-inset-top, 0px)) 0 max(30px, env(safe-area-inset-bottom, 0px))',
       }}
     >
       <StarField />
-      <div className="dash-menu-aurora dash-menu-aurora-a" />
-      <div className="dash-menu-aurora dash-menu-aurora-b" />
+      <div className="dash-grid-glow dash-grid-glow-a" />
+      <div className="dash-grid-glow dash-grid-glow-b" />
 
-      <main
-        className="dash-menu-stage"
-        style={{ animation: mounted ? 'iosSpringIn 0.55s cubic-bezier(0.34,1.56,0.64,1) both' : 'none' }}
-      >
-        <section className="dash-hero-card">
-          <div className="dash-hero-topline">
-            <span className="dash-status-dot" />
-            Endless arcade runner
-          </div>
-          <div className="dash-hero-row">
-            <AppIcon />
-            <div className="dash-hero-copy">
-              <h1>Dashverse</h1>
-              <p>Choose a runner, pick a mode, and jump into a cleaner, faster run.</p>
+      <main className="dash-menu-stage dash-menu-stage-v2">
+        <section className="dash-command-panel dash-hero-v2">
+          <div className="dash-topbar-v2">
+            <div className="dash-brand-v2">
+              <AppIcon />
+              <div>
+                <p className="dash-eyebrow">Dashverse</p>
+                <h1>Pick a mode. Start moving.</h1>
+              </div>
             </div>
+            <div className="dash-live-pill"><span /> Ready</div>
           </div>
-          <div className="dash-hero-stats">
-            <span>Best: <b>{highScoreLabel}</b></span>
-            <span>Save: <b>{activeSlot?.name ?? 'Slot 1'}</b></span>
-            <span>Bank: <b>{activeSlot?.bankCoins ?? 0}c</b></span>
+
+          <p className="dash-hero-lede">
+            Fast side-scroller runs, local co-op, same-Wi-Fi rooms, ghosts, levels, saves, and upgrades — cleaned up into one command-center menu.
+          </p>
+
+          <div className="dash-quick-stats-v2">
+            <span><small>Best</small><b>{highScoreLabel}</b></span>
+            <span><small>Save</small><b>{activeSlot?.name ?? 'Slot 1'}</b></span>
+            <span><small>Bank</small><b>{activeSlot?.bankCoins ?? 0}c</b></span>
+            <span><small>Runner</small><b>{selectedCharacter.name}</b></span>
+          </div>
+
+          <div className="dash-primary-row-v2">
+            <button className="dash-play-button-v2" onClick={handlePlay}>
+              <span>Play Endless</span>
+              <small>Jump straight into a run</small>
+            </button>
+            <button className="dash-icon-action-v2" onClick={() => setShowSettings((s) => !s)} aria-label="Settings">
+              ⚙
+            </button>
           </div>
         </section>
 
-        <section className="dash-card dash-character-card">
-          <div className="dash-section-title-row">
+        <section className="dash-command-panel dash-modes-v2">
+          <div className="dash-section-title-row-v2">
+            <div>
+              <p className="dash-eyebrow">Modes</p>
+              <h2>Choose your run</h2>
+            </div>
+          </div>
+          <div className="dash-mode-grid-v2">
+            {onLevelSelect && (
+              <button className="dash-mode-card-v2" onClick={onLevelSelect}>
+                <b>Adventure</b><span>Levels + time attacks</span><em>→</em>
+              </button>
+            )}
+            <button className="dash-mode-card-v2" onClick={() => setShowMultiplayer((v) => !v)}>
+              <b>{showMultiplayer ? 'Hide Wi-Fi' : 'Same Wi‑Fi'}</b><span>Host or join nearby</span><em>↔</em>
+            </button>
+            <button className="dash-mode-card-v2" onClick={handleSplitScreen}>
+              <b>Split Screen</b><span>Two players locally</span><em>▦</em>
+            </button>
+            {onPlayDailyChallenge && (
+              <button className="dash-mode-card-v2" onClick={handleDailyChallengeClick} disabled={dailyUsed}>
+                <b>{dailyUsed ? 'Daily Done' : 'Daily'}</b><span>{dailyUsed ? 'Resets tomorrow' : 'One ranked shot'}</span><em>★</em>
+              </button>
+            )}
+            <button className="dash-mode-card-v2" onClick={handleLeaderboardToggle}>
+              <b>{showLeaderboard ? 'Hide Board' : 'Leaderboard'}</b><span>Records + ghost races</span><em>≡</em>
+            </button>
+            <button className="dash-mode-card-v2" onClick={() => setShowProgression((v) => !v)}>
+              <b>{showProgression ? 'Hide Shop' : 'Saves + Shop'}</b><span>Coins, checkpoints, perks</span><em>◇</em>
+            </button>
+          </div>
+        </section>
+
+        <section className="dash-command-panel dash-runner-v2">
+          <div className="dash-section-title-row-v2">
             <div>
               <p className="dash-eyebrow">Runner</p>
               <h2>{selectedCharacter.name}</h2>
             </div>
-            <span className="dash-muted-pill">{selectedCharacter.description}</span>
+            <span className="dash-subtle-pill-v2">{selectedCharacter.description}</span>
           </div>
-
-          <div className="dash-character-preview">
+          <div className="dash-runner-body-v2">
             <div
-              className="dash-character-avatar"
+              className="dash-character-avatar-v2"
               style={{
-                background: `linear-gradient(145deg, ${selectedCharacter.bodyColor}cc, ${selectedCharacter.bodyColor})`,
+                background: `linear-gradient(145deg, ${selectedCharacter.bodyColor}bb, ${selectedCharacter.bodyColor})`,
                 borderColor: selectedCharacter.outlineColor,
-                boxShadow: `0 14px 36px ${selectedCharacter.bodyColor}30, inset 0 1px 0 rgba(255,255,255,0.18)`,
+                boxShadow: `0 18px 50px ${selectedCharacter.bodyColor}28, inset 0 1px 0 rgba(255,255,255,0.18)`,
               }}
             >
               <span style={{ background: selectedCharacter.eyeColor }} />
               <span style={{ background: selectedCharacter.eyeColor }} />
             </div>
-            <div className="dash-stat-stack">
-              <StatBar label="SPD" value={selectedCharacter.speed} color="var(--ios-tint)" />
-              <StatBar label="JMP" value={selectedCharacter.jumpVelocity} color="var(--ios-green)" />
-              <StatBar label="HP" value={selectedCharacter.maxHealth / 5} color="var(--ios-red)" />
+            <div className="dash-stat-stack-v2">
+              <StatBar label="SPD" value={selectedCharacter.speed} color="#7170ff" />
+              <StatBar label="JMP" value={selectedCharacter.jumpVelocity} color="#10b981" />
+              <StatBar label="HP" value={selectedCharacter.maxHealth / 5} color="#f87171" />
             </div>
           </div>
-
-          <div className="dash-character-grid">
+          <div className="dash-character-grid-v2">
             {CHARACTERS.map((c) => (
               <button
                 key={c.id}
                 type="button"
-                className={`dash-character-chip ${selectedChar === c.id ? 'is-active' : ''}`}
+                className={`dash-character-chip-v2 ${selectedChar === c.id ? 'is-active' : ''}`}
                 onClick={() => { setSelectedChar(c.id); saveSelectedCharacter(c.id); }}
                 style={{ '--chip-color': c.bodyColor } as CSSProperties}
               >
@@ -343,76 +386,51 @@ const StartScreen: FC<Props> = ({
           </div>
         </section>
 
-        <section className="dash-action-grid">
-          <button className="dash-primary-action" onClick={handlePlay}>
-            <span>Play Endless</span>
-            <small>Instant run</small>
-          </button>
-          {onLevelSelect && (
-            <button className="dash-secondary-action" onClick={onLevelSelect}>
-              <span>Level Select</span>
-              <small>Adventure + time attack</small>
-            </button>
-          )}
-          <button className="dash-secondary-action" onClick={() => setShowMultiplayer((v) => !v)}>
-            <span>{showMultiplayer ? 'Hide Multiplayer' : 'Same Wi‑Fi'}</span>
-            <small>Host or join a room</small>
-          </button>
-          <button className="dash-secondary-action" onClick={handleSplitScreen}>
-            <span>Split Screen</span>
-            <small>Two players locally</small>
-          </button>
-          {onPlayDailyChallenge && (
-            <button className="dash-secondary-action" onClick={handleDailyChallengeClick} disabled={dailyUsed}>
-              <span>{dailyUsed ? 'Daily Complete' : 'Daily Challenge'}</span>
-              <small>{dailyUsed ? 'Try again tomorrow' : 'One ranked attempt'}</small>
-            </button>
-          )}
-          <button className="dash-secondary-action" onClick={handleLeaderboardToggle}>
-            <span>{showLeaderboard ? 'Hide Leaderboard' : 'Leaderboard'}</span>
-            <small>Local + online runs</small>
-          </button>
-        </section>
-
-        <section className="dash-card dash-profile-card">
-          <div className="dash-section-title-row compact">
+        <section className="dash-command-panel dash-profile-v2">
+          <div className="dash-section-title-row-v2 compact">
             <div>
               <p className="dash-eyebrow">Profile</p>
-              <h2>Run setup</h2>
+              <h2>Player setup</h2>
             </div>
-            <button className="dash-text-button" onClick={() => setShowSettings((s) => !s)}>
-              {showSettings ? 'Hide settings' : 'Settings'}
+            <button className="dash-text-button-v2" onClick={() => setShowAchievements(true)}>
+              Achievements {achieveCount}/{ACHIEVEMENTS.length}
             </button>
           </div>
-          <div className="dash-input-grid">
-            <input
-              type="text"
-              inputMode="numeric"
-              value={seedInput}
-              onChange={(e) => setSeedInput(e.target.value.replace(/[^0-9]/g, ''))}
-              placeholder="World seed (optional)"
-              className="ios-text-field dash-field"
-              onKeyDown={(e) => e.key === 'Enter' && handlePlay()}
-            />
-            <input
-              type="text"
-              value={playerName}
-              onChange={(e) => setPlayerName(e.target.value.slice(0, 20))}
-              onBlur={() => {
-                const safe = sanitizeLeaderboardName(playerName);
-                setPlayerName(safe);
-                saveLeaderboardName(safe);
-              }}
-              placeholder="Profile name"
-              className="ios-text-field dash-field"
-              maxLength={20}
-            />
+          <div className="dash-input-grid-v2">
+            <label>
+              <span>Name</span>
+              <input
+                type="text"
+                value={playerName}
+                onChange={(e) => setPlayerName(e.target.value.slice(0, 20))}
+                onBlur={() => {
+                  const safe = sanitizeLeaderboardName(playerName);
+                  setPlayerName(safe);
+                  saveLeaderboardName(safe);
+                }}
+                placeholder="Profile name"
+                className="ios-text-field dash-field-v2"
+                maxLength={20}
+              />
+            </label>
+            <label>
+              <span>Seed</span>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={seedInput}
+                onChange={(e) => setSeedInput(e.target.value.replace(/[^0-9]/g, ''))}
+                placeholder="Random"
+                className="ios-text-field dash-field-v2"
+                onKeyDown={(e) => e.key === 'Enter' && handlePlay()}
+              />
+            </label>
           </div>
-          <div className="dash-avatar-row">
+          <div className="dash-avatar-row-v2">
             {AVATAR_PRESETS.map((preset) => (
               <button
                 key={preset.id}
-                className={`dash-avatar-button ${avatarId === preset.id ? 'is-active' : ''}`}
+                className={`dash-avatar-button-v2 ${avatarId === preset.id ? 'is-active' : ''}`}
                 onClick={() => {
                   setAvatarId(preset.id);
                   saveLeaderboardAvatarId(preset.id);
@@ -423,39 +441,43 @@ const StartScreen: FC<Props> = ({
               </button>
             ))}
           </div>
-          <div className="dash-mini-actions">
-            <button onClick={() => setShowAchievements(true)}>Achievements {achieveCount}/{ACHIEVEMENTS.length}</button>
-            <button onClick={() => setShowProgression((v) => !v)}>{showProgression ? 'Hide Saves + Shop' : 'Saves + Shop'}</button>
-          </div>
         </section>
 
         {showMultiplayer && (
-          <MenuPanel title="Nearby multiplayer" subtitle="Use the same site URL on both devices. Host creates a room; guest enters the code.">
-            <input
-              type="text"
-              value={playerName}
-              onChange={(e) => setPlayerName(e.target.value.slice(0, 20))}
-              onBlur={() => {
-                const safe = sanitizeLeaderboardName(playerName);
-                setPlayerName(safe);
-                saveLeaderboardName(safe);
-                saveLeaderboardAvatarId(avatarId);
-              }}
-              placeholder="Your name"
-              className="ios-text-field dash-field"
-              maxLength={20}
-            />
-            <input
-              type="text"
-              value={roomCode}
-              onChange={(e) => setRoomCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8))}
-              placeholder="Room code (join only)"
-              className="ios-text-field dash-field"
-              maxLength={8}
-            />
+          <MenuPanel title="Same-Wi‑Fi room" subtitle="Host creates the room. Guest enters the code. Both devices should use the exact same site URL.">
+            <div className="dash-input-grid-v2 single-panel">
+              <label>
+                <span>Your name</span>
+                <input
+                  type="text"
+                  value={playerName}
+                  onChange={(e) => setPlayerName(e.target.value.slice(0, 20))}
+                  onBlur={() => {
+                    const safe = sanitizeLeaderboardName(playerName);
+                    setPlayerName(safe);
+                    saveLeaderboardName(safe);
+                    saveLeaderboardAvatarId(avatarId);
+                  }}
+                  placeholder="Your name"
+                  className="ios-text-field dash-field-v2"
+                  maxLength={20}
+                />
+              </label>
+              <label>
+                <span>Room code</span>
+                <input
+                  type="text"
+                  value={roomCode}
+                  onChange={(e) => setRoomCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8))}
+                  placeholder="Join only"
+                  className="ios-text-field dash-field-v2"
+                  maxLength={8}
+                />
+              </label>
+            </div>
             <div className="dash-two-col">
-              <button className="ios-btn-primary" onClick={handleHostMultiplayer}>Host Room</button>
-              <button className="ios-btn-secondary" onClick={handleJoinMultiplayer}>Join Room</button>
+              <button className="dash-panel-primary-v2" onClick={handleHostMultiplayer}>Host Room</button>
+              <button className="dash-panel-secondary-v2" onClick={handleJoinMultiplayer}>Join Room</button>
             </div>
             {mpError && <p className="dash-error-text">{mpError}</p>}
           </MenuPanel>
@@ -688,50 +710,6 @@ const AppIcon: FC = () => (
   </div>
 );
 
-/* ── Keyboard hint with key caps ─────────────────────────────── */
-
-const KeyboardHint: FC = () => (
-  <KeyboardHintInner />
-);
-
-const KeyboardHintInner: FC = () => {
-  const [isTouch, setIsTouch] = useState(false);
-
-  useEffect(() => {
-    setIsTouch(window.matchMedia('(hover: none) and (pointer: coarse)').matches);
-  }, []);
-
-  if (isTouch) return null;
-
-  return (
-    <div
-      style={{
-        position: 'absolute',
-        bottom: 28,
-        display: 'flex',
-        alignItems: 'center',
-        gap: 6,
-        flexWrap: 'wrap',
-        justifyContent: 'center',
-        padding: '0 24px',
-        animation: 'iosFadeIn 0.5s ease 0.5s both',
-        opacity: 0,
-      }}
-    >
-      <span className="ios-keycap">W</span>
-      <span className="ios-keycap">A</span>
-      <span className="ios-keycap">S</span>
-      <span className="ios-keycap">D</span>
-      <span style={{ fontSize: 10, color: 'rgba(235,235,245,0.22)', letterSpacing: '0.04em', margin: '0 2px' }}>·</span>
-      <span className="ios-keycap">Space</span>
-      <span style={{ fontSize: 10, color: 'rgba(235,235,245,0.22)', letterSpacing: '0.04em', margin: '0 2px' }}>to jump</span>
-      <span style={{ fontSize: 10, color: 'rgba(235,235,245,0.22)', letterSpacing: '0.04em', margin: '0 2px' }}>·</span>
-      <span className="ios-keycap">Esc</span>
-      <span style={{ fontSize: 10, color: 'rgba(235,235,245,0.22)', letterSpacing: '0.04em', margin: '0 2px' }}>to pause</span>
-    </div>
-  );
-};
-
 /* ── Settings Panel ──────────────────────────────────────────── */
 
 const SettingsPanel: FC = () => {
@@ -880,12 +858,4 @@ const IOSToggle: FC<{ checked: boolean; onChange: (v: boolean) => void }> = ({ c
       style={{ transform: checked ? 'translateX(20px)' : 'translateX(0)' }}
     />
   </button>
-);
-
-/* ── Decorative icons ─────────────────────────────────────────── */
-
-const StarIcon: FC = () => (
-  <svg width="12" height="12" viewBox="0 0 24 24" fill="var(--ios-yellow)">
-    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-  </svg>
 );

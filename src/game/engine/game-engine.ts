@@ -464,7 +464,7 @@ export class GameEngine {
     rp.health = remote.snapshot.health;
     rp.maxHealth = remote.snapshot.maxHealth;
     rp.distance = remote.snapshot.distance;
-    rp.alive = remote.snapshot.health > 0;
+    rp.alive = remote.snapshot.alive !== false && remote.snapshot.health > 0;
   }
 
   getLocalPlayerProjectiles(): PlayerProjectileSnapshot[] {
@@ -651,6 +651,7 @@ export class GameEngine {
       onGround: this.player.onGround,
       health: this.player.health,
       maxHealth: this.player.maxHealth,
+      alive: this.player.alive,
       characterId: this.player.characterId,
       width: this.player.width,
       height: this.player.height,
@@ -1591,8 +1592,21 @@ export class GameEngine {
     }
 
     if (!this.player.alive && this.player.tryAutoRevive()) {
+      if (this.player.y > 1200) {
+        const reviveGround = this.getGroundY(this.player.centerX);
+        this.player.y = Number.isFinite(reviveGround) ? reviveGround - this.player.height - 8 : 300;
+      }
       this.camera.shake(4, 0.25);
       this.particles.spawnScorePopup(this.player.centerX, this.player.y - 10, 'REVIVE!', '#f97316');
+    }
+
+    if (!this.player.alive && this.player.tryCoinRevive(25)) {
+      if (this.player.y > 1200) {
+        const reviveGround = this.getGroundY(this.player.centerX);
+        this.player.y = Number.isFinite(reviveGround) ? reviveGround - this.player.height - 8 : 300;
+      }
+      this.camera.shake(5, 0.3);
+      this.particles.spawnScorePopup(this.player.centerX, this.player.y - 10, 'REVIVE -25 🪙 +1 ♥', '#fbbf24');
     }
 
     if (!this.player.alive) {
@@ -1734,7 +1748,7 @@ export class GameEngine {
     // Player
     this.renderer.drawPlayer(this.player, this.camera);
 
-    if (this.multiplayerEnabled && this.remotePlayer) {
+    if (this.multiplayerEnabled && this.remotePlayer && this.remotePlayer.alive) {
       this.renderer.drawPlayer(this.remotePlayer, this.camera);
       const rsx = this.remotePlayer.x - this.camera.renderX + this.remotePlayer.width / 2;
       const rsy = this.remotePlayer.y - this.camera.renderY - 8;
@@ -1778,7 +1792,7 @@ export class GameEngine {
       ctx.fillRect(sx, sy, this.player.width, this.player.height);
     }
 
-    if (this.multiplayerEnabled && this.remotePlayer && this.carryHintTimer > 0) {
+    if (this.multiplayerEnabled && this.remotePlayer && this.remotePlayer.alive && this.carryHintTimer > 0) {
       ctx.fillStyle = 'rgba(15,23,42,0.7)';
       ctx.fillRect(width / 2 - 120, height - 96, 240, 34);
       ctx.fillStyle = '#e2e8f0';
