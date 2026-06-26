@@ -226,6 +226,7 @@ const CharacterSprite: FC<CharacterSpriteProps> = ({
   decorative = false,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const character = getCharacterById(characterId);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -233,7 +234,6 @@ const CharacterSprite: FC<CharacterSpriteProps> = ({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const char = getCharacterById(characterId);
     const dpr =
       typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
     canvas.width = size * dpr;
@@ -249,8 +249,8 @@ const CharacterSprite: FC<CharacterSpriteProps> = ({
     const cx = size / 2;
     const topY = size * 0.14;
 
-    drawCharacterSprite(ctx, char, cx, topY, scale);
-  }, [characterId, size]);
+    drawCharacterSprite(ctx, character, cx, topY, scale);
+  }, [character, size]);
 
   return (
     <canvas
@@ -258,7 +258,7 @@ const CharacterSprite: FC<CharacterSpriteProps> = ({
       style={{ width: size, height: size, display: "block" }}
       className={className}
       aria-hidden={decorative || undefined}
-      aria-label={decorative ? undefined : getCharacterById(characterId).name}
+      aria-label={decorative ? undefined : character.name}
     />
   );
 };

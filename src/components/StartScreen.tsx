@@ -446,7 +446,11 @@ const StartScreen: FC<Props> = ({
                 boxShadow: `0 18px 50px ${selectedCharacter.bodyColor}28, inset 0 1px 0 rgba(255,255,255,0.18)`,
               }}
             >
-              <CharacterSprite characterId={selectedChar} size={72} />
+              <CharacterSprite
+                characterId={selectedChar}
+                size={72}
+                decorative
+              />
             </div>
             <div className="dash-stat-stack-v2">
               <StatBar
@@ -479,7 +483,7 @@ const StartScreen: FC<Props> = ({
                 style={{ "--chip-color": c.bodyColor } as CSSProperties}
               >
                 <span className="dash-chip-sprite-v2">
-                  <CharacterSprite characterId={c.id} size={28} />
+                  <CharacterSprite characterId={c.id} size={28} decorative />
                 </span>
                 {c.name}
               </button>
