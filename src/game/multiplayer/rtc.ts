@@ -5,8 +5,16 @@
  * data channel. On the same Wi-Fi this drops round-trip latency to ~1–5 ms
  * because every packet skips the HTTP server entirely.
  *
- * Signaling (SDP offer/answer) is exchanged via the existing HTTP server,
- * but only once during connection setup — gameplay sync then flows P2P.
+ * Signaling (SDP offer/answer + ICE candidates) is exchanged via the existing
+ * HTTP server, but only once during connection setup — gameplay sync then
+ * flows P2P.
+ *
+ * Connectivity hardening:
+ *  - STUN + TURN servers. STUN handles ~80% of NATs; TURN relays traffic for
+ *    the remaining symmetric/restrictive NATs so connectivity always works.
+ *  - Trickle ICE: candidates are exchanged as soon as they're gathered instead
+ *    of waiting for full gathering to complete inside the SDP.
+ *  - Extended ICE gathering timeout (3s) for slow mobile networks.
  */
 
 /** Peer sync message — same shape as the HTTP sync payload, plus RTT probe. */
@@ -21,6 +29,7 @@ export interface RTCSyncMessage {
   dropCarry?: boolean;
   characterId?: string;
   name?: string;
+  killedEnemyIds?: string[]; // cross-player enemy defeat sync
 }
 
 export interface RTCPingMessage {
@@ -46,10 +55,37 @@ interface RTCConfig {
   iceServers?: RTCIceServer[];
 }
 
-const DEFAULT_ICE_SERVERS: RTCIceServer[] = [
-  { urls: 'stun:stun.l.google.com:19302' },
-  { urls: 'stun:stun1.l.google.com:19302' },
-];
+/** Build the ICE server list from env-configured TURN/STUN servers. */
+function getIceServers(): RTCIceServer[] {
+  const servers: RTCIceServer[] = [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+  ];
+
+  // TURN servers are configured via next.config public runtime env.
+  // Format: "turn:host:port:user:credential" or full "turn:host:port?transport=tcp:user:credential"
+  const turnUrls = typeof process !== 'undefined'
+    ? (process.env.NEXT_PUBLIC_TURN_URLS ?? process.env.TURN_URLS ?? '')
+    : '';
+  const turnUser = typeof process !== 'undefined'
+    ? (process.env.NEXT_PUBLIC_TURN_USER ?? process.env.TURN_USER ?? '')
+    : '';
+  const turnCred = typeof process !== 'undefined'
+    ? (process.env.NEXT_PUBLIC_TURN_CREDENTIAL ?? process.env.TURN_CREDENTIAL ?? '')
+    : '';
+
+  if (turnUrls && turnUser && turnCred) {
+    const urls = turnUrls.split(',').map((s) => s.trim()).filter(Boolean);
+    servers.push({ urls, username: turnUser, credential: turnCred });
+  }
+
+  return servers;
+}
+
+const DEFAULT_ICE_SERVERS = getIceServers();
+
+/** Default ICE gathering timeout — generous enough for mobile networks. */
+const DEFAULT_ICE_TIMEOUT_MS = 3000;
 
 export class RTCTransport {
   private pc: RTCPeerConnection;
@@ -62,6 +98,8 @@ export class RTCTransport {
   onMessage?: (msg: RTCMessage) => void;
   onClose?: () => void;
   onStateChange?: (state: RTCConnectionState) => void;
+  /** Fired for each local ICE candidate gathered (trickle ICE). */
+  onIceCandidate?: (candidate: RTCIceCandidateInit) => void;
 
   constructor(config?: RTCConfig) {
     this.pc = new RTCPeerConnection({
@@ -77,6 +115,13 @@ export class RTCTransport {
         if (this.state === 'connected') this.setState('closed');
       }
     };
+
+    // Trickle ICE: emit each candidate as it's discovered
+    this.pc.onicecandidate = (event) => {
+      if (event.candidate) {
+        this.onIceCandidate?.(event.candidate.toJSON());
+      }
+    };
   }
 
   get connectionState(): RTCConnectionState { return this.state; }
@@ -85,7 +130,7 @@ export class RTCTransport {
 
   // ── Host side: create data channel + SDP offer ──────────────────────
 
-  async createOffer(iceTimeoutMs = 1500): Promise<RTCSessionDescriptionInit> {
+  async createOffer(iceTimeoutMs = DEFAULT_ICE_TIMEOUT_MS): Promise<RTCSessionDescriptionInit> {
     this.setState('connecting');
     this.channel = this.pc.createDataChannel('game', {
       ordered: true, // reliable ordered — matches existing HTTP semantics
@@ -102,7 +147,7 @@ export class RTCTransport {
 
   async acceptOfferAndAnswer(
     remoteOffer: RTCSessionDescriptionInit,
-    iceTimeoutMs = 1500,
+    iceTimeoutMs = DEFAULT_ICE_TIMEOUT_MS,
   ): Promise<RTCSessionDescriptionInit> {
     this.setState('connecting');
     this.pc.ondatachannel = (event) => {
@@ -121,6 +166,20 @@ export class RTCTransport {
 
   async acceptAnswer(remoteAnswer: RTCSessionDescriptionInit): Promise<void> {
     await this.pc.setRemoteDescription(remoteAnswer);
+  }
+
+  /** Add a remote ICE candidate received via signaling (trickle ICE). */
+  async addIceCandidate(candidate: RTCIceCandidateInit): Promise<void> {
+    try {
+      await this.pc.addIceCandidate(candidate);
+    } catch {
+      // Ignore — can happen if candidate arrives before remote description
+    }
+  }
+
+  /** Add multiple remote ICE candidates. */
+  async addIceCandidates(candidates: RTCIceCandidateInit[]): Promise<void> {
+    await Promise.all(candidates.map((c) => this.addIceCandidate(c)));
   }
 
   // ── Send a message over the data channel ────────────────────────────
@@ -185,7 +244,6 @@ export class RTCTransport {
     }
     // sync message
     if (msg.ts) this.lastReceivedTs = msg.ts;
-    // Track echo for RTT — but we use ping/pong instead for accuracy
     this.onMessage?.(msg);
   }
 

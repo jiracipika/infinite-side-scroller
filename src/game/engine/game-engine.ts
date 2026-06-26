@@ -197,6 +197,8 @@ export class GameEngine {
   private remoteCarriedByLocal = false;
   private localCarriedByRemote = false;
   private remoteProjectiles: PlayerProjectileSnapshot[] = [];
+  /** Interpolation delay — lower for P2P (low-latency), higher for HTTP polling. */
+  private interpolationDelayMs = MP_INTERPOLATION_DELAY_MS;
   private lastEnemyVersionApplied = -1;
   private lastEnemyChecksumApplied = 0;
   private carryHintTimer = 0;
@@ -417,6 +419,11 @@ export class GameEngine {
     return enemy;
   }
 
+  /** Set interpolation delay — P2P uses a lower value for lower latency. */
+  setInterpolationDelay(ms: number): void {
+    this.interpolationDelayMs = Math.max(0, ms);
+  }
+
   setRemotePlayerState(remote: RemotePlayerViewState | null): void {
     if (!this.multiplayerEnabled || !remote) {
       this.remotePlayer = null;
@@ -493,7 +500,7 @@ export class GameEngine {
     if (this.remoteSnapshotBuffer.length === 0) return;
 
     const rp = this.remotePlayer;
-    const renderTime = Date.now() - MP_INTERPOLATION_DELAY_MS;
+    const renderTime = Date.now() - this.interpolationDelayMs;
     let from = this.remoteSnapshotBuffer[0];
     let to = this.remoteSnapshotBuffer[this.remoteSnapshotBuffer.length - 1];
 
@@ -1648,7 +1655,7 @@ export class GameEngine {
     this.onNetworkDebug?.({
       predictionError: this.predictionError,
       reconciliationCount: this.reconciliationCount,
-      interpolationDelayMs: MP_INTERPOLATION_DELAY_MS,
+      interpolationDelayMs: this.interpolationDelayMs,
       remoteBufferSize: this.remoteSnapshotBuffer.length,
     });
   }

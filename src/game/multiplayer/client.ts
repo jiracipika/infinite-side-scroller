@@ -129,6 +129,9 @@ export async function getRTCSignal(roomId: string): Promise<{
   answer: RTCSessionDescriptionInit | null;
   hasOffer: boolean;
   hasAnswer: boolean;
+  hostCandidates: RTCIceCandidateInit[];
+  joinerCandidates: RTCIceCandidateInit[];
+  candidatesVersion: number;
 }> {
   return signalRequest({ action: 'get', roomId: normalizeRoomId(roomId) });
 }
@@ -136,4 +139,19 @@ export async function getRTCSignal(roomId: string): Promise<{
 /** Discard signaling data after the P2P connection is established. */
 export async function clearRTCSignal(roomId: string): Promise<void> {
   await signalRequest({ action: 'clear', roomId: normalizeRoomId(roomId) }).catch(() => {});
+}
+
+/** Post ICE candidates (trickle ICE). role = 'host' | 'joiner'. */
+export async function postRTCCandidates(
+  roomId: string,
+  role: 'host' | 'joiner',
+  candidates: RTCIceCandidateInit[],
+): Promise<void> {
+  if (candidates.length === 0) return;
+  await signalRequest({
+    action: 'candidates',
+    roomId: normalizeRoomId(roomId),
+    role,
+    candidates,
+  }).catch(() => {});
 }

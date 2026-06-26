@@ -9,16 +9,24 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 /**
- * WebRTC signaling store — holds SDP offer/answer for each room during the
- * brief P2P handshake. Uses Upstash Redis / Vercel KV when configured so host
- * and guest can land on different serverless instances and still complete the
- * handshake. Local dev falls back to a small /tmp JSON file + memory.
+ * WebRTC signaling store — holds SDP offer/answer + ICE candidates for each
+ * room during the brief P2P handshake. Uses Upstash Redis / Vercel KV when
+ * configured so host and guest can land on different serverless instances and
+ * still complete the handshake. Local dev falls back to a small /tmp JSON
+ * file + memory.
+ *
+ * Trickle ICE: candidates are accumulated per-role (host/joiner). The 'get'
+ * action returns the latest candidate arrays along with a version counter so
+ * clients can poll for new candidates after the SDP exchange completes.
  */
 
 interface SignalEntry {
   offer: any | null; // RTCSessionDescriptionInit
   answer: any | null; // RTCSessionDescriptionInit
   hostId: string;
+  hostCandidates: any[]; // RTCIceCandidateInit[]
+  joinerCandidates: any[]; // RTCIceCandidateInit[]
+  candidatesVersion: number; // bumped whenever candidates change
   createdAt: number;
 }
 
@@ -43,6 +51,9 @@ function hydrateStore(raw: unknown): Map<string, SignalEntry> {
       offer: entry.offer ?? null,
       answer: entry.answer ?? null,
       hostId: typeof entry.hostId === 'string' ? entry.hostId : '',
+      hostCandidates: Array.isArray(entry.hostCandidates) ? entry.hostCandidates : [],
+      joinerCandidates: Array.isArray(entry.joinerCandidates) ? entry.joinerCandidates : [],
+      candidatesVersion: Number.isFinite(entry.candidatesVersion) ? Number(entry.candidatesVersion) : 0,
       createdAt: Number.isFinite(entry.createdAt) ? Number(entry.createdAt) : Date.now(),
     });
   }
@@ -140,10 +151,11 @@ function json(data: unknown, init?: number | ResponseInit): NextResponse {
  * POST — submit or retrieve signaling data.
  *
  * Body actions:
- *   { action: 'offer',  roomId, hostId, sdp }     — host posts its offer
- *   { action: 'answer', roomId, sdp }             — joiner posts its answer
- *   { action: 'get',    roomId }                  — poll for offer/answer
- *   { action: 'clear',  roomId }                  — discard after connected
+ *   { action: 'offer',      roomId, hostId, sdp }                — host posts its offer
+ *   { action: 'answer',     roomId, sdp }                        — joiner posts its answer
+ *   { action: 'candidates', roomId, role, candidates }           — trickle ICE candidates
+ *   { action: 'get',        roomId }                             — poll for offer/answer/candidates
+ *   { action: 'clear',      roomId }                             — discard after connected
  */
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null) as null | {
@@ -151,6 +163,8 @@ export async function POST(request: NextRequest) {
     roomId?: string;
     hostId?: string;
     sdp?: any;
+    role?: string;
+    candidates?: any[];
   };
 
   if (!body?.action) return json({ error: 'action required' }, 400);
@@ -164,6 +178,9 @@ export async function POST(request: NextRequest) {
         offer: body.sdp ?? null,
         answer: null,
         hostId: body.hostId ?? '',
+        hostCandidates: [],
+        joinerCandidates: [],
+        candidatesVersion: 0,
         createdAt: Date.now(),
       });
       return json({ ok: true, storeMode: multiplayerStoreMode() });
@@ -175,6 +192,23 @@ export async function POST(request: NextRequest) {
       await saveEntry(roomId, entry);
       return json({ ok: true, storeMode: multiplayerStoreMode() });
     }
+    case 'candidates': {
+      const entry = await loadEntry(roomId);
+      if (!entry) {
+        // Create a minimal entry if missing — candidates can arrive before
+        // the SDP on some networks.
+        return json({ ok: true, storeMode: multiplayerStoreMode() });
+      }
+      const incoming = Array.isArray(body.candidates) ? body.candidates : [];
+      if (body.role === 'host') {
+        entry.hostCandidates = [...entry.hostCandidates, ...incoming];
+      } else {
+        entry.joinerCandidates = [...entry.joinerCandidates, ...incoming];
+      }
+      entry.candidatesVersion = (entry.candidatesVersion ?? 0) + 1;
+      await saveEntry(roomId, entry);
+      return json({ ok: true, storeMode: multiplayerStoreMode() });
+    }
     case 'get': {
       const entry = await loadEntry(roomId);
       return json({
@@ -182,6 +216,9 @@ export async function POST(request: NextRequest) {
         answer: entry?.answer ?? null,
         hasOffer: !!entry?.offer,
         hasAnswer: !!entry?.answer,
+        hostCandidates: entry?.hostCandidates ?? [],
+        joinerCandidates: entry?.joinerCandidates ?? [],
+        candidatesVersion: entry?.candidatesVersion ?? 0,
         storeMode: multiplayerStoreMode(),
       });
     }

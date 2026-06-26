@@ -14,10 +14,10 @@ import LevelSelectScreen from '@/components/LevelSelectScreen';
 import LevelCompleteScreen from '@/components/LevelCompleteScreen';
 import type { LevelConfig } from '@/game/data/levels';
 import { ALL_LEVELS } from '@/game/data/levels';
-import { createMultiplayerRoom, joinMultiplayerRoom, leaveMultiplayerRoom, syncMultiplayerRoom, postRTCOffer, postRTCAnswer, getRTCSignal, clearRTCSignal } from '@/game/multiplayer/client';
+import { createMultiplayerRoom, joinMultiplayerRoom, leaveMultiplayerRoom, syncMultiplayerRoom, postRTCOffer, postRTCAnswer, getRTCSignal, clearRTCSignal, postRTCCandidates } from '@/game/multiplayer/client';
 import { RTCTransport, isRTCAvailable, type RTCMessage, type RTCSyncMessage } from '@/game/multiplayer/rtc';
 import type { NetInputCommand, NetPlayerSnapshot, NetRoomState, NetSyncResponse } from '@/game/multiplayer/types';
-import { MP_INPUT_BUFFER_SIZE, MP_INTERPOLATION_DELAY_MS, MP_TICK_MS } from '@/game/multiplayer/config';
+import { MP_INPUT_BUFFER_SIZE, MP_INTERPOLATION_DELAY_MS, MP_P2P_INTERPOLATION_DELAY_MS, MP_TICK_MS, MP_HTTP_TICK_DIVISOR } from '@/game/multiplayer/config';
 import {
   addRunRewards,
   buildProgressionBonuses,
@@ -172,6 +172,7 @@ export default function Home() {
   const rtcRef = useRef<RTCTransport | null>(null);
   const rtcConnectedRef = useRef(false);
   const remoteRTCDataRef = useRef<RTCSyncMessage | null>(null);
+  const rtcReconnectRef = useRef(0); // reconnect attempt counter
   const remotePlayerInfoRef = useRef<{ id: string; name: string } | null>(null);
   const [rtcStatus, setRtcStatus] = useState<'off' | 'connecting' | 'connected' | 'failed'>('off');
 
@@ -804,6 +805,7 @@ export default function Home() {
     rtcRef.current?.close();
     rtcRef.current = null;
     rtcConnectedRef.current = false;
+    rtcReconnectRef.current = 0;
     setRtcStatus('off');
     remoteRTCDataRef.current = null;
     setMultiplayerSession(null);
@@ -855,6 +857,7 @@ export default function Home() {
 
     let cancelled = false;
     let timer: number | null = null;
+    let httpTickCounter = 0; // increments every tick; HTTP fires every Nth
     // Tick-based netcode: fixed 25 Hz (40ms) cadence regardless of LAN/WAN.
     syncIntervalMsRef.current = MP_TICK_MS;
 
@@ -881,6 +884,7 @@ export default function Home() {
         const carryIntent = pendingCarryIntentRef.current;
         pendingCarryIntentRef.current = null;
         const localSnapshot = compactSnapshot(game.getLocalPlayerSnapshot());
+        const localKills = game.drainRecentEnemyDefeatIds();
 
         rtcRef.current.send({
           type: 'sync',
@@ -890,6 +894,7 @@ export default function Home() {
           enemies: session.playerId === session.hostId ? game.getEnemySnapshots() : undefined,
           carryTargetId: carryIntent?.targetId,
           dropCarry: carryIntent?.dropCarry ?? false,
+          killedEnemyIds: localKills.length > 0 ? localKills : undefined,
         });
 
         // Apply latest remote data received via data channel
@@ -907,11 +912,9 @@ export default function Home() {
         if (remoteData?.enemies) {
           game.applyEnemySnapshots(remoteData.enemies);
         }
-
-        // Sync cross-player kills
-        const localKills = game.drainRecentEnemyDefeatIds();
-        if (localKills.length > 0) {
-          rtcRef.current.send({ type: 'sync', ts: performance.now(), carryTargetId: undefined, dropCarry: false });
+        // Apply cross-player enemy kills
+        if (remoteData?.killedEnemyIds?.length) {
+          game.killEnemiesById(remoteData.killedEnemyIds);
         }
 
         setNetOverlay(prev => ({
@@ -921,6 +924,14 @@ export default function Home() {
         }));
 
         schedule(MP_TICK_MS); // 25 Hz tick-based P2P sync
+        return;
+      }
+
+      // ── HTTP polling path — throttled to every Nth tick (~12 Hz) ──
+      // P2P above already returned; this only runs when WebRTC is unavailable.
+      httpTickCounter += 1;
+      if (httpTickCounter % MP_HTTP_TICK_DIVISOR !== 0) {
+        schedule(MP_TICK_MS);
         return;
       }
 
@@ -1120,15 +1131,37 @@ export default function Home() {
 
     let cancelled = false;
     let pingTimer: number | null = null;
+    let reconnectTimer: number | null = null;
+    const MAX_RECONNECT_ATTEMPTS = 3;
 
-    const establish = async () => {
-      // Small delay so both clients have reached 'playing' state
-      await new Promise(r => setTimeout(r, 600));
+    const establish = async (attempt: number) => {
+      // Exponential backoff on reconnect: 2s, 5s, 10s
+      if (attempt > 0) {
+        const backoff = 2000 * Math.pow(2.5, attempt - 1);
+        await new Promise(r => setTimeout(r, backoff));
+      }
+      // Initial delay so both clients reach 'playing' state
+      if (attempt === 0) {
+        await new Promise(r => setTimeout(r, 600));
+      }
       if (cancelled) return;
 
       const transport = new RTCTransport();
       rtcRef.current = transport;
       setRtcStatus('connecting');
+
+      // Track which remote candidates we've already applied
+      let appliedCandidateVersion = 0;
+      let candidatePollTimer: number | null = null;
+      // Buffer candidates gathered locally before the SDP is exchanged
+      const pendingLocalCandidates: RTCIceCandidateInit[] = [];
+
+      transport.onIceCandidate = (candidate) => {
+        // Before SDP exchange: buffer. After: post immediately.
+        if (pendingLocalCandidates.length >= 0) {
+          pendingLocalCandidates.push(candidate);
+        }
+      };
 
       transport.onMessage = (msg) => {
         if (msg.type === 'sync') {
@@ -1136,9 +1169,41 @@ export default function Home() {
         }
       };
       transport.onClose = () => {
-        if (!cancelled) {
-          rtcConnectedRef.current = false;
-          setRtcStatus('failed');
+        if (cancelled) return;
+        rtcConnectedRef.current = false;
+        setRtcStatus('failed');
+        // Restore full interpolation delay for HTTP polling fallback
+        gameRef.current?.setInterpolationDelay(MP_INTERPOLATION_DELAY_MS);
+        // Auto-reconnect: the HTTP fallback keeps the game playable, but
+        // try to re-establish P2P for low-latency sync.
+        if (rtcReconnectRef.current < MAX_RECONNECT_ATTEMPTS) {
+          rtcReconnectRef.current += 1;
+          reconnectTimer = window.setTimeout(() => {
+            if (!cancelled) void establish(rtcReconnectRef.current);
+          }, 2000);
+        }
+      };
+
+      // Helper: flush buffered local candidates to the server
+      const flushCandidates = async () => {
+        if (pendingLocalCandidates.length === 0) return;
+        const batch = pendingLocalCandidates.splice(0);
+        await postRTCCandidates(session.roomId, isHost ? 'host' : 'joiner', batch);
+      };
+
+      // Helper: poll for new remote candidates and apply them (trickle ICE)
+      const pollRemoteCandidates = async () => {
+        if (cancelled) return;
+        const signal = await getRTCSignal(session.roomId).catch(() => null);
+        if (!signal) return;
+        if (signal.candidatesVersion > appliedCandidateVersion) {
+          appliedCandidateVersion = signal.candidatesVersion;
+          const remoteCandidates = isHost
+            ? signal.joinerCandidates
+            : signal.hostCandidates;
+          if (remoteCandidates?.length) {
+            await transport.addIceCandidates(remoteCandidates);
+          }
         }
       };
 
@@ -1147,21 +1212,33 @@ export default function Home() {
           const offer = await transport.createOffer();
           if (cancelled) return;
           await postRTCOffer(session.roomId, session.playerId, offer);
+          await flushCandidates();
 
-          // Poll for the joiner's answer
-          const deadline = Date.now() + 12000;
+          // Poll for the joiner's answer + candidates
+          const deadline = Date.now() + 15000;
+          let gotAnswer = false;
           while (!cancelled && Date.now() < deadline) {
             await new Promise(r => setTimeout(r, 400));
             if (cancelled) return;
             const signal = await getRTCSignal(session.roomId).catch(() => null);
-            if (signal?.hasAnswer && signal.answer) {
-              await transport.acceptAnswer(signal.answer);
-              break;
+            if (signal) {
+              if (!gotAnswer && signal.hasAnswer && signal.answer) {
+                await transport.acceptAnswer(signal.answer);
+                gotAnswer = true;
+              }
+              // Apply any new joiner candidates
+              if (signal.candidatesVersion > appliedCandidateVersion) {
+                appliedCandidateVersion = signal.candidatesVersion;
+                if (signal.joinerCandidates?.length) {
+                  await transport.addIceCandidates(signal.joinerCandidates);
+                }
+              }
             }
+            if (gotAnswer) break;
           }
         } else {
           // Joiner: wait for host's offer
-          const deadline = Date.now() + 12000;
+          const deadline = Date.now() + 15000;
           while (!cancelled && Date.now() < deadline) {
             await new Promise(r => setTimeout(r, 400));
             if (cancelled) return;
@@ -1170,13 +1247,31 @@ export default function Home() {
               const answer = await transport.acceptOfferAndAnswer(signal.offer);
               if (cancelled) return;
               await postRTCAnswer(session.roomId, answer);
+              await flushCandidates();
+              // Apply any host candidates already collected
+              if (signal.hostCandidates?.length) {
+                await transport.addIceCandidates(signal.hostCandidates);
+                appliedCandidateVersion = signal.candidatesVersion;
+              }
               break;
             }
           }
         }
 
+        if (cancelled) return;
+
+        // Continue flushing any candidates gathered during/after SDP exchange
+        await flushCandidates();
+
+        // Start polling for late-arriving remote candidates
+        candidatePollTimer = window.setInterval(() => {
+          if (!cancelled && transport.isOpen) {
+            void pollRemoteCandidates();
+          }
+        }, 800);
+
         // Wait for the data channel to open
-        const connectDeadline = Date.now() + 8000;
+        const connectDeadline = Date.now() + 10000;
         while (!cancelled && Date.now() < connectDeadline) {
           if (transport.isOpen) break;
           await new Promise(r => setTimeout(r, 100));
@@ -1186,7 +1281,10 @@ export default function Home() {
 
         if (transport.isOpen) {
           rtcConnectedRef.current = true;
+          rtcReconnectRef.current = 0; // reset on successful connect
           setRtcStatus('connected');
+          // Lower interpolation delay — P2P data arrives in 1–5 ms, not 40–150 ms
+          gameRef.current?.setInterpolationDelay(MP_P2P_INTERPOLATION_DELAY_MS);
           void clearRTCSignal(session.roomId);
           // Periodic RTT probe
           pingTimer = window.setInterval(() => {
@@ -1194,21 +1292,31 @@ export default function Home() {
           }, 2000);
         } else {
           setRtcStatus('failed');
+          if (candidatePollTimer !== null) clearInterval(candidatePollTimer);
           transport.close();
           rtcRef.current = null;
+          // Try reconnect if under the limit
+          if (rtcReconnectRef.current < MAX_RECONNECT_ATTEMPTS) {
+            rtcReconnectRef.current += 1;
+            reconnectTimer = window.setTimeout(() => {
+              if (!cancelled) void establish(rtcReconnectRef.current);
+            }, 3000);
+          }
         }
       } catch {
         if (!cancelled) setRtcStatus('failed');
+        if (candidatePollTimer !== null) clearInterval(candidatePollTimer);
         transport.close();
         rtcRef.current = null;
       }
     };
 
-    void establish();
+    void establish(0);
 
     return () => {
       cancelled = true;
       if (pingTimer !== null) clearInterval(pingTimer);
+      if (reconnectTimer !== null) clearTimeout(reconnectTimer);
       rtcConnectedRef.current = false;
       setRtcStatus('off');
       rtcRef.current?.close();

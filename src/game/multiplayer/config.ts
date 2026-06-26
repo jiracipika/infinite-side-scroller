@@ -11,12 +11,21 @@ export const MP_TICK_RATE_HZ = 25;
 /** Milliseconds per tick — the single source of truth for sync cadence. */
 export const MP_TICK_MS = 1000 / MP_TICK_RATE_HZ; // 40ms
 
+/**
+ * HTTP polling fires every Nth tick. P2P (WebRTC) and split-screen fire every
+ * tick (25 Hz). HTTP is expensive (full fetch round-trip per sync) so we halve
+ * it: 25 / 2 ≈ 12.5 Hz, comfortably inside the 115ms interpolation window.
+ */
+export const MP_HTTP_TICK_DIVISOR = 2;
+
 /** Server-side tick rate (matches the client tick). */
 export const MP_SERVER_TICK_RATE = MP_TICK_RATE_HZ;
 /** How often the server persists a snapshot. Tick-based = every tick. */
 export const MP_SNAPSHOT_RATE = MP_TICK_RATE_HZ;
 
 export const MP_INTERPOLATION_DELAY_MS = 115;
+/** Reduced interpolation delay for P2P (WebRTC) — data arrives in 1–5 ms. */
+export const MP_P2P_INTERPOLATION_DELAY_MS = 45;
 export const MP_MAX_EXTRAPOLATION_MS = 120;
 export const MP_RECONCILE_SMALL_THRESHOLD = 4;
 export const MP_RECONCILE_MEDIUM_THRESHOLD = 18;
