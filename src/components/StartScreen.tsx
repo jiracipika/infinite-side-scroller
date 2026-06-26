@@ -69,6 +69,12 @@ interface Props {
   initialRoomCode?: string;
 }
 
+const POLISH_PLAN = [
+  { label: "Warm up", detail: "Endless run to learn the rhythm" },
+  { label: "Progress", detail: "Adventure levels, coins, and upgrades" },
+  { label: "Compete", detail: "Daily shot, ghost replay, or same-Wi-Fi race" },
+];
+
 const StartScreen: FC<Props> = ({
   onPlay,
   onPlayDailyChallenge,
@@ -334,6 +340,16 @@ const StartScreen: FC<Props> = ({
             levels, saves, and upgrades — cleaned up into one command-center
             menu.
           </p>
+
+          <div className="dash-polish-plan-v2" aria-label="Recommended play plan">
+            {POLISH_PLAN.map((item, index) => (
+              <div key={item.label}>
+                <span>{String(index + 1).padStart(2, "0")}</span>
+                <b>{item.label}</b>
+                <small>{item.detail}</small>
+              </div>
+            ))}
+          </div>
 
           <div className="dash-quick-stats-v2">
             <span>

@@ -14,6 +14,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 const GAME_HTML = require('../../assets/game.html');
 
+const MENU_STEPS = [
+  { title: 'Warm up', detail: 'Start endless and learn the rhythm.' },
+  { title: 'Collect', detail: 'Bank coins for checkpoints and upgrades.' },
+  { title: 'Compete', detail: 'Beat your best run from the board.' },
+];
+
 type GameState = 'menu' | 'playing' | 'paused' | 'gameover';
 
 interface GameStats {
@@ -321,25 +327,57 @@ const HUD: React.FC<{ stats: GameStats; onPause: () => void }> = ({ stats, onPau
 // ─── Menu Overlay ──────────────────────────────────────────────────
 
 const MenuOverlay: React.FC<{ onPlay: (seed?: number) => void; highScore: number }> = ({ onPlay, highScore }) => (
-  <LinearGradient colors={['rgba(0,0,0,0.7)', 'rgba(26,26,46,0.9)']} style={styles.overlay}>
+  <LinearGradient colors={['rgba(0,0,0,0.92)', 'rgba(8,12,22,0.96)', 'rgba(16,20,34,0.98)']} style={styles.overlay}>
+    <View style={styles.ambientGlowA} />
+    <View style={styles.ambientGlowB} />
     <View style={styles.menuContent}>
+      <View style={styles.appMark}>
+        <Text style={styles.appMarkText}>∞</Text>
+      </View>
       <Text style={styles.title}>Dashverse</Text>
-      <Text style={styles.subtitle}>DASH THROUGH BOUNDLESS WORLDS</Text>
-      <View style={styles.divider} />
+      <Text style={styles.subtitle}>RUN · COLLECT · COMPETE</Text>
 
-      {highScore > 0 && (
-        <View style={styles.highScoreRow}>
-          <Text style={styles.highScoreLabel}>✦ Best Score</Text>
-          <Text style={styles.highScoreValue}>{highScore.toLocaleString()}</Text>
+      <View style={styles.menuGlassPanel}>
+        <View style={styles.menuHeaderRow}>
+          <View>
+            <Text style={styles.panelEyebrow}>Today's route</Text>
+            <Text style={styles.panelTitle}>Pick up speed in three moves.</Text>
+          </View>
+          <View style={styles.readyPill}>
+            <View style={styles.readyDot} />
+            <Text style={styles.readyText}>Ready</Text>
+          </View>
         </View>
-      )}
 
-      <TouchableOpacity style={styles.playBtn} onPress={() => onPlay()} activeOpacity={0.8}>
-        <Text style={styles.playBtnText}>Play</Text>
+        {highScore > 0 && (
+          <View style={styles.highScoreRow}>
+            <Text style={styles.highScoreLabel}>Best Score</Text>
+            <Text style={styles.highScoreValue}>{highScore.toLocaleString()}</Text>
+          </View>
+        )}
+
+        <View style={styles.menuStepGrid}>
+          {MENU_STEPS.map((step, index) => (
+            <View key={step.title} style={styles.menuStepRow}>
+              <Text style={styles.menuStepIndex}>{index + 1}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.menuStepTitle}>{step.title}</Text>
+                <Text style={styles.menuStepDetail}>{step.detail}</Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      </View>
+
+      <TouchableOpacity style={styles.playBtn} onPress={() => onPlay()} activeOpacity={0.82}>
+        <LinearGradient colors={['#0A84FF', '#5E5CE6', '#BF5AF2']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.playBtnGradient}>
+          <Text style={styles.playBtnText}>Play Endless</Text>
+          <Text style={styles.playBtnSubtext}>Jump straight into a run</Text>
+        </LinearGradient>
       </TouchableOpacity>
 
       <Text style={styles.controlsHint}>
-        Touch controls: D-pad on left, Jump/Attack on right
+        Touch controls stay low: move left, jump/attack right.
       </Text>
     </View>
   </LinearGradient>
@@ -520,10 +558,45 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  ambientGlowA: {
+    position: 'absolute',
+    width: SCREEN_W * 0.9,
+    height: SCREEN_W * 0.9,
+    borderRadius: SCREEN_W,
+    top: -SCREEN_W * 0.32,
+    right: -SCREEN_W * 0.28,
+    backgroundColor: 'rgba(10,132,255,0.18)',
+  },
+  ambientGlowB: {
+    position: 'absolute',
+    width: SCREEN_W * 0.72,
+    height: SCREEN_W * 0.72,
+    borderRadius: SCREEN_W,
+    bottom: -SCREEN_W * 0.22,
+    left: -SCREEN_W * 0.24,
+    backgroundColor: 'rgba(191,90,242,0.14)',
+  },
   menuContent: {
     alignItems: 'center',
-    gap: 16,
-    paddingHorizontal: 32,
+    gap: 14,
+    paddingHorizontal: 24,
+    width: '100%',
+    maxWidth: 430,
+  },
+  appMark: {
+    width: 72,
+    height: 72,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
+  },
+  appMarkText: {
+    color: '#fff',
+    fontSize: 42,
+    fontWeight: '800',
   },
   title: {
     color: '#fff',
@@ -532,10 +605,10 @@ const styles = StyleSheet.create({
     letterSpacing: -1,
   },
   subtitle: {
-    color: 'rgba(255,255,255,0.4)',
-    fontSize: 16,
-    fontWeight: '300',
-    letterSpacing: 8,
+    color: 'rgba(235,235,245,0.45)',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 3,
     textTransform: 'uppercase',
   },
   divider: {
@@ -547,8 +620,14 @@ const styles = StyleSheet.create({
   highScoreRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     gap: 8,
-    marginTop: 8,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: 'rgba(255,255,255,0.045)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
   },
   highScoreLabel: {
     color: 'rgba(250,204,21,0.7)',
@@ -561,19 +640,124 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  playBtn: {
-    marginTop: 8,
-    width: 280,
-    paddingVertical: 14,
+  menuGlassPanel: {
+    width: '100%',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: 'rgba(28,28,30,0.58)',
+    padding: 14,
+    gap: 12,
+    overflow: 'hidden',
+  },
+  menuHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  panelEyebrow: {
+    color: 'rgba(235,235,245,0.42)',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+  },
+  panelTitle: {
+    color: '#fff',
+    fontSize: 17,
+    fontWeight: '700',
+    marginTop: 4,
+  },
+  readyPill: {
+    minHeight: 30,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(48,209,88,0.3)',
+    backgroundColor: 'rgba(48,209,88,0.12)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+  },
+  readyDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 7,
+    backgroundColor: '#30D158',
+  },
+  readyText: {
+    color: '#30D158',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  menuStepGrid: {
+    gap: 8,
+  },
+  menuStepRow: {
+    minHeight: 58,
     borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(255,255,255,0.045)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 10,
+  },
+  menuStepIndex: {
+    width: 30,
+    height: 30,
+    borderRadius: 10,
+    overflow: 'hidden',
+    textAlign: 'center',
+    textAlignVertical: 'center',
+    color: '#0A84FF',
+    fontSize: 13,
+    fontWeight: '900',
+    backgroundColor: 'rgba(10,132,255,0.18)',
+  },
+  menuStepTitle: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  menuStepDetail: {
+    color: 'rgba(235,235,245,0.58)',
+    fontSize: 12,
+    lineHeight: 16,
+    marginTop: 2,
+  },
+  playBtn: {
+    marginTop: 4,
+    width: '100%',
+    minHeight: 62,
+    borderRadius: 18,
+    overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#4488cc',
+    backgroundColor: '#0A84FF',
+    shadowColor: '#0A84FF',
+    shadowOpacity: 0.34,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 9 },
+  },
+  playBtnGradient: {
+    minHeight: 62,
+    paddingVertical: 12,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   playBtnText: {
     color: '#fff',
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '700',
+  },
+  playBtnSubtext: {
+    color: 'rgba(255,255,255,0.68)',
+    fontSize: 12,
+    marginTop: 2,
   },
   secondaryBtn: {
     width: 280,
