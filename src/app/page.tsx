@@ -31,28 +31,43 @@ import {
   saveSlotCheckpoint,
   takePendingContinueSlot,
   type SaveSlotId,
-} from '@/lib/progression';
-import { issueRunToken, submitRunScore, type RunMode } from '@/lib/online-leaderboard';
-import { loadLeaderboardAvatarId, loadLeaderboardName } from '@/lib/leaderboard';
-import { loadGhostRun, upsertGhostRun } from '@/lib/ghost-runs';
+} from "@/lib/progression";
+import {
+  issueRunToken,
+  submitRunScore,
+  type RunMode,
+} from "@/lib/online-leaderboard";
+import {
+  loadLeaderboardAvatarId,
+  loadLeaderboardName,
+} from "@/lib/leaderboard";
+import { loadGhostRun, upsertGhostRun } from "@/lib/ghost-runs";
 
 const SNAPSHOT_KEEPALIVE_MS = 240;
 const SNAPSHOT_DELTA_EPS = 0.45;
 
-const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
+const clamp = (v: number, min: number, max: number) =>
+  Math.max(min, Math.min(max, v));
 const quantize = (n: number, precision: number = 1) => {
   const p = 10 ** precision;
   return Math.round(n * p) / p;
 };
 
-function sampleReplayPath(points: Array<{ distance: number; x: number; y: number }>): Array<{ distance: number; x: number; y: number }> {
+function sampleReplayPath(
+  points: Array<{ distance: number; x: number; y: number }>,
+): Array<{ distance: number; x: number; y: number }> {
   if (!Array.isArray(points) || points.length === 0) return [];
   const sampled: Array<{ distance: number; x: number; y: number }> = [];
   let previousDistance = -1;
   for (let i = 0; i < points.length; i += 2) {
     const point = points[i];
     if (!point) continue;
-    if (!Number.isFinite(point.distance) || !Number.isFinite(point.x) || !Number.isFinite(point.y)) continue;
+    if (
+      !Number.isFinite(point.distance) ||
+      !Number.isFinite(point.x) ||
+      !Number.isFinite(point.y)
+    )
+      continue;
     const distance = Math.max(0, Math.floor(point.distance));
     if (distance <= previousDistance) continue;
     sampled.push({
@@ -82,18 +97,21 @@ function compactSnapshot(s: NetPlayerSnapshot): NetPlayerSnapshot {
   };
 }
 
-function snapshotChanged(a: NetPlayerSnapshot | null, b: NetPlayerSnapshot): boolean {
+function snapshotChanged(
+  a: NetPlayerSnapshot | null,
+  b: NetPlayerSnapshot,
+): boolean {
   if (!a) return true;
   return (
-    Math.abs(a.x - b.x) > SNAPSHOT_DELTA_EPS
-    || Math.abs(a.y - b.y) > SNAPSHOT_DELTA_EPS
-    || Math.abs(a.vx - b.vx) > SNAPSHOT_DELTA_EPS
-    || Math.abs(a.vy - b.vy) > SNAPSHOT_DELTA_EPS
-    || a.health !== b.health
-    || a.alive !== b.alive
-    || a.onGround !== b.onGround
-    || a.facingRight !== b.facingRight
-    || a.characterId !== b.characterId
+    Math.abs(a.x - b.x) > SNAPSHOT_DELTA_EPS ||
+    Math.abs(a.y - b.y) > SNAPSHOT_DELTA_EPS ||
+    Math.abs(a.vx - b.vx) > SNAPSHOT_DELTA_EPS ||
+    Math.abs(a.vy - b.vy) > SNAPSHOT_DELTA_EPS ||
+    a.health !== b.health ||
+    a.alive !== b.alive ||
+    a.onGround !== b.onGround ||
+    a.facingRight !== b.facingRight ||
+    a.characterId !== b.characterId
   );
 }
 
@@ -131,12 +149,15 @@ function getDailySeed(dayIso: string): number {
 export default function Home() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameRef = useRef<GameEngine | null>(null);
-  const [multiplayerSession, setMultiplayerSession] = useState<MultiplayerSession | null>(null);
+  const [multiplayerSession, setMultiplayerSession] =
+    useState<MultiplayerSession | null>(null);
   const multiplayerSessionRef = useRef<MultiplayerSession | null>(null);
-  const [multiplayerNotice, setMultiplayerNotice] = useState<string | null>(null);
+  const [multiplayerNotice, setMultiplayerNotice] = useState<string | null>(
+    null,
+  );
   const multiplayerNoticeRef = useRef<string | null>(null);
   const [splitScreenSeed, setSplitScreenSeed] = useState<number | null>(null);
-  const [prefillRoomCode, setPrefillRoomCode] = useState('');
+  const [prefillRoomCode, setPrefillRoomCode] = useState("");
   const [hostInviteUrl, setHostInviteUrl] = useState<string | null>(null);
   const [showHostInvite, setShowHostInvite] = useState(false);
   const [lanInviteOrigin, setLanInviteOrigin] = useState<string | null>(null);
@@ -154,9 +175,14 @@ export default function Home() {
     encounterChunk: 0,
     authoritativeDistance: 0,
   });
-  const pendingCarryIntentRef = useRef<{ targetId: string | null; dropCarry: boolean } | null>(null);
+  const pendingCarryIntentRef = useRef<{
+    targetId: string | null;
+    dropCarry: boolean;
+  } | null>(null);
   const inputSeqRef = useRef(0);
-  const pendingInputsRef = useRef<Array<{ seq: number; sentAt: number; input: NetInputCommand }>>([]);
+  const pendingInputsRef = useRef<
+    Array<{ seq: number; sentAt: number; input: NetInputCommand }>
+  >([]);
   const lastSentSnapshotRef = useRef<NetPlayerSnapshot | null>(null);
   const lastSentAtRef = useRef(0);
   const lastResponseAtRef = useRef(0);
@@ -175,11 +201,19 @@ export default function Home() {
   const remoteRTCSeqRef = useRef(0);
   const rtcReconnectRef = useRef(0); // reconnect attempt counter
   const remotePlayerInfoRef = useRef<{ id: string; name: string } | null>(null);
-  const [rtcStatus, setRtcStatus] = useState<'off' | 'connecting' | 'connected' | 'failed'>('off');
+  const [rtcStatus, setRtcStatus] = useState<
+    "off" | "connecting" | "connected" | "failed"
+  >("off");
 
   // Level mode state
   const [currentLevel, setCurrentLevel] = useState<LevelConfig | null>(null);
-  const [levelResult, setLevelResult] = useState<{ score: number; coins: number; distance: number; timeMs: number; enemiesDefeated: number } | null>(null);
+  const [levelResult, setLevelResult] = useState<{
+    score: number;
+    coins: number;
+    distance: number;
+    timeMs: number;
+    enemiesDefeated: number;
+  } | null>(null);
   const currentLevelRef = useRef<LevelConfig | null>(null);
   const syncInFlightRef = useRef(false);
   const syncSeqRef = useRef(0);
@@ -188,14 +222,23 @@ export default function Home() {
   const syncRttEwmaMsRef = useRef(140);
   const syncIntervalMsRef = useRef(MP_TICK_MS);
   const syncAbortRef = useRef<AbortController | null>(null);
-  const activeSaveSlotRef = useRef<SaveSlotId>('slot1');
-  const runModeRef = useRef<RunMode>('standard');
+  const activeSaveSlotRef = useRef<SaveSlotId>("slot1");
+  const runModeRef = useRef<RunMode>("standard");
   const runTokenRef = useRef<string | null>(null);
   const runSeedRef = useRef<number>(42);
   const {
-    state, stats, settings, seed,
-    startGame, pauseGame, resumeGame, gameOver, quitToMenu, updateStats,
-    goToLevelSelect, goToLevelComplete,
+    state,
+    stats,
+    settings,
+    seed,
+    startGame,
+    pauseGame,
+    resumeGame,
+    gameOver,
+    quitToMenu,
+    updateStats,
+    goToLevelSelect,
+    goToLevelComplete,
   } = useGameStore();
 
   // Boot the engine once; keep callbacks current via refs to avoid restarts
@@ -209,25 +252,38 @@ export default function Home() {
   multiplayerNoticeRef.current = multiplayerNotice;
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
-    const room = (params.get('room') ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+    const room = (params.get("room") ?? "")
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, "")
+      .slice(0, 8);
     if (room) setPrefillRoomCode(room);
 
-    const lagMs = clamp(Number(params.get('netLag') ?? 0) || 0, 0, 2000);
-    const jitterMs = clamp(Number(params.get('netJitter') ?? 0) || 0, 0, 1000);
-    const lossChance = clamp((Number(params.get('netLoss') ?? 0) || 0) / 100, 0, 0.95);
+    const lagMs = clamp(Number(params.get("netLag") ?? 0) || 0, 0, 2000);
+    const jitterMs = clamp(Number(params.get("netJitter") ?? 0) || 0, 0, 1000);
+    const lossChance = clamp(
+      (Number(params.get("netLoss") ?? 0) || 0) / 100,
+      0,
+      0.95,
+    );
     netEmulationRef.current = { lagMs, jitterMs, lossChance };
     activeSaveSlotRef.current = loadActiveSaveSlotId();
 
-    const isLoopbackHost = /^(localhost|127\.|\[?::1\]?$)/.test(window.location.hostname);
+    const isLoopbackHost = /^(localhost|127\.|\[?::1\]?$)/.test(
+      window.location.hostname,
+    );
     if (isLoopbackHost) {
-      fetch('/api/network/origin', { cache: 'no-store' })
+      fetch("/api/network/origin", { cache: "no-store" })
         .then((res) => (res.ok ? res.json() : null))
-        .then((data: { preferredOrigin?: string; lanOrigins?: string[] } | null) => {
-          const preferred = data?.preferredOrigin || data?.lanOrigins?.[0];
-          if (preferred) setLanInviteOrigin(preferred);
-        })
+        .then(
+          (
+            data: { preferredOrigin?: string; lanOrigins?: string[] } | null,
+          ) => {
+            const preferred = data?.preferredOrigin || data?.lanOrigins?.[0];
+            if (preferred) setLanInviteOrigin(preferred);
+          },
+        )
         .catch(() => {});
     }
   }, []);
@@ -242,35 +298,40 @@ export default function Home() {
     game.setProgressionBonuses(bonuses);
   }, []);
 
-  const buildInviteUrl = useCallback((roomId: string) => {
-    if (typeof window === 'undefined') return '';
-    const current = new URL(window.location.href);
-    const inviteOrigin = /^(localhost|127\.|\[?::1\]?$)/.test(current.hostname)
-      ? (lanInviteOrigin ?? current.origin)
-      : current.origin;
-    const url = new URL(`${inviteOrigin}${current.pathname}`);
-    current.searchParams.forEach((value, key) => {
-      if (key !== 'room') url.searchParams.set(key, value);
-    });
-    url.searchParams.set('room', roomId);
-    return url.toString();
-  }, [lanInviteOrigin]);
+  const buildInviteUrl = useCallback(
+    (roomId: string) => {
+      if (typeof window === "undefined") return "";
+      const current = new URL(window.location.href);
+      const inviteOrigin = /^(localhost|127\.|\[?::1\]?$)/.test(
+        current.hostname,
+      )
+        ? (lanInviteOrigin ?? current.origin)
+        : current.origin;
+      const url = new URL(`${inviteOrigin}${current.pathname}`);
+      current.searchParams.forEach((value, key) => {
+        if (key !== "room") url.searchParams.set(key, value);
+      });
+      url.searchParams.set("room", roomId);
+      return url.toString();
+    },
+    [lanInviteOrigin],
+  );
 
   const handleCopyInvite = useCallback(async () => {
     if (!hostInviteUrl) return;
     try {
       await navigator.clipboard.writeText(hostInviteUrl);
-      setMultiplayerNotice('Invite link copied');
+      setMultiplayerNotice("Invite link copied");
     } catch {
-      setMultiplayerNotice('Could not copy link');
+      setMultiplayerNotice("Could not copy link");
     }
   }, [hostInviteUrl]);
 
   const handleShareInvite = useCallback(async () => {
     if (!hostInviteUrl) return;
     const sharePayload = {
-      title: 'Dashverse',
-      text: 'Join my room on the same Wi-Fi:',
+      title: "Dashverse",
+      text: "Join my room on the same Wi-Fi:",
       url: hostInviteUrl,
     };
     try {
@@ -279,14 +340,14 @@ export default function Home() {
         return;
       }
       await navigator.clipboard.writeText(hostInviteUrl);
-      setMultiplayerNotice('Share not available. Link copied instead');
+      setMultiplayerNotice("Share not available. Link copied instead");
     } catch {
-      setMultiplayerNotice('Share canceled');
+      setMultiplayerNotice("Share canceled");
     }
   }, [hostInviteUrl]);
 
   const handleTextInvite = useCallback(() => {
-    if (!hostInviteUrl || typeof window === 'undefined') return;
+    if (!hostInviteUrl || typeof window === "undefined") return;
     const text = encodeURIComponent(`Join my Dashverse room: ${hostInviteUrl}`);
     window.location.href = `sms:&body=${text}`;
   }, [hostInviteUrl]);
@@ -308,23 +369,27 @@ export default function Home() {
         onLevelCompleteRef.current();
         // Update localStorage progress
         try {
-          const stored = localStorage.getItem('iss-level-progress');
+          const stored = localStorage.getItem("iss-level-progress");
           const progress = stored ? JSON.parse(stored) : {};
-          if (!progress[level.id]) progress[level.id] = { stars: 0, bestScore: 0, unlocked: true };
+          if (!progress[level.id])
+            progress[level.id] = { stars: 0, bestScore: 0, unlocked: true };
           const p = progress[level.id];
           if (result.score >= level.starThresholds.three) p.stars = 3;
-          else if (result.score >= level.starThresholds.two) p.stars = Math.max(p.stars, 2);
-          else if (result.score >= level.starThresholds.one) p.stars = Math.max(p.stars, 1);
+          else if (result.score >= level.starThresholds.two)
+            p.stars = Math.max(p.stars, 2);
+          else if (result.score >= level.starThresholds.one)
+            p.stars = Math.max(p.stars, 1);
           p.bestScore = Math.max(p.bestScore, result.score);
-          const idx = ALL_LEVELS.findIndex(l => l.id === level.id);
+          const idx = ALL_LEVELS.findIndex((l) => l.id === level.id);
           if (idx >= 0 && idx < ALL_LEVELS.length - 1) {
             const next = ALL_LEVELS[idx + 1];
             if (next && next.mode === level.mode) {
-              if (!progress[next.id]) progress[next.id] = { stars: 0, bestScore: 0, unlocked: false };
+              if (!progress[next.id])
+                progress[next.id] = { stars: 0, bestScore: 0, unlocked: false };
               progress[next.id].unlocked = true;
             }
           }
-          localStorage.setItem('iss-level-progress', JSON.stringify(progress));
+          localStorage.setItem("iss-level-progress", JSON.stringify(progress));
         } catch {}
       }
     };
@@ -355,113 +420,118 @@ export default function Home() {
   // Sync engine pause/resume with React state
   useEffect(() => {
     if (!gameRef.current) return;
-    if (state === 'paused') gameRef.current.pause();
-    else if (state === 'playing') gameRef.current.resume();
+    if (state === "paused") gameRef.current.pause();
+    else if (state === "playing") gameRef.current.resume();
   }, [state]);
 
   // Escape key toggles pause
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.code !== 'Escape') return;
-      if (state === 'playing') {
+      if (e.code !== "Escape") return;
+      if (state === "playing") {
         pauseGame();
         gameRef.current?.pause();
-      } else if (state === 'paused') {
+      } else if (state === "paused") {
         resumeGame();
         gameRef.current?.resume();
       }
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, [state, pauseGame, resumeGame]);
 
-  const handlePlay = useCallback((seed?: number) => {
-    const s = seed ?? Math.floor(Math.random() * 999999);
-    const charId = loadSelectedCharacter();
-    const pendingContinueSlot = takePendingContinueSlot();
-    const targetSlotId = pendingContinueSlot ?? loadActiveSaveSlotId();
-    applyProgressionFromSlot(targetSlotId);
-    runModeRef.current = 'standard';
-    runSeedRef.current = s;
-    runTokenRef.current = null;
-    setMultiplayerSession(null);
-    setMultiplayerNotice(null);
-    setHostInviteUrl(null);
-    setShowHostInvite(false);
-    syncInFlightRef.current = false;
-    syncSeqRef.current = 0;
-    appliedSyncSeqRef.current = 0;
-    inFlightSinceRef.current = 0;
-    syncRttEwmaMsRef.current = 140;
-    syncIntervalMsRef.current = MP_TICK_MS;
-    syncAbortRef.current?.abort();
-    syncAbortRef.current = null;
-    inputSeqRef.current = 0;
-    pendingInputsRef.current = [];
-    lastSentSnapshotRef.current = null;
-    lastSentAtRef.current = 0;
-    lastResponseAtRef.current = 0;
-    responseCounterRef.current = 0;
-    responseWindowStartRef.current = 0;
-    lastRttRef.current = 0;
-    jitterEwmaRef.current = 0;
-    sentInputCountRef.current = 0;
-    droppedInputCountRef.current = 0;
-    setNetOverlay({
-      rttMs: 0,
-      jitterMs: 0,
-      inferredLoss: 0,
-      serverTickRate: 0,
-      snapshotRate: 0,
-      clientSnapshotRate: 0,
-      predictionError: 0,
-      reconciliationCount: 0,
-      interpolationDelayMs: MP_INTERPOLATION_DELAY_MS,
-      enemyVersion: 0,
-      encounterChunk: 0,
-      authoritativeDistance: 0,
-    });
-    gameRef.current?.setMultiplayerEnabled(false);
-    startGame(s);
-    gameRef.current?.setSeed(s, charId);
-    // Clear level state when playing endless/standard mode.
-    setCurrentLevel(null);
-    currentLevelRef.current = null;
-    const slotGhost = loadGhostRun(targetSlotId);
-    gameRef.current?.setGhostPath(slotGhost?.points ?? []);
-    void issueRunToken({
-      playerName: loadLeaderboardName(),
-      avatarId: loadLeaderboardAvatarId(),
-      mode: 'standard',
-      seed: s,
-    })
-      .then((issued) => {
-        runTokenRef.current = issued.token;
-        runSeedRef.current = issued.seed;
-      })
-      .catch(() => {
-        runTokenRef.current = null;
+  const handlePlay = useCallback(
+    (seed?: number) => {
+      const s = seed ?? Math.floor(Math.random() * 999999);
+      const charId = loadSelectedCharacter();
+      const pendingContinueSlot = takePendingContinueSlot();
+      const targetSlotId = pendingContinueSlot ?? loadActiveSaveSlotId();
+      applyProgressionFromSlot(targetSlotId);
+      runModeRef.current = "standard";
+      runSeedRef.current = s;
+      runTokenRef.current = null;
+      setMultiplayerSession(null);
+      setMultiplayerNotice(null);
+      setHostInviteUrl(null);
+      setShowHostInvite(false);
+      syncInFlightRef.current = false;
+      syncSeqRef.current = 0;
+      appliedSyncSeqRef.current = 0;
+      inFlightSinceRef.current = 0;
+      syncRttEwmaMsRef.current = 140;
+      syncIntervalMsRef.current = MP_TICK_MS;
+      syncAbortRef.current?.abort();
+      syncAbortRef.current = null;
+      inputSeqRef.current = 0;
+      pendingInputsRef.current = [];
+      lastSentSnapshotRef.current = null;
+      lastSentAtRef.current = 0;
+      lastResponseAtRef.current = 0;
+      responseCounterRef.current = 0;
+      responseWindowStartRef.current = 0;
+      lastRttRef.current = 0;
+      jitterEwmaRef.current = 0;
+      sentInputCountRef.current = 0;
+      droppedInputCountRef.current = 0;
+      setNetOverlay({
+        rttMs: 0,
+        jitterMs: 0,
+        inferredLoss: 0,
+        serverTickRate: 0,
+        snapshotRate: 0,
+        clientSnapshotRate: 0,
+        predictionError: 0,
+        reconciliationCount: 0,
+        interpolationDelayMs: MP_INTERPOLATION_DELAY_MS,
+        enemyVersion: 0,
+        encounterChunk: 0,
+        authoritativeDistance: 0,
       });
-    const slot = loadSaveSlots().find((entry) => entry.id === targetSlotId);
-    if (pendingContinueSlot && slot?.checkpoint) {
-      gameRef.current?.restoreRunCheckpoint(slot.checkpoint);
-    } else {
-      clearPendingContinueSlot();
-      clearSlotCheckpoint(targetSlotId);
-    }
-  }, [applyProgressionFromSlot, startGame]);
+      gameRef.current?.setMultiplayerEnabled(false);
+      startGame(s);
+      gameRef.current?.setSeed(s, charId);
+      // Clear level state when playing endless/standard mode.
+      setCurrentLevel(null);
+      currentLevelRef.current = null;
+      const slotGhost = loadGhostRun(targetSlotId);
+      gameRef.current?.setGhostPath(slotGhost?.points ?? []);
+      void issueRunToken({
+        playerName: loadLeaderboardName(),
+        avatarId: loadLeaderboardAvatarId(),
+        mode: "standard",
+        seed: s,
+      })
+        .then((issued) => {
+          runTokenRef.current = issued.token;
+          runSeedRef.current = issued.seed;
+        })
+        .catch(() => {
+          runTokenRef.current = null;
+        });
+      const slot = loadSaveSlots().find((entry) => entry.id === targetSlotId);
+      if (pendingContinueSlot && slot?.checkpoint) {
+        gameRef.current?.restoreRunCheckpoint(slot.checkpoint);
+      } else {
+        clearPendingContinueSlot();
+        clearSlotCheckpoint(targetSlotId);
+      }
+    },
+    [applyProgressionFromSlot, startGame],
+  );
 
   const handlePlayDailyChallenge = useCallback(() => {
     const slotId = loadActiveSaveSlotId();
     const day = getTodayIsoDay();
     if (hasPlayedDailyChallenge(slotId, day)) {
-      setMultiplayerNotice('Daily challenge already used for this save slot today');
+      setMultiplayerNotice(
+        "Daily challenge already used for this save slot today",
+      );
       return;
     }
     const seed = getDailySeed(day);
     const charId = loadSelectedCharacter();
     applyProgressionFromSlot(slotId);
-    runModeRef.current = 'daily';
+    runModeRef.current = "daily";
     runSeedRef.current = seed;
     runTokenRef.current = null;
     startGame(seed);
@@ -473,7 +543,7 @@ export default function Home() {
     void issueRunToken({
       playerName: loadLeaderboardName(),
       avatarId: loadLeaderboardAvatarId(),
-      mode: 'daily',
+      mode: "daily",
       seed,
     })
       .then((issued) => {
@@ -486,76 +556,81 @@ export default function Home() {
     setMultiplayerNotice(`Daily challenge: ${day}`);
   }, [applyProgressionFromSlot, startGame]);
 
-  const handlePlayOnlineGhostRace = useCallback((payload: {
-    entry: { name: string; seed: number; badge: string };
-    replayPath: Array<{ distance: number; x: number; y: number }>;
-  }) => {
-    const s = payload.entry.seed;
-    const charId = loadSelectedCharacter();
-    const targetSlotId = loadActiveSaveSlotId();
-    applyProgressionFromSlot(targetSlotId);
-    runModeRef.current = 'standard';
-    runSeedRef.current = s;
-    runTokenRef.current = null;
-    setMultiplayerSession(null);
-    setMultiplayerNotice(`Ghost race vs ${payload.entry.name} (${payload.entry.badge})`);
-    setHostInviteUrl(null);
-    setShowHostInvite(false);
-    syncInFlightRef.current = false;
-    syncSeqRef.current = 0;
-    appliedSyncSeqRef.current = 0;
-    inFlightSinceRef.current = 0;
-    syncRttEwmaMsRef.current = 140;
-    syncIntervalMsRef.current = MP_TICK_MS;
-    syncAbortRef.current?.abort();
-    syncAbortRef.current = null;
-    inputSeqRef.current = 0;
-    pendingInputsRef.current = [];
-    lastSentSnapshotRef.current = null;
-    lastSentAtRef.current = 0;
-    lastResponseAtRef.current = 0;
-    responseCounterRef.current = 0;
-    responseWindowStartRef.current = 0;
-    lastRttRef.current = 0;
-    jitterEwmaRef.current = 0;
-    sentInputCountRef.current = 0;
-    droppedInputCountRef.current = 0;
-    setNetOverlay({
-      rttMs: 0,
-      jitterMs: 0,
-      inferredLoss: 0,
-      serverTickRate: 0,
-      snapshotRate: 0,
-      clientSnapshotRate: 0,
-      predictionError: 0,
-      reconciliationCount: 0,
-      interpolationDelayMs: MP_INTERPOLATION_DELAY_MS,
-      enemyVersion: 0,
-      encounterChunk: 0,
-      authoritativeDistance: 0,
-    });
-    gameRef.current?.setMultiplayerEnabled(false);
-    startGame(s);
-    gameRef.current?.setSeed(s, charId);
-    gameRef.current?.setGhostPath(payload.replayPath);
-    setCurrentLevel(null);
-    currentLevelRef.current = null;
-    clearPendingContinueSlot();
-    clearSlotCheckpoint(targetSlotId);
-    void issueRunToken({
-      playerName: loadLeaderboardName(),
-      avatarId: loadLeaderboardAvatarId(),
-      mode: 'standard',
-      seed: s,
-    })
-      .then((issued) => {
-        runTokenRef.current = issued.token;
-        runSeedRef.current = issued.seed;
-      })
-      .catch(() => {
-        runTokenRef.current = null;
+  const handlePlayOnlineGhostRace = useCallback(
+    (payload: {
+      entry: { name: string; seed: number; badge: string };
+      replayPath: Array<{ distance: number; x: number; y: number }>;
+    }) => {
+      const s = payload.entry.seed;
+      const charId = loadSelectedCharacter();
+      const targetSlotId = loadActiveSaveSlotId();
+      applyProgressionFromSlot(targetSlotId);
+      runModeRef.current = "standard";
+      runSeedRef.current = s;
+      runTokenRef.current = null;
+      setMultiplayerSession(null);
+      setMultiplayerNotice(
+        `Ghost race vs ${payload.entry.name} (${payload.entry.badge})`,
+      );
+      setHostInviteUrl(null);
+      setShowHostInvite(false);
+      syncInFlightRef.current = false;
+      syncSeqRef.current = 0;
+      appliedSyncSeqRef.current = 0;
+      inFlightSinceRef.current = 0;
+      syncRttEwmaMsRef.current = 140;
+      syncIntervalMsRef.current = MP_TICK_MS;
+      syncAbortRef.current?.abort();
+      syncAbortRef.current = null;
+      inputSeqRef.current = 0;
+      pendingInputsRef.current = [];
+      lastSentSnapshotRef.current = null;
+      lastSentAtRef.current = 0;
+      lastResponseAtRef.current = 0;
+      responseCounterRef.current = 0;
+      responseWindowStartRef.current = 0;
+      lastRttRef.current = 0;
+      jitterEwmaRef.current = 0;
+      sentInputCountRef.current = 0;
+      droppedInputCountRef.current = 0;
+      setNetOverlay({
+        rttMs: 0,
+        jitterMs: 0,
+        inferredLoss: 0,
+        serverTickRate: 0,
+        snapshotRate: 0,
+        clientSnapshotRate: 0,
+        predictionError: 0,
+        reconciliationCount: 0,
+        interpolationDelayMs: MP_INTERPOLATION_DELAY_MS,
+        enemyVersion: 0,
+        encounterChunk: 0,
+        authoritativeDistance: 0,
       });
-  }, [applyProgressionFromSlot, startGame]);
+      gameRef.current?.setMultiplayerEnabled(false);
+      startGame(s);
+      gameRef.current?.setSeed(s, charId);
+      gameRef.current?.setGhostPath(payload.replayPath);
+      setCurrentLevel(null);
+      currentLevelRef.current = null;
+      clearPendingContinueSlot();
+      clearSlotCheckpoint(targetSlotId);
+      void issueRunToken({
+        playerName: loadLeaderboardName(),
+        avatarId: loadLeaderboardAvatarId(),
+        mode: "standard",
+        seed: s,
+      })
+        .then((issued) => {
+          runTokenRef.current = issued.token;
+          runSeedRef.current = issued.seed;
+        })
+        .catch(() => {
+          runTokenRef.current = null;
+        });
+    },
+    [applyProgressionFromSlot, startGame],
+  );
 
   // ── Level mode handlers ──
   const handleStartLevel = useCallback((level: LevelConfig) => {
@@ -588,15 +663,16 @@ export default function Home() {
           if (!progress[next.id]) progress[next.id] = { stars: 0, bestScore: 0, unlocked: false };
           progress[next.id].unlocked = true;
         }
+        saveProgress(progress);
       }
-      saveProgress(progress);
-    }
-  }, [goToLevelComplete]);
+    },
+    [goToLevelComplete],
+  );
 
   const handleNextLevel = useCallback(() => {
     const level = currentLevelRef.current;
     if (!level) return;
-    const idx = ALL_LEVELS.findIndex(l => l.id === level.id);
+    const idx = ALL_LEVELS.findIndex((l) => l.id === level.id);
     if (idx >= 0 && idx < ALL_LEVELS.length - 1) {
       const next = ALL_LEVELS[idx + 1];
       if (next && next.mode === level.mode) {
@@ -611,7 +687,9 @@ export default function Home() {
   const handlePlaySplitScreen = useCallback((seed?: number) => {
     const session = multiplayerSessionRef.current;
     if (session) {
-      void leaveMultiplayerRoom(session.roomId, session.playerId).catch(() => {});
+      void leaveMultiplayerRoom(session.roomId, session.playerId).catch(
+        () => {},
+      );
       setMultiplayerSession(null);
     }
     setMultiplayerNotice(null);
@@ -622,117 +700,167 @@ export default function Home() {
     setSplitScreenSeed(seed ?? Math.floor(Math.random() * 999999));
   }, []);
 
-  const applyRemotePlayerState = useCallback((room: NetRoomState, localId: string) => {
-    const game = gameRef.current;
-    if (!game) return;
-    const remote = room.players.find((p) => p.id !== localId) ?? null;
-    if (remote) {
-      game.setRemotePlayerState({
-        id: remote.id,
-        name: remote.name,
-        snapshot: remote.snapshot,
-        carryTargetId: remote.carryTargetId,
-        carriedById: remote.carriedById,
-      });
-    } else {
-      game.setRemotePlayerState(null);
-    }
-  }, []);
-
-  const applyRemotePlayerFromState = useCallback((remote: NetSyncResponse['remote'], serverTime?: number) => {
-    const game = gameRef.current;
-    if (!game) return;
-    if (remote) {
-      // Track remote identity for WebRTC P2P path
-      remotePlayerInfoRef.current = { id: remote.id, name: remote.name };
-      game.setRemotePlayerState({
-        id: remote.id,
-        name: remote.name,
-        snapshot: remote.snapshot,
-        carryTargetId: remote.carryTargetId,
-        carriedById: remote.carriedById,
-        serverTime,
-      });
-    } else {
-      game.setRemotePlayerState(null);
-    }
-  }, []);
-
-  const handlePlayMultiplayer = useCallback(async (params: { mode: 'host' | 'join'; roomId?: string; playerName: string; seed?: number }) => {
-    const charId = loadSelectedCharacter();
-    applyProgressionFromSlot(loadActiveSaveSlotId());
-    runModeRef.current = 'standard';
-    runTokenRef.current = null;
-    try {
-      const result = params.mode === 'host'
-        ? await createMultiplayerRoom({ playerName: params.playerName, characterId: charId, seed: params.seed })
-        : await joinMultiplayerRoom({ roomId: params.roomId ?? '', playerName: params.playerName, characterId: charId });
-
-      const session: MultiplayerSession = {
-        roomId: result.roomId,
-        playerId: result.playerId,
-        playerName: params.playerName,
-        hostId: result.room.hostId,
-      };
-      syncInFlightRef.current = false;
-      syncSeqRef.current = 0;
-      appliedSyncSeqRef.current = 0;
-      inputSeqRef.current = 0;
-      pendingInputsRef.current = [];
-      lastSentSnapshotRef.current = null;
-      lastSentAtRef.current = 0;
-      lastResponseAtRef.current = 0;
-      responseCounterRef.current = 0;
-      responseWindowStartRef.current = 0;
-      lastRttRef.current = 0;
-      jitterEwmaRef.current = 0;
-      sentInputCountRef.current = 0;
-      droppedInputCountRef.current = 0;
-      remotePlayerInfoRef.current = null;
-      remoteRTCDataRef.current = null;
-      setMultiplayerSession(session);
-      if (params.mode === 'host') {
-        let inviteUrl = buildInviteUrl(result.roomId);
-        if (typeof window !== 'undefined' && !lanInviteOrigin && /^(localhost|127\.|\[?::1\]?$)/.test(window.location.hostname)) {
-          const lan = await fetch('/api/network/origin', { cache: 'no-store' })
-            .then((res) => (res.ok ? res.json() : null))
-            .catch(() => null) as { preferredOrigin?: string; lanOrigins?: string[] } | null;
-          const preferred = lan?.preferredOrigin || lan?.lanOrigins?.[0];
-          if (preferred) {
-            setLanInviteOrigin(preferred);
-            const current = new URL(window.location.href);
-            const url = new URL(`${preferred}${current.pathname}`);
-            current.searchParams.forEach((value, key) => {
-              if (key !== 'room') url.searchParams.set(key, value);
-            });
-            url.searchParams.set('room', result.roomId);
-            inviteUrl = url.toString();
-          }
-        }
-        setHostInviteUrl(inviteUrl);
-        setShowHostInvite(true);
-        const hostOrigin = typeof window !== 'undefined' ? new URL(inviteUrl).origin : '';
-        const hostHint = hostOrigin ? `Share this site URL + code: ${result.roomId}` : `Room ${result.roomId}`;
-        setMultiplayerNotice(
-          result.storeMode === 'ephemeral'
-            ? `Room ${result.roomId} is ready, but this deployment needs Redis/KV for reliable cross-device joining.`
-            : `Hosting room ${result.roomId}. ${hostHint}`,
-        );
+  const applyRemotePlayerState = useCallback(
+    (room: NetRoomState, localId: string) => {
+      const game = gameRef.current;
+      if (!game) return;
+      const remote = room.players.find((p) => p.id !== localId) ?? null;
+      if (remote) {
+        game.setRemotePlayerState({
+          id: remote.id,
+          name: remote.name,
+          snapshot: remote.snapshot,
+          carryTargetId: remote.carryTargetId,
+          carriedById: remote.carriedById,
+        });
       } else {
-        setShowHostInvite(false);
-        setHostInviteUrl(null);
-        setMultiplayerNotice(`Joined room ${result.roomId}`);
+        game.setRemotePlayerState(null);
       }
-      startGame(result.seed);
-      gameRef.current?.setSeed(result.seed, charId);
-      gameRef.current?.setMultiplayerEnabled(true, result.playerId, result.room.hostId);
-      applyRemotePlayerState(result.room, result.playerId);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to start multiplayer';
-      const host = typeof window !== 'undefined' ? window.location.host : '';
-      setMultiplayerNotice(`${message}${host ? ` (both devices must use ${host})` : ''}`);
-    }
-  }, [applyProgressionFromSlot, applyRemotePlayerState, buildInviteUrl, lanInviteOrigin, startGame]);
+    },
+    [],
+  );
+
+  const applyRemotePlayerFromState = useCallback(
+    (remote: NetSyncResponse["remote"], serverTime?: number) => {
+      const game = gameRef.current;
+      if (!game) return;
+      if (remote) {
+        // Track remote identity for WebRTC P2P path
+        remotePlayerInfoRef.current = { id: remote.id, name: remote.name };
+        game.setRemotePlayerState({
+          id: remote.id,
+          name: remote.name,
+          snapshot: remote.snapshot,
+          carryTargetId: remote.carryTargetId,
+          carriedById: remote.carriedById,
+          serverTime,
+        });
+      } else {
+        game.setRemotePlayerState(null);
+      }
+    },
+    [],
+  );
+
+  const handlePlayMultiplayer = useCallback(
+    async (params: {
+      mode: "host" | "join";
+      roomId?: string;
+      playerName: string;
+      seed?: number;
+    }) => {
+      const charId = loadSelectedCharacter();
+      applyProgressionFromSlot(loadActiveSaveSlotId());
+      runModeRef.current = "standard";
+      runTokenRef.current = null;
+      try {
+        const result =
+          params.mode === "host"
+            ? await createMultiplayerRoom({
+                playerName: params.playerName,
+                characterId: charId,
+                seed: params.seed,
+              })
+            : await joinMultiplayerRoom({
+                roomId: params.roomId ?? "",
+                playerName: params.playerName,
+                characterId: charId,
+              });
+
+        const session: MultiplayerSession = {
+          roomId: result.roomId,
+          playerId: result.playerId,
+          playerName: params.playerName,
+          hostId: result.room.hostId,
+        };
+        syncInFlightRef.current = false;
+        syncSeqRef.current = 0;
+        appliedSyncSeqRef.current = 0;
+        inputSeqRef.current = 0;
+        pendingInputsRef.current = [];
+        lastSentSnapshotRef.current = null;
+        lastSentAtRef.current = 0;
+        lastResponseAtRef.current = 0;
+        responseCounterRef.current = 0;
+        responseWindowStartRef.current = 0;
+        lastRttRef.current = 0;
+        jitterEwmaRef.current = 0;
+        sentInputCountRef.current = 0;
+        droppedInputCountRef.current = 0;
+        remotePlayerInfoRef.current = null;
+        remoteRTCDataRef.current = null;
+        setMultiplayerSession(session);
+        if (params.mode === "host") {
+          let inviteUrl = buildInviteUrl(result.roomId);
+          if (
+            typeof window !== "undefined" &&
+            !lanInviteOrigin &&
+            /^(localhost|127\.|\[?::1\]?$)/.test(window.location.hostname)
+          ) {
+            const lan = (await fetch("/api/network/origin", {
+              cache: "no-store",
+            })
+              .then((res) => (res.ok ? res.json() : null))
+              .catch(() => null)) as {
+              preferredOrigin?: string;
+              lanOrigins?: string[];
+            } | null;
+            const preferred = lan?.preferredOrigin || lan?.lanOrigins?.[0];
+            if (preferred) {
+              setLanInviteOrigin(preferred);
+              const current = new URL(window.location.href);
+              const url = new URL(`${preferred}${current.pathname}`);
+              current.searchParams.forEach((value, key) => {
+                if (key !== "room") url.searchParams.set(key, value);
+              });
+              url.searchParams.set("room", result.roomId);
+              inviteUrl = url.toString();
+            }
+          }
+          setHostInviteUrl(inviteUrl);
+          setShowHostInvite(true);
+          const hostOrigin =
+            typeof window !== "undefined" ? new URL(inviteUrl).origin : "";
+          const hostHint = hostOrigin
+            ? `Share this site URL + code: ${result.roomId}`
+            : `Room ${result.roomId}`;
+          setMultiplayerNotice(
+            result.storeMode === "ephemeral"
+              ? `Room ${result.roomId} is ready, but this deployment needs Redis/KV for reliable cross-device joining.`
+              : `Hosting room ${result.roomId}. ${hostHint}`,
+          );
+        } else {
+          setShowHostInvite(false);
+          setHostInviteUrl(null);
+          setMultiplayerNotice(`Joined room ${result.roomId}`);
+        }
+        startGame(result.seed);
+        gameRef.current?.setSeed(result.seed, charId);
+        gameRef.current?.setMultiplayerEnabled(
+          true,
+          result.playerId,
+          result.room.hostId,
+        );
+        applyRemotePlayerState(result.room, result.playerId);
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Failed to start multiplayer";
+        const host = typeof window !== "undefined" ? window.location.host : "";
+        setMultiplayerNotice(
+          `${message}${host ? ` (both devices must use ${host})` : ""}`,
+        );
+      }
+    },
+    [
+      applyProgressionFromSlot,
+      applyRemotePlayerState,
+      buildInviteUrl,
+      lanInviteOrigin,
+      startGame,
+    ],
+  );
 
   const handlePause = useCallback(() => {
     pauseGame();
@@ -750,12 +878,12 @@ export default function Home() {
     startGame(nextSeed);
     runSeedRef.current = nextSeed;
     if (!activeSession) {
-      runModeRef.current = 'standard';
+      runModeRef.current = "standard";
       runTokenRef.current = null;
       void issueRunToken({
         playerName: loadLeaderboardName(),
         avatarId: loadLeaderboardAvatarId(),
-        mode: 'standard',
+        mode: "standard",
         seed: nextSeed,
       })
         .then((issued) => {
@@ -770,7 +898,11 @@ export default function Home() {
     gameRef.current?.setSeed(nextSeed, loadSelectedCharacter());
     const slotGhost = loadGhostRun(loadActiveSaveSlotId());
     gameRef.current?.setGhostPath(slotGhost?.points ?? []);
-    gameRef.current?.setMultiplayerEnabled(!!activeSession, activeSession?.playerId ?? null, activeSession?.hostId ?? null);
+    gameRef.current?.setMultiplayerEnabled(
+      !!activeSession,
+      activeSession?.playerId ?? null,
+      activeSession?.hostId ?? null,
+    );
     pendingCarryIntentRef.current = null;
     syncInFlightRef.current = false;
     syncSeqRef.current = 0;
@@ -798,21 +930,23 @@ export default function Home() {
   const handleQuit = useCallback(() => {
     const session = multiplayerSessionRef.current;
     if (session) {
-      void leaveMultiplayerRoom(session.roomId, session.playerId).catch(() => {});
+      void leaveMultiplayerRoom(session.roomId, session.playerId).catch(
+        () => {},
+      );
     }
     // Close WebRTC connection
     rtcRef.current?.close();
     rtcRef.current = null;
     rtcConnectedRef.current = false;
     rtcReconnectRef.current = 0;
-    setRtcStatus('off');
+    setRtcStatus("off");
     remoteRTCDataRef.current = null;
     setMultiplayerSession(null);
     setMultiplayerNotice(null);
     setHostInviteUrl(null);
     setShowHostInvite(false);
     runTokenRef.current = null;
-    runModeRef.current = 'standard';
+    runModeRef.current = "standard";
     pendingCarryIntentRef.current = null;
     syncInFlightRef.current = false;
     syncSeqRef.current = 0;
@@ -834,7 +968,7 @@ export default function Home() {
     sentInputCountRef.current = 0;
     droppedInputCountRef.current = 0;
     gameRef.current?.setMultiplayerEnabled(false);
-    if (!session && state !== 'gameover') {
+    if (!session && state !== "gameover") {
       const slotId = loadActiveSaveSlotId();
       const checkpoint = gameRef.current?.exportRunCheckpoint();
       if (checkpoint) {
@@ -852,7 +986,7 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (state !== 'playing' || !multiplayerSession || !gameRef.current) return;
+    if (state !== "playing" || !multiplayerSession || !gameRef.current) return;
 
     let cancelled = false;
     let timer: number | null = null;
@@ -862,9 +996,12 @@ export default function Home() {
 
     const schedule = (delay: number) => {
       if (cancelled) return;
-      timer = window.setTimeout(() => {
-        void tick();
-      }, Math.max(0, delay));
+      timer = window.setTimeout(
+        () => {
+          void tick();
+        },
+        Math.max(0, delay),
+      );
     };
 
     const tick = async () => {
@@ -876,10 +1013,17 @@ export default function Home() {
       // On the same Wi-Fi this gives ~1–5 ms RTT vs 40–150 ms for HTTP polling.
       if (rtcRef.current?.isOpen) {
         const nowPerf = performance.now();
-        const sinceLastSend = Math.max(16, lastSentAtRef.current ? nowPerf - lastSentAtRef.current : 1000 / 60);
+        const sinceLastSend = Math.max(
+          16,
+          lastSentAtRef.current ? nowPerf - lastSentAtRef.current : 1000 / 60,
+        );
         lastSentAtRef.current = nowPerf;
         const commandSeq = ++inputSeqRef.current;
-        const input = game.buildNetInputCommand(commandSeq, sinceLastSend, Date.now());
+        const input = game.buildNetInputCommand(
+          commandSeq,
+          sinceLastSend,
+          Date.now(),
+        );
         const carryIntent = pendingCarryIntentRef.current;
         pendingCarryIntentRef.current = null;
         const localSnapshot = compactSnapshot(game.getLocalPlayerSnapshot());
@@ -910,8 +1054,8 @@ export default function Home() {
         if (remoteData?.snapshot && remoteAgeMs < 1500) {
           const ri = remotePlayerInfoRef.current;
           game.setRemotePlayerState({
-            id: ri?.id ?? 'remote',
-            name: ri?.name ?? 'Player',
+            id: ri?.id ?? "remote",
+            name: ri?.name ?? "Player",
             snapshot: remoteData.snapshot,
             carryTargetId: remoteData.carryTargetId ?? null,
             carriedById: null,
@@ -925,7 +1069,7 @@ export default function Home() {
           game.killEnemiesById(remoteData.killedEnemyIds);
         }
 
-        setNetOverlay(prev => ({
+        setNetOverlay((prev) => ({
           ...prev,
           rttMs: quantize(rtcRef.current?.rtt ?? 0, 1),
           clientSnapshotRate: quantize(1000 / Math.max(33, sinceLastSend), 1),
@@ -955,10 +1099,17 @@ export default function Home() {
       }
 
       const nowPerf = performance.now();
-      const sinceLastSend = Math.max(16, lastSentAtRef.current ? nowPerf - lastSentAtRef.current : 1000 / 60);
+      const sinceLastSend = Math.max(
+        16,
+        lastSentAtRef.current ? nowPerf - lastSentAtRef.current : 1000 / 60,
+      );
       lastSentAtRef.current = nowPerf;
       const commandSeq = ++inputSeqRef.current;
-      const input = game.buildNetInputCommand(commandSeq, sinceLastSend, Date.now());
+      const input = game.buildNetInputCommand(
+        commandSeq,
+        sinceLastSend,
+        Date.now(),
+      );
       const pendingInput = { seq: commandSeq, sentAt: nowPerf, input };
 
       sentInputCountRef.current += 1;
@@ -967,11 +1118,15 @@ export default function Home() {
         droppedInputCountRef.current += 1;
         pendingInputsRef.current.push(pendingInput);
         if (pendingInputsRef.current.length > MP_INPUT_BUFFER_SIZE) {
-          pendingInputsRef.current.splice(0, pendingInputsRef.current.length - MP_INPUT_BUFFER_SIZE);
+          pendingInputsRef.current.splice(
+            0,
+            pendingInputsRef.current.length - MP_INPUT_BUFFER_SIZE,
+          );
         }
-        const syntheticLoss = sentInputCountRef.current > 0
-          ? (droppedInputCountRef.current / sentInputCountRef.current) * 100
-          : 0;
+        const syntheticLoss =
+          sentInputCountRef.current > 0
+            ? (droppedInputCountRef.current / sentInputCountRef.current) * 100
+            : 0;
         setNetOverlay((prev) => ({
           ...prev,
           inferredLoss: quantize(syntheticLoss, 1),
@@ -980,9 +1135,8 @@ export default function Home() {
         return;
       }
 
-      const oneWayJitter = emulated.jitterMs > 0
-        ? (Math.random() * 2 - 1) * emulated.jitterMs
-        : 0;
+      const oneWayJitter =
+        emulated.jitterMs > 0 ? (Math.random() * 2 - 1) * emulated.jitterMs : 0;
       const oneWayDelay = Math.max(0, emulated.lagMs + oneWayJitter);
       if (oneWayDelay > 0) {
         await new Promise((resolve) => window.setTimeout(resolve, oneWayDelay));
@@ -997,15 +1151,17 @@ export default function Home() {
       const carryIntent = pendingCarryIntentRef.current;
       pendingCarryIntentRef.current = null;
       const localSnapshot = compactSnapshot(game.getLocalPlayerSnapshot());
-      const includeSnapshot = (
-        snapshotChanged(lastSentSnapshotRef.current, localSnapshot)
-        || (performance.now() - lastResponseAtRef.current > SNAPSHOT_KEEPALIVE_MS)
-        || !!carryIntent
-      );
+      const includeSnapshot =
+        snapshotChanged(lastSentSnapshotRef.current, localSnapshot) ||
+        performance.now() - lastResponseAtRef.current > SNAPSHOT_KEEPALIVE_MS ||
+        !!carryIntent;
 
       pendingInputsRef.current.push(pendingInput);
       if (pendingInputsRef.current.length > MP_INPUT_BUFFER_SIZE) {
-        pendingInputsRef.current.splice(0, pendingInputsRef.current.length - MP_INPUT_BUFFER_SIZE);
+        pendingInputsRef.current.splice(
+          0,
+          pendingInputsRef.current.length - MP_INPUT_BUFFER_SIZE,
+        );
       }
 
       try {
@@ -1018,13 +1174,22 @@ export default function Home() {
           characterId: localSnapshot.characterId,
           snapshot: includeSnapshot ? localSnapshot : undefined,
           input,
-          enemies: session.playerId === session.hostId ? game.getEnemySnapshots() : undefined,
+          enemies:
+            session.playerId === session.hostId
+              ? game.getEnemySnapshots()
+              : undefined,
           carryTargetId: carryIntent?.targetId,
           dropCarry: carryIntent?.dropCarry ?? false,
         };
-        const result = await syncMultiplayerRoom(payload, { signal: controller.signal });
+        const result = await syncMultiplayerRoom(payload, {
+          signal: controller.signal,
+        });
         if (cancelled) return;
-        if (multiplayerNoticeRef.current === 'Reconnecting multiplayer session...' || multiplayerNoticeRef.current === 'Connection hiccup; retrying...') {
+        if (
+          multiplayerNoticeRef.current ===
+            "Reconnecting multiplayer session..." ||
+          multiplayerNoticeRef.current === "Connection hiccup; retrying..."
+        ) {
           setMultiplayerNotice(null);
         }
         if (seq < appliedSyncSeqRef.current) return;
@@ -1035,10 +1200,15 @@ export default function Home() {
           checksum: result.sync.enemyChecksum,
         });
         if (result.sync.hostId !== session.hostId) {
-          multiplayerSessionRef.current = { ...session, hostId: result.sync.hostId };
-          setMultiplayerSession((current) => current && current.roomId === session.roomId
-            ? { ...current, hostId: result.sync.hostId }
-            : current);
+          multiplayerSessionRef.current = {
+            ...session,
+            hostId: result.sync.hostId,
+          };
+          setMultiplayerSession((current) =>
+            current && current.roomId === session.roomId
+              ? { ...current, hostId: result.sync.hostId }
+              : current,
+          );
           game.setMultiplayerHostId(result.sync.hostId);
         }
 
@@ -1049,10 +1219,15 @@ export default function Home() {
 
         const ackSeq = Math.max(0, Math.floor(result.sync.ackInputSeq || 0));
         if (ackSeq > 0) {
-          pendingInputsRef.current = pendingInputsRef.current.filter((entry) => entry.seq > ackSeq);
+          pendingInputsRef.current = pendingInputsRef.current.filter(
+            (entry) => entry.seq > ackSeq,
+          );
         }
         if (pendingInputsRef.current.length > MP_INPUT_BUFFER_SIZE) {
-          pendingInputsRef.current.splice(0, pendingInputsRef.current.length - MP_INPUT_BUFFER_SIZE);
+          pendingInputsRef.current.splice(
+            0,
+            pendingInputsRef.current.length - MP_INPUT_BUFFER_SIZE,
+          );
         }
 
         const unacked = pendingInputsRef.current.map((entry) => entry.input);
@@ -1060,27 +1235,35 @@ export default function Home() {
 
         const elapsed = performance.now() - startedAt;
         const jitterSample = Math.abs(elapsed - lastRttRef.current);
-        jitterEwmaRef.current = jitterEwmaRef.current * 0.7 + jitterSample * 0.3;
+        jitterEwmaRef.current =
+          jitterEwmaRef.current * 0.7 + jitterSample * 0.3;
         lastRttRef.current = elapsed;
         // Keep RTT EWMA for the net overlay display; cadence is fixed (tick-based).
-        syncRttEwmaMsRef.current = syncRttEwmaMsRef.current * 0.75 + elapsed * 0.25;
+        syncRttEwmaMsRef.current =
+          syncRttEwmaMsRef.current * 0.75 + elapsed * 0.25;
 
         responseCounterRef.current += 1;
         const now = performance.now();
-        if (responseWindowStartRef.current <= 0) responseWindowStartRef.current = now;
+        if (responseWindowStartRef.current <= 0)
+          responseWindowStartRef.current = now;
         const winElapsed = now - responseWindowStartRef.current;
         if (winElapsed >= 1000) {
-          const rate = (responseCounterRef.current * 1000) / Math.max(1, winElapsed);
+          const rate =
+            (responseCounterRef.current * 1000) / Math.max(1, winElapsed);
           responseCounterRef.current = 0;
           responseWindowStartRef.current = now;
-          const syntheticLoss = sentInputCountRef.current > 0
-            ? (droppedInputCountRef.current / sentInputCountRef.current) * 100
-            : 0;
+          const syntheticLoss =
+            sentInputCountRef.current > 0
+              ? (droppedInputCountRef.current / sentInputCountRef.current) * 100
+              : 0;
           setNetOverlay((prev) => ({
             ...prev,
             rttMs: quantize(syncRttEwmaMsRef.current, 1),
             jitterMs: quantize(jitterEwmaRef.current, 1),
-            inferredLoss: quantize(Math.max(syntheticLoss, result.sync.inferredPacketLoss), 1),
+            inferredLoss: quantize(
+              Math.max(syntheticLoss, result.sync.inferredPacketLoss),
+              1,
+            ),
             serverTickRate: result.sync.serverTickRate,
             snapshotRate: result.sync.snapshotRate,
             clientSnapshotRate: quantize(rate, 1),
@@ -1092,14 +1275,17 @@ export default function Home() {
       } catch (error) {
         if (controller.signal.aborted) return;
         if (!cancelled) {
-          const msg = error instanceof Error ? error.message : 'Multiplayer sync failed';
+          const msg =
+            error instanceof Error ? error.message : "Multiplayer sync failed";
           if (/room not found|player not in room/i.test(msg)) {
             if (performance.now() - lastResponseAtRef.current > 2500) {
-              setMultiplayerNotice('Reconnecting multiplayer session...');
+              setMultiplayerNotice("Reconnecting multiplayer session...");
             }
-          } else if (/aborted|network request failed|failed to fetch/i.test(msg)) {
+          } else if (
+            /aborted|network request failed|failed to fetch/i.test(msg)
+          ) {
             if (performance.now() - lastResponseAtRef.current > 2500) {
-              setMultiplayerNotice('Connection hiccup; retrying...');
+              setMultiplayerNotice("Connection hiccup; retrying...");
             }
           } else {
             setMultiplayerNotice(msg);
@@ -1146,17 +1332,17 @@ export default function Home() {
       // Exponential backoff on reconnect: 2s, 5s, 10s
       if (attempt > 0) {
         const backoff = 2000 * Math.pow(2.5, attempt - 1);
-        await new Promise(r => setTimeout(r, backoff));
+        await new Promise((r) => setTimeout(r, backoff));
       }
       // Initial delay so both clients reach 'playing' state
       if (attempt === 0) {
-        await new Promise(r => setTimeout(r, 600));
+        await new Promise((r) => setTimeout(r, 600));
       }
       if (cancelled) return;
 
       const transport = new RTCTransport();
       rtcRef.current = transport;
-      setRtcStatus('connecting');
+      setRtcStatus("connecting");
 
       // Track which remote candidates we've already applied
       let appliedCandidateVersion = 0;
@@ -1182,7 +1368,7 @@ export default function Home() {
       transport.onClose = () => {
         if (cancelled) return;
         rtcConnectedRef.current = false;
-        setRtcStatus('failed');
+        setRtcStatus("failed");
         // Restore full interpolation delay for HTTP polling fallback
         gameRef.current?.setInterpolationDelay(MP_INTERPOLATION_DELAY_MS);
         // Auto-reconnect: the HTTP fallback keeps the game playable, but
@@ -1199,7 +1385,11 @@ export default function Home() {
       const flushCandidates = async () => {
         if (pendingLocalCandidates.length === 0) return;
         const batch = pendingLocalCandidates.splice(0);
-        await postRTCCandidates(session.roomId, isHost ? 'host' : 'joiner', batch);
+        await postRTCCandidates(
+          session.roomId,
+          isHost ? "host" : "joiner",
+          batch,
+        );
       };
 
       // Helper: poll for new remote candidates and apply them (trickle ICE)
@@ -1229,7 +1419,7 @@ export default function Home() {
           const deadline = Date.now() + 15000;
           let gotAnswer = false;
           while (!cancelled && Date.now() < deadline) {
-            await new Promise(r => setTimeout(r, 400));
+            await new Promise((r) => setTimeout(r, 400));
             if (cancelled) return;
             const signal = await getRTCSignal(session.roomId).catch(() => null);
             if (signal) {
@@ -1251,7 +1441,7 @@ export default function Home() {
           // Joiner: wait for host's offer
           const deadline = Date.now() + 15000;
           while (!cancelled && Date.now() < deadline) {
-            await new Promise(r => setTimeout(r, 400));
+            await new Promise((r) => setTimeout(r, 400));
             if (cancelled) return;
             const signal = await getRTCSignal(session.roomId).catch(() => null);
             if (signal?.hasOffer && signal.offer) {
@@ -1286,7 +1476,7 @@ export default function Home() {
         const connectDeadline = Date.now() + 10000;
         while (!cancelled && Date.now() < connectDeadline) {
           if (transport.isOpen) break;
-          await new Promise(r => setTimeout(r, 100));
+          await new Promise((r) => setTimeout(r, 100));
         }
 
         if (cancelled) return;
@@ -1294,7 +1484,7 @@ export default function Home() {
         if (transport.isOpen) {
           rtcConnectedRef.current = true;
           rtcReconnectRef.current = 0; // reset on successful connect
-          setRtcStatus('connected');
+          setRtcStatus("connected");
           // Lower interpolation delay — P2P data arrives in 1–5 ms, not 40–150 ms
           gameRef.current?.setInterpolationDelay(MP_P2P_INTERPOLATION_DELAY_MS);
           void clearRTCSignal(session.roomId);
@@ -1304,7 +1494,7 @@ export default function Home() {
             if (transport.isOpen) transport.ping();
           }, 2000);
         } else {
-          setRtcStatus('failed');
+          setRtcStatus("failed");
           if (candidatePollTimer !== null) clearInterval(candidatePollTimer);
           transport.close();
           rtcRef.current = null;
@@ -1317,7 +1507,7 @@ export default function Home() {
           }
         }
       } catch {
-        if (!cancelled) setRtcStatus('failed');
+        if (!cancelled) setRtcStatus("failed");
         if (candidatePollTimer !== null) clearInterval(candidatePollTimer);
         transport.close();
         rtcRef.current = null;
@@ -1331,7 +1521,7 @@ export default function Home() {
       if (pingTimer !== null) clearInterval(pingTimer);
       if (reconnectTimer !== null) clearTimeout(reconnectTimer);
       rtcConnectedRef.current = false;
-      setRtcStatus('off');
+      setRtcStatus("off");
       rtcRef.current?.close();
       rtcRef.current = null;
       remoteRTCDataRef.current = null;
@@ -1342,7 +1532,9 @@ export default function Home() {
     return () => {
       const session = multiplayerSessionRef.current;
       if (session) {
-        void leaveMultiplayerRoom(session.roomId, session.playerId).catch(() => {});
+        void leaveMultiplayerRoom(session.roomId, session.playerId).catch(
+          () => {},
+        );
       }
     };
   }, []);
@@ -1354,7 +1546,8 @@ export default function Home() {
   }, [multiplayerNotice]);
 
   useEffect(() => {
-    if (state !== 'playing' || !!multiplayerSession || splitScreenSeed !== null) return;
+    if (state !== "playing" || !!multiplayerSession || splitScreenSeed !== null)
+      return;
     const slotId = loadActiveSaveSlotId();
     activeSaveSlotRef.current = slotId;
     applyProgressionFromSlot(slotId);
@@ -1376,14 +1569,19 @@ export default function Home() {
   const previousStateRef = useRef(state);
   useEffect(() => {
     const prev = previousStateRef.current;
-    if (prev === 'playing' && state === 'gameover' && !multiplayerSession && splitScreenSeed === null) {
+    if (
+      prev === "playing" &&
+      state === "gameover" &&
+      !multiplayerSession &&
+      splitScreenSeed === null
+    ) {
       const slotId = activeSaveSlotRef.current || loadActiveSaveSlotId();
       addRunRewards(slotId, {
         coins: stats.coins,
         score: stats.score,
         distance: Math.round(stats.distance),
       });
-      if (runModeRef.current === 'daily') {
+      if (runModeRef.current === "daily") {
         markDailyChallengePlayed(slotId, getTodayIsoDay());
       }
       const ghostPoints = gameRef.current?.exportGhostPath() ?? [];
@@ -1413,20 +1611,27 @@ export default function Home() {
       clearSlotCheckpoint(slotId);
     }
     previousStateRef.current = state;
-  }, [multiplayerSession, splitScreenSeed, state, stats.coins, stats.distance, stats.score]);
+  }, [
+    multiplayerSession,
+    splitScreenSeed,
+    state,
+    stats.coins,
+    stats.distance,
+    stats.score,
+  ]);
 
   return (
     <main className="fixed inset-0 overflow-hidden bg-black select-none">
       <canvas
         ref={canvasRef}
         className="absolute inset-0 w-full h-full block"
-        style={{ imageRendering: 'auto' }}
+        style={{ imageRendering: "auto" }}
       />
 
       {/* Menu overlays */}
-      {state !== 'playing' && (
+      {state !== "playing" && (
         <div className="absolute inset-0 z-10">
-          {state === 'menu' && !splitScreenSeed && (
+          {state === "menu" && !splitScreenSeed && (
             <StartScreen
               onPlay={handlePlay}
               onPlayDailyChallenge={handlePlayDailyChallenge}
@@ -1437,14 +1642,14 @@ export default function Home() {
               initialRoomCode={prefillRoomCode}
             />
           )}
-          {state === 'levelselect' && (
+          {state === "levelselect" && (
             <LevelSelectScreen
               onLevelSelect={handleStartLevel}
               onBack={quitToMenu}
               onEndlessPlay={handlePlay}
             />
           )}
-          {state === 'levelcomplete' && currentLevel && levelResult && (
+          {state === "levelcomplete" && currentLevel && levelResult && (
             <LevelCompleteScreen
               level={currentLevel}
               result={levelResult}
@@ -1453,17 +1658,21 @@ export default function Home() {
               onBack={goToLevelSelect}
             />
           )}
-          {state === 'paused' && (
+          {state === "paused" && (
             <PauseMenu
               onResume={handleResume}
               onRestart={handleRestart}
               onQuit={handleQuit}
             />
           )}
-          {state === 'gameover' && (
+          {state === "gameover" && (
             <GameOverScreen
               stats={stats}
-              onRestart={currentLevel ? () => handleStartLevel(currentLevel) : handleRestart}
+              onRestart={
+                currentLevel
+                  ? () => handleStartLevel(currentLevel)
+                  : handleRestart
+              }
               onQuit={handleQuit}
             />
           )}
@@ -1471,69 +1680,91 @@ export default function Home() {
       )}
 
       {/* In-game UI */}
-      {state === 'playing' && (
+      {state === "playing" && (
         <div
           className="absolute inset-x-0 top-0 z-[9] pointer-events-none"
-          style={{ height: 88, background: 'linear-gradient(to bottom, rgba(0,0,0,0.3), rgba(0,0,0,0))' }}
+          style={{
+            height: 88,
+            background:
+              "linear-gradient(to bottom, rgba(0,0,0,0.3), rgba(0,0,0,0))",
+          }}
         />
       )}
-      {state === 'playing' && <HUD stats={stats} settings={settings} />}
-      {state === 'playing' && <TouchControls />}
-      {state === 'playing' && multiplayerSession && (
+      {state === "playing" && <HUD stats={stats} settings={settings} />}
+      {state === "playing" && <TouchControls />}
+      {state === "playing" && multiplayerSession && (
         <div
           className="absolute left-1/2 z-20 pointer-events-none"
           style={{
-            top: 'calc(env(safe-area-inset-top, 0px) + 56px)',
-            transform: 'translateX(-50%)',
-            background: 'rgba(2,6,23,0.62)',
-            border: '1px solid rgba(148,163,184,0.28)',
+            top: "calc(env(safe-area-inset-top, 0px) + 56px)",
+            transform: "translateX(-50%)",
+            background: "rgba(2,6,23,0.62)",
+            border: "1px solid rgba(148,163,184,0.28)",
             borderRadius: 999,
-            padding: '4px 10px',
-            color: '#cbd5e1',
+            padding: "4px 10px",
+            color: "#cbd5e1",
             fontSize: 11,
             fontWeight: 600,
-            letterSpacing: '0.06em',
-            textTransform: 'uppercase',
+            letterSpacing: "0.06em",
+            textTransform: "uppercase",
           }}
         >
           Room {multiplayerSession.roomId}
         </div>
       )}
-      {state === 'playing' && multiplayerSession && settings.showDebug && (
+      {state === "playing" && multiplayerSession && settings.showDebug && (
         <div
           className="absolute left-3 z-20 pointer-events-none"
           style={{
-            top: 'calc(env(safe-area-inset-top, 0px) + 54px)',
-            width: 'min(56vw, 220px)',
-            background: 'rgba(2,6,23,0.6)',
-            border: '1px solid rgba(148,163,184,0.25)',
+            top: "calc(env(safe-area-inset-top, 0px) + 54px)",
+            width: "min(56vw, 220px)",
+            background: "rgba(2,6,23,0.6)",
+            border: "1px solid rgba(148,163,184,0.25)",
             borderRadius: 10,
-            padding: '6px 8px',
-            color: '#cbd5e1',
+            padding: "6px 8px",
+            color: "#cbd5e1",
             fontSize: 10,
             lineHeight: 1.25,
-            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-            backdropFilter: 'blur(8px)',
-            WebkitBackdropFilter: 'blur(8px)',
+            fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+            backdropFilter: "blur(8px)",
+            WebkitBackdropFilter: "blur(8px)",
           }}
         >
-          <div style={{
-            marginBottom: 4,
-            display: 'flex',
-            gap: 6,
-            alignItems: 'center',
-          }}>
-            <span style={{
-              padding: '1px 6px',
-              borderRadius: 4,
-              fontSize: 9,
-              fontWeight: 700,
-              letterSpacing: '0.04em',
-              background: rtcStatus === 'connected' ? 'rgba(34,197,94,0.2)' : rtcStatus === 'connecting' ? 'rgba(250,204,21,0.2)' : 'rgba(100,116,139,0.2)',
-              color: rtcStatus === 'connected' ? '#22c55e' : rtcStatus === 'connecting' ? '#facc15' : '#94a3b8',
-              border: `1px solid ${rtcStatus === 'connected' ? 'rgba(34,197,94,0.3)' : rtcStatus === 'connecting' ? 'rgba(250,204,21,0.3)' : 'rgba(100,116,139,0.3)'}`,
-            }}>
-              {rtcStatus === 'connected' ? 'P2P' : rtcStatus === 'connecting' ? 'P2P…' : 'HTTP'}
+          <div
+            style={{
+              marginBottom: 4,
+              display: "flex",
+              gap: 6,
+              alignItems: "center",
+            }}
+          >
+            <span
+              style={{
+                padding: "1px 6px",
+                borderRadius: 4,
+                fontSize: 9,
+                fontWeight: 700,
+                letterSpacing: "0.04em",
+                background:
+                  rtcStatus === "connected"
+                    ? "rgba(34,197,94,0.2)"
+                    : rtcStatus === "connecting"
+                      ? "rgba(250,204,21,0.2)"
+                      : "rgba(100,116,139,0.2)",
+                color:
+                  rtcStatus === "connected"
+                    ? "#22c55e"
+                    : rtcStatus === "connecting"
+                      ? "#facc15"
+                      : "#94a3b8",
+                border: `1px solid ${rtcStatus === "connected" ? "rgba(34,197,94,0.3)" : rtcStatus === "connecting" ? "rgba(250,204,21,0.3)" : "rgba(100,116,139,0.3)"}`,
+              }}
+            >
+              {rtcStatus === "connected"
+                ? "P2P"
+                : rtcStatus === "connecting"
+                  ? "P2P…"
+                  : "HTTP"}
             </span>
             <span>RTT {netOverlay.rttMs}ms</span>
           </div>
@@ -1551,54 +1782,83 @@ export default function Home() {
           <div>Auth Dist {Math.round(netOverlay.authoritativeDistance)}m</div>
         </div>
       )}
-      {state === 'playing' && showHostInvite && hostInviteUrl && (
+      {state === "playing" && showHostInvite && hostInviteUrl && (
         <div
           className="absolute left-1/2 z-30"
           style={{
-            bottom: 'max(92px, calc(env(safe-area-inset-bottom, 0px) + 92px))',
-            transform: 'translateX(-50%)',
-            width: 'min(92vw, 340px)',
-            background: 'rgba(2,6,23,0.88)',
-            border: '1px solid rgba(148,163,184,0.25)',
+            bottom: "max(92px, calc(env(safe-area-inset-bottom, 0px) + 92px))",
+            transform: "translateX(-50%)",
+            width: "min(92vw, 340px)",
+            background: "rgba(2,6,23,0.88)",
+            border: "1px solid rgba(148,163,184,0.25)",
             borderRadius: 14,
             padding: 10,
-            backdropFilter: 'blur(12px)',
-            WebkitBackdropFilter: 'blur(12px)',
+            backdropFilter: "blur(12px)",
+            WebkitBackdropFilter: "blur(12px)",
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-            <span style={{ color: '#e2e8f0', fontSize: 12, fontWeight: 700, letterSpacing: '0.04em' }}>LAN Invite</span>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: 8,
+            }}
+          >
+            <span
+              style={{
+                color: "#e2e8f0",
+                fontSize: 12,
+                fontWeight: 700,
+                letterSpacing: "0.04em",
+              }}
+            >
+              LAN Invite
+            </span>
             <button
               type="button"
               onClick={() => setShowHostInvite(false)}
               className="ios-btn-gray"
-              style={{ width: 26, height: 26, borderRadius: 999, fontSize: 12, padding: 0 }}
+              style={{
+                width: 26,
+                height: 26,
+                borderRadius: 999,
+                fontSize: 12,
+                padding: 0,
+              }}
             >
               ✕
             </button>
           </div>
 
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={`https://api.qrserver.com/v1/create-qr-code/?size=170x170&margin=0&data=${encodeURIComponent(hostInviteUrl)}`}
               alt="Room QR code"
               width={92}
               height={92}
-              style={{ borderRadius: 8, border: '1px solid rgba(148,163,184,0.28)', background: '#fff' }}
+              style={{
+                borderRadius: 8,
+                border: "1px solid rgba(148,163,184,0.28)",
+                background: "#fff",
+              }}
             />
             <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ color: '#cbd5e1', fontSize: 11, marginBottom: 6 }}>
-                Code: <span style={{ fontWeight: 800, letterSpacing: '0.08em' }}>{multiplayerSession?.roomId}</span>
+              <div style={{ color: "#cbd5e1", fontSize: 11, marginBottom: 6 }}>
+                Code:{" "}
+                <span style={{ fontWeight: 800, letterSpacing: "0.08em" }}>
+                  {multiplayerSession?.roomId}
+                </span>
               </div>
               <div
                 style={{
-                  color: '#94a3b8',
+                  color: "#94a3b8",
                   fontSize: 10,
                   lineHeight: 1.35,
                   maxHeight: 42,
-                  overflow: 'hidden',
-                  wordBreak: 'break-all',
+                  overflow: "hidden",
+                  wordBreak: "break-all",
                 }}
               >
                 {hostInviteUrl}
@@ -1606,14 +1866,40 @@ export default function Home() {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0,1fr))', gap: 8, marginTop: 10 }}>
-            <button type="button" className="ios-btn-secondary" style={{ height: 34, fontSize: 12 }} onClick={() => { void handleCopyInvite(); }}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(3, minmax(0,1fr))",
+              gap: 8,
+              marginTop: 10,
+            }}
+          >
+            <button
+              type="button"
+              className="ios-btn-secondary"
+              style={{ height: 34, fontSize: 12 }}
+              onClick={() => {
+                void handleCopyInvite();
+              }}
+            >
               Copy
             </button>
-            <button type="button" className="ios-btn-secondary" style={{ height: 34, fontSize: 12 }} onClick={() => { void handleShareInvite(); }}>
+            <button
+              type="button"
+              className="ios-btn-secondary"
+              style={{ height: 34, fontSize: 12 }}
+              onClick={() => {
+                void handleShareInvite();
+              }}
+            >
               Share
             </button>
-            <button type="button" className="ios-btn-secondary" style={{ height: 34, fontSize: 12 }} onClick={handleTextInvite}>
+            <button
+              type="button"
+              className="ios-btn-secondary"
+              style={{ height: 34, fontSize: 12 }}
+              onClick={handleTextInvite}
+            >
               Text
             </button>
           </div>
@@ -1623,17 +1909,17 @@ export default function Home() {
         <div
           className="absolute left-1/2 z-30 pointer-events-none"
           style={{
-            top: 'calc(env(safe-area-inset-top, 0px) + 16px)',
-            transform: 'translateX(-50%)',
-            background: 'rgba(15,23,42,0.82)',
-            border: '1px solid rgba(148,163,184,0.25)',
+            top: "calc(env(safe-area-inset-top, 0px) + 16px)",
+            transform: "translateX(-50%)",
+            background: "rgba(15,23,42,0.82)",
+            border: "1px solid rgba(148,163,184,0.25)",
             borderRadius: 10,
-            padding: '6px 10px',
-            color: '#e2e8f0',
+            padding: "6px 10px",
+            color: "#e2e8f0",
             fontSize: 12,
             fontWeight: 500,
             maxWidth: 320,
-            textAlign: 'center',
+            textAlign: "center",
           }}
         >
           {multiplayerNotice}
@@ -1641,39 +1927,40 @@ export default function Home() {
       )}
 
       {/* Pause button — iOS system style */}
-      {state === 'playing' && !splitScreenSeed && (
+      {state === "playing" && !splitScreenSeed && (
         <button
           onClick={handlePause}
           aria-label="Pause"
           style={{
-            position: 'absolute',
-            top: 'calc(env(safe-area-inset-top, 0px) + 12px)',
-            right: 'calc(env(safe-area-inset-right, 0px) + 14px)',
+            position: "absolute",
+            top: "calc(env(safe-area-inset-top, 0px) + 12px)",
+            right: "calc(env(safe-area-inset-right, 0px) + 14px)",
             zIndex: 20,
             width: 36,
             height: 36,
-            borderRadius: '50%',
-            background: 'rgba(0,0,0,0.48)',
-            backdropFilter: 'blur(12px)',
-            WebkitBackdropFilter: 'blur(12px)',
-            border: '0.5px solid rgba(255,255,255,0.1)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            transition: 'transform 0.12s cubic-bezier(0.34,1.56,0.64,1), opacity 0.1s ease, background 0.12s ease',
-            color: 'rgba(235,235,245,0.6)',
+            borderRadius: "50%",
+            background: "rgba(0,0,0,0.48)",
+            backdropFilter: "blur(12px)",
+            WebkitBackdropFilter: "blur(12px)",
+            border: "0.5px solid rgba(255,255,255,0.1)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "pointer",
+            transition:
+              "transform 0.12s cubic-bezier(0.34,1.56,0.64,1), opacity 0.1s ease, background 0.12s ease",
+            color: "rgba(235,235,245,0.6)",
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.color = 'rgba(235,235,245,0.92)';
-            e.currentTarget.style.background = 'rgba(0,0,0,0.64)';
+            e.currentTarget.style.color = "rgba(235,235,245,0.92)";
+            e.currentTarget.style.background = "rgba(0,0,0,0.64)";
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.color = 'rgba(235,235,245,0.6)';
-            e.currentTarget.style.background = 'rgba(0,0,0,0.48)';
+            e.currentTarget.style.color = "rgba(235,235,245,0.6)";
+            e.currentTarget.style.background = "rgba(0,0,0,0.48)";
           }}
-          onMouseDown={(e) => (e.currentTarget.style.transform = 'scale(0.92)')}
-          onMouseUp={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+          onMouseDown={(e) => (e.currentTarget.style.transform = "scale(0.92)")}
+          onMouseUp={(e) => (e.currentTarget.style.transform = "scale(1)")}
         >
           <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
             <rect x="3" y="2" width="3.5" height="12" rx="1.2" />
@@ -1683,7 +1970,10 @@ export default function Home() {
       )}
 
       {splitScreenSeed !== null && (
-        <SplitScreenMode seed={splitScreenSeed} onExit={handleExitSplitScreen} />
+        <SplitScreenMode
+          seed={splitScreenSeed}
+          onExit={handleExitSplitScreen}
+        />
       )}
     </main>
   );

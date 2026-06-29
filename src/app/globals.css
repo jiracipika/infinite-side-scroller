@@ -54,7 +54,8 @@
   --glass-surface-strong: rgba(44, 44, 46, 0.78);
   --glass-hairline: rgba(255, 255, 255, 0.14);
   --glass-hairline-soft: rgba(255, 255, 255, 0.08);
-  --glass-shadow: 0 28px 90px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.11);
+  --glass-shadow:
+    0 28px 90px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.11);
 }
 
 /* ═══ Reset ═════════════════════════════════════════════════════ */
@@ -754,9 +755,17 @@ button,
   justify-content: center;
   color: #f7f8f8;
   background:
-    radial-gradient(circle at 48% -12%, rgba(10, 132, 255, 0.3), transparent 34%),
+    radial-gradient(
+      circle at 48% -12%,
+      rgba(10, 132, 255, 0.3),
+      transparent 34%
+    ),
     radial-gradient(circle at 12% 24%, rgba(94, 92, 230, 0.2), transparent 30%),
-    radial-gradient(circle at 88% 84%, rgba(48, 209, 88, 0.12), transparent 28%),
+    radial-gradient(
+      circle at 88% 84%,
+      rgba(48, 209, 88, 0.12),
+      transparent 28%
+    ),
     linear-gradient(180deg, rgba(0, 0, 0, 0.94), rgba(9, 10, 14, 0.99));
   backdrop-filter: blur(26px) saturate(1.35);
   -webkit-backdrop-filter: blur(26px) saturate(1.35);
@@ -772,8 +781,17 @@ button,
     linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255, 255, 255, 0.014) 1px, transparent 1px),
     radial-gradient(ellipse at center, transparent 0%, rgba(0, 0, 0, 0.22) 100%);
-  background-size: 48px 48px, 48px 48px, auto;
-  mask-image: linear-gradient(to bottom, transparent, black 16%, black 84%, transparent);
+  background-size:
+    48px 48px,
+    48px 48px,
+    auto;
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    black 16%,
+    black 84%,
+    transparent
+  );
   opacity: 0.74;
 }
 
@@ -1024,7 +1042,9 @@ button,
       transparent 26%
     ),
     linear-gradient(135deg, #0a84ff, #5e5ce6 58%, #bf5af2);
-  box-shadow: 0 22px 64px rgba(10, 132, 255, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.28);
+  box-shadow:
+    0 22px 64px rgba(10, 132, 255, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28);
 }
 .dash-play-button-v2 span {
   display: block;
@@ -1677,7 +1697,11 @@ input[type="range"]::-moz-range-thumb {
 }
 .dash-flow-tabs-v2 span.is-active {
   color: #ffffff;
-  background: linear-gradient(135deg, rgba(10, 132, 255, 0.82), rgba(94, 92, 230, 0.68));
+  background: linear-gradient(
+    135deg,
+    rgba(10, 132, 255, 0.82),
+    rgba(94, 92, 230, 0.68)
+  );
   box-shadow: 0 10px 26px rgba(10, 132, 255, 0.22);
 }
 .dash-mode-card-v2 small {

@@ -2,10 +2,13 @@
  * Player entity — the character controlled by the player.
  */
 
-import { InputManager } from '../input/input';
-import type { Platform } from '../world/chunk';
-import type { CharacterDef } from '../data/characters';
-import { DEFAULT_PROGRESSION_BONUSES, type PlayerProgressionBonuses } from '../../lib/progression';
+import { InputManager } from "../input/input";
+import type { Platform } from "../world/chunk";
+import type { CharacterDef } from "../data/characters";
+import {
+  DEFAULT_PROGRESSION_BONUSES,
+  type PlayerProgressionBonuses,
+} from "../../lib/progression";
 
 export interface PlayerConfig {
   startX: number;
@@ -27,7 +30,7 @@ export const DEFAULT_PLAYER_CONFIG: PlayerConfig = {
   height: 32,
 };
 
-export type WeaponType = 'orb' | 'slingshot' | 'bow';
+export type WeaponType = "orb" | "slingshot" | "bow";
 
 export interface PlayerProjectile {
   x: number;
@@ -57,7 +60,7 @@ export class Player {
   lives = 2;
   private coinsAtLastLife = 0;
 
-  characterId: string = 'knight';
+  characterId: string = "knight";
 
   invulnerable = false;
   invulnerableTimer = 0;
@@ -97,12 +100,14 @@ export class Player {
   // Projectiles
   projectiles: PlayerProjectile[] = [];
   private shootCooldown = 0;
-  private weaponType: WeaponType = 'orb';
+  private weaponType: WeaponType = "orb";
   private weaponTimer = 0;
   private healerRegenTimer = 0;
   private healingAuraTimer = 0;
   private healingAuraTickTimer = 0;
-  private progressionBonuses: PlayerProgressionBonuses = { ...DEFAULT_PROGRESSION_BONUSES };
+  private progressionBonuses: PlayerProgressionBonuses = {
+    ...DEFAULT_PROGRESSION_BONUSES,
+  };
   private autoReviveUsed = false;
   private coinFractionRemainder = 0;
   private characterSpeedScale = 1;
@@ -150,17 +155,31 @@ export class Player {
     const previousMax = this.maxHealth;
     this.config = {
       ...this.config,
-      speed: DEFAULT_PLAYER_CONFIG.speed * this.characterSpeedScale * this.progressionBonuses.speedMultiplier,
-      jumpVelocity: DEFAULT_PLAYER_CONFIG.jumpVelocity * this.characterJumpScale * this.progressionBonuses.jumpMultiplier,
+      speed:
+        DEFAULT_PLAYER_CONFIG.speed *
+        this.characterSpeedScale *
+        this.progressionBonuses.speedMultiplier,
+      jumpVelocity:
+        DEFAULT_PLAYER_CONFIG.jumpVelocity *
+        this.characterJumpScale *
+        this.progressionBonuses.jumpMultiplier,
     };
     this.baseSpeed = this.config.speed;
-    this.maxHealth = Math.max(1, Math.floor(this.baseMaxHealth + this.progressionBonuses.extraMaxHealth));
+    this.maxHealth = Math.max(
+      1,
+      Math.floor(this.baseMaxHealth + this.progressionBonuses.extraMaxHealth),
+    );
     if (this.health > this.maxHealth) this.health = this.maxHealth;
     if (this.health >= previousMax) this.health = this.maxHealth;
     this.autoReviveUsed = false;
   }
 
-  update(dt: number, input: InputManager, groundY: number, platforms: Platform[] = []): void {
+  update(
+    dt: number,
+    input: InputManager,
+    groundY: number,
+    platforms: Platform[] = [],
+  ): void {
     // Tick timers (dt-based)
     if (this.invulnerableTimer > 0) {
       this.invulnerableTimer -= dt;
@@ -170,10 +189,20 @@ export class Player {
       }
     }
     if (this.dashCooldown > 0) this.dashCooldown -= dt;
-    if (this.shieldTimer > 0) { this.shieldTimer -= dt; if (this.shieldTimer <= 0) this.shieldActive = false; }
-    if (this.magnetTimer > 0) { this.magnetTimer -= dt; if (this.magnetTimer <= 0) this.magnetActive = false; }
-    if (this.speedBoostTimer > 0) { this.speedBoostTimer -= dt; if (this.speedBoostTimer <= 0) this.config.speed = this.baseSpeed; }
-    if (this.jumpBufferTimer > 0) this.jumpBufferTimer = Math.max(0, this.jumpBufferTimer - dt);
+    if (this.shieldTimer > 0) {
+      this.shieldTimer -= dt;
+      if (this.shieldTimer <= 0) this.shieldActive = false;
+    }
+    if (this.magnetTimer > 0) {
+      this.magnetTimer -= dt;
+      if (this.magnetTimer <= 0) this.magnetActive = false;
+    }
+    if (this.speedBoostTimer > 0) {
+      this.speedBoostTimer -= dt;
+      if (this.speedBoostTimer <= 0) this.config.speed = this.baseSpeed;
+    }
+    if (this.jumpBufferTimer > 0)
+      this.jumpBufferTimer = Math.max(0, this.jumpBufferTimer - dt);
     if (this.shootCooldown > 0) this.shootCooldown -= dt;
     if (this.weaponTimer > 0) {
       this.weaponTimer -= dt;
@@ -182,7 +211,11 @@ export class Player {
         this.weaponType = this.getBaseWeaponForCharacter();
       }
     }
-    if (this.characterId === 'healer' && this.health < this.maxHealth && this.alive) {
+    if (
+      this.characterId === "healer" &&
+      this.health < this.maxHealth &&
+      this.alive
+    ) {
       this.healerRegenTimer += dt;
       if (this.healerRegenTimer >= 5.2) {
         this.healerRegenTimer = 0;
@@ -203,14 +236,18 @@ export class Player {
     }
 
     // Dash attack
-    const wantDash = input.isPressed('KeyX') || input.isPressed('ShiftLeft');
+    const wantDash = input.isPressed("KeyX") || input.isPressed("ShiftLeft");
     if (wantDash && this.dashCooldown <= 0 && !this.dashing) {
       this.dashing = true;
       this.dashTimer = this.DASH_DURATION;
-      this.dashCooldown = this.DASH_COOLDOWN * this.progressionBonuses.dashCooldownMultiplier;
+      this.dashCooldown =
+        this.DASH_COOLDOWN * this.progressionBonuses.dashCooldownMultiplier;
       this.dashDirection = this.facingRight ? 1 : -1;
       this.invulnerable = true;
-      this.invulnerableTimer = Math.max(this.invulnerableTimer, this.DASH_DURATION);
+      this.invulnerableTimer = Math.max(
+        this.invulnerableTimer,
+        this.DASH_DURATION,
+      );
     }
 
     if (this.dashing) {
@@ -223,16 +260,19 @@ export class Player {
       // Still move
       this.x += this.vx * dt;
       this.y += this.vy * dt;
-      if (this.x < 0) { this.x = 0; this.vx = 0; }
+      if (this.x < 0) {
+        this.x = 0;
+        this.vx = 0;
+      }
       this.distanceTraveled += Math.abs(this.vx * dt);
       this._updateProjectiles(dt);
       return;
     }
 
     // Horizontal movement
-    const moveLeft = input.isDown('ArrowLeft') || input.isDown('KeyA');
-    const moveRight = input.isDown('ArrowRight') || input.isDown('KeyD');
-    const sprint = input.isDown('ShiftRight');
+    const moveLeft = input.isDown("ArrowLeft") || input.isDown("KeyA");
+    const moveRight = input.isDown("ArrowRight") || input.isDown("KeyD");
+    const sprint = input.isDown("ShiftRight");
     const maxSpeed = this.config.speed * (sprint ? 1.6 : 1);
     const accel = maxSpeed * 8;
     const friction = maxSpeed * 10;
@@ -249,7 +289,7 @@ export class Player {
     }
 
     // Shoot projectile (KeyZ or KeyE)
-    const wantShoot = input.isPressed('KeyZ') || input.isPressed('KeyE');
+    const wantShoot = input.isPressed("KeyZ") || input.isPressed("KeyE");
     if (wantShoot && this.shootCooldown <= 0) {
       const shot = this.getShotProfile();
       this.projectiles.push({
@@ -265,7 +305,10 @@ export class Player {
       this.shootCooldown = shot.cooldown;
     }
 
-    const wantJump = input.isPressed('Space') || input.isPressed('ArrowUp') || input.isPressed('KeyW');
+    const wantJump =
+      input.isPressed("Space") ||
+      input.isPressed("ArrowUp") ||
+      input.isPressed("KeyW");
     if (wantJump) this.jumpBufferTimer = this.JUMP_BUFFER_TIME;
 
     // Wall slide — only if falling and pressing toward wall
@@ -283,7 +326,10 @@ export class Player {
     if (this.vy > 900) this.vy = 900; // terminal velocity
 
     this.x += this.vx * dt;
-    if (this.x < 0) { this.x = 0; this.vx = 0; }
+    if (this.x < 0) {
+      this.x = 0;
+      this.vx = 0;
+    }
     this.y += this.vy * dt;
 
     // Platform collision — one-way platforms (can jump through from below)
@@ -291,7 +337,7 @@ export class Player {
     if (this.vy >= 0) {
       for (const plat of platforms) {
         if (this.x + this.width > plat.x && this.x < plat.x + plat.width) {
-          const prevBottom = (this.y + this.height) - this.vy * dt;
+          const prevBottom = this.y + this.height - this.vy * dt;
           const currBottom = this.y + this.height;
           // Player was above platform last frame and is now at or below it
           if (prevBottom <= plat.y + 2 && currBottom >= plat.y - 2) {
@@ -368,7 +414,7 @@ export class Player {
   }
 
   private _updateProjectiles(dt: number) {
-    this.projectiles = this.projectiles.filter(p => {
+    this.projectiles = this.projectiles.filter((p) => {
       p.x += p.vx * dt;
       p.life -= dt;
       return p.life > 0;
@@ -376,7 +422,11 @@ export class Player {
   }
 
   /** Expose movement parameters for net prediction/replay (read-only snapshot). */
-  getMovementTuning(): { speed: number; jumpVelocity: number; gravity: number } {
+  getMovementTuning(): {
+    speed: number;
+    jumpVelocity: number;
+    gravity: number;
+  } {
     return {
       speed: this.config.speed,
       jumpVelocity: this.config.jumpVelocity,
@@ -384,9 +434,15 @@ export class Player {
     };
   }
 
-  get centerX(): number { return this.x + this.width / 2; }
-  get centerY(): number { return this.y + this.height / 2; }
-  get bottom(): number { return this.y + this.height; }
+  get centerX(): number {
+    return this.x + this.width / 2;
+  }
+  get centerY(): number {
+    return this.y + this.height / 2;
+  }
+  get bottom(): number {
+    return this.y + this.height;
+  }
 
   takeDamage(amount: number): boolean {
     if (this.invulnerable || !this.alive) return false;
@@ -407,12 +463,18 @@ export class Player {
   }
 
   addCoins(amount: number): void {
-    const total = amount * this.progressionBonuses.coinMultiplier + this.coinFractionRemainder;
+    const total =
+      amount * this.progressionBonuses.coinMultiplier +
+      this.coinFractionRemainder;
     const gained = Math.max(0, Math.floor(total));
     this.coinFractionRemainder = Math.max(0, total - gained);
     this.coins += gained;
     this.score += gained * 10;
-    if (this.progressionBonuses.healOnCoinChance > 0 && this.health < this.maxHealth && Math.random() < this.progressionBonuses.healOnCoinChance) {
+    if (
+      this.progressionBonuses.healOnCoinChance > 0 &&
+      this.health < this.maxHealth &&
+      Math.random() < this.progressionBonuses.healOnCoinChance
+    ) {
       this.heal(1);
     }
     // Award an extra life every 100 coins after progression multipliers are applied.
@@ -431,7 +493,9 @@ export class Player {
     return { x: this.x, y: this.y, width: this.width, height: this.height };
   }
 
-  isStomping(): boolean { return this.vy > 0; }
+  isStomping(): boolean {
+    return this.vy > 0;
+  }
 
   stompBounce(boosted: boolean = false): void {
     this.vy = this.config.jumpVelocity * (boosted ? 0.82 : 0.58);
@@ -446,12 +510,14 @@ export class Player {
 
   applyShield(duration: number = 8): void {
     this.shieldActive = true;
-    this.shieldTimer = duration * this.progressionBonuses.shieldDurationMultiplier;
+    this.shieldTimer =
+      duration * this.progressionBonuses.shieldDurationMultiplier;
   }
 
   applyMagnet(duration: number = 8): void {
     this.magnetActive = true;
-    this.magnetTimer = duration * this.progressionBonuses.magnetDurationMultiplier;
+    this.magnetTimer =
+      duration * this.progressionBonuses.magnetDurationMultiplier;
   }
 
   equipWeapon(type: WeaponType, duration: number = 10): void {
@@ -481,7 +547,12 @@ export class Player {
   }
 
   tryAutoRevive(): boolean {
-    if (!this.progressionBonuses.autoReviveOnce || this.autoReviveUsed || this.alive) return false;
+    if (
+      !this.progressionBonuses.autoReviveOnce ||
+      this.autoReviveUsed ||
+      this.alive
+    )
+      return false;
     this.autoReviveUsed = true;
     this.alive = true;
     this.health = Math.max(1, Math.ceil(this.maxHealth * 0.5));
@@ -522,7 +593,9 @@ export class Player {
     this._doubleJump = true;
     this.hasDoubleJumped = false;
   }
-  get canDoubleJump(): boolean { return this._doubleJump && !this.hasDoubleJumped; }
+  get canDoubleJump(): boolean {
+    return this._doubleJump && !this.hasDoubleJumped;
+  }
   useDoubleJump(): void {
     if (this.canDoubleJump) {
       this.vy = this.config.jumpVelocity;
@@ -531,7 +604,7 @@ export class Player {
   }
 
   private getBaseWeaponForCharacter(): WeaponType {
-    return this.characterId === 'ranger' ? 'bow' : 'orb';
+    return this.characterId === "ranger" ? "bow" : "orb";
   }
 
   private getShotProfile(): {
@@ -543,28 +616,33 @@ export class Player {
     color: string;
     glowColor: string;
   } {
-    if (this.weaponType === 'slingshot') {
+    if (this.weaponType === "slingshot") {
       return {
         speed: 540 * this.progressionBonuses.projectileSpeedMultiplier,
         life: 1.2,
         damage: 1 + this.progressionBonuses.projectileDamageBonus,
         cooldown: 0.18,
         radius: 3,
-        color: '#f59e0b',
-        glowColor: 'rgba(251,191,36,0.45)',
+        color: "#f59e0b",
+        glowColor: "rgba(251,191,36,0.45)",
       };
     }
 
-    if (this.weaponType === 'bow') {
-      const rangerBonus = this.characterId === 'ranger';
+    if (this.weaponType === "bow") {
+      const rangerBonus = this.characterId === "ranger";
       return {
-        speed: (rangerBonus ? 790 : 740) * this.progressionBonuses.projectileSpeedMultiplier,
+        speed:
+          (rangerBonus ? 790 : 740) *
+          this.progressionBonuses.projectileSpeedMultiplier,
         life: 1.7,
-        damage: (rangerBonus ? 3 : 2) + this.progressionBonuses.projectileDamageBonus,
+        damage:
+          (rangerBonus ? 3 : 2) + this.progressionBonuses.projectileDamageBonus,
         cooldown: rangerBonus ? 0.24 : 0.31,
         radius: 3,
-        color: rangerBonus ? '#facc15' : '#f59e0b',
-        glowColor: rangerBonus ? 'rgba(250,204,21,0.45)' : 'rgba(245,158,11,0.38)',
+        color: rangerBonus ? "#facc15" : "#f59e0b",
+        glowColor: rangerBonus
+          ? "rgba(250,204,21,0.45)"
+          : "rgba(245,158,11,0.38)",
       };
     }
 
@@ -574,8 +652,8 @@ export class Player {
       damage: 1 + this.progressionBonuses.projectileDamageBonus,
       cooldown: 0.3,
       radius: 4,
-      color: '#60a5fa',
-      glowColor: 'rgba(147,197,253,0.5)',
+      color: "#60a5fa",
+      glowColor: "rgba(147,197,253,0.5)",
     };
   }
 }
