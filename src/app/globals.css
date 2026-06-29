@@ -1651,3 +1651,65 @@ input[type="range"]::-moz-range-thumb {
   border: none;
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.42);
 }
+
+/* Streamlined menu flow: group actions by intent instead of a flat cluttered grid. */
+.dash-flow-tabs-v2 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin: -4px 0 12px;
+  padding: 5px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.18);
+}
+.dash-flow-tabs-v2 span {
+  min-height: 30px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #8a8f98;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.dash-flow-tabs-v2 span.is-active {
+  color: #ffffff;
+  background: linear-gradient(135deg, rgba(10, 132, 255, 0.82), rgba(94, 92, 230, 0.68));
+  box-shadow: 0 10px 26px rgba(10, 132, 255, 0.22);
+}
+.dash-mode-card-v2 small {
+  display: inline-flex;
+  width: fit-content;
+  margin-bottom: 9px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.055);
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.dash-mode-card-v2.solo {
+  background: linear-gradient(145deg, rgba(10, 132, 255, 0.16), rgba(255, 255, 255, 0.03));
+}
+.dash-mode-card-v2.coop {
+  background: linear-gradient(145deg, rgba(16, 185, 129, 0.14), rgba(255, 255, 255, 0.03));
+}
+.dash-mode-card-v2.compete {
+  background: linear-gradient(145deg, rgba(191, 90, 242, 0.14), rgba(255, 255, 255, 0.03));
+}
+.dash-mode-card-v2.customize {
+  background: linear-gradient(145deg, rgba(251, 191, 36, 0.12), rgba(255, 255, 255, 0.03));
+}
+@media (min-width: 1180px) and (min-height: 560px) {
+  .dash-mode-grid-v2 {
+    grid-template-columns: 1fr;
+  }
+  .dash-mode-card-v2 {
+    min-height: 74px;
+  }
+}

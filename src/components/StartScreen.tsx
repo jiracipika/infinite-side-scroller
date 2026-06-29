@@ -70,9 +70,9 @@ interface Props {
 }
 
 const POLISH_PLAN = [
-  { label: "Warm up", detail: "Endless run to learn the rhythm" },
-  { label: "Progress", detail: "Adventure levels, coins, and upgrades" },
-  { label: "Compete", detail: "Daily shot, ghost replay, or same-Wi-Fi race" },
+  { label: "Start", detail: "Endless is always one tap away" },
+  { label: "Pick", detail: "Modes are grouped by solo, co-op, and competitive play" },
+  { label: "Tune", detail: "Runner, profile, saves, and settings stay below the fold" },
 ];
 
 const StartScreen: FC<Props> = ({
@@ -336,9 +336,9 @@ const StartScreen: FC<Props> = ({
           </div>
 
           <p className="dash-hero-lede">
-            Fast side-scroller runs, local co-op, same-Wi-Fi rooms, ghosts,
-            levels, saves, and upgrades — cleaned up into one command-center
-            menu.
+            A clearer command center: primary play up front, multiplayer and
+            competitive modes in one row, and setup tools tucked into focused
+            cards instead of a cluttered button pile.
           </p>
 
           <div className="dash-polish-plan-v2" aria-label="Recommended play plan">
@@ -392,50 +392,61 @@ const StartScreen: FC<Props> = ({
               <h2>Choose your run</h2>
             </div>
           </div>
+          <div className="dash-flow-tabs-v2" aria-label="Menu flow">
+            <span className="is-active">Play</span>
+            <span>Compete</span>
+            <span>Customize</span>
+          </div>
           <div className="dash-mode-grid-v2">
             {onLevelSelect && (
-              <button className="dash-mode-card-v2" onClick={onLevelSelect}>
+              <button className="dash-mode-card-v2 solo" onClick={onLevelSelect}>
+                <small>Solo</small>
                 <b>Adventure</b>
                 <span>Levels + time attacks</span>
                 <em>→</em>
               </button>
             )}
             <button
-              className="dash-mode-card-v2"
+              className="dash-mode-card-v2 coop"
               onClick={() => setShowMultiplayer((v) => !v)}
             >
+              <small>Co-op</small>
               <b>{showMultiplayer ? "Hide Wi-Fi" : "Same Wi‑Fi"}</b>
               <span>Host or join nearby</span>
               <em>↔</em>
             </button>
-            <button className="dash-mode-card-v2" onClick={handleSplitScreen}>
+            <button className="dash-mode-card-v2 coop" onClick={handleSplitScreen}>
+              <small>Co-op</small>
               <b>Split Screen</b>
               <span>Two players locally</span>
               <em>▦</em>
             </button>
             {onPlayDailyChallenge && (
               <button
-                className="dash-mode-card-v2"
+                className="dash-mode-card-v2 compete"
                 onClick={handleDailyChallengeClick}
                 disabled={dailyUsed}
               >
+                <small>Compete</small>
                 <b>{dailyUsed ? "Daily Done" : "Daily"}</b>
                 <span>{dailyUsed ? "Resets tomorrow" : "One ranked shot"}</span>
                 <em>★</em>
               </button>
             )}
             <button
-              className="dash-mode-card-v2"
+              className="dash-mode-card-v2 compete"
               onClick={handleLeaderboardToggle}
             >
+              <small>Compete</small>
               <b>{showLeaderboard ? "Hide Board" : "Leaderboard"}</b>
               <span>Records + ghost races</span>
               <em>≡</em>
             </button>
             <button
-              className="dash-mode-card-v2"
+              className="dash-mode-card-v2 customize"
               onClick={() => setShowProgression((v) => !v)}
             >
+              <small>Customize</small>
               <b>{showProgression ? "Hide Shop" : "Saves + Shop"}</b>
               <span>Coins, checkpoints, perks</span>
               <em>◇</em>
