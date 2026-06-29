@@ -105,8 +105,8 @@ export async function leaveMultiplayerRoom(roomId: string, playerId: string): Pr
 
 /* ── WebRTC signaling helpers ────────────────────────────────────────── */
 
-async function signalRequest(body: Record<string, unknown>): Promise<any> {
-  return requestJson('/api/multiplayer/signal', {
+async function signalRequest<T = unknown>(body: Record<string, unknown>): Promise<T> {
+  return requestJson<T>('/api/multiplayer/signal', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),

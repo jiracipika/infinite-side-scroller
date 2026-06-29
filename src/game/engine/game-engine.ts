@@ -3,36 +3,47 @@
  * Manages the game loop, updates all systems, and renders each frame.
  */
 
-import { Camera, DEFAULT_CAMERA_CONFIG, type CameraMode } from './camera';
-import { ChunkManager } from '../world/chunk-manager';
-import { InputManager } from '../input/input';
-import { Player, DEFAULT_PLAYER_CONFIG } from '../entities/player';
-import { Enemy } from '../entities/Enemy';
-import { Slime } from '../entities/Slime';
-import { Beetle } from '../entities/Beetle';
-import { Wisp } from '../entities/Wisp';
-import { Bat } from '../entities/Bat';
-import { Mite } from '../entities/Mite';
-import { Skeleton } from '../entities/Skeleton';
-import { Jumper } from '../entities/Jumper';
-import { Boss } from '../entities/Boss';
-import { Alien } from '../entities/Alien';
-import { UFO } from '../entities/UFO';
-import { ParticleSystem } from '../entities/particles';
-import { GameRenderer } from '../rendering/renderer';
-import { getBiomeAt } from '../world/biomes';
-import { getDifficulty } from '../difficulty';
-import type { Collectible } from '../entities/Collectibles';
-import { spawnCollectiblesForChunk, spawnEnemiesForChunk } from '../entities/Collectibles';
-import { spawnHazardsForChunk, renderHazard, type Hazard } from '../hazards';
-import { getCharacterById } from '../data/characters';
-import type { Platform as PlatformData } from '../world/chunk';
-import { PerformanceProfiler } from './performance-profiler';
-import { EntityPools } from './entity-pools';
-import type { NetEnemySnapshot, NetInputCommand, NetPlayerSnapshot } from '../multiplayer/types';
-import type { InputOptions } from '../input/input';
-import { DEFAULT_PROGRESSION_BONUSES, type PlayerProgressionBonuses, type RunCheckpoint } from '../../lib/progression';
-import type { LevelConfig } from '../data/levels';
+import { Camera, DEFAULT_CAMERA_CONFIG, type CameraMode } from "./camera";
+import { ChunkManager } from "../world/chunk-manager";
+import { InputManager } from "../input/input";
+import { Player, DEFAULT_PLAYER_CONFIG } from "../entities/player";
+import { Enemy } from "../entities/Enemy";
+import { Slime } from "../entities/Slime";
+import { Beetle } from "../entities/Beetle";
+import { Wisp } from "../entities/Wisp";
+import { Bat } from "../entities/Bat";
+import { Mite } from "../entities/Mite";
+import { Skeleton } from "../entities/Skeleton";
+import { Jumper } from "../entities/Jumper";
+import { Boss } from "../entities/Boss";
+import { Alien } from "../entities/Alien";
+import { UFO } from "../entities/UFO";
+import { ParticleSystem } from "../entities/particles";
+import { GameRenderer } from "../rendering/renderer";
+import { getBiomeAt } from "../world/biomes";
+import { getDifficulty } from "../difficulty";
+import type { Collectible } from "../entities/Collectibles";
+import {
+  spawnCollectiblesForChunk,
+  spawnEnemiesForChunk,
+} from "../entities/Collectibles";
+import { spawnHazardsForChunk, renderHazard, type Hazard } from "../hazards";
+import { getCharacterById } from "../data/characters";
+import type { Platform as PlatformData } from "../world/chunk";
+import { PerformanceProfiler } from "./performance-profiler";
+import { EntityPools } from "./entity-pools";
+import type {
+  NetEnemySnapshot,
+  NetInputCommand,
+  NetPlayerSnapshot,
+} from "../multiplayer/types";
+import type { InputOptions } from "../input/input";
+import {
+  DEFAULT_PROGRESSION_BONUSES,
+  type PlayerProgressionBonuses,
+  type RunCheckpoint,
+} from "../../lib/progression";
+import type { LevelConfig } from "../data/levels";
 import {
   MP_INPUT_BUFFER_SIZE,
   MP_INTERPOLATION_DELAY_MS,
@@ -41,13 +52,13 @@ import {
   MP_RECONCILE_SMALL_THRESHOLD,
   MP_RECONCILE_SMOOTH_SPEED,
   MP_RECONCILE_SNAP_THRESHOLD,
-} from '../multiplayer/config';
+} from "../multiplayer/config";
 
 const FIXED_DT = 1 / 60;
 const MAX_ACCUMULATED = 0.1;
 const START_SAFE_ZONE_END = 760;
 
-export type EngineState = 'playing' | 'paused' | 'gameover';
+export type EngineState = "playing" | "paused" | "gameover";
 
 export interface RemotePlayerViewState {
   id: string;
@@ -101,7 +112,9 @@ function aabbOverlap(
 
   if (aw <= 0 || ah <= 0) return false; // safety check
 
-  return ax < b.x + b.width && ax + aw > b.x && ay < b.y + b.height && ay + ah > b.y;
+  return (
+    ax < b.x + b.width && ax + aw > b.x && ay < b.y + b.height && ay + ah > b.y
+  );
 }
 
 const KILL_SCORES: Record<string, number> = {
@@ -133,7 +146,7 @@ export class GameEngine {
 
   // Adaptive quality
   private adaptiveQualityEnabled = true;
-  private currentQualityLevel = 'high'; // 'high', 'medium', 'low'
+  private currentQualityLevel = "high"; // 'high', 'medium', 'low'
   private qualityChangeTimer = 0;
   private qualityChangeCooldown = 2.0; // seconds between quality changes
 
@@ -141,13 +154,19 @@ export class GameEngine {
   private lastTime = 0;
   private accumulated = 0;
   private _running = false;
-  private _state: EngineState = 'playing';
+  private _state: EngineState = "playing";
 
   worldSeed = 42;
   difficulty = getDifficulty(0);
 
   onGameOver?: () => void;
-  onLevelComplete?: (result: { score: number; coins: number; distance: number; timeMs: number; enemiesDefeated: number }) => void;
+  onLevelComplete?: (result: {
+    score: number;
+    coins: number;
+    distance: number;
+    timeMs: number;
+    enemiesDefeated: number;
+  }) => void;
   onStatsUpdate?: (stats: {
     score: number;
     coins: number;
@@ -160,12 +179,15 @@ export class GameEngine {
     fps: number;
     comboCount?: number;
     comboMultiplier?: number;
-    dayPhase?: 'dawn' | 'day' | 'dusk' | 'night';
+    dayPhase?: "dawn" | "day" | "dusk" | "night";
     levelTimeRemaining?: number;
     levelTarget?: number;
   }) => void;
   onLocalPlayerSnapshot?: (snapshot: NetPlayerSnapshot) => void;
-  onCarryIntent?: (payload: { targetId: string | null; dropCarry: boolean }) => void;
+  onCarryIntent?: (payload: {
+    targetId: string | null;
+    dropCarry: boolean;
+  }) => void;
   onNetworkDebug?: (stats: NetDebugStats) => void;
 
   private wasOnGround = true;
@@ -185,7 +207,7 @@ export class GameEngine {
   private levelCompleted = false;
   private enemiesDefeated = 0;
 
-  private _characterId: string = 'knight';
+  private _characterId: string = "knight";
   private multiplayerEnabled = false;
   private multiplayerPlayerId: string | null = null;
   private multiplayerIsHost = false;
@@ -193,7 +215,10 @@ export class GameEngine {
   private remotePlayerName: string | null = null;
   private remotePlayer: Player | null = null;
   private remoteTargetSnapshot: NetPlayerSnapshot | null = null;
-  private remoteSnapshotBuffer: Array<{ t: number; snapshot: NetPlayerSnapshot }> = [];
+  private remoteSnapshotBuffer: Array<{
+    t: number;
+    snapshot: NetPlayerSnapshot;
+  }> = [];
   private remoteCarriedByLocal = false;
   private localCarriedByRemote = false;
   private remoteProjectiles: PlayerProjectileSnapshot[] = [];
@@ -207,20 +232,30 @@ export class GameEngine {
   private reconcileOffsetY = 0;
   private predictionError = 0;
   private reconciliationCount = 0;
-  private progressionBonuses: PlayerProgressionBonuses = { ...DEFAULT_PROGRESSION_BONUSES };
+  private progressionBonuses: PlayerProgressionBonuses = {
+    ...DEFAULT_PROGRESSION_BONUSES,
+  };
   private ghostRecording: GhostPoint[] = [];
   private ghostPlayback: GhostPoint[] = [];
   private ghostPlaybackIndex = 0;
   private ghostSampleTimer = 0;
 
-  constructor(canvas: HTMLCanvasElement, seed?: number, characterId?: string, options?: GameEngineOptions) {
+  constructor(
+    canvas: HTMLCanvasElement,
+    seed?: number,
+    characterId?: string,
+    options?: GameEngineOptions,
+  ) {
     this.canvas = canvas;
-    this.ctx = canvas.getContext('2d')!;
+    this.ctx = canvas.getContext("2d")!;
     if (seed !== undefined) this.worldSeed = seed;
     if (characterId) this._characterId = characterId;
 
     this.input = new InputManager(options?.input);
-    this.camera = new Camera({ ...DEFAULT_CAMERA_CONFIG, mode: options?.cameraMode ?? DEFAULT_CAMERA_CONFIG.mode });
+    this.camera = new Camera({
+      ...DEFAULT_CAMERA_CONFIG,
+      mode: options?.cameraMode ?? DEFAULT_CAMERA_CONFIG.mode,
+    });
     this.chunkManager = new ChunkManager(this.worldSeed);
     this.player = new Player(DEFAULT_PLAYER_CONFIG);
     this.player.applyCharacter(getCharacterById(this._characterId));
@@ -235,13 +270,21 @@ export class GameEngine {
 
     this.handleResize();
     this.prepareOpeningFrame();
-    window.addEventListener('resize', this.handleResize);
+    window.addEventListener("resize", this.handleResize);
   }
 
-  get state(): EngineState { return this._state; }
+  get state(): EngineState {
+    return this._state;
+  }
 
-  pause(): void { this._state = 'paused'; }
-  resume(): void { this._state = 'playing'; this.lastTime = performance.now(); this.accumulated = 0; }
+  pause(): void {
+    this._state = "paused";
+  }
+  resume(): void {
+    this._state = "playing";
+    this.lastTime = performance.now();
+    this.accumulated = 0;
+  }
 
   setCameraMode(mode: CameraMode): void {
     this.camera.setMode(mode);
@@ -264,10 +307,10 @@ export class GameEngine {
     this.collectibles = [];
     this.hazards = [];
     this.spawnedChunks.clear();
-    this._state = 'playing';
+    this._state = "playing";
     this.difficulty = getDifficulty(0);
     this.wasOnGround = true;
-    this.currentQualityLevel = 'high';
+    this.currentQualityLevel = "high";
     this.particles.setReducedParticles(false);
     this.gameTime = 0;
     this.levelTimeRemaining = this.levelConfig?.timeLimit ?? 0;
@@ -311,10 +354,15 @@ export class GameEngine {
     return this.gameTime * 1000;
   }
 
-  setMultiplayerEnabled(enabled: boolean, localPlayerId?: string | null, hostId?: string | null): void {
+  setMultiplayerEnabled(
+    enabled: boolean,
+    localPlayerId?: string | null,
+    hostId?: string | null,
+  ): void {
     this.multiplayerEnabled = enabled;
     this.multiplayerPlayerId = localPlayerId ?? null;
-    this.multiplayerIsHost = !!enabled && !!localPlayerId && !!hostId && localPlayerId === hostId;
+    this.multiplayerIsHost =
+      !!enabled && !!localPlayerId && !!hostId && localPlayerId === hostId;
     if (!enabled) {
       this.multiplayerIsHost = false;
       this.remotePlayer = null;
@@ -335,7 +383,10 @@ export class GameEngine {
   }
 
   setMultiplayerHostId(hostId: string | null): void {
-    this.multiplayerIsHost = !!this.multiplayerEnabled && !!this.multiplayerPlayerId && this.multiplayerPlayerId === hostId;
+    this.multiplayerIsHost =
+      !!this.multiplayerEnabled &&
+      !!this.multiplayerPlayerId &&
+      this.multiplayerPlayerId === hostId;
   }
 
   setProgressionBonuses(bonuses: PlayerProgressionBonuses): void {
@@ -343,10 +394,21 @@ export class GameEngine {
     this.player.applyProgressionBonuses(this.progressionBonuses);
   }
 
-  setGhostPath(points: Array<{ distance: number; x: number; y: number }>): void {
+  setGhostPath(
+    points: Array<{ distance: number; x: number; y: number }>,
+  ): void {
     this.ghostPlayback = points
-      .filter((p) => Number.isFinite(p.distance) && Number.isFinite(p.x) && Number.isFinite(p.y))
-      .map((p) => ({ distance: Number(p.distance), x: Number(p.x), y: Number(p.y) }))
+      .filter(
+        (p) =>
+          Number.isFinite(p.distance) &&
+          Number.isFinite(p.x) &&
+          Number.isFinite(p.y),
+      )
+      .map((p) => ({
+        distance: Number(p.distance),
+        x: Number(p.x),
+        y: Number(p.y),
+      }))
       .sort((a, b) => a.distance - b.distance)
       .slice(0, 8000);
     this.ghostPlaybackIndex = 0;
@@ -356,7 +418,7 @@ export class GameEngine {
     return this.ghostRecording.map((p) => ({ ...p }));
   }
 
-  exportRunCheckpoint(): Omit<RunCheckpoint, 'savedAt'> {
+  exportRunCheckpoint(): Omit<RunCheckpoint, "savedAt"> {
     return {
       seed: this.worldSeed,
       characterId: this.player.characterId,
@@ -378,33 +440,60 @@ export class GameEngine {
     this.player.y = checkpoint.y;
     this.player.vx = checkpoint.vx;
     this.player.vy = checkpoint.vy;
-    this.player.health = Math.max(1, Math.min(this.player.maxHealth, Math.floor(checkpoint.health)));
+    this.player.health = Math.max(
+      1,
+      Math.min(this.player.maxHealth, Math.floor(checkpoint.health)),
+    );
     this.player.score = Math.max(0, Math.floor(checkpoint.score));
     this.player.coins = Math.max(0, Math.floor(checkpoint.coins));
     this.player.distance = Math.max(0, Math.floor(checkpoint.distance));
-    this.player.distanceTraveled = Math.max(this.player.distanceTraveled, this.player.distance);
+    this.player.distanceTraveled = Math.max(
+      this.player.distanceTraveled,
+      this.player.distance,
+    );
     this.player.alive = true;
     this.player.onGround = false;
     this.chunkManager.update(this.player.centerX);
     this.spawnChunkEntities();
     this.camera.snapTo(this.player.centerX, this.player.centerY);
-    this._state = 'playing';
+    this._state = "playing";
   }
 
   private createEnemyFromSnapshot(snapshot: NetEnemySnapshot): Enemy | null {
     let enemy: Enemy | null = null;
     switch (snapshot.type) {
-      case 'slime': enemy = new Slime(snapshot.x, snapshot.y, 0); break;
-      case 'beetle': enemy = new Beetle(snapshot.x, snapshot.y, 0); break;
-      case 'wisp': enemy = new Wisp(snapshot.x, snapshot.y, 0); break;
-      case 'bat': enemy = new Bat(snapshot.x, snapshot.y, 0); break;
-      case 'mite': enemy = new Mite(snapshot.x, snapshot.y, 0); break;
-      case 'jumper': enemy = new Jumper(snapshot.x, snapshot.y, 0); break;
-      case 'skeleton': enemy = new Skeleton(snapshot.x, snapshot.y, 0); break;
-      case 'alien': enemy = new Alien(snapshot.x, snapshot.y, 0); break;
-      case 'ufo': enemy = new UFO(snapshot.x, snapshot.y, 0); break;
-      case 'boss': enemy = new Boss(snapshot.x, snapshot.y, 0); break;
-      default: return null;
+      case "slime":
+        enemy = new Slime(snapshot.x, snapshot.y, 0);
+        break;
+      case "beetle":
+        enemy = new Beetle(snapshot.x, snapshot.y, 0);
+        break;
+      case "wisp":
+        enemy = new Wisp(snapshot.x, snapshot.y, 0);
+        break;
+      case "bat":
+        enemy = new Bat(snapshot.x, snapshot.y, 0);
+        break;
+      case "mite":
+        enemy = new Mite(snapshot.x, snapshot.y, 0);
+        break;
+      case "jumper":
+        enemy = new Jumper(snapshot.x, snapshot.y, 0);
+        break;
+      case "skeleton":
+        enemy = new Skeleton(snapshot.x, snapshot.y, 0);
+        break;
+      case "alien":
+        enemy = new Alien(snapshot.x, snapshot.y, 0);
+        break;
+      case "ufo":
+        enemy = new UFO(snapshot.x, snapshot.y, 0);
+        break;
+      case "boss":
+        enemy = new Boss(snapshot.x, snapshot.y, 0);
+        break;
+      default:
+        return null;
     }
 
     enemy.netId = snapshot.id;
@@ -443,21 +532,37 @@ export class GameEngine {
     this.remotePlayerName = remote.name;
     this.remoteTargetSnapshot = remote.snapshot;
     this.remoteCarriedByLocal = remote.carriedById === this.multiplayerPlayerId;
-    this.localCarriedByRemote = remote.carryTargetId === this.multiplayerPlayerId;
+    this.localCarriedByRemote =
+      remote.carryTargetId === this.multiplayerPlayerId;
 
     if (!this.remotePlayer) {
       this.remotePlayer = new Player(DEFAULT_PLAYER_CONFIG);
-      this.remotePlayer.applyCharacter(getCharacterById(remote.snapshot.characterId));
+      this.remotePlayer.applyCharacter(
+        getCharacterById(remote.snapshot.characterId),
+      );
       this.remotePlayer.x = remote.snapshot.x;
       this.remotePlayer.y = remote.snapshot.y;
     }
 
-    const sampleTime = Number.isFinite(remote.serverTime) ? Number(remote.serverTime) : Date.now();
-    const lastSample = this.remoteSnapshotBuffer[this.remoteSnapshotBuffer.length - 1];
-    if (!lastSample || Math.abs(lastSample.snapshot.x - remote.snapshot.x) > 0.5 || Math.abs(lastSample.snapshot.y - remote.snapshot.y) > 0.5) {
-      this.remoteSnapshotBuffer.push({ t: sampleTime, snapshot: remote.snapshot });
+    const sampleTime = Number.isFinite(remote.serverTime)
+      ? Number(remote.serverTime)
+      : Date.now();
+    const lastSample =
+      this.remoteSnapshotBuffer[this.remoteSnapshotBuffer.length - 1];
+    if (
+      !lastSample ||
+      Math.abs(lastSample.snapshot.x - remote.snapshot.x) > 0.5 ||
+      Math.abs(lastSample.snapshot.y - remote.snapshot.y) > 0.5
+    ) {
+      this.remoteSnapshotBuffer.push({
+        t: sampleTime,
+        snapshot: remote.snapshot,
+      });
       if (this.remoteSnapshotBuffer.length > 28) {
-        this.remoteSnapshotBuffer.splice(0, this.remoteSnapshotBuffer.length - 28);
+        this.remoteSnapshotBuffer.splice(
+          0,
+          this.remoteSnapshotBuffer.length - 28,
+        );
       }
     } else {
       lastSample.t = sampleTime;
@@ -495,7 +600,12 @@ export class GameEngine {
   }
 
   private updateRemotePlayerSmoothing(dt: number): void {
-    if (!this.multiplayerEnabled || !this.remotePlayer || !this.remoteTargetSnapshot) return;
+    if (
+      !this.multiplayerEnabled ||
+      !this.remotePlayer ||
+      !this.remoteTargetSnapshot
+    )
+      return;
     if (this.remoteCarriedByLocal) return;
     if (this.remoteSnapshotBuffer.length === 0) return;
 
@@ -564,7 +674,11 @@ export class GameEngine {
   }
 
   /** Build sequenced input commands for server ack/reconciliation tracking. */
-  buildNetInputCommand(seq: number, dtMs: number, clientTime: number): NetInputCommand {
+  buildNetInputCommand(
+    seq: number,
+    dtMs: number,
+    clientTime: number,
+  ): NetInputCommand {
     return this.input.buildNetInputCommand(seq, clientTime, dtMs);
   }
 
@@ -613,7 +727,10 @@ export class GameEngine {
   }
 
   /** Apply authoritative local snapshot from server with thresholded smooth reconciliation. */
-  reconcileLocalAuthoritative(snapshot: NetPlayerSnapshot, pendingInputs: NetInputCommand[] = []): number {
+  reconcileLocalAuthoritative(
+    snapshot: NetPlayerSnapshot,
+    pendingInputs: NetInputCommand[] = [],
+  ): number {
     const dx = snapshot.x - this.player.x;
     const dy = snapshot.y - this.player.y;
     const error = Math.hypot(dx, dy);
@@ -669,10 +786,17 @@ export class GameEngine {
   getEnemySnapshots(): NetEnemySnapshot[] {
     const trackedCenters: number[] = [this.player.centerX];
     if (this.remotePlayer) trackedCenters.push(this.remotePlayer.centerX);
-    if (this.remoteTargetSnapshot) trackedCenters.push(this.remoteTargetSnapshot.x + this.remoteTargetSnapshot.width * 0.5);
+    if (this.remoteTargetSnapshot)
+      trackedCenters.push(
+        this.remoteTargetSnapshot.x + this.remoteTargetSnapshot.width * 0.5,
+      );
     const syncRadius = 3600;
     return this.enemies
-      .filter((enemy) => trackedCenters.some((centerX) => Math.abs(enemy.x - centerX) < syncRadius))
+      .filter((enemy) =>
+        trackedCenters.some(
+          (centerX) => Math.abs(enemy.x - centerX) < syncRadius,
+        ),
+      )
       .slice(0, 120)
       .map((enemy) => ({
         id: enemy.netId,
@@ -694,16 +818,28 @@ export class GameEngine {
   ): void {
     if (!this.multiplayerEnabled || this.multiplayerIsHost) return;
 
-    const version = Number.isFinite(options?.version) ? Math.max(0, Math.floor(options!.version as number)) : null;
-    const checksum = Number.isFinite(options?.checksum) ? Math.max(0, Math.floor(options!.checksum as number)) : null;
+    const version = Number.isFinite(options?.version)
+      ? Math.max(0, Math.floor(options!.version as number))
+      : null;
+    const checksum = Number.isFinite(options?.checksum)
+      ? Math.max(0, Math.floor(options!.checksum as number))
+      : null;
     if (version !== null) {
       if (version < this.lastEnemyVersionApplied) return;
-      if (version === this.lastEnemyVersionApplied && checksum !== null && checksum === this.lastEnemyChecksumApplied) {
+      if (
+        version === this.lastEnemyVersionApplied &&
+        checksum !== null &&
+        checksum === this.lastEnemyChecksumApplied
+      ) {
         return;
       }
     }
 
-    if (version !== null && snapshots.length === 0 && version > this.lastEnemyVersionApplied) {
+    if (
+      version !== null &&
+      snapshots.length === 0 &&
+      version > this.lastEnemyVersionApplied
+    ) {
       this.enemies = [];
       this.lastEnemyVersionApplied = version;
       this.lastEnemyChecksumApplied = checksum ?? 0;
@@ -755,21 +891,25 @@ export class GameEngine {
   }
 
   private handleCarryInteraction(dt: number): void {
-    if (!this.multiplayerEnabled || !this.remotePlayer || !this.remotePlayerId) return;
+    if (!this.multiplayerEnabled || !this.remotePlayer || !this.remotePlayerId)
+      return;
     this.carryHintTimer = Math.max(0, this.carryHintTimer - dt);
 
     const dx = this.remotePlayer.centerX - this.player.centerX;
     const dy = this.remotePlayer.centerY - this.player.centerY;
-    const nearRemote = (dx * dx + dy * dy) <= 140 * 140;
+    const nearRemote = dx * dx + dy * dy <= 140 * 140;
 
-    if (this.input.isPressed('KeyF')) {
+    if (this.input.isPressed("KeyF")) {
       if (this.remoteCarriedByLocal) {
         this.remoteCarriedByLocal = false;
         this.onCarryIntent?.({ targetId: null, dropCarry: true });
       } else if (nearRemote) {
         this.remoteCarriedByLocal = true;
         this.carryHintTimer = 1.2;
-        this.onCarryIntent?.({ targetId: this.remotePlayerId, dropCarry: false });
+        this.onCarryIntent?.({
+          targetId: this.remotePlayerId,
+          dropCarry: false,
+        });
       }
     }
 
@@ -802,8 +942,18 @@ export class GameEngine {
     const hostRect = host?.getBoundingClientRect();
     const canvasRect = this.canvas.getBoundingClientRect();
 
-    const hostWidth = Math.floor(host?.clientWidth || hostRect?.width || canvasRect.width || window.innerWidth);
-    const hostHeight = Math.floor(host?.clientHeight || hostRect?.height || canvasRect.height || window.innerHeight);
+    const hostWidth = Math.floor(
+      host?.clientWidth ||
+        hostRect?.width ||
+        canvasRect.width ||
+        window.innerWidth,
+    );
+    const hostHeight = Math.floor(
+      host?.clientHeight ||
+        hostRect?.height ||
+        canvasRect.height ||
+        window.innerHeight,
+    );
     const width = Math.max(1, hostWidth);
     const height = Math.max(1, hostHeight);
     const pixelWidth = Math.max(1, Math.floor(width * dpr));
@@ -811,7 +961,10 @@ export class GameEngine {
 
     this.canvas.style.width = `${width}px`;
     this.canvas.style.height = `${height}px`;
-    if (this.canvas.width === pixelWidth && this.canvas.height === pixelHeight) {
+    if (
+      this.canvas.width === pixelWidth &&
+      this.canvas.height === pixelHeight
+    ) {
       this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       this.renderer.resize(width, height);
       this.camera.setScreenSize(width, height);
@@ -855,7 +1008,7 @@ export class GameEngine {
   destroy(): void {
     this.stop();
     this.input.destroy();
-    window.removeEventListener('resize', this.handleResize);
+    window.removeEventListener("resize", this.handleResize);
   }
 
   private loop = (currentTime: number): void => {
@@ -866,9 +1019,10 @@ export class GameEngine {
     this.lastTime = currentTime;
     if (dt > 0.1) dt = 0.1;
 
-    if (this._state === 'playing') {
+    if (this._state === "playing") {
       this.accumulated += dt;
-      if (this.accumulated > MAX_ACCUMULATED) this.accumulated = MAX_ACCUMULATED;
+      if (this.accumulated > MAX_ACCUMULATED)
+        this.accumulated = MAX_ACCUMULATED;
 
       const updateStart = performance.now();
       while (this.accumulated >= FIXED_DT) {
@@ -895,33 +1049,44 @@ export class GameEngine {
     if (this.qualityChangeTimer >= this.qualityChangeCooldown) {
       this.qualityChangeTimer = 0;
 
-      if (metrics.fps < 30 && this.currentQualityLevel !== 'low') {
+      if (metrics.fps < 30 && this.currentQualityLevel !== "low") {
         // Drop quality
-        this.currentQualityLevel = 'low';
+        this.currentQualityLevel = "low";
         this.particles.setReducedParticles(true);
-      } else if (metrics.fps > 50 && this.currentQualityLevel !== 'high') {
+      } else if (metrics.fps > 50 && this.currentQualityLevel !== "high") {
         // Increase quality
-        this.currentQualityLevel = 'high';
+        this.currentQualityLevel = "high";
         this.particles.setReducedParticles(false);
-      } else if (metrics.fps >= 35 && metrics.fps < 50 && this.currentQualityLevel !== 'medium') {
+      } else if (
+        metrics.fps >= 35 &&
+        metrics.fps < 50 &&
+        this.currentQualityLevel !== "medium"
+      ) {
         // Medium quality
-        this.currentQualityLevel = 'medium';
+        this.currentQualityLevel = "medium";
         this.particles.setReducedParticles(false);
       }
     }
   }
 
-  private isPlatformReplacedByFallingHazard(chunkId: number, platform: PlatformData): boolean {
-    return this.hazards.some((h) =>
-      h.type === 'falling_platform'
-      && h.chunkId === chunkId
-      && Math.abs(h.x - platform.x) < 0.5
-      && Math.abs(h.y - platform.y) < 0.5
-      && Math.abs(h.width - platform.width) < 0.5
+  private isPlatformReplacedByFallingHazard(
+    chunkId: number,
+    platform: PlatformData,
+  ): boolean {
+    return this.hazards.some(
+      (h) =>
+        h.type === "falling_platform" &&
+        h.chunkId === chunkId &&
+        Math.abs(h.x - platform.x) < 0.5 &&
+        Math.abs(h.y - platform.y) < 0.5 &&
+        Math.abs(h.width - platform.width) < 0.5,
     );
   }
 
-  private getActivePlatforms(rangeCenterX?: number, range: number = Infinity): PlatformData[] {
+  private getActivePlatforms(
+    rangeCenterX?: number,
+    range: number = Infinity,
+  ): PlatformData[] {
     const chunks = this.chunkManager.getLoadedChunks();
     const platforms: PlatformData[] = [];
     const minX = rangeCenterX !== undefined ? rangeCenterX - range : -Infinity;
@@ -933,7 +1098,8 @@ export class GameEngine {
         if (plat.x + plat.width <= minX || plat.x >= maxX) continue;
 
         if (plat.moveAmp && plat.moveSpeed) {
-          const offsetY = Math.sin(this.gameTime * plat.moveSpeed) * plat.moveAmp;
+          const offsetY =
+            Math.sin(this.gameTime * plat.moveSpeed) * plat.moveAmp;
           platforms.push({ x: plat.x, y: plat.y + offsetY, width: plat.width });
         } else {
           platforms.push(plat);
@@ -942,7 +1108,13 @@ export class GameEngine {
     }
 
     for (const h of this.hazards) {
-      if (h.type !== 'falling_platform' || h.destroyed || h.falling || h.vy === undefined) continue;
+      if (
+        h.type !== "falling_platform" ||
+        h.destroyed ||
+        h.falling ||
+        h.vy === undefined
+      )
+        continue;
       if (h.x + h.width <= minX || h.x >= maxX) continue;
       platforms.push({ x: h.x, y: h.y, width: h.width });
     }
@@ -969,15 +1141,17 @@ export class GameEngine {
     return this.chunkManager.getHeight(worldX);
   }
 
-  private checkWallCollision(): 'left' | 'right' | null {
+  private checkWallCollision(): "left" | "right" | null {
     const px = this.player.x;
     const py = this.player.y;
     const margin = 2;
     const leftY = this.chunkManager.getHeight(px - margin);
     const rightY = this.chunkManager.getHeight(px + this.player.width + margin);
     const centerBottom = py + this.player.height;
-    if (leftY < centerBottom - this.player.height * 0.4 && this.player.vx < 0) return 'left';
-    if (rightY < centerBottom - this.player.height * 0.4 && this.player.vx > 0) return 'right';
+    if (leftY < centerBottom - this.player.height * 0.4 && this.player.vx < 0)
+      return "left";
+    if (rightY < centerBottom - this.player.height * 0.4 && this.player.vx > 0)
+      return "right";
     return null;
   }
 
@@ -998,7 +1172,10 @@ export class GameEngine {
       const chunkEnd = chunk.worldX + 800;
       // Avoid spawning entities in very distant chunks: far-ahead entities were
       // getting cleaned up before the player arrived and never respawned.
-      if (chunkEnd < playerX - spawnBehindDistance || chunkStart > playerX + spawnAheadDistance) {
+      if (
+        chunkEnd < playerX - spawnBehindDistance ||
+        chunkStart > playerX + spawnAheadDistance
+      ) {
         continue;
       }
       if (this.spawnedChunks.has(chunk.index)) continue;
@@ -1019,32 +1196,58 @@ export class GameEngine {
       );
       // Fraction of base pool to use (capped at 100% of available spawns)
       const baseCount = Math.min(
-        Math.ceil(enemySpawns.length * Math.min(this.difficulty.densityMult, 1.0)),
+        Math.ceil(
+          enemySpawns.length * Math.min(this.difficulty.densityMult, 1.0),
+        ),
         enemySpawns.length,
       );
       const baseSpawns = enemySpawns.slice(0, baseCount);
       // Beyond 100% density: each pool enemy has a probabilistic chance to spawn a second copy
       const bonusRate = Math.max(0, this.difficulty.densityMult - 1.0);
-      const bonusSpawns = bonusRate > 0
-        ? enemySpawns.filter((_, i) => this.seededRng(chunk.index * 777 + i) < bonusRate)
-        : [];
+      const bonusSpawns =
+        bonusRate > 0
+          ? enemySpawns.filter(
+              (_, i) => this.seededRng(chunk.index * 777 + i) < bonusRate,
+            )
+          : [];
       const allSpawns = [...baseSpawns, ...bonusSpawns];
 
       for (const spawn of allSpawns) {
         if (chunk.index === 0 && spawn.x < START_SAFE_ZONE_END) continue;
         let enemy: Enemy;
         switch (spawn.type) {
-          case 'slime': enemy = new Slime(spawn.x, spawn.y, spawn.chunkId); break;
-          case 'beetle': enemy = new Beetle(spawn.x, spawn.y, spawn.chunkId); break;
-          case 'wisp': enemy = new Wisp(spawn.x, spawn.y, spawn.chunkId); break;
-          case 'bat': enemy = new Bat(spawn.x, spawn.y, spawn.chunkId); break;
-          case 'mite': enemy = new Mite(spawn.x, spawn.y, spawn.chunkId); break;
-          case 'jumper': enemy = new Jumper(spawn.x, spawn.y, spawn.chunkId); break;
-          case 'skeleton': enemy = new Skeleton(spawn.x, spawn.y, spawn.chunkId); break;
-          case 'alien': enemy = new Alien(spawn.x, spawn.y, spawn.chunkId); break;
-          case 'ufo': enemy = new UFO(spawn.x, spawn.y, spawn.chunkId); break;
-          case 'boss': enemy = new Boss(spawn.x, spawn.y, spawn.chunkId); break;
-          default: continue;
+          case "slime":
+            enemy = new Slime(spawn.x, spawn.y, spawn.chunkId);
+            break;
+          case "beetle":
+            enemy = new Beetle(spawn.x, spawn.y, spawn.chunkId);
+            break;
+          case "wisp":
+            enemy = new Wisp(spawn.x, spawn.y, spawn.chunkId);
+            break;
+          case "bat":
+            enemy = new Bat(spawn.x, spawn.y, spawn.chunkId);
+            break;
+          case "mite":
+            enemy = new Mite(spawn.x, spawn.y, spawn.chunkId);
+            break;
+          case "jumper":
+            enemy = new Jumper(spawn.x, spawn.y, spawn.chunkId);
+            break;
+          case "skeleton":
+            enemy = new Skeleton(spawn.x, spawn.y, spawn.chunkId);
+            break;
+          case "alien":
+            enemy = new Alien(spawn.x, spawn.y, spawn.chunkId);
+            break;
+          case "ufo":
+            enemy = new UFO(spawn.x, spawn.y, spawn.chunkId);
+            break;
+          case "boss":
+            enemy = new Boss(spawn.x, spawn.y, spawn.chunkId);
+            break;
+          default:
+            continue;
         }
         enemy.applyDifficulty(
           this.difficulty.speedMult,
@@ -1070,18 +1273,25 @@ export class GameEngine {
 
       // Hazards
       const newHazards = spawnHazardsForChunk(
-        chunk.index, plats, chunk.heights, chunkWorldX, (s) => this.seededRng(s)
+        chunk.index,
+        plats,
+        chunk.heights,
+        chunkWorldX,
+        (s) => this.seededRng(s),
       );
       this.hazards.push(...newHazards);
 
-      const replacedPlatforms = newHazards.filter((h) => h.type === 'falling_platform');
+      const replacedPlatforms = newHazards.filter(
+        (h) => h.type === "falling_platform",
+      );
       if (replacedPlatforms.length > 0) {
         for (let i = chunk.platforms.length - 1; i >= 0; i--) {
           const plat = chunk.platforms[i];
-          const replaced = replacedPlatforms.some((h) =>
-            Math.abs(h.x - plat.x) < 0.5
-            && Math.abs(h.y - plat.y) < 0.5
-            && Math.abs(h.width - plat.width) < 0.5
+          const replaced = replacedPlatforms.some(
+            (h) =>
+              Math.abs(h.x - plat.x) < 0.5 &&
+              Math.abs(h.y - plat.y) < 0.5 &&
+              Math.abs(h.width - plat.width) < 0.5,
           );
           if (replaced) chunk.platforms.splice(i, 1);
         }
@@ -1090,23 +1300,28 @@ export class GameEngine {
   }
 
   /** Update enemy ground state from terrain */
-  private updateEnemyGround(enemy: Enemy, platforms: PlatformData[], dt: number): void {
+  private updateEnemyGround(
+    enemy: Enemy,
+    platforms: PlatformData[],
+    dt: number,
+  ): void {
     const enemyBottom = enemy.y + enemy.height;
     const prevBottom = enemyBottom - enemy.vy * dt;
 
     let supportY = this.chunkManager.getHeight(enemy.x + enemy.width / 2);
     for (const plat of platforms) {
-      if (enemy.x + enemy.width <= plat.x || enemy.x >= plat.x + plat.width) continue;
+      if (enemy.x + enemy.width <= plat.x || enemy.x >= plat.x + plat.width)
+        continue;
       // Ignore platforms that are far above the enemy to avoid snapping upward.
       if (enemyBottom > plat.y + Math.max(14, enemy.height * 0.75)) continue;
       supportY = Math.min(supportY, plat.y);
     }
 
     if (
-      enemy.vy >= 0
-      && supportY !== Infinity
-      && prevBottom <= supportY + 3
-      && enemyBottom >= supportY - 3
+      enemy.vy >= 0 &&
+      supportY !== Infinity &&
+      prevBottom <= supportY + 3 &&
+      enemyBottom >= supportY - 3
     ) {
       enemy.y = supportY - enemy.height;
       enemy.vy = 0;
@@ -1124,7 +1339,8 @@ export class GameEngine {
     const previousBottom = playerBottom - this.player.vy * dt;
     const enemyTop = enemy.y;
     const enemyMid = enemy.y + enemy.height * 0.62;
-    const topContact = playerBottom <= enemy.y + Math.max(10, enemy.height * 0.72);
+    const topContact =
+      playerBottom <= enemy.y + Math.max(10, enemy.height * 0.72);
     const centerGrace = 8;
     const horizontalCenterOverlaps =
       this.player.centerX >= enemy.x - centerGrace &&
@@ -1134,7 +1350,9 @@ export class GameEngine {
     return (
       this.player.vy > -80 &&
       horizontalCenterOverlaps &&
-      (topContact || previousBottom <= enemyMid || this.player.centerY < enemy.y + enemy.height * 0.55) &&
+      (topContact ||
+        previousBottom <= enemyMid ||
+        this.player.centerY < enemy.y + enemy.height * 0.55) &&
       playerBottom >= enemyTop - 8
     );
   }
@@ -1152,7 +1370,10 @@ export class GameEngine {
     );
     if (overlapX <= 0 || overlapY <= 0) return;
 
-    if (overlapY < overlapX && this.player.centerY < enemy.y + enemy.height * 0.55) {
+    if (
+      overlapY < overlapX &&
+      this.player.centerY < enemy.y + enemy.height * 0.55
+    ) {
       this.player.y = enemy.y - this.player.height - 1;
       this.player.vy = Math.min(this.player.vy, -120);
       return;
@@ -1182,7 +1403,8 @@ export class GameEngine {
 
     return (
       horizontalCenterOverlaps &&
-      (previousBottom <= remoteMid || this.player.centerY < remote.y + remote.height * 0.58) &&
+      (previousBottom <= remoteMid ||
+        this.player.centerY < remote.y + remote.height * 0.58) &&
       playerBottom >= remoteTop - 8
     );
   }
@@ -1191,8 +1413,15 @@ export class GameEngine {
     const pts = KILL_SCORES[enemy.type] ?? 100;
     this.player.score += pts;
     this.enemiesDefeated += 1;
-    this.particles.spawnEnemyDeath(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2);
-    this.particles.spawnScorePopup(enemy.x + enemy.width / 2, enemy.y, `+${pts}`);
+    this.particles.spawnEnemyDeath(
+      enemy.x + enemy.width / 2,
+      enemy.y + enemy.height / 2,
+    );
+    this.particles.spawnScorePopup(
+      enemy.x + enemy.width / 2,
+      enemy.y,
+      `+${pts}`,
+    );
     if (this.multiplayerEnabled && !this.multiplayerIsHost) {
       this.recentEnemyDefeatIds.push(enemy.netId);
     }
@@ -1210,22 +1439,38 @@ export class GameEngine {
       this.player.shieldTimer = 0;
       enemy.disrupt();
       this.camera.shake(4, 0.2);
-      this.particles.spawnScorePopup(enemy.x + enemy.width / 2, enemy.y - 8, 'DISRUPT!', '#67e8f9');
+      this.particles.spawnScorePopup(
+        enemy.x + enemy.width / 2,
+        enemy.y - 8,
+        "DISRUPT!",
+        "#67e8f9",
+      );
       if (!enemy.alive) this.awardEnemyDefeat(enemy);
       return;
     }
 
     const beamCenterX = beam.x + beam.width / 2;
-    const pullX = Math.max(-90, Math.min(90, (beamCenterX - this.player.centerX) * 1.8));
+    const pullX = Math.max(
+      -90,
+      Math.min(90, (beamCenterX - this.player.centerX) * 1.8),
+    );
     this.player.vx += pullX * dt;
     this.player.vy = Math.max(this.player.vy - 620 * dt, -360);
     this.player.onGround = false;
 
-    if (this.player.centerY < enemy.y + enemy.height + 22 && this.player.takeDamage(enemy.effectiveDamage)) {
+    if (
+      this.player.centerY < enemy.y + enemy.height + 22 &&
+      this.player.takeDamage(enemy.effectiveDamage)
+    ) {
       this.player.vy = 180;
       enemy.disrupt();
       this.camera.shake(5, 0.25);
-      this.particles.spawnScorePopup(this.player.centerX, this.player.y - 12, 'ABDUCTED!', '#22d3ee');
+      this.particles.spawnScorePopup(
+        this.player.centerX,
+        this.player.y - 12,
+        "ABDUCTED!",
+        "#22d3ee",
+      );
     }
   }
 
@@ -1234,9 +1479,13 @@ export class GameEngine {
     this.playerBounceCooldown = Math.max(0, this.playerBounceCooldown - dt);
 
     // Update chunks — use a position slightly ahead of the player so enemies spawn in view.
-    const lookAheadPx = this.camera.x + this.camera.renderX > 0
-      ? Math.max(this.player.centerX, this.camera.x + this.camera.viewportWidth * 0.6)
-      : this.player.centerX;
+    const lookAheadPx =
+      this.camera.x + this.camera.renderX > 0
+        ? Math.max(
+            this.player.centerX,
+            this.camera.x + this.camera.viewportWidth * 0.6,
+          )
+        : this.player.centerX;
     this.chunkManager.update(lookAheadPx);
 
     // Spawn entities for new chunks
@@ -1248,15 +1497,22 @@ export class GameEngine {
     // Also clean up enemy projectiles before removing enemies
     for (const enemy of this.enemies) {
       if (!enemy.alive || Math.abs(enemy.x - px) >= cleanupRange) {
-        const maybeProjectiles = (enemy as Enemy & { projectiles?: unknown }).projectiles;
+        const maybeProjectiles = (enemy as Enemy & { projectiles?: unknown })
+          .projectiles;
         if (Array.isArray(maybeProjectiles)) {
           maybeProjectiles.length = 0;
         }
       }
     }
-    this.enemies = this.enemies.filter(e => e.alive && Math.abs(e.x - px) < cleanupRange);
-    this.collectibles = this.collectibles.filter(c => !c.collected && Math.abs(c.x - px) < cleanupRange);
-    this.hazards = this.hazards.filter(h => !h.destroyed && Math.abs(h.x - px) < cleanupRange);
+    this.enemies = this.enemies.filter(
+      (e) => e.alive && Math.abs(e.x - px) < cleanupRange,
+    );
+    this.collectibles = this.collectibles.filter(
+      (c) => !c.collected && Math.abs(c.x - px) < cleanupRange,
+    );
+    this.hazards = this.hazards.filter(
+      (h) => !h.destroyed && Math.abs(h.x - px) < cleanupRange,
+    );
 
     // Cleanup spawned chunks tracking — only remove indices far behind the player so
     // backtracking up to ~18 chunks (14400px) doesn't re-spawn entities.
@@ -1274,10 +1530,13 @@ export class GameEngine {
 
     const wallSide = this.checkWallCollision();
     this.player.touchingWall = wallSide !== null;
-    if (wallSide === 'left') this.player.facingRight = false;
-    if (wallSide === 'right') this.player.facingRight = true;
+    if (wallSide === "left") this.player.facingRight = false;
+    if (wallSide === "right") this.player.facingRight = true;
 
-    const carriedByRemote = this.multiplayerEnabled && this.localCarriedByRemote && !!this.remotePlayer;
+    const carriedByRemote =
+      this.multiplayerEnabled &&
+      this.localCarriedByRemote &&
+      !!this.remotePlayer;
     this.wasOnGround = this.player.onGround;
     if (carriedByRemote && this.remotePlayer) {
       const xOffset = this.remotePlayer.facingRight ? 12 : -12;
@@ -1296,7 +1555,10 @@ export class GameEngine {
       }
 
       // Jump dust particles
-      const jumpPressed = this.input.isPressed('Space') || this.input.isPressed('ArrowUp') || this.input.isPressed('KeyW');
+      const jumpPressed =
+        this.input.isPressed("Space") ||
+        this.input.isPressed("ArrowUp") ||
+        this.input.isPressed("KeyW");
       if (jumpPressed && (this.player.onGround || this.player.vy < -100)) {
         this.particles.spawnJumpDust(this.player.centerX, this.player.bottom);
       }
@@ -1304,13 +1566,21 @@ export class GameEngine {
 
     // Wall collision
     if (!carriedByRemote && wallSide) {
-      const wallX = wallSide === 'left' ? this.player.x - 1 : this.player.x + this.player.width + 1;
+      const wallX =
+        wallSide === "left"
+          ? this.player.x - 1
+          : this.player.x + this.player.width + 1;
       const wallY = this.chunkManager.getHeight(wallX);
-      if (wallY < this.player.y + this.player.height - this.player.height * 0.35) {
-        if (wallSide === 'left' && this.player.x > 0) {
-          this.player.x = wallX + 1; this.player.vx = 0;
-        } else if (wallSide === 'right') {
-          this.player.x = wallX - this.player.width - 1; this.player.vx = 0;
+      if (
+        wallY <
+        this.player.y + this.player.height - this.player.height * 0.35
+      ) {
+        if (wallSide === "left" && this.player.x > 0) {
+          this.player.x = wallX + 1;
+          this.player.vx = 0;
+        } else if (wallSide === "right") {
+          this.player.x = wallX - this.player.width - 1;
+          this.player.vx = 0;
         }
       }
     }
@@ -1320,9 +1590,12 @@ export class GameEngine {
 
     // Distance-based scoring — gain 1 point per 50 pixels traveled
     const prevDistance = this.player.distance;
-    this.player.distance = Math.max(this.player.distance, Math.floor(this.player.x / 50));
+    this.player.distance = Math.max(
+      this.player.distance,
+      Math.floor(this.player.x / 50),
+    );
     if (this.player.distance > prevDistance) {
-      this.player.score += (this.player.distance - prevDistance);
+      this.player.score += this.player.distance - prevDistance;
     }
 
     this.ghostSampleTimer += dt;
@@ -1338,7 +1611,10 @@ export class GameEngine {
       }
     }
 
-    if (Math.abs(this.reconcileOffsetX) > 0.01 || Math.abs(this.reconcileOffsetY) > 0.01) {
+    if (
+      Math.abs(this.reconcileOffsetX) > 0.01 ||
+      Math.abs(this.reconcileOffsetY) > 0.01
+    ) {
       const pull = 1 - Math.exp(-dt * MP_RECONCILE_SMOOTH_SPEED);
       const ox = this.reconcileOffsetX * pull;
       const oy = this.reconcileOffsetY * pull;
@@ -1354,25 +1630,41 @@ export class GameEngine {
 
     if (this.isRemotePlayerStompCollision(dt) && this.remotePlayer) {
       const remote = this.remotePlayer;
-      const wantsBoostedBounce = this.input.isDown('Space') || this.input.isDown('ArrowUp') || this.input.isDown('KeyW');
-      this.player.y = Math.min(this.player.y, remote.y - this.player.height - 1);
+      const wantsBoostedBounce =
+        this.input.isDown("Space") ||
+        this.input.isDown("ArrowUp") ||
+        this.input.isDown("KeyW");
+      this.player.y = Math.min(
+        this.player.y,
+        remote.y - this.player.height - 1,
+      );
       this.player.stompBounce(wantsBoostedBounce);
       remote.vy = Math.max(remote.vy, 120);
       this.playerBounceCooldown = 0.18;
       this.camera.shake(1.6, 0.1);
-      this.particles.spawnLanding(this.player.centerX, Math.min(this.player.bottom, remote.y + 2));
-      this.particles.spawnScorePopup(this.player.centerX, this.player.y - 8, 'BOUNCE!', '#93c5fd');
+      this.particles.spawnLanding(
+        this.player.centerX,
+        Math.min(this.player.bottom, remote.y + 2),
+      );
+      this.particles.spawnScorePopup(
+        this.player.centerX,
+        this.player.y - 8,
+        "BOUNCE!",
+        "#93c5fd",
+      );
     }
 
     // Update falling platforms
     for (const h of this.hazards) {
-      if (h.type !== 'falling_platform' || h.destroyed) continue;
+      if (h.type !== "falling_platform" || h.destroyed) continue;
       // Check if player is standing on it
       if (h.vy !== undefined) {
         if (!h.falling) {
           if (
-            this.player.x + this.player.width > h.x && this.player.x < h.x + h.width &&
-            Math.abs(this.player.y + this.player.height - h.y) < 4 && this.player.onGround
+            this.player.x + this.player.width > h.x &&
+            this.player.x < h.x + h.width &&
+            Math.abs(this.player.y + this.player.height - h.y) < 4 &&
+            this.player.onGround
           ) {
             h.crumbleTimer = (h.crumbleTimer ?? 0) + dt;
             if (h.crumbleTimer > 0.5) {
@@ -1405,10 +1697,16 @@ export class GameEngine {
         if (isStomp) {
           enemy.takeDamage(1);
           if (!enemy.alive) this.awardEnemyDefeat(enemy);
-          const wantsBoostedBounce = this.input.isDown('Space') || this.input.isDown('ArrowUp') || this.input.isDown('KeyW');
+          const wantsBoostedBounce =
+            this.input.isDown("Space") ||
+            this.input.isDown("ArrowUp") ||
+            this.input.isDown("KeyW");
           this.player.stompBounce(wantsBoostedBounce);
           this.camera.shake(2, 0.12);
-          this.particles.spawnLanding(this.player.centerX, Math.min(this.player.bottom, enemy.y + 2));
+          this.particles.spawnLanding(
+            this.player.centerX,
+            Math.min(this.player.bottom, enemy.y + 2),
+          );
         } else if (this.player.dashing) {
           enemy.takeDamage(2);
           if (!enemy.alive) this.awardEnemyDefeat(enemy);
@@ -1421,14 +1719,24 @@ export class GameEngine {
           this.player.vx = kb;
           this.player.vy = -180;
           this.camera.shake(4, 0.18);
-          this.particles.spawnScorePopup(enemy.x + enemy.width / 2, enemy.y, 'SHIELD BASH!', '#67e8f9');
+          this.particles.spawnScorePopup(
+            enemy.x + enemy.width / 2,
+            enemy.y,
+            "SHIELD BASH!",
+            "#67e8f9",
+          );
         } else {
           if (this.player.takeDamage(enemy.effectiveDamage)) {
             const kb = this.player.centerX < enemy.x ? -200 : 200;
             this.player.vx = kb;
             this.player.vy = -250;
             this.camera.shake(6, 0.3);
-            this.particles.spawnScorePopup(this.player.centerX, this.player.y - 10, '-1 ♥', '#ef4444');
+            this.particles.spawnScorePopup(
+              this.player.centerX,
+              this.player.y - 10,
+              "-1 ♥",
+              "#ef4444",
+            );
             this.separatePlayerFromEnemy(enemy);
           } else {
             this.separatePlayerFromEnemy(enemy);
@@ -1439,7 +1747,17 @@ export class GameEngine {
       // Player projectiles hitting enemies
       for (const proj of this.player.projectiles) {
         const size = proj.radius * 2;
-        if (aabbOverlap({ x: proj.x - proj.radius, y: proj.y - proj.radius, width: size, height: size }, enemy.getBounds())) {
+        if (
+          aabbOverlap(
+            {
+              x: proj.x - proj.radius,
+              y: proj.y - proj.radius,
+              width: size,
+              height: size,
+            },
+            enemy.getBounds(),
+          )
+        ) {
           enemy.takeDamage(proj.damage);
           proj.life = 0;
           if (!enemy.alive) this.awardEnemyDefeat(enemy);
@@ -1447,13 +1765,35 @@ export class GameEngine {
       }
 
       // Skeleton/Boss projectiles hitting player
-      if ('projectiles' in enemy && Array.isArray(enemy.projectiles)) {
-        for (const proj of enemy.projectiles as { x: number; y: number; width: number; height: number; life: number; damage: number }[]) {
+      if ("projectiles" in enemy && Array.isArray(enemy.projectiles)) {
+        for (const proj of enemy.projectiles as {
+          x: number;
+          y: number;
+          width: number;
+          height: number;
+          life: number;
+          damage: number;
+        }[]) {
           if (proj.life <= 0) continue;
-          if (aabbOverlap({ x: proj.x - proj.width / 2, y: proj.y - proj.height / 2, width: proj.width, height: proj.height }, playerBounds)) {
+          if (
+            aabbOverlap(
+              {
+                x: proj.x - proj.width / 2,
+                y: proj.y - proj.height / 2,
+                width: proj.width,
+                height: proj.height,
+              },
+              playerBounds,
+            )
+          ) {
             if (this.player.takeDamage(proj.damage)) {
               proj.life = 0;
-              this.particles.spawnScorePopup(this.player.centerX, this.player.y - 10, '-1 ♥', '#ef4444');
+              this.particles.spawnScorePopup(
+                this.player.centerX,
+                this.player.y - 10,
+                "-1 ♥",
+                "#ef4444",
+              );
             }
           }
         }
@@ -1462,12 +1802,23 @@ export class GameEngine {
 
     // Spike hazards — use tighter hitbox (shrink by 4px) and respect invulnerability
     for (const h of this.hazards) {
-      if (h.type !== 'spike') continue;
-      if (aabbOverlap(playerBounds, { x: h.x, y: h.y, width: h.width, height: h.height }, 4)) {
+      if (h.type !== "spike") continue;
+      if (
+        aabbOverlap(
+          playerBounds,
+          { x: h.x, y: h.y, width: h.width, height: h.height },
+          4,
+        )
+      ) {
         if (this.player.takeDamage(1)) {
           this.player.vy = -300;
           this.camera.shake(5, 0.25);
-          this.particles.spawnScorePopup(this.player.centerX, this.player.y - 10, '-1 ♥', '#ef4444');
+          this.particles.spawnScorePopup(
+            this.player.centerX,
+            this.player.y - 10,
+            "-1 ♥",
+            "#ef4444",
+          );
         }
       }
     }
@@ -1478,7 +1829,7 @@ export class GameEngine {
       c.animTimer += dt;
 
       // Magnet attraction
-      if (this.player.magnetActive && c.type === 'coin') {
+      if (this.player.magnetActive && c.type === "coin") {
         const dx = this.player.centerX - (c.x + c.width / 2);
         const dy = this.player.centerY - (c.y + c.height / 2);
         const dist = Math.sqrt(dx * dx + dy * dy);
@@ -1498,63 +1849,76 @@ export class GameEngine {
       if (aabbOverlap(playerCollectBounds, c)) {
         c.collected = true;
         switch (c.type) {
-          case 'coin':
+          case "coin":
             this.player.addCoins(1);
-            this.particles.spawnCoinSparkle(c.x + c.width / 2, c.y + c.height / 2);
-            this.particles.spawnScorePopup(c.x, c.y, '+10', '#fbbf24');
+            this.particles.spawnCoinSparkle(
+              c.x + c.width / 2,
+              c.y + c.height / 2,
+            );
+            this.particles.spawnScorePopup(c.x, c.y, "+10", "#fbbf24");
             break;
-          case 'health':
+          case "health":
             if (this.player.health < this.player.maxHealth) {
               this.player.heal(1);
-              this.particles.spawnScorePopup(c.x, c.y, '+1 ♥', '#22c55e');
+              this.particles.spawnScorePopup(c.x, c.y, "+1 ♥", "#22c55e");
             } else {
-              this.particles.spawnScorePopup(c.x, c.y, 'FULL!', '#86efac');
+              this.particles.spawnScorePopup(c.x, c.y, "FULL!", "#86efac");
             }
             break;
-          case 'speedBoost':
+          case "speedBoost":
             this.player.applySpeedBoost(1.5, c.value);
-            this.particles.spawnScorePopup(c.x, c.y, 'SPEED!', '#3b82f6');
+            this.particles.spawnScorePopup(c.x, c.y, "SPEED!", "#3b82f6");
             break;
-          case 'doubleJump':
+          case "doubleJump":
             this.player.restoreDoubleJump();
-            this.particles.spawnScorePopup(c.x, c.y, '2x JUMP!', '#a855f7');
+            this.particles.spawnScorePopup(c.x, c.y, "2x JUMP!", "#a855f7");
             break;
-          case 'shield':
+          case "shield":
             this.player.applyShield(c.value * 8);
-            this.particles.spawnScorePopup(c.x, c.y, 'SHIELD!', '#06b6d4');
+            this.particles.spawnScorePopup(c.x, c.y, "SHIELD!", "#06b6d4");
             break;
-          case 'magnet':
+          case "magnet":
             this.player.applyMagnet(c.value);
-            this.particles.spawnScorePopup(c.x, c.y, 'MAGNET!', '#f59e0b');
+            this.particles.spawnScorePopup(c.x, c.y, "MAGNET!", "#f59e0b");
             break;
-          case 'slingshot':
-            this.player.equipWeapon('slingshot', c.value);
-            this.particles.spawnScorePopup(c.x, c.y, 'SLINGSHOT!', '#f59e0b');
+          case "slingshot":
+            this.player.equipWeapon("slingshot", c.value);
+            this.particles.spawnScorePopup(c.x, c.y, "SLINGSHOT!", "#f59e0b");
             break;
-          case 'bow':
-            this.player.equipWeapon('bow', c.value);
-            this.particles.spawnScorePopup(c.x, c.y, 'BOW UP!', '#eab308');
+          case "bow":
+            this.player.equipWeapon("bow", c.value);
+            this.particles.spawnScorePopup(c.x, c.y, "BOW UP!", "#eab308");
             break;
-          case 'healingAura':
+          case "healingAura":
             this.player.applyHealingAura(c.value);
-            this.particles.spawnScorePopup(c.x, c.y, 'HEAL AURA!', '#14b8a6');
+            this.particles.spawnScorePopup(c.x, c.y, "HEAL AURA!", "#14b8a6");
             break;
-          case 'portal': {
-            const targetX = c.portalTargetX ?? (c.x + 640);
+          case "portal": {
+            const targetX = c.portalTargetX ?? c.x + 640;
             this.chunkManager.update(targetX + 400);
             this.spawnChunkEntities();
             const arrivalGround = this.getGroundY(targetX);
             const fallbackGround = this.chunkManager.getHeight(targetX);
-            const safeGround = Number.isFinite(arrivalGround) ? arrivalGround : (Number.isFinite(fallbackGround) ? fallbackGround : this.player.y + this.player.height);
+            const safeGround = Number.isFinite(arrivalGround)
+              ? arrivalGround
+              : Number.isFinite(fallbackGround)
+                ? fallbackGround
+                : this.player.y + this.player.height;
             this.player.x = targetX;
             this.player.y = safeGround - this.player.height;
             this.player.vx = Math.max(this.player.vx, 160);
             this.player.vy = -120;
             this.player.onGround = false;
             this.camera.shake(4, 0.2);
-            const flavor = c.portalFlavor === 'bunker' ? 'BUNKER ROUTE!' : 'SHORTCUT!';
-            this.particles.spawnScorePopup(c.x, c.y - 10, flavor, '#22c55e');
-            this.particles.spawnScorePopup(targetX, safeGround - 22, 'WARP +', '#86efac');
+            const flavor =
+              c.portalFlavor === "bunker" ? "BUNKER ROUTE!" : "SHORTCUT!";
+            this.particles.spawnScorePopup(c.x, c.y - 10, flavor, "#22c55e");
+            this.particles.spawnScorePopup(
+              targetX,
+              safeGround - 22,
+              "WARP +",
+              "#86efac",
+            );
             break;
           }
         }
@@ -1568,20 +1932,30 @@ export class GameEngine {
     const biome = getBiomeAt(this.player.centerX);
     const screenW = this.camera.viewportWidth;
     const screenH = this.camera.viewportHeight;
-    this.particles.update(this.camera.x, this.camera.y, screenW, screenH, biome.type, dt);
+    this.particles.update(
+      this.camera.x,
+      this.camera.y,
+      screenW,
+      screenH,
+      biome.type,
+      dt,
+    );
 
     // Level mode: target distance / time limit completion.
     if (this.levelConfig && !this.levelCompleted) {
       if (this.levelConfig.timeLimit !== null) {
         this.levelTimeRemaining = Math.max(0, this.levelTimeRemaining - dt);
-        if (this.levelTimeRemaining <= 0 && this.player.distance < this.levelConfig.targetDistance) {
+        if (
+          this.levelTimeRemaining <= 0 &&
+          this.player.distance < this.levelConfig.targetDistance
+        ) {
           this.player.alive = false;
         }
       }
 
       if (this.player.distance >= this.levelConfig.targetDistance) {
         this.levelCompleted = true;
-        this._state = 'paused';
+        this._state = "paused";
         this.onLevelComplete?.({
           score: Math.max(0, Math.floor(this.player.score)),
           coins: Math.max(0, Math.floor(this.player.coins)),
@@ -1599,37 +1973,49 @@ export class GameEngine {
     }
 
     if (!this.player.alive && this.player.tryAutoRevive()) {
-      if (this.player.y > 1200) {
-        const reviveGround = this.getGroundY(this.player.centerX);
-        this.player.y = Number.isFinite(reviveGround) ? reviveGround - this.player.height - 8 : 300;
-      }
+      this.placePlayerOnSafeReviveGround();
       this.camera.shake(4, 0.25);
-      this.particles.spawnScorePopup(this.player.centerX, this.player.y - 10, 'REVIVE!', '#f97316');
+      this.particles.spawnScorePopup(
+        this.player.centerX,
+        this.player.y - 10,
+        "REVIVE!",
+        "#f97316",
+      );
     }
 
     if (!this.player.alive && this.player.tryCoinRevive(25)) {
-      if (this.player.y > 1200) {
-        const reviveGround = this.getGroundY(this.player.centerX);
-        this.player.y = Number.isFinite(reviveGround) ? reviveGround - this.player.height - 8 : 300;
-      }
+      this.placePlayerOnSafeReviveGround();
       this.camera.shake(5, 0.3);
-      this.particles.spawnScorePopup(this.player.centerX, this.player.y - 10, 'REVIVE -25 🪙 +1 ♥', '#fbbf24');
+      this.particles.spawnScorePopup(
+        this.player.centerX,
+        this.player.y - 10,
+        "REVIVE -25 🪙 +1 ♥",
+        "#fbbf24",
+      );
     }
 
     if (!this.player.alive) {
-      this._state = 'gameover';
+      this._state = "gameover";
       this.camera.shake(8, 0.5);
       this.onGameOver?.();
     }
 
     // Power-ups for HUD
     const powerUps: string[] = [];
-    if (this.player.shieldActive) powerUps.push('🛡️');
-    if (this.player.magnetActive) powerUps.push('🧲');
-    if (this.player.speedBoostTimer > 0) powerUps.push('⚡');
-    if (this.player.currentWeapon === 'slingshot' && this.player.hasWeaponPickup) powerUps.push('🎯');
-    if (this.player.currentWeapon === 'bow' && (this.player.hasWeaponPickup || this.player.characterId === 'ranger')) powerUps.push('🏹');
-    if (this.player.healingAuraActive) powerUps.push('💚');
+    if (this.player.shieldActive) powerUps.push("🛡️");
+    if (this.player.magnetActive) powerUps.push("🧲");
+    if (this.player.speedBoostTimer > 0) powerUps.push("⚡");
+    if (
+      this.player.currentWeapon === "slingshot" &&
+      this.player.hasWeaponPickup
+    )
+      powerUps.push("🎯");
+    if (
+      this.player.currentWeapon === "bow" &&
+      (this.player.hasWeaponPickup || this.player.characterId === "ranger")
+    )
+      powerUps.push("🏹");
+    if (this.player.healingAuraActive) powerUps.push("💚");
 
     const profilerMetrics = this.profiler.getMetrics();
 
@@ -1645,11 +2031,16 @@ export class GameEngine {
       fps: profilerMetrics.fps,
       comboCount: 0,
       comboMultiplier: 1,
-      dayPhase: 'day',
-      ...(this.levelConfig ? {
-        levelTimeRemaining: this.levelConfig.timeLimit !== null ? this.levelTimeRemaining : undefined,
-        levelTarget: this.levelConfig.targetDistance,
-      } : {}),
+      dayPhase: "day",
+      ...(this.levelConfig
+        ? {
+            levelTimeRemaining:
+              this.levelConfig.timeLimit !== null
+                ? this.levelTimeRemaining
+                : undefined,
+            levelTarget: this.levelConfig.targetDistance,
+          }
+        : {}),
     });
 
     this.onNetworkDebug?.({
@@ -1658,6 +2049,15 @@ export class GameEngine {
       interpolationDelayMs: this.interpolationDelayMs,
       remoteBufferSize: this.remoteSnapshotBuffer.length,
     });
+  }
+
+  private placePlayerOnSafeReviveGround(): void {
+    const reviveGround = this.getGroundY(this.player.centerX);
+    this.player.y = Number.isFinite(reviveGround)
+      ? reviveGround - this.player.height - 10
+      : Math.min(this.player.y, 300);
+    this.player.vy = Math.min(this.player.vy, -260);
+    this.player.onGround = false;
   }
 
   private render(): void {
@@ -1695,7 +2095,8 @@ export class GameEngine {
     // Enemies - frustum culling
     for (const enemy of this.enemies) {
       if (!enemy.alive) continue;
-      if (!this.camera.isVisible(enemy.x, enemy.y, enemy.width, enemy.height)) continue;
+      if (!this.camera.isVisible(enemy.x, enemy.y, enemy.width, enemy.height))
+        continue;
       enemy.render(ctx, this.camera.renderX, this.camera.renderY);
     }
 
@@ -1733,8 +2134,9 @@ export class GameEngine {
     if (this.ghostPlayback.length > 0) {
       const currentDistance = this.player.distance;
       while (
-        this.ghostPlaybackIndex < this.ghostPlayback.length - 1
-        && this.ghostPlayback[this.ghostPlaybackIndex + 1].distance <= currentDistance
+        this.ghostPlaybackIndex < this.ghostPlayback.length - 1 &&
+        this.ghostPlayback[this.ghostPlaybackIndex + 1].distance <=
+          currentDistance
       ) {
         this.ghostPlaybackIndex += 1;
       }
@@ -1744,7 +2146,7 @@ export class GameEngine {
         const gy = ghost.y - this.camera.renderY;
         ctx.save();
         ctx.globalAlpha = 0.34;
-        ctx.fillStyle = '#93c5fd';
+        ctx.fillStyle = "#93c5fd";
         ctx.beginPath();
         ctx.roundRect(gx, gy, this.player.width, this.player.height, 6);
         ctx.fill();
@@ -1755,36 +2157,41 @@ export class GameEngine {
     // Player
     this.renderer.drawPlayer(this.player, this.camera);
 
-    if (this.multiplayerEnabled && this.remotePlayer && this.remotePlayer.alive) {
+    if (
+      this.multiplayerEnabled &&
+      this.remotePlayer &&
+      this.remotePlayer.alive
+    ) {
       this.renderer.drawPlayer(this.remotePlayer, this.camera);
-      const rsx = this.remotePlayer.x - this.camera.renderX + this.remotePlayer.width / 2;
+      const rsx =
+        this.remotePlayer.x - this.camera.renderX + this.remotePlayer.width / 2;
       const rsy = this.remotePlayer.y - this.camera.renderY - 8;
-      ctx.fillStyle = 'rgba(0,0,0,0.45)';
+      ctx.fillStyle = "rgba(0,0,0,0.45)";
       ctx.fillRect(rsx - 48, rsy - 12, 96, 14);
-      ctx.fillStyle = '#e2e8f0';
-      ctx.font = '11px ui-monospace, SFMono-Regular, Menlo, monospace';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(this.remotePlayerName ?? 'Peer', rsx, rsy - 5);
+      ctx.fillStyle = "#e2e8f0";
+      ctx.font = "11px ui-monospace, SFMono-Regular, Menlo, monospace";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(this.remotePlayerName ?? "Peer", rsx, rsy - 5);
     }
 
     // Shield visual
     if (this.player.shieldActive) {
       const sx = this.player.x - this.camera.renderX + this.player.width / 2;
       const sy = this.player.y - this.camera.renderY + this.player.height / 2;
-      ctx.strokeStyle = '#06b6d480';
+      ctx.strokeStyle = "#06b6d480";
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.arc(sx, sy, this.player.width * 0.8, 0, Math.PI * 2);
       ctx.stroke();
-      ctx.fillStyle = '#06b6d415';
+      ctx.fillStyle = "#06b6d415";
       ctx.fill();
     }
 
     if (this.player.healingAuraActive) {
       const sx = this.player.x - this.camera.renderX + this.player.width / 2;
       const sy = this.player.y - this.camera.renderY + this.player.height / 2;
-      ctx.strokeStyle = '#14b8a680';
+      ctx.strokeStyle = "#14b8a680";
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.arc(sx, sy, this.player.width * 1.05, 0, Math.PI * 2);
@@ -1793,28 +2200,36 @@ export class GameEngine {
 
     // Dash trail
     if (this.player.dashing) {
-      ctx.fillStyle = '#4488cc40';
-      const sx = this.player.x - this.camera.renderX - this.player.dashDirection * 20;
+      ctx.fillStyle = "#4488cc40";
+      const sx =
+        this.player.x - this.camera.renderX - this.player.dashDirection * 20;
       const sy = this.player.y - this.camera.renderY;
       ctx.fillRect(sx, sy, this.player.width, this.player.height);
     }
 
-    if (this.multiplayerEnabled && this.remotePlayer && this.remotePlayer.alive && this.carryHintTimer > 0) {
-      ctx.fillStyle = 'rgba(15,23,42,0.7)';
+    if (
+      this.multiplayerEnabled &&
+      this.remotePlayer &&
+      this.remotePlayer.alive &&
+      this.carryHintTimer > 0
+    ) {
+      ctx.fillStyle = "rgba(15,23,42,0.7)";
       ctx.fillRect(width / 2 - 120, height - 96, 240, 34);
-      ctx.fillStyle = '#e2e8f0';
-      ctx.font = '13px -apple-system, BlinkMacSystemFont, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      const hint = this.remoteCarriedByLocal ? 'Press F to drop your teammate' : 'Press F near teammate to pick them up';
+      ctx.fillStyle = "#e2e8f0";
+      ctx.font = "13px -apple-system, BlinkMacSystemFont, sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      const hint = this.remoteCarriedByLocal
+        ? "Press F to drop your teammate"
+        : "Press F near teammate to pick them up";
       ctx.fillText(hint, width / 2, height - 79);
     }
 
     this.renderer.drawParticles(this.particles.getParticles(), this.camera);
 
     // Pause overlay
-    if (this._state === 'paused') {
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+    if (this._state === "paused") {
+      ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
       ctx.fillRect(0, 0, width, height);
     }
   }

@@ -19,12 +19,14 @@
 
 /** Peer sync message — same shape as the HTTP sync payload, plus RTT probe. */
 export interface RTCSyncMessage {
-  type: 'sync';
+  type: "sync";
   ts: number; // sender's performance.now() at send time (for RTT)
+  seq?: number; // monotonic sync sequence; lets receivers ignore stale unordered packets
+  receivedAt?: number; // local receive time, filled in by the browser client
   echoTs?: number; // echoes the peer's last-received ts for RTT calc
-  snapshot?: import('./types').NetPlayerSnapshot;
-  input?: import('./types').NetInputCommand;
-  enemies?: import('./types').NetEnemySnapshot[];
+  snapshot?: import("./types").NetPlayerSnapshot;
+  input?: import("./types").NetInputCommand;
+  enemies?: import("./types").NetEnemySnapshot[];
   carryTargetId?: string | null;
   dropCarry?: boolean;
   characterId?: string;
@@ -33,12 +35,12 @@ export interface RTCSyncMessage {
 }
 
 export interface RTCPingMessage {
-  type: 'ping';
+  type: "ping";
   ts: number;
 }
 
 export interface RTCPongMessage {
-  type: 'pong';
+  type: "pong";
   ts: number; // echo of the ping ts
 }
 
@@ -49,7 +51,12 @@ export interface RTCSignaling {
   candidates?: RTCIceCandidateInit[];
 }
 
-export type RTCConnectionState = 'idle' | 'connecting' | 'connected' | 'failed' | 'closed';
+export type RTCConnectionState =
+  | "idle"
+  | "connecting"
+  | "connected"
+  | "failed"
+  | "closed";
 
 interface RTCConfig {
   iceServers?: RTCIceServer[];
@@ -58,24 +65,32 @@ interface RTCConfig {
 /** Build the ICE server list from env-configured TURN/STUN servers. */
 function getIceServers(): RTCIceServer[] {
   const servers: RTCIceServer[] = [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: "stun:stun.l.google.com:19302" },
+    { urls: "stun:stun1.l.google.com:19302" },
   ];
 
   // TURN servers are configured via next.config public runtime env.
   // Format: "turn:host:port:user:credential" or full "turn:host:port?transport=tcp:user:credential"
-  const turnUrls = typeof process !== 'undefined'
-    ? (process.env.NEXT_PUBLIC_TURN_URLS ?? process.env.TURN_URLS ?? '')
-    : '';
-  const turnUser = typeof process !== 'undefined'
-    ? (process.env.NEXT_PUBLIC_TURN_USER ?? process.env.TURN_USER ?? '')
-    : '';
-  const turnCred = typeof process !== 'undefined'
-    ? (process.env.NEXT_PUBLIC_TURN_CREDENTIAL ?? process.env.TURN_CREDENTIAL ?? '')
-    : '';
+  const turnUrls =
+    typeof process !== "undefined"
+      ? (process.env.NEXT_PUBLIC_TURN_URLS ?? process.env.TURN_URLS ?? "")
+      : "";
+  const turnUser =
+    typeof process !== "undefined"
+      ? (process.env.NEXT_PUBLIC_TURN_USER ?? process.env.TURN_USER ?? "")
+      : "";
+  const turnCred =
+    typeof process !== "undefined"
+      ? (process.env.NEXT_PUBLIC_TURN_CREDENTIAL ??
+        process.env.TURN_CREDENTIAL ??
+        "")
+      : "";
 
   if (turnUrls && turnUser && turnCred) {
-    const urls = turnUrls.split(',').map((s) => s.trim()).filter(Boolean);
+    const urls = turnUrls
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
     servers.push({ urls, username: turnUser, credential: turnCred });
   }
 
@@ -90,7 +105,7 @@ const DEFAULT_ICE_TIMEOUT_MS = 3000;
 export class RTCTransport {
   private pc: RTCPeerConnection;
   private channel: RTCDataChannel | null = null;
-  private state: RTCConnectionState = 'idle';
+  private state: RTCConnectionState = "idle";
   private lastReceivedTs = 0;
   private rttEwma = 0;
 
@@ -109,10 +124,10 @@ export class RTCTransport {
     // Track connection state
     this.pc.onconnectionstatechange = () => {
       const st = this.pc.connectionState;
-      if (st === 'connected') this.setState('connected');
-      else if (st === 'failed') this.setState('failed');
-      else if (st === 'disconnected' || st === 'closed') {
-        if (this.state === 'connected') this.setState('closed');
+      if (st === "connected") this.setState("connected");
+      else if (st === "failed") this.setState("failed");
+      else if (st === "disconnected" || st === "closed") {
+        if (this.state === "connected") this.setState("closed");
       }
     };
 
@@ -124,16 +139,31 @@ export class RTCTransport {
     };
   }
 
-  get connectionState(): RTCConnectionState { return this.state; }
-  get isOpen(): boolean { return this.state === 'connected' && this.channel?.readyState === 'open'; }
-  get rtt(): number { return this.rttEwma; }
+  get connectionState(): RTCConnectionState {
+    return this.state;
+  }
+  get isOpen(): boolean {
+    return this.state === "connected" && this.channel?.readyState === "open";
+  }
+  get rtt(): number {
+    return this.rttEwma;
+  }
+  get bufferedAmount(): number {
+    return this.channel?.bufferedAmount ?? 0;
+  }
 
   // ── Host side: create data channel + SDP offer ──────────────────────
 
-  async createOffer(iceTimeoutMs = DEFAULT_ICE_TIMEOUT_MS): Promise<RTCSessionDescriptionInit> {
-    this.setState('connecting');
-    this.channel = this.pc.createDataChannel('game', {
-      ordered: true, // reliable ordered — matches existing HTTP semantics
+  async createOffer(
+    iceTimeoutMs = DEFAULT_ICE_TIMEOUT_MS,
+  ): Promise<RTCSessionDescriptionInit> {
+    this.setState("connecting");
+    this.channel = this.pc.createDataChannel("game", {
+      // Gameplay state is resent every tick, so stale ordered packets should not
+      // block newer movement updates on spotty Wi‑Fi. Unordered + short
+      // retransmit keeps controls responsive and prevents head-of-line stalls.
+      ordered: false,
+      maxPacketLifeTime: 90,
     });
     this.setupChannel(this.channel);
 
@@ -149,7 +179,7 @@ export class RTCTransport {
     remoteOffer: RTCSessionDescriptionInit,
     iceTimeoutMs = DEFAULT_ICE_TIMEOUT_MS,
   ): Promise<RTCSessionDescriptionInit> {
-    this.setState('connecting');
+    this.setState("connecting");
     this.pc.ondatachannel = (event) => {
       this.channel = event.channel;
       this.setupChannel(this.channel);
@@ -186,6 +216,7 @@ export class RTCTransport {
 
   send(msg: RTCMessage): boolean {
     if (!this.isOpen) return false;
+    if ((this.channel?.bufferedAmount ?? 0) > 64_000) return false;
     try {
       this.channel!.send(JSON.stringify(msg));
       return true;
@@ -196,33 +227,40 @@ export class RTCTransport {
 
   /** Send a ping to probe RTT. */
   ping(): void {
-    this.send({ type: 'ping', ts: performance.now() });
+    this.send({ type: "ping", ts: performance.now() });
   }
 
   close(): void {
-    try { this.channel?.close(); } catch {}
-    try { this.pc.close(); } catch {}
+    try {
+      this.channel?.close();
+    } catch {}
+    try {
+      this.pc.close();
+    } catch {}
     this.channel = null;
-    this.setState('closed');
+    this.setState("closed");
   }
 
   // ── Internals ───────────────────────────────────────────────────────
 
   private setupChannel(ch: RTCDataChannel): void {
-    ch.binaryType = 'arraybuffer';
+    ch.binaryType = "arraybuffer";
+    ch.bufferedAmountLowThreshold = 16_000;
     ch.onopen = () => {
-      this.setState('connected');
+      this.setState("connected");
       this.onOpen?.();
     };
     ch.onmessage = (event) => {
       try {
         const msg = JSON.parse(event.data) as RTCMessage;
         this.handleMessage(msg);
-      } catch { /* ignore malformed */ }
+      } catch {
+        /* ignore malformed */
+      }
     };
     ch.onclose = () => {
-      if (this.state === 'connected') {
-        this.setState('closed');
+      if (this.state === "connected") {
+        this.setState("closed");
         this.onClose?.();
       }
     };
@@ -232,12 +270,12 @@ export class RTCTransport {
   }
 
   private handleMessage(msg: RTCMessage): void {
-    if (msg.type === 'ping') {
+    if (msg.type === "ping") {
       // Echo back immediately
-      this.send({ type: 'pong', ts: msg.ts });
+      this.send({ type: "pong", ts: msg.ts });
       return;
     }
-    if (msg.type === 'pong') {
+    if (msg.type === "pong") {
       const rtt = performance.now() - msg.ts;
       this.rttEwma = this.rttEwma === 0 ? rtt : this.rttEwma * 0.8 + rtt * 0.2;
       return;
@@ -249,7 +287,7 @@ export class RTCTransport {
 
   private waitForIce(timeoutMs: number): Promise<void> {
     return new Promise((resolve) => {
-      if (this.pc.iceGatheringState === 'complete') return resolve();
+      if (this.pc.iceGatheringState === "complete") return resolve();
       let done = false;
       const finish = () => {
         if (done) return;
@@ -258,12 +296,12 @@ export class RTCTransport {
       };
       const timer = setTimeout(finish, timeoutMs);
       const check = () => {
-        if (this.pc.iceGatheringState === 'complete') {
+        if (this.pc.iceGatheringState === "complete") {
           clearTimeout(timer);
           finish();
         }
       };
-      this.pc.addEventListener('icegatheringstatechange', check);
+      this.pc.addEventListener("icegatheringstatechange", check);
     });
   }
 
@@ -275,5 +313,8 @@ export class RTCTransport {
 
 /** Check if WebRTC is available in the current environment. */
 export function isRTCAvailable(): boolean {
-  return typeof RTCPeerConnection !== 'undefined' && typeof RTCDataChannel !== 'undefined';
+  return (
+    typeof RTCPeerConnection !== "undefined" &&
+    typeof RTCDataChannel !== "undefined"
+  );
 }

@@ -54,7 +54,8 @@
   --glass-surface-strong: rgba(44, 44, 46, 0.78);
   --glass-hairline: rgba(255, 255, 255, 0.14);
   --glass-hairline-soft: rgba(255, 255, 255, 0.08);
-  --glass-shadow: 0 28px 90px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.11);
+  --glass-shadow:
+    0 28px 90px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.11);
 }
 
 /* ═══ Reset ═════════════════════════════════════════════════════ */
@@ -754,9 +755,17 @@ button,
   justify-content: center;
   color: #f7f8f8;
   background:
-    radial-gradient(circle at 48% -12%, rgba(10, 132, 255, 0.3), transparent 34%),
+    radial-gradient(
+      circle at 48% -12%,
+      rgba(10, 132, 255, 0.3),
+      transparent 34%
+    ),
     radial-gradient(circle at 12% 24%, rgba(94, 92, 230, 0.2), transparent 30%),
-    radial-gradient(circle at 88% 84%, rgba(48, 209, 88, 0.12), transparent 28%),
+    radial-gradient(
+      circle at 88% 84%,
+      rgba(48, 209, 88, 0.12),
+      transparent 28%
+    ),
     linear-gradient(180deg, rgba(0, 0, 0, 0.94), rgba(9, 10, 14, 0.99));
   backdrop-filter: blur(26px) saturate(1.35);
   -webkit-backdrop-filter: blur(26px) saturate(1.35);
@@ -772,8 +781,17 @@ button,
     linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255, 255, 255, 0.014) 1px, transparent 1px),
     radial-gradient(ellipse at center, transparent 0%, rgba(0, 0, 0, 0.22) 100%);
-  background-size: 48px 48px, 48px 48px, auto;
-  mask-image: linear-gradient(to bottom, transparent, black 16%, black 84%, transparent);
+  background-size:
+    48px 48px,
+    48px 48px,
+    auto;
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    black 16%,
+    black 84%,
+    transparent
+  );
   opacity: 0.74;
 }
 
@@ -1024,7 +1042,9 @@ button,
       transparent 26%
     ),
     linear-gradient(135deg, #0a84ff, #5e5ce6 58%, #bf5af2);
-  box-shadow: 0 22px 64px rgba(10, 132, 255, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.28);
+  box-shadow:
+    0 22px 64px rgba(10, 132, 255, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28);
 }
 .dash-play-button-v2 span {
   display: block;
@@ -1650,4 +1670,261 @@ input[type="range"]::-moz-range-thumb {
   background: #ffffff;
   border: none;
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.42);
+}
+
+/* Streamlined menu flow: group actions by intent instead of a flat cluttered grid. */
+.dash-flow-tabs-v2 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin: -4px 0 12px;
+  padding: 5px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.18);
+}
+.dash-flow-tabs-v2 span {
+  min-height: 30px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #8a8f98;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.dash-flow-tabs-v2 span.is-active {
+  color: #ffffff;
+  background: linear-gradient(
+    135deg,
+    rgba(10, 132, 255, 0.82),
+    rgba(94, 92, 230, 0.68)
+  );
+  box-shadow: 0 10px 26px rgba(10, 132, 255, 0.22);
+}
+.dash-mode-card-v2 small {
+  display: inline-flex;
+  width: fit-content;
+  margin-bottom: 9px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.055);
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.dash-mode-card-v2.solo {
+  background: linear-gradient(
+    145deg,
+    rgba(10, 132, 255, 0.16),
+    rgba(255, 255, 255, 0.03)
+  );
+}
+.dash-mode-card-v2.coop {
+  background: linear-gradient(
+    145deg,
+    rgba(16, 185, 129, 0.14),
+    rgba(255, 255, 255, 0.03)
+  );
+}
+.dash-mode-card-v2.compete {
+  background: linear-gradient(
+    145deg,
+    rgba(191, 90, 242, 0.14),
+    rgba(255, 255, 255, 0.03)
+  );
+}
+.dash-mode-card-v2.customize {
+  background: linear-gradient(
+    145deg,
+    rgba(251, 191, 36, 0.12),
+    rgba(255, 255, 255, 0.03)
+  );
+}
+@media (min-width: 1180px) and (min-height: 560px) {
+  .dash-mode-grid-v2 {
+    grid-template-columns: 1fr;
+  }
+  .dash-mode-card-v2 {
+    min-height: 74px;
+  }
+}
+
+/* Command-deck menu overhaul: top-level navigation keeps panels separate and predictable. */
+.dash-nav-v3 {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  padding: 10px;
+}
+.dash-nav-v3 button {
+  min-height: 58px;
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.035);
+  color: #8f98a6;
+  text-align: left;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition:
+    transform 0.14s ease,
+    border-color 0.14s ease,
+    background 0.14s ease;
+}
+.dash-nav-v3 button:hover {
+  transform: translateY(-1px);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+.dash-nav-v3 button.is-active {
+  color: white;
+  border-color: rgba(10, 132, 255, 0.48);
+  background:
+    radial-gradient(
+      circle at 18% 20%,
+      rgba(255, 255, 255, 0.18),
+      transparent 28%
+    ),
+    linear-gradient(135deg, rgba(10, 132, 255, 0.32), rgba(94, 92, 230, 0.22));
+  box-shadow: 0 16px 34px rgba(10, 132, 255, 0.18);
+}
+.dash-nav-v3 b,
+.dash-nav-v3 span {
+  display: block;
+}
+.dash-nav-v3 b {
+  font-size: 14px;
+  font-weight: 650;
+}
+.dash-nav-v3 span {
+  margin-top: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  color: currentColor;
+  opacity: 0.68;
+}
+.dash-view-panel-v3 {
+  animation: menuCommandIn 0.24s ease both;
+}
+.dash-character-select-v3 {
+  grid-column: 1 / -1;
+}
+.dash-character-hero-v3 {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.9fr) minmax(260px, 1.1fr);
+  gap: 18px;
+  align-items: stretch;
+}
+.dash-character-hero-v3 h2 {
+  margin: 5px 0 10px;
+  color: #f7f8f8;
+  font-size: clamp(34px, 6vw, 72px);
+  line-height: 0.94;
+  letter-spacing: -1.8px;
+}
+.dash-character-hero-v3 p {
+  margin: 0 0 18px;
+  max-width: 460px;
+  color: #a3a8b2;
+  font-size: 15px;
+  line-height: 1.55;
+}
+.dash-character-stage-v3 {
+  min-height: 300px;
+  border: 1px solid
+    color-mix(in srgb, var(--hero-color) 34%, rgba(255, 255, 255, 0.1));
+  border-radius: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background:
+    radial-gradient(
+      circle at 50% 34%,
+      color-mix(in srgb, var(--hero-color) 38%, transparent),
+      transparent 32%
+    ),
+    radial-gradient(
+      circle at 50% 110%,
+      rgba(255, 255, 255, 0.18),
+      transparent 34%
+    ),
+    linear-gradient(
+      145deg,
+      rgba(255, 255, 255, 0.08),
+      rgba(255, 255, 255, 0.025)
+    );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.15),
+    0 28px 70px color-mix(in srgb, var(--hero-color) 16%, transparent);
+}
+.dash-character-stage-v3 canvas {
+  image-rendering: pixelated;
+  filter: drop-shadow(0 22px 26px rgba(0, 0, 0, 0.42));
+  transform: scale(1.08);
+}
+.dash-character-roster-v3 {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 16px;
+}
+.dash-character-card-v3 {
+  min-height: 118px;
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  border-radius: 18px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.032);
+  color: #f7f8f8;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform 0.14s ease,
+    border-color 0.14s ease,
+    background 0.14s ease;
+}
+.dash-character-card-v3:hover,
+.dash-character-card-v3.is-active {
+  transform: translateY(-2px);
+  border-color: color-mix(
+    in srgb,
+    var(--chip-color) 52%,
+    rgba(255, 255, 255, 0.12)
+  );
+  background: color-mix(
+    in srgb,
+    var(--chip-color) 16%,
+    rgba(255, 255, 255, 0.035)
+  );
+}
+.dash-character-card-v3 canvas {
+  image-rendering: pixelated;
+}
+.dash-character-card-v3 b,
+.dash-character-card-v3 span {
+  display: block;
+}
+.dash-character-card-v3 b {
+  margin-top: 7px;
+  font-size: 13px;
+}
+.dash-character-card-v3 span {
+  margin-top: 4px;
+  color: #9aa3af;
+  font-size: 11px;
+  line-height: 1.3;
+}
+@media (max-width: 760px) {
+  .dash-nav-v3,
+  .dash-character-roster-v3 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .dash-character-hero-v3 {
+    grid-template-columns: 1fr;
+  }
 }
