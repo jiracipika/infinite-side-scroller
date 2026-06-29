@@ -576,6 +576,7 @@ export class GameEngine {
     rp.health = remote.snapshot.health;
     rp.maxHealth = remote.snapshot.maxHealth;
     rp.distance = remote.snapshot.distance;
+    rp.hasDoubleJumped = remote.snapshot.hasDoubleJumped;
     rp.alive = remote.snapshot.alive !== false && remote.snapshot.health > 0;
   }
 
@@ -710,9 +711,15 @@ export class GameEngine {
         const dashDir = this.player.facingRight ? 1 : -1;
         this.player.vx = dashDir * 600;
       }
-      if (cmd.jumpPressed && this.player.onGround) {
-        this.player.vy = tuning.jumpVelocity;
-        this.player.onGround = false;
+      if (cmd.jumpPressed) {
+        if (this.player.onGround) {
+          this.player.vy = tuning.jumpVelocity;
+          this.player.onGround = false;
+          this.player.hasDoubleJumped = false;
+        } else if (!this.player.hasDoubleJumped) {
+          this.player.vy = tuning.jumpVelocity;
+          this.player.hasDoubleJumped = true;
+        }
       }
 
       this.player.vy += tuning.gravity * dt;
@@ -741,6 +748,8 @@ export class GameEngine {
       this.player.y = snapshot.y;
       this.player.vx = snapshot.vx;
       this.player.vy = snapshot.vy;
+      this.player.onGround = snapshot.onGround;
+      this.player.hasDoubleJumped = snapshot.hasDoubleJumped;
       this.reconcileOffsetX = 0;
       this.reconcileOffsetY = 0;
       this.reconciliationCount += 1;
@@ -773,6 +782,7 @@ export class GameEngine {
       vy: this.player.vy,
       facingRight: this.player.facingRight,
       onGround: this.player.onGround,
+      hasDoubleJumped: this.player.hasDoubleJumped,
       health: this.player.health,
       maxHealth: this.player.maxHealth,
       alive: this.player.alive,

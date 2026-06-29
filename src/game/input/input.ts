@@ -21,6 +21,7 @@ export class InputManager {
   private touchRight = false;
   private touchJump = false;
   private touchJumpPressed = false;
+  private netJumpPressed = false;
   private touchAttack = false;
   private touchAttackPressed = false;
   private touchDash = false;
@@ -54,7 +55,10 @@ export class InputManager {
             break;
           case 'jump-press':
             if (value) {
-              if (!this.touchJump) this.touchJumpPressed = true;
+              if (!this.touchJump) {
+                this.touchJumpPressed = true;
+                this.netJumpPressed = true;
+              }
               this.touchJump = true;
             } else {
               this.touchJump = false;
@@ -84,7 +88,11 @@ export class InputManager {
 
   private onKeyDown = (e: KeyboardEvent): void => {
     if (!this.acceptsKey(e.code)) return;
+    const wasDown = this.keys.has(e.code);
     this.keys.add(e.code);
+    if (!wasDown && (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW')) {
+      this.netJumpPressed = true;
+    }
     if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) {
       e.preventDefault();
     }
@@ -178,7 +186,11 @@ export class InputManager {
         ? 1
         : 0;
 
-    const jumpPressed = this.isDown('Space') || this.isDown('ArrowUp') || this.isDown('KeyW') || this.touchJump;
+    const jumpPressed =
+      this.netJumpPressed ||
+      this.isPressed('Space') ||
+      this.isPressed('ArrowUp') ||
+      this.isPressed('KeyW');
     const attackPressed = this.isAttackDown();
     const dashPressed = (
       (this.acceptsKey('KeyQ') && this.keys.has('KeyQ'))
@@ -191,6 +203,8 @@ export class InputManager {
       (this.acceptsKey('ArrowDown') && this.keys.has('ArrowDown'))
       || (this.acceptsKey('KeyL') && this.keys.has('KeyL'))
     );
+
+    this.netJumpPressed = false;
 
     return {
       seq,
