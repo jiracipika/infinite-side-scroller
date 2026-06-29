@@ -3,7 +3,6 @@
 import { useState, useEffect, useMemo, type FC } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ADVENTURE_LEVELS, TIME_ATTACK_LEVELS, type LevelConfig } from '@/game/data/levels';
-import { GAME_MODES } from '@/game/data/game-modes';
 
 interface LevelProgress {
   stars: number;       // 0-3
@@ -180,31 +179,6 @@ const LevelSelectScreen: FC<Props> = ({ onLevelSelect, onBack, onEndlessPlay }) 
     if (tab === 'time-attack') return TIME_ATTACK_LEVELS;
     return [];
   }, [tab]);
-
-  const handleLevelComplete = (level: LevelConfig, score: number) => {
-    const updated = { ...loadProgress() };
-    const p = ensureDefault(updated, level.id);
-
-    // Unlock next level
-    const allLevels = [...ADVENTURE_LEVELS, ...TIME_ATTACK_LEVELS];
-    const idx = allLevels.findIndex(l => l.id === level.id);
-    if (idx >= 0 && idx < allLevels.length - 1) {
-      const next = allLevels[idx + 1];
-      if (next && next.mode === level.mode) {
-        if (!updated[next.id]) updated[next.id] = { stars: 0, bestScore: 0, unlocked: false };
-        updated[next.id].unlocked = true;
-      }
-    }
-
-    // Update stars
-    if (score >= level.starThresholds.three) p.stars = 3;
-    else if (score >= level.starThresholds.two) p.stars = Math.max(p.stars, 2);
-    else if (score >= level.starThresholds.one) p.stars = Math.max(p.stars, 1);
-
-    p.bestScore = Math.max(p.bestScore, score);
-    saveProgress(updated);
-    setProgress(updated);
-  };
 
   const tabs = [
     { id: 'adventure' as const, label: 'Adventure', icon: '🏰' },

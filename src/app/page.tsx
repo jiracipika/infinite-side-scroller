@@ -10,7 +10,7 @@ import GameOverScreen from '@/components/GameOverScreen';
 import HUD from '@/components/HUD';
 import TouchControls from '@/components/TouchControls';
 import SplitScreenMode from '@/components/SplitScreenMode';
-import LevelSelectScreen, { ensureDefault, loadProgress, saveProgress } from '@/components/LevelSelectScreen';
+import LevelSelectScreen from '@/components/LevelSelectScreen';
 import LevelCompleteScreen from '@/components/LevelCompleteScreen';
 import type { LevelConfig } from '@/game/data/levels';
 import { ALL_LEVELS } from '@/game/data/levels';
@@ -642,32 +642,6 @@ export default function Home() {
     startGame(level.seed);
     gameRef.current?.setLevel(level);
   }, [startGame]);
-
-  const handleLevelComplete = useCallback((result: { score: number; coins: number; distance: number; timeMs: number; enemiesDefeated: number }) => {
-    setLevelResult(result);
-    goToLevelComplete();
-    // Update level progress in localStorage
-    const level = currentLevelRef.current;
-    if (level) {
-      const progress = loadProgress();
-      const p = ensureDefault(progress, level.id);
-      if (result.score >= level.starThresholds.three) p.stars = 3;
-      else if (result.score >= level.starThresholds.two) p.stars = Math.max(p.stars, 2);
-      else if (result.score >= level.starThresholds.one) p.stars = Math.max(p.stars, 1);
-      p.bestScore = Math.max(p.bestScore, result.score);
-      // Unlock next level
-      const idx = ALL_LEVELS.findIndex(l => l.id === level.id);
-      if (idx >= 0 && idx < ALL_LEVELS.length - 1) {
-        const next = ALL_LEVELS[idx + 1];
-        if (next && next.mode === level.mode) {
-          if (!progress[next.id]) progress[next.id] = { stars: 0, bestScore: 0, unlocked: false };
-          progress[next.id].unlocked = true;
-        }
-        saveProgress(progress);
-      }
-    },
-    [goToLevelComplete],
-  );
 
   const handleNextLevel = useCallback(() => {
     const level = currentLevelRef.current;
@@ -1311,7 +1285,7 @@ export default function Home() {
       syncAbortRef.current = null;
       if (timer !== null) window.clearTimeout(timer);
     };
-  }, [applyRemotePlayerFromState, multiplayerSession, state]);
+  }, [applyRemotePlayerFromState, multiplayerSession, seed, state]);
 
   // ── WebRTC P2P connection establishment ──────────────────────────────
   // After a multiplayer session starts, attempt a direct device-to-device
