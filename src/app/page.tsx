@@ -995,8 +995,8 @@ export default function Home() {
         const commandSeq = ++inputSeqRef.current;
         const input = game.buildNetInputCommand(
           commandSeq,
-          sinceLastSend,
           Date.now(),
+          sinceLastSend,
         );
         const carryIntent = pendingCarryIntentRef.current;
         pendingCarryIntentRef.current = null;
@@ -1081,8 +1081,8 @@ export default function Home() {
       const commandSeq = ++inputSeqRef.current;
       const input = game.buildNetInputCommand(
         commandSeq,
-        sinceLastSend,
         Date.now(),
+        sinceLastSend,
       );
       const pendingInput = { seq: commandSeq, sentAt: nowPerf, input };
 

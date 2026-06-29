@@ -583,7 +583,7 @@ export class Player {
     return true;
   }
 
-  private _doubleJump = false;
+  private _doubleJump = true;
   hasDoubleJumped = false;
   setDoubleJump(enabled: boolean): void {
     this._doubleJump = enabled;
@@ -595,11 +595,19 @@ export class Player {
     this.hasDoubleJumped = false;
   }
   get canDoubleJump(): boolean {
-    return (this._doubleJump || this.hasInnateDoubleJump()) && !this.hasDoubleJumped;
+    return (
+      !this.onGround &&
+      (this._doubleJump || this.hasInnateDoubleJump()) &&
+      !this.hasDoubleJumped
+    );
   }
   useDoubleJump(): void {
     if (this.canDoubleJump) {
       this.vy = this.config.jumpVelocity;
+      this.onGround = false;
+      this.coyoteTimer = this.COYOTE_TIME;
+      this.touchingWall = false;
+      this.wallSliding = false;
       this.hasDoubleJumped = true;
     }
   }
