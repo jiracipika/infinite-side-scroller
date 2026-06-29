@@ -139,26 +139,16 @@ export class RTCTransport {
     };
   }
 
-  get connectionState(): RTCConnectionState {
-    return this.state;
-  }
-  get isOpen(): boolean {
-    return this.state === "connected" && this.channel?.readyState === "open";
-  }
-  get rtt(): number {
-    return this.rttEwma;
-  }
-  get bufferedAmount(): number {
-    return this.channel?.bufferedAmount ?? 0;
-  }
+  get connectionState(): RTCConnectionState { return this.state; }
+  get isOpen(): boolean { return this.state === 'connected' && this.channel?.readyState === 'open'; }
+  get rtt(): number { return this.rttEwma; }
+  get bufferedAmount(): number { return this.channel?.bufferedAmount ?? 0; }
 
   // ── Host side: create data channel + SDP offer ──────────────────────
 
-  async createOffer(
-    iceTimeoutMs = DEFAULT_ICE_TIMEOUT_MS,
-  ): Promise<RTCSessionDescriptionInit> {
-    this.setState("connecting");
-    this.channel = this.pc.createDataChannel("game", {
+  async createOffer(iceTimeoutMs = DEFAULT_ICE_TIMEOUT_MS): Promise<RTCSessionDescriptionInit> {
+    this.setState('connecting');
+    this.channel = this.pc.createDataChannel('game', {
       // Gameplay state is resent every tick, so stale ordered packets should not
       // block newer movement updates on spotty Wi‑Fi. Unordered + short
       // retransmit keeps controls responsive and prevents head-of-line stalls.
@@ -216,7 +206,7 @@ export class RTCTransport {
 
   send(msg: RTCMessage): boolean {
     if (!this.isOpen) return false;
-    if ((this.channel?.bufferedAmount ?? 0) > 64_000) return false;
+    if ((this.channel?.bufferedAmount ?? 0) > 96_000) return false;
     try {
       this.channel!.send(JSON.stringify(msg));
       return true;
@@ -244,7 +234,7 @@ export class RTCTransport {
   // ── Internals ───────────────────────────────────────────────────────
 
   private setupChannel(ch: RTCDataChannel): void {
-    ch.binaryType = "arraybuffer";
+    ch.binaryType = 'arraybuffer';
     ch.bufferedAmountLowThreshold = 16_000;
     ch.onopen = () => {
       this.setState("connected");

@@ -1,52 +1,23 @@
-"use client";
+'use client';
 
-import { useEffect, useCallback, useRef, useState } from "react";
-import { GameEngine, type CameraMode } from "@/game";
-import { useGameStore } from "@/components/GameStore";
-import { loadSelectedCharacter } from "@/game/data/characters";
-import StartScreen from "@/components/StartScreen";
-import PauseMenu from "@/components/PauseMenu";
-import GameOverScreen from "@/components/GameOverScreen";
-import HUD from "@/components/HUD";
-import TouchControls from "@/components/TouchControls";
-import SplitScreenMode from "@/components/SplitScreenMode";
-import LevelSelectScreen, {
-  ensureDefault,
-  loadProgress,
-  saveProgress,
-} from "@/components/LevelSelectScreen";
-import LevelCompleteScreen from "@/components/LevelCompleteScreen";
-import type { LevelConfig } from "@/game/data/levels";
-import { ALL_LEVELS } from "@/game/data/levels";
-import {
-  createMultiplayerRoom,
-  joinMultiplayerRoom,
-  leaveMultiplayerRoom,
-  syncMultiplayerRoom,
-  postRTCOffer,
-  postRTCAnswer,
-  getRTCSignal,
-  clearRTCSignal,
-  postRTCCandidates,
-} from "@/game/multiplayer/client";
-import {
-  RTCTransport,
-  isRTCAvailable,
-  type RTCSyncMessage,
-} from "@/game/multiplayer/rtc";
-import type {
-  NetInputCommand,
-  NetPlayerSnapshot,
-  NetRoomState,
-  NetSyncResponse,
-} from "@/game/multiplayer/types";
-import {
-  MP_INPUT_BUFFER_SIZE,
-  MP_INTERPOLATION_DELAY_MS,
-  MP_P2P_INTERPOLATION_DELAY_MS,
-  MP_TICK_MS,
-  MP_HTTP_TICK_DIVISOR,
-} from "@/game/multiplayer/config";
+import { useEffect, useCallback, useRef, useState } from 'react';
+import { GameEngine, type CameraMode } from '@/game';
+import { useGameStore } from '@/components/GameStore';
+import { loadSelectedCharacter } from '@/game/data/characters';
+import StartScreen from '@/components/StartScreen';
+import PauseMenu from '@/components/PauseMenu';
+import GameOverScreen from '@/components/GameOverScreen';
+import HUD from '@/components/HUD';
+import TouchControls from '@/components/TouchControls';
+import SplitScreenMode from '@/components/SplitScreenMode';
+import LevelSelectScreen, { ensureDefault, loadProgress, saveProgress } from '@/components/LevelSelectScreen';
+import LevelCompleteScreen from '@/components/LevelCompleteScreen';
+import type { LevelConfig } from '@/game/data/levels';
+import { ALL_LEVELS } from '@/game/data/levels';
+import { createMultiplayerRoom, joinMultiplayerRoom, leaveMultiplayerRoom, syncMultiplayerRoom, postRTCOffer, postRTCAnswer, getRTCSignal, clearRTCSignal, postRTCCandidates } from '@/game/multiplayer/client';
+import { RTCTransport, isRTCAvailable, type RTCSyncMessage } from '@/game/multiplayer/rtc';
+import type { NetInputCommand, NetPlayerSnapshot, NetRoomState, NetSyncResponse } from '@/game/multiplayer/types';
+import { MP_INPUT_BUFFER_SIZE, MP_INTERPOLATION_DELAY_MS, MP_P2P_INTERPOLATION_DELAY_MS, MP_TICK_MS, MP_HTTP_TICK_DIVISOR } from '@/game/multiplayer/config';
 import {
   addRunRewards,
   buildProgressionBonuses,
@@ -662,49 +633,35 @@ export default function Home() {
   );
 
   // ── Level mode handlers ──
-  const handleStartLevel = useCallback(
-    (level: LevelConfig) => {
-      setMultiplayerSession(null);
-      setCurrentLevel(level);
-      currentLevelRef.current = level;
-      setLevelResult(null);
-      gameRef.current?.setMultiplayerEnabled(false);
-      startGame(level.seed);
-      gameRef.current?.setLevel(level);
-    },
-    [startGame],
-  );
+  const handleStartLevel = useCallback((level: LevelConfig) => {
+    setMultiplayerSession(null);
+    setCurrentLevel(level);
+    currentLevelRef.current = level;
+    setLevelResult(null);
+    gameRef.current?.setMultiplayerEnabled(false);
+    startGame(level.seed);
+    gameRef.current?.setLevel(level);
+  }, [startGame]);
 
-  const handleLevelComplete = useCallback(
-    (result: {
-      score: number;
-      coins: number;
-      distance: number;
-      timeMs: number;
-      enemiesDefeated: number;
-    }) => {
-      setLevelResult(result);
-      goToLevelComplete();
-      // Update level progress in localStorage
-      const level = currentLevelRef.current;
-      if (level) {
-        const progress = loadProgress();
-        const p = ensureDefault(progress, level.id);
-        if (result.score >= level.starThresholds.three) p.stars = 3;
-        else if (result.score >= level.starThresholds.two)
-          p.stars = Math.max(p.stars, 2);
-        else if (result.score >= level.starThresholds.one)
-          p.stars = Math.max(p.stars, 1);
-        p.bestScore = Math.max(p.bestScore, result.score);
-        // Unlock next level
-        const idx = ALL_LEVELS.findIndex((l) => l.id === level.id);
-        if (idx >= 0 && idx < ALL_LEVELS.length - 1) {
-          const next = ALL_LEVELS[idx + 1];
-          if (next && next.mode === level.mode) {
-            if (!progress[next.id])
-              progress[next.id] = { stars: 0, bestScore: 0, unlocked: false };
-            progress[next.id].unlocked = true;
-          }
+  const handleLevelComplete = useCallback((result: { score: number; coins: number; distance: number; timeMs: number; enemiesDefeated: number }) => {
+    setLevelResult(result);
+    goToLevelComplete();
+    // Update level progress in localStorage
+    const level = currentLevelRef.current;
+    if (level) {
+      const progress = loadProgress();
+      const p = ensureDefault(progress, level.id);
+      if (result.score >= level.starThresholds.three) p.stars = 3;
+      else if (result.score >= level.starThresholds.two) p.stars = Math.max(p.stars, 2);
+      else if (result.score >= level.starThresholds.one) p.stars = Math.max(p.stars, 1);
+      p.bestScore = Math.max(p.bestScore, result.score);
+      // Unlock next level
+      const idx = ALL_LEVELS.findIndex(l => l.id === level.id);
+      if (idx >= 0 && idx < ALL_LEVELS.length - 1) {
+        const next = ALL_LEVELS[idx + 1];
+        if (next && next.mode === level.mode) {
+          if (!progress[next.id]) progress[next.id] = { stars: 0, bestScore: 0, unlocked: false };
+          progress[next.id].unlocked = true;
         }
         saveProgress(progress);
       }
@@ -1074,36 +1031,26 @@ export default function Home() {
 
         const rtcBacklog = rtcRef.current.bufferedAmount;
         const sentRtcSync = rtcRef.current.send({
-          type: "sync",
+          type: 'sync',
           ts: nowPerf,
           seq: commandSeq,
           snapshot: localSnapshot,
           input,
-          enemies:
-            session.playerId === session.hostId && rtcBacklog < 48_000
-              ? game.getEnemySnapshots()
-              : undefined,
+          enemies: session.playerId === session.hostId && rtcBacklog < 48_000 ? game.getEnemySnapshots() : undefined,
           carryTargetId: carryIntent?.targetId,
           dropCarry: carryIntent?.dropCarry ?? false,
           killedEnemyIds: localKills.length > 0 ? localKills : undefined,
         });
 
-        if (
-          !sentRtcSync &&
-          performance.now() - lastResponseAtRef.current > 1800
-        ) {
-          setMultiplayerNotice(
-            "Wi‑Fi link is congested; smoothing multiplayer...",
-          );
+        if (!sentRtcSync && performance.now() - lastResponseAtRef.current > 1800) {
+          setMultiplayerNotice('Wi‑Fi link is congested; smoothing multiplayer...');
         } else if (sentRtcSync) {
           lastResponseAtRef.current = performance.now();
         }
 
         // Apply latest remote data received via data channel
         const remoteData = remoteRTCDataRef.current;
-        const remoteAgeMs = remoteData?.receivedAt
-          ? performance.now() - remoteData.receivedAt
-          : Number.POSITIVE_INFINITY;
+        const remoteAgeMs = remoteData?.receivedAt ? performance.now() - remoteData.receivedAt : Number.POSITIVE_INFINITY;
         if (remoteData?.snapshot && remoteAgeMs < 1500) {
           const ri = remotePlayerInfoRef.current;
           game.setRemotePlayerState({
@@ -1411,7 +1358,7 @@ export default function Home() {
       };
 
       transport.onMessage = (msg) => {
-        if (msg.type === "sync") {
+        if (msg.type === 'sync') {
           const seq = msg.seq ?? 0;
           if (seq && seq <= remoteRTCSeqRef.current) return;
           remoteRTCSeqRef.current = Math.max(remoteRTCSeqRef.current, seq);

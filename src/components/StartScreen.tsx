@@ -70,15 +70,12 @@ interface Props {
 }
 
 const POLISH_PLAN = [
-  { label: "Play", detail: "Primary run modes stay on the first stop" },
-  {
-    label: "Connect",
-    detail: "Wi‑Fi rooms use one guided panel with clear status",
-  },
-  { label: "Style", detail: "Character select is now a dedicated screen" },
+  { label: "Start", detail: "Endless is always one tap away" },
+  { label: "Pick", detail: "Modes are grouped by solo, co-op, and competitive play" },
+  { label: "Tune", detail: "Runner, profile, saves, and settings stay below the fold" },
 ];
 
-type MenuView = "play" | "compete" | "character" | "profile";
+type MenuView = "play" | "character" | "profile";
 
 const StartScreen: FC<Props> = ({
   onPlay,
@@ -343,9 +340,9 @@ const StartScreen: FC<Props> = ({
           </div>
 
           <p className="dash-hero-lede">
-            A redesigned command deck with one-tap play, guided Wi‑Fi rooms, and
-            a separate character bay so navigation feels intentional instead of
-            cluttered.
+            A clearer command center: primary play up front, multiplayer and
+            competitive modes in one row, and setup tools tucked into focused
+            cards instead of a cluttered button pile.
           </p>
 
           <div
@@ -395,43 +392,87 @@ const StartScreen: FC<Props> = ({
           </div>
         </section>
 
-        <nav
-          className="dash-command-panel dash-nav-v3"
-          aria-label="Main menu navigation"
-        >
-          {(
-            [
-              ["play", "Play", "Endless, adventure, co-op"],
-              ["compete", "Compete", "Daily, boards, ghosts"],
-              ["character", "Character", selectedCharacter.name],
-              ["profile", "Profile", activeSlot?.name ?? "Setup"],
-            ] as const
-          ).map(([view, label, detail]) => (
+        <section className="dash-command-panel dash-modes-v2">
+          <div className="dash-section-title-row-v2">
+            <div>
+              <p className="dash-eyebrow">Modes</p>
+              <h2>Choose your run</h2>
+            </div>
+          </div>
+          <div className="dash-flow-tabs-v2" aria-label="Menu flow">
+            <span className="is-active">Play</span>
+            <span>Compete</span>
+            <span>Customize</span>
+          </div>
+          <div className="dash-mode-grid-v2">
+            {onLevelSelect && (
+              <button className="dash-mode-card-v2 solo" onClick={onLevelSelect}>
+                <small>Solo</small>
+                <b>Adventure</b>
+                <span>Levels + time attacks</span>
+                <em>→</em>
+              </button>
+            )}
             <button
-              key={view}
-              type="button"
-              className={activeView === view ? "is-active" : ""}
-              onClick={() => setActiveView(view)}
+              className="dash-mode-card-v2 coop"
+              onClick={() => setShowMultiplayer((v) => !v)}
             >
-              <b>{label}</b>
-              <span>{detail}</span>
+              <small>Co-op</small>
+              <b>{showMultiplayer ? "Hide Wi-Fi" : "Same Wi‑Fi"}</b>
+              <span>Host or join nearby</span>
+              <em>↔</em>
             </button>
-          ))}
-        </nav>
+            <button className="dash-mode-card-v2 coop" onClick={handleSplitScreen}>
+              <small>Co-op</small>
+              <b>Split Screen</b>
+              <span>Two players locally</span>
+              <em>▦</em>
+            </button>
+            {onPlayDailyChallenge && (
+              <button
+                className="dash-mode-card-v2 compete"
+                onClick={handleDailyChallengeClick}
+                disabled={dailyUsed}
+              >
+                <small>Compete</small>
+                <b>{dailyUsed ? "Daily Done" : "Daily"}</b>
+                <span>{dailyUsed ? "Resets tomorrow" : "One ranked shot"}</span>
+                <em>★</em>
+              </button>
+            )}
+            <button
+              className="dash-mode-card-v2 compete"
+              onClick={handleLeaderboardToggle}
+            >
+              <small>Compete</small>
+              <b>{showLeaderboard ? "Hide Board" : "Leaderboard"}</b>
+              <span>Records + ghost races</span>
+              <em>≡</em>
+            </button>
+            <button
+              className="dash-mode-card-v2 customize"
+              onClick={() => setShowProgression((v) => !v)}
+            >
+              <small>Customize</small>
+              <b>{showProgression ? "Hide Shop" : "Saves + Shop"}</b>
+              <span>Coins, checkpoints, perks</span>
+              <em>◇</em>
+            </button>
+          </div>
+        </section>
 
         {activeView === "play" && (
           <section className="dash-command-panel dash-modes-v2 dash-view-panel-v3">
             <div className="dash-section-title-row-v2">
               <div>
-                <p className="dash-eyebrow">Play</p>
+                <p className="dash-eyebrow">Modes</p>
                 <h2>Choose your run</h2>
               </div>
-              <button
-                className="dash-text-button-v2"
-                onClick={() => setShowSettings((s) => !s)}
-              >
-                Settings
-              </button>
+            </div>
+            <div className="dash-flow-tabs-v2" aria-label="Menu flow">
+              <span className="is-active">Play</span>
+              <span>Compete</span>
+              <span>Customize</span>
             </div>
             <div className="dash-mode-grid-v2">
               {onLevelSelect && (
@@ -450,8 +491,8 @@ const StartScreen: FC<Props> = ({
                 onClick={() => setShowMultiplayer((v) => !v)}
               >
                 <small>Co-op</small>
-                <b>{showMultiplayer ? "Close Wi‑Fi Room" : "Same Wi‑Fi"}</b>
-                <span>Host or join nearby with a room code</span>
+                <b>{showMultiplayer ? "Hide Wi-Fi" : "Same Wi‑Fi"}</b>
+                <span>Host or join nearby</span>
                 <em>↔</em>
               </button>
               <button
@@ -463,36 +504,14 @@ const StartScreen: FC<Props> = ({
                 <span>Two players locally</span>
                 <em>▦</em>
               </button>
-              <button
-                className="dash-mode-card-v2 customize"
-                onClick={() => setActiveView("character")}
-              >
-                <small>Style</small>
-                <b>Character Bay</b>
-                <span>Pick stats, look, and runner identity</span>
-                <em>✦</em>
-              </button>
-            </div>
-          </section>
-        )}
-
-        {activeView === "compete" && (
-          <section className="dash-command-panel dash-modes-v2 dash-view-panel-v3">
-            <div className="dash-section-title-row-v2">
-              <div>
-                <p className="dash-eyebrow">Compete</p>
-                <h2>Records and races</h2>
-              </div>
-            </div>
-            <div className="dash-mode-grid-v2">
               {onPlayDailyChallenge && (
                 <button
                   className="dash-mode-card-v2 compete"
                   onClick={handleDailyChallengeClick}
                   disabled={dailyUsed}
                 >
-                  <small>Daily</small>
-                  <b>{dailyUsed ? "Daily Done" : "Daily Challenge"}</b>
+                  <small>Compete</small>
+                  <b>{dailyUsed ? "Daily Done" : "Daily"}</b>
                   <span>
                     {dailyUsed ? "Resets tomorrow" : "One ranked shot"}
                   </span>
@@ -503,7 +522,7 @@ const StartScreen: FC<Props> = ({
                 className="dash-mode-card-v2 compete"
                 onClick={handleLeaderboardToggle}
               >
-                <small>Ghosts</small>
+                <small>Compete</small>
                 <b>{showLeaderboard ? "Hide Board" : "Leaderboard"}</b>
                 <span>Records + ghost races</span>
                 <em>≡</em>
@@ -512,10 +531,19 @@ const StartScreen: FC<Props> = ({
                 className="dash-mode-card-v2 customize"
                 onClick={() => setShowProgression((v) => !v)}
               >
-                <small>Progress</small>
+                <small>Customize</small>
                 <b>{showProgression ? "Hide Shop" : "Saves + Shop"}</b>
                 <span>Coins, checkpoints, perks</span>
                 <em>◇</em>
+              </button>
+              <button
+                className="dash-mode-card-v2 customize"
+                onClick={() => setShowSettings((s) => !s)}
+              >
+                <small>Setup</small>
+                <b>{showSettings ? "Hide Settings" : "Settings"}</b>
+                <span>Controls, audio, and display</span>
+                <em>⚙</em>
               </button>
             </div>
           </section>
@@ -523,59 +551,67 @@ const StartScreen: FC<Props> = ({
 
         {activeView === "character" && (
           <section className="dash-command-panel dash-runner-v2 dash-character-select-v3 dash-view-panel-v3">
-            <div className="dash-character-hero-v3">
+            <div className="dash-section-title-row-v2">
               <div>
-                <p className="dash-eyebrow">Character select</p>
+                <p className="dash-eyebrow">Runner</p>
                 <h2>{selectedCharacter.name}</h2>
-                <p>{selectedCharacter.description}</p>
-                <div className="dash-stat-stack-v2">
-                  <StatBar
-                    label="SPD"
-                    value={selectedCharacter.speed}
-                    color="#7170ff"
-                  />
-                  <StatBar
-                    label="JMP"
-                    value={selectedCharacter.jumpVelocity}
-                    color="#10b981"
-                  />
-                  <StatBar
-                    label="HP"
-                    value={selectedCharacter.maxHealth / 5}
-                    color="#f87171"
-                  />
-                </div>
               </div>
+              <span className="dash-subtle-pill-v2">
+                {selectedCharacter.description}
+              </span>
+            </div>
+            <div className="dash-runner-body-v2 dash-character-hero-v3">
               <div
-                className="dash-character-stage-v3"
+                className="dash-character-avatar-v2 dash-sprite-frame-v2 dash-character-stage-v3"
                 style={
                   {
                     "--hero-color": selectedCharacter.bodyColor,
+                    background: `linear-gradient(145deg, ${selectedCharacter.bodyColor}33, ${selectedCharacter.bodyColor}11)`,
+                    borderColor: selectedCharacter.outlineColor,
+                    boxShadow: `0 18px 50px ${selectedCharacter.bodyColor}28, inset 0 1px 0 rgba(255,255,255,0.18)`,
                   } as CSSProperties
                 }
               >
                 <CharacterSprite
                   characterId={selectedChar}
-                  size={132}
+                  size={124}
                   decorative
                 />
               </div>
+              <div className="dash-stat-stack-v2">
+                <StatBar
+                  label="SPD"
+                  value={selectedCharacter.speed}
+                  color="#7170ff"
+                />
+                <StatBar
+                  label="JMP"
+                  value={selectedCharacter.jumpVelocity}
+                  color="#10b981"
+                />
+                <StatBar
+                  label="HP"
+                  value={selectedCharacter.maxHealth / 5}
+                  color="#f87171"
+                />
+              </div>
             </div>
-            <div className="dash-character-roster-v3">
+            <div className="dash-character-grid-v2 dash-character-roster-v3">
               {CHARACTERS.map((c) => (
                 <button
                   key={c.id}
                   type="button"
-                  className={`dash-character-card-v3 ${selectedChar === c.id ? "is-active" : ""}`}
+                  className={`dash-character-chip-v2 dash-character-card-v3 ${selectedChar === c.id ? "is-active" : ""}`}
                   onClick={() => {
                     setSelectedChar(c.id);
                     saveSelectedCharacter(c.id);
                   }}
                   style={{ "--chip-color": c.bodyColor } as CSSProperties}
                 >
-                  <CharacterSprite characterId={c.id} size={42} decorative />
-                  <b>{c.name}</b>
-                  <span>{c.description}</span>
+                  <span className="dash-chip-sprite-v2">
+                    <CharacterSprite characterId={c.id} size={28} decorative />
+                  </span>
+                  {c.name}
                 </button>
               ))}
             </div>
