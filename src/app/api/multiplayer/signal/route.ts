@@ -21,11 +21,11 @@ export const revalidate = 0;
  */
 
 interface SignalEntry {
-  offer: any | null; // RTCSessionDescriptionInit
-  answer: any | null; // RTCSessionDescriptionInit
+  offer: RTCSessionDescriptionInit | null;
+  answer: RTCSessionDescriptionInit | null;
   hostId: string;
-  hostCandidates: any[]; // RTCIceCandidateInit[]
-  joinerCandidates: any[]; // RTCIceCandidateInit[]
+  hostCandidates: RTCIceCandidateInit[];
+  joinerCandidates: RTCIceCandidateInit[];
   candidatesVersion: number; // bumped whenever candidates change
   createdAt: number;
 }
@@ -162,9 +162,9 @@ export async function POST(request: NextRequest) {
     action?: string;
     roomId?: string;
     hostId?: string;
-    sdp?: any;
+    sdp?: RTCSessionDescriptionInit;
     role?: string;
-    candidates?: any[];
+    candidates?: RTCIceCandidateInit[];
   };
 
   if (!body?.action) return json({ error: 'action required' }, 400);
