@@ -31,6 +31,7 @@ export const DEFAULT_PLAYER_CONFIG: PlayerConfig = {
 };
 
 export type WeaponType = "orb" | "slingshot" | "bow";
+export type JumpKind = "ground" | "wall" | "double";
 
 export interface PlayerProjectile {
   x: number;
@@ -91,6 +92,7 @@ export class Player {
   facingRight = true;
   wallSliding = false;
   touchingWall = false;
+  lastJumpKind: JumpKind | null = null;
   private wasOnGround = false;
   private coyoteTimer = 0;
   private readonly COYOTE_TIME = 0.1; // seconds of coyote time
@@ -181,6 +183,8 @@ export class Player {
     groundY: number,
     platforms: Platform[] = [],
   ): void {
+    this.lastJumpKind = null;
+
     // Tick timers (dt-based)
     if (this.invulnerableTimer > 0) {
       this.invulnerableTimer -= dt;
@@ -392,6 +396,7 @@ export class Player {
       this.touchingWall = false;
       this.wallSliding = false;
       this.jumpBufferTimer = 0;
+      this.lastJumpKind = "ground";
       return true;
     }
 
@@ -402,12 +407,14 @@ export class Player {
       this.touchingWall = false;
       this.wallSliding = false;
       this.jumpBufferTimer = 0;
+      this.lastJumpKind = "wall";
       return true;
     }
 
     if (this.canDoubleJump) {
       this.useDoubleJump();
       this.jumpBufferTimer = 0;
+      this.lastJumpKind = "double";
       return true;
     }
 

@@ -899,6 +899,57 @@ export class GameRenderer {
           ctx.arc(screen.x, screen.y, p.size * 2, 0, Math.PI * 2);
           ctx.fill();
           break;
+        case "air_jump":
+          if (p.size > 10) {
+            const progress = 1 - alpha;
+            ctx.globalAlpha = alpha * 0.8;
+            ctx.strokeStyle = p.color;
+            ctx.lineWidth = Math.max(1.5, p.size * 0.12);
+            ctx.beginPath();
+            ctx.arc(
+              screen.x,
+              screen.y,
+              p.size * (0.65 + progress * 1.3),
+              0,
+              Math.PI * 2,
+            );
+            ctx.stroke();
+          } else {
+            ctx.beginPath();
+            ctx.arc(screen.x, screen.y, p.size, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          break;
+        case "stomp_ring":
+          if (p.size > 10) {
+            const progress = 1 - alpha;
+            ctx.globalAlpha = alpha * 0.9;
+            ctx.strokeStyle = p.color;
+            ctx.lineWidth = Math.max(2, p.size * 0.14);
+            ctx.beginPath();
+            ctx.ellipse(
+              screen.x,
+              screen.y,
+              p.size * (0.9 + progress * 1.4),
+              p.size * (0.22 + progress * 0.25),
+              0,
+              0,
+              Math.PI * 2,
+            );
+            ctx.stroke();
+          } else {
+            ctx.beginPath();
+            ctx.arc(screen.x, screen.y, p.size, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          break;
+        case "damage_burst":
+          ctx.save();
+          ctx.translate(screen.x, screen.y);
+          ctx.rotate((1 - alpha) * Math.PI * 1.7);
+          ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+          ctx.restore();
+          break;
         case "enemy_death":
           ctx.fillRect(
             screen.x - p.size / 2,

@@ -6,7 +6,7 @@
 import { Camera, DEFAULT_CAMERA_CONFIG, type CameraMode } from "./camera";
 import { ChunkManager } from "../world/chunk-manager";
 import { InputManager } from "../input/input";
-import { Player, DEFAULT_PLAYER_CONFIG } from "../entities/player";
+import { Player, DEFAULT_PLAYER_CONFIG, type JumpKind } from "../entities/player";
 import { Enemy } from "../entities/Enemy";
 import { Slime } from "../entities/Slime";
 import { Beetle } from "../entities/Beetle";
@@ -1465,13 +1465,37 @@ export class GameEngine {
       this.player.vy = 180;
       enemy.disrupt();
       this.camera.shake(5, 0.25);
-      this.particles.spawnScorePopup(
-        this.player.centerX,
-        this.player.y - 12,
-        "ABDUCTED!",
-        "#22d3ee",
-      );
+      this.spawnPlayerDamageFeedback("ABDUCTED!", "#22d3ee");
     }
+  }
+
+  private spawnJumpFeedback(kind: JumpKind | null): void {
+    if (kind === "ground") {
+      this.particles.spawnJumpDust(this.player.centerX, this.player.bottom);
+      return;
+    }
+
+    if (kind === "wall") {
+      this.particles.spawnJumpDust(this.player.centerX, this.player.centerY);
+      this.particles.spawnAirJump(this.player.centerX, this.player.centerY);
+      this.camera.shake(1.1, 0.08);
+      return;
+    }
+
+    if (kind === "double") {
+      this.particles.spawnAirJump(this.player.centerX, this.player.centerY);
+      this.camera.shake(1.3, 0.09);
+    }
+  }
+
+  private spawnPlayerDamageFeedback(text: string = "-1 ♥", color: string = "#ef4444"): void {
+    this.particles.spawnDamageBurst(this.player.centerX, this.player.centerY, color);
+    this.particles.spawnScorePopup(
+      this.player.centerX,
+      this.player.y - 10,
+      text,
+      color,
+    );
   }
 
   private update(dt: number): void {
@@ -1547,20 +1571,17 @@ export class GameEngine {
       this.player.onGround = false;
       this.player.facingRight = this.remotePlayer.facingRight;
     } else {
+      const fallSpeedBeforeUpdate = this.player.vy;
       this.player.update(dt, this.input, groundY, platforms);
+      this.spawnJumpFeedback(this.player.lastJumpKind);
 
       // Landing particles
       if (this.player.onGround && !this.wasOnGround) {
-        this.particles.spawnLanding(this.player.centerX, this.player.bottom);
-      }
-
-      // Jump dust particles
-      const jumpPressed =
-        this.input.isPressed("Space") ||
-        this.input.isPressed("ArrowUp") ||
-        this.input.isPressed("KeyW");
-      if (jumpPressed && (this.player.onGround || this.player.vy < -100)) {
-        this.particles.spawnJumpDust(this.player.centerX, this.player.bottom);
+        const impact = Math.max(0.7, Math.min(1.8, fallSpeedBeforeUpdate / 520));
+        this.particles.spawnLanding(this.player.centerX, this.player.bottom, impact);
+        if (impact > 1.1) {
+          this.camera.shake(impact * 1.1, 0.08);
+        }
       }
     }
 
@@ -1642,7 +1663,7 @@ export class GameEngine {
       remote.vy = Math.max(remote.vy, 120);
       this.playerBounceCooldown = 0.18;
       this.camera.shake(1.6, 0.1);
-      this.particles.spawnLanding(
+      this.particles.spawnStompImpact(
         this.player.centerX,
         Math.min(this.player.bottom, remote.y + 2),
       );
@@ -1702,8 +1723,8 @@ export class GameEngine {
             this.input.isDown("ArrowUp") ||
             this.input.isDown("KeyW");
           this.player.stompBounce(wantsBoostedBounce);
-          this.camera.shake(2, 0.12);
-          this.particles.spawnLanding(
+          this.camera.shake(wantsBoostedBounce ? 2.6 : 2, 0.12);
+          this.particles.spawnStompImpact(
             this.player.centerX,
             Math.min(this.player.bottom, enemy.y + 2),
           );
@@ -1731,12 +1752,7 @@ export class GameEngine {
             this.player.vx = kb;
             this.player.vy = -250;
             this.camera.shake(6, 0.3);
-            this.particles.spawnScorePopup(
-              this.player.centerX,
-              this.player.y - 10,
-              "-1 ♥",
-              "#ef4444",
-            );
+            this.spawnPlayerDamageFeedback();
             this.separatePlayerFromEnemy(enemy);
           } else {
             this.separatePlayerFromEnemy(enemy);
@@ -1788,12 +1804,8 @@ export class GameEngine {
           ) {
             if (this.player.takeDamage(proj.damage)) {
               proj.life = 0;
-              this.particles.spawnScorePopup(
-                this.player.centerX,
-                this.player.y - 10,
-                "-1 ♥",
-                "#ef4444",
-              );
+              this.camera.shake(4, 0.18);
+              this.spawnPlayerDamageFeedback();
             }
           }
         }
@@ -1813,12 +1825,7 @@ export class GameEngine {
         if (this.player.takeDamage(1)) {
           this.player.vy = -300;
           this.camera.shake(5, 0.25);
-          this.particles.spawnScorePopup(
-            this.player.centerX,
-            this.player.y - 10,
-            "-1 ♥",
-            "#ef4444",
-          );
+          this.spawnPlayerDamageFeedback();
         }
       }
     }
@@ -1871,6 +1878,7 @@ export class GameEngine {
             break;
           case "doubleJump":
             this.player.restoreDoubleJump();
+            this.particles.spawnAirJump(c.x + c.width / 2, c.y + c.height / 2);
             this.particles.spawnScorePopup(c.x, c.y, "2x JUMP!", "#a855f7");
             break;
           case "shield":
@@ -1975,6 +1983,7 @@ export class GameEngine {
     if (!this.player.alive && this.player.tryAutoRevive()) {
       this.placePlayerOnSafeReviveGround();
       this.camera.shake(4, 0.25);
+      this.particles.spawnAirJump(this.player.centerX, this.player.centerY);
       this.particles.spawnScorePopup(
         this.player.centerX,
         this.player.y - 10,
@@ -1986,6 +1995,7 @@ export class GameEngine {
     if (!this.player.alive && this.player.tryCoinRevive(25)) {
       this.placePlayerOnSafeReviveGround();
       this.camera.shake(5, 0.3);
+      this.particles.spawnAirJump(this.player.centerX, this.player.centerY);
       this.particles.spawnScorePopup(
         this.player.centerX,
         this.player.y - 10,
