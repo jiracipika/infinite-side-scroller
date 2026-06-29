@@ -1,3 +1,5 @@
+import { BASE_CHARACTER_IDS, CHARACTERS, isBaseCharacter } from '@/game/data/characters';
+
 export type SaveSlotId = 'slot1' | 'slot2' | 'slot3';
 
 export interface PlayerProgressionBonuses {
@@ -42,6 +44,7 @@ export interface SaveSlot {
   bestDistance: number;
   totalRuns: number;
   unlockedUpgradeIds: string[];
+  unlockedCharacterIds: string[];
   checkpoint: RunCheckpoint | null;
 }
 
@@ -105,6 +108,7 @@ function createSlot(id: SaveSlotId, label: string): SaveSlot {
     bestDistance: 0,
     totalRuns: 0,
     unlockedUpgradeIds: [],
+    unlockedCharacterIds: [...BASE_CHARACTER_IDS],
     checkpoint: null,
   };
 }
@@ -142,6 +146,12 @@ function normalizeSlot(value: unknown, fallback: SaveSlot): SaveSlot {
   const unlocked = Array.isArray(s.unlockedUpgradeIds)
     ? s.unlockedUpgradeIds.filter((id): id is string => typeof id === 'string' && id.length > 0)
     : [];
+  const unlockedCharacters = Array.from(new Set([
+    ...BASE_CHARACTER_IDS,
+    ...(Array.isArray(s.unlockedCharacterIds)
+      ? s.unlockedCharacterIds.filter((id): id is string => CHARACTERS.some((character) => character.id === id))
+      : []),
+  ]));
   return {
     ...fallback,
     name: typeof s.name === 'string' && s.name.trim() ? s.name.trim().slice(0, 18) : fallback.name,
@@ -154,6 +164,7 @@ function normalizeSlot(value: unknown, fallback: SaveSlot): SaveSlot {
     bestDistance: Number.isFinite(s.bestDistance) ? Math.max(0, Math.floor(Number(s.bestDistance))) : fallback.bestDistance,
     totalRuns: Number.isFinite(s.totalRuns) ? Math.max(0, Math.floor(Number(s.totalRuns))) : fallback.totalRuns,
     unlockedUpgradeIds: unlocked,
+    unlockedCharacterIds: unlockedCharacters,
     checkpoint: normalizeCheckpoint(s.checkpoint),
   };
 }
@@ -275,6 +286,29 @@ export function addRunRewards(slotId: SaveSlotId, run: { coins: number; score: n
     bestDistance: Math.max(slot.bestDistance, Math.max(0, Math.floor(run.distance))),
     checkpoint: null,
   }));
+}
+
+
+export function purchaseCharacter(slotId: SaveSlotId, characterId: string): { ok: boolean; reason?: string; slots: SaveSlot[] } {
+  const character = CHARACTERS.find((item) => item.id === characterId);
+  if (!character) return { ok: false, reason: 'Unknown character', slots: loadSaveSlots() };
+  const slots = loadSaveSlots();
+  const slot = slots.find((s) => s.id === slotId);
+  if (!slot) return { ok: false, reason: 'Missing slot', slots };
+  if (isBaseCharacter(characterId) || slot.unlockedCharacterIds.includes(characterId)) {
+    return { ok: false, reason: 'Already unlocked', slots };
+  }
+  if (slot.bankCoins < character.unlockCost) {
+    return { ok: false, reason: 'Not enough coins', slots };
+  }
+  const next = withUpdatedSlot(slotId, (current) => ({
+    ...current,
+    updatedAt: now(),
+    bankCoins: current.bankCoins - character.unlockCost,
+    spentCoins: current.spentCoins + character.unlockCost,
+    unlockedCharacterIds: [...current.unlockedCharacterIds, characterId],
+  }));
+  return { ok: true, slots: next };
 }
 
 export function purchaseUpgrade(slotId: SaveSlotId, upgradeId: string): { ok: boolean; reason?: string; slots: SaveSlot[] } {

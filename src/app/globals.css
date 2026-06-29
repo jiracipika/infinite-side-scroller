@@ -50,8 +50,8 @@
   --ios-margin: 16px;
 
   /* Apple-like glass tokens for menus */
-  --glass-surface: rgba(28, 28, 30, 0.66);
-  --glass-surface-strong: rgba(44, 44, 46, 0.78);
+  --glass-surface: rgba(20, 22, 30, 0.9);
+  --glass-surface-strong: rgba(34, 37, 48, 0.94);
   --glass-hairline: rgba(255, 255, 255, 0.14);
   --glass-hairline-soft: rgba(255, 255, 255, 0.08);
   --glass-shadow:
@@ -763,10 +763,10 @@ button,
     radial-gradient(circle at 12% 24%, rgba(94, 92, 230, 0.2), transparent 30%),
     radial-gradient(
       circle at 88% 84%,
-      rgba(48, 209, 88, 0.12),
+      rgba(48, 209, 88, 0.1),
       transparent 28%
     ),
-    linear-gradient(180deg, rgba(0, 0, 0, 0.94), rgba(9, 10, 14, 0.99));
+    linear-gradient(180deg, rgba(0, 0, 0, 0.98), rgba(9, 10, 14, 1));
   backdrop-filter: blur(26px) saturate(1.35);
   -webkit-backdrop-filter: blur(26px) saturate(1.35);
   font-feature-settings: "cv01", "ss03";
@@ -1736,4 +1736,12 @@ input[type="range"]::-moz-range-thumb {
   .dash-mode-card-v2 {
     min-height: 74px;
   }
+}
+
+
+.dash-character-card-v3 small {
+  margin-left: auto;
+  color: #ffd60a;
+  font-size: 10px;
+  font-weight: 800;
 }

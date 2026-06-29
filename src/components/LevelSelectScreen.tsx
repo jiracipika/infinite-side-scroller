@@ -69,7 +69,7 @@ const LevelCard: FC<{
         borderRadius: 14,
         padding: '14px 12px',
         border: locked ? '1px solid rgba(255,255,255,0.04)' : `1px solid ${biome.accent}25`,
-        background: locked ? 'rgba(255,255,255,0.02)' : `linear-gradient(145deg, ${biome.bg}, transparent)`,
+        background: locked ? 'rgba(14,17,26,0.9)' : `linear-gradient(145deg, ${biome.bg}, rgba(14,17,26,0.92))`,
         cursor: locked ? 'default' : 'pointer',
         textAlign: 'left',
         overflow: 'hidden',
@@ -148,7 +148,7 @@ const EndlessCard: FC<{ onClick: () => void }> = ({ onClick }) => {
         borderRadius: 16,
         padding: 24,
         border: '1px solid rgba(10,132,255,0.2)',
-        background: 'linear-gradient(145deg, rgba(10,132,255,0.12), rgba(94,92,230,0.06))',
+        background: 'linear-gradient(145deg, rgba(10,132,255,0.26), rgba(20,23,38,0.94))',
         cursor: 'pointer',
         textAlign: 'center',
         position: 'relative',
@@ -191,6 +191,9 @@ const LevelSelectScreen: FC<Props> = ({ onLevelSelect, onBack, onEndlessPlay }) 
       width: '100%', maxWidth: 600, margin: '0 auto', padding: '20px 16px',
       color: '#fff', fontFamily: '-apple-system, system-ui, sans-serif',
       minHeight: '100vh',
+      background: 'linear-gradient(180deg, rgba(5,8,16,0.98), rgba(10,12,22,0.96))',
+      boxShadow: '0 0 0 100vmax rgba(3,6,14,0.94)',
+      clipPath: 'inset(0 -100vmax)',
     }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
@@ -208,7 +211,7 @@ const LevelSelectScreen: FC<Props> = ({ onLevelSelect, onBack, onEndlessPlay }) 
       </div>
 
       {/* Mode tabs */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 20, background: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: 4 }}>
+      <div style={{ display: 'flex', gap: 4, marginBottom: 20, background: 'rgba(13,16,26,0.92)', borderRadius: 12, padding: 4 }}>
         {tabs.map(t => {
           const active = tab === t.id;
           return (

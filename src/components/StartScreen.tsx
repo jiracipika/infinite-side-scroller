@@ -36,6 +36,7 @@ import {
   hasPlayedDailyChallenge,
   loadActiveSaveSlotId,
   loadSaveSlots,
+  purchaseCharacter,
   purchaseUpgrade,
   renameSaveSlot,
   resetSaveSlot,
@@ -284,6 +285,16 @@ const StartScreen: FC<Props> = ({
     setSaveSlots(updated);
   };
 
+  const handleBuyCharacter = (characterId: string) => {
+    const result = purchaseCharacter(activeSlotId, characterId);
+    setSaveSlots(result.slots);
+    if (result.ok) {
+      setSelectedChar(characterId);
+      saveSelectedCharacter(characterId);
+    }
+    setProgressionMessage(result.ok ? "Character unlocked" : (result.reason ?? "Unlock failed"));
+  };
+
   const handleBuyUpgrade = (upgradeId: string) => {
     const result = purchaseUpgrade(activeSlotId, upgradeId);
     setSaveSlots(result.slots);
@@ -300,6 +311,17 @@ const StartScreen: FC<Props> = ({
     () => hasPlayedDailyChallenge(activeSlotId, getTodayIsoDay()),
     [activeSlotId],
   );
+
+  useEffect(() => {
+    if (!activeSlot) return;
+    const selected = CHARACTERS.find((c) => c.id === selectedChar);
+    if (!selected) return;
+    const unlocked = activeSlot.unlockedCharacterIds.includes(selected.id) || selected.unlockCost <= 0;
+    if (unlocked) return;
+    const fallback = CHARACTERS.find((c) => activeSlot.unlockedCharacterIds.includes(c.id)) ?? CHARACTERS[0];
+    setSelectedChar(fallback.id);
+    saveSelectedCharacter(fallback.id);
+  }, [activeSlot, selectedChar]);
 
   const selectedCharacter =
     CHARACTERS.find((c) => c.id === selectedChar) ?? CHARACTERS[0];
@@ -557,9 +579,10 @@ const StartScreen: FC<Props> = ({
                 <h2>{selectedCharacter.name}</h2>
               </div>
               <span className="dash-subtle-pill-v2">
-                {selectedCharacter.description}
+                Bank: {activeSlot?.bankCoins ?? 0}c
               </span>
             </div>
+            <p className="dash-panel-subtitle">{selectedCharacter.description} · {selectedCharacter.ability}</p>
             <div className="dash-runner-body-v2 dash-character-hero-v3">
               <div
                 className="dash-character-avatar-v2 dash-sprite-frame-v2 dash-character-stage-v3"
@@ -597,23 +620,33 @@ const StartScreen: FC<Props> = ({
               </div>
             </div>
             <div className="dash-character-grid-v2 dash-character-roster-v3">
-              {CHARACTERS.map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  className={`dash-character-chip-v2 dash-character-card-v3 ${selectedChar === c.id ? "is-active" : ""}`}
-                  onClick={() => {
-                    setSelectedChar(c.id);
-                    saveSelectedCharacter(c.id);
-                  }}
-                  style={{ "--chip-color": c.bodyColor } as CSSProperties}
-                >
-                  <span className="dash-chip-sprite-v2">
-                    <CharacterSprite characterId={c.id} size={28} decorative />
-                  </span>
-                  {c.name}
-                </button>
-              ))}
+              {CHARACTERS.map((c) => {
+                const unlocked = activeSlot?.unlockedCharacterIds.includes(c.id) ?? c.unlockCost <= 0;
+                const canAfford = (activeSlot?.bankCoins ?? 0) >= c.unlockCost;
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    className={`dash-character-chip-v2 dash-character-card-v3 ${selectedChar === c.id ? "is-active" : ""}`}
+                    onClick={() => {
+                      if (!unlocked) {
+                        handleBuyCharacter(c.id);
+                        return;
+                      }
+                      setSelectedChar(c.id);
+                      saveSelectedCharacter(c.id);
+                    }}
+                    style={{ "--chip-color": c.bodyColor } as CSSProperties}
+                    title={unlocked ? c.ability : `Unlock for ${c.unlockCost} coins`}
+                  >
+                    <span className="dash-chip-sprite-v2">
+                      <CharacterSprite characterId={c.id} size={28} decorative />
+                    </span>
+                    <span>{c.name}</span>
+                    {!unlocked && <small>{canAfford ? `${c.unlockCost}c` : `🔒 ${c.unlockCost}c`}</small>}
+                  </button>
+                );
+              })}
             </div>
           </section>
         )}

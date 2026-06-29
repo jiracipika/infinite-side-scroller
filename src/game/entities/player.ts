@@ -148,6 +148,7 @@ export class Player {
     this.healingAuraTickTimer = 0;
     this.autoReviveUsed = false;
     this.coinFractionRemainder = 0;
+    this.setDoubleJump(this.hasInnateDoubleJump());
   }
 
   applyProgressionBonuses(bonuses: PlayerProgressionBonuses): void {
@@ -594,13 +595,17 @@ export class Player {
     this.hasDoubleJumped = false;
   }
   get canDoubleJump(): boolean {
-    return this._doubleJump && !this.hasDoubleJumped;
+    return (this._doubleJump || this.hasInnateDoubleJump()) && !this.hasDoubleJumped;
   }
   useDoubleJump(): void {
     if (this.canDoubleJump) {
       this.vy = this.config.jumpVelocity;
       this.hasDoubleJumped = true;
     }
+  }
+
+  private hasInnateDoubleJump(): boolean {
+    return this.characterId === "ninja" || this.characterId === "mage" || this.characterId === "spirit";
   }
 
   private getBaseWeaponForCharacter(): WeaponType {
