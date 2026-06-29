@@ -10,12 +10,12 @@ import GameOverScreen from '@/components/GameOverScreen';
 import HUD from '@/components/HUD';
 import TouchControls from '@/components/TouchControls';
 import SplitScreenMode from '@/components/SplitScreenMode';
-import LevelSelectScreen from '@/components/LevelSelectScreen';
+import LevelSelectScreen, { ensureDefault, loadProgress, saveProgress } from '@/components/LevelSelectScreen';
 import LevelCompleteScreen from '@/components/LevelCompleteScreen';
 import type { LevelConfig } from '@/game/data/levels';
 import { ALL_LEVELS } from '@/game/data/levels';
 import { createMultiplayerRoom, joinMultiplayerRoom, leaveMultiplayerRoom, syncMultiplayerRoom, postRTCOffer, postRTCAnswer, getRTCSignal, clearRTCSignal, postRTCCandidates } from '@/game/multiplayer/client';
-import { RTCTransport, isRTCAvailable, type RTCMessage, type RTCSyncMessage } from '@/game/multiplayer/rtc';
+import { RTCTransport, isRTCAvailable, type RTCSyncMessage } from '@/game/multiplayer/rtc';
 import type { NetInputCommand, NetPlayerSnapshot, NetRoomState, NetSyncResponse } from '@/game/multiplayer/types';
 import { MP_INPUT_BUFFER_SIZE, MP_INTERPOLATION_DELAY_MS, MP_P2P_INTERPOLATION_DELAY_MS, MP_TICK_MS, MP_HTTP_TICK_DIVISOR } from '@/game/multiplayer/config';
 import {
@@ -172,6 +172,7 @@ export default function Home() {
   const rtcRef = useRef<RTCTransport | null>(null);
   const rtcConnectedRef = useRef(false);
   const remoteRTCDataRef = useRef<RTCSyncMessage | null>(null);
+  const remoteRTCSeqRef = useRef(0);
   const rtcReconnectRef = useRef(0); // reconnect attempt counter
   const remotePlayerInfoRef = useRef<{ id: string; name: string } | null>(null);
   const [rtcStatus, setRtcStatus] = useState<'off' | 'connecting' | 'connected' | 'failed'>('off');
@@ -558,7 +559,6 @@ export default function Home() {
 
   // ── Level mode handlers ──
   const handleStartLevel = useCallback((level: LevelConfig) => {
-    const charId = loadSelectedCharacter();
     setMultiplayerSession(null);
     setCurrentLevel(level);
     currentLevelRef.current = level;
@@ -574,7 +574,6 @@ export default function Home() {
     // Update level progress in localStorage
     const level = currentLevelRef.current;
     if (level) {
-      const { loadProgress, saveProgress, ensureDefault } = require('@/components/LevelSelectScreen');
       const progress = loadProgress();
       const p = ensureDefault(progress, level.id);
       if (result.score >= level.starThresholds.three) p.stars = 3;
@@ -886,20 +885,29 @@ export default function Home() {
         const localSnapshot = compactSnapshot(game.getLocalPlayerSnapshot());
         const localKills = game.drainRecentEnemyDefeatIds();
 
-        rtcRef.current.send({
+        const rtcBacklog = rtcRef.current.bufferedAmount;
+        const sentRtcSync = rtcRef.current.send({
           type: 'sync',
           ts: nowPerf,
+          seq: commandSeq,
           snapshot: localSnapshot,
           input,
-          enemies: session.playerId === session.hostId ? game.getEnemySnapshots() : undefined,
+          enemies: session.playerId === session.hostId && rtcBacklog < 48_000 ? game.getEnemySnapshots() : undefined,
           carryTargetId: carryIntent?.targetId,
           dropCarry: carryIntent?.dropCarry ?? false,
           killedEnemyIds: localKills.length > 0 ? localKills : undefined,
         });
 
+        if (!sentRtcSync && performance.now() - lastResponseAtRef.current > 1800) {
+          setMultiplayerNotice('Wi‑Fi link is congested; smoothing multiplayer...');
+        } else if (sentRtcSync) {
+          lastResponseAtRef.current = performance.now();
+        }
+
         // Apply latest remote data received via data channel
         const remoteData = remoteRTCDataRef.current;
-        if (remoteData?.snapshot) {
+        const remoteAgeMs = remoteData?.receivedAt ? performance.now() - remoteData.receivedAt : Number.POSITIVE_INFINITY;
+        if (remoteData?.snapshot && remoteAgeMs < 1500) {
           const ri = remotePlayerInfoRef.current;
           game.setRemotePlayerState({
             id: ri?.id ?? 'remote',
@@ -909,11 +917,11 @@ export default function Home() {
             carriedById: null,
           });
         }
-        if (remoteData?.enemies) {
+        if (remoteData?.enemies && remoteAgeMs < 1500) {
           game.applyEnemySnapshots(remoteData.enemies);
         }
         // Apply cross-player enemy kills
-        if (remoteData?.killedEnemyIds?.length) {
+        if (remoteData?.killedEnemyIds?.length && remoteAgeMs < 1500) {
           game.killEnemiesById(remoteData.killedEnemyIds);
         }
 
@@ -1165,7 +1173,10 @@ export default function Home() {
 
       transport.onMessage = (msg) => {
         if (msg.type === 'sync') {
-          remoteRTCDataRef.current = msg;
+          const seq = msg.seq ?? 0;
+          if (seq && seq <= remoteRTCSeqRef.current) return;
+          remoteRTCSeqRef.current = Math.max(remoteRTCSeqRef.current, seq);
+          remoteRTCDataRef.current = { ...msg, receivedAt: performance.now() };
         }
       };
       transport.onClose = () => {
@@ -1265,10 +1276,11 @@ export default function Home() {
 
         // Start polling for late-arriving remote candidates
         candidatePollTimer = window.setInterval(() => {
-          if (!cancelled && transport.isOpen) {
+          if (!cancelled) {
+            void flushCandidates();
             void pollRemoteCandidates();
           }
-        }, 800);
+        }, 500);
 
         // Wait for the data channel to open
         const connectDeadline = Date.now() + 10000;
@@ -1286,6 +1298,7 @@ export default function Home() {
           // Lower interpolation delay — P2P data arrives in 1–5 ms, not 40–150 ms
           gameRef.current?.setInterpolationDelay(MP_P2P_INTERPOLATION_DELAY_MS);
           void clearRTCSignal(session.roomId);
+          setMultiplayerNotice(null);
           // Periodic RTT probe
           pingTimer = window.setInterval(() => {
             if (transport.isOpen) transport.ping();

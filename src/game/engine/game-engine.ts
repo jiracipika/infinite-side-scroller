@@ -1599,19 +1599,13 @@ export class GameEngine {
     }
 
     if (!this.player.alive && this.player.tryAutoRevive()) {
-      if (this.player.y > 1200) {
-        const reviveGround = this.getGroundY(this.player.centerX);
-        this.player.y = Number.isFinite(reviveGround) ? reviveGround - this.player.height - 8 : 300;
-      }
+      this.placePlayerOnSafeReviveGround();
       this.camera.shake(4, 0.25);
       this.particles.spawnScorePopup(this.player.centerX, this.player.y - 10, 'REVIVE!', '#f97316');
     }
 
     if (!this.player.alive && this.player.tryCoinRevive(25)) {
-      if (this.player.y > 1200) {
-        const reviveGround = this.getGroundY(this.player.centerX);
-        this.player.y = Number.isFinite(reviveGround) ? reviveGround - this.player.height - 8 : 300;
-      }
+      this.placePlayerOnSafeReviveGround();
       this.camera.shake(5, 0.3);
       this.particles.spawnScorePopup(this.player.centerX, this.player.y - 10, 'REVIVE -25 🪙 +1 ♥', '#fbbf24');
     }
@@ -1658,6 +1652,15 @@ export class GameEngine {
       interpolationDelayMs: this.interpolationDelayMs,
       remoteBufferSize: this.remoteSnapshotBuffer.length,
     });
+  }
+
+  private placePlayerOnSafeReviveGround(): void {
+    const reviveGround = this.getGroundY(this.player.centerX);
+    this.player.y = Number.isFinite(reviveGround)
+      ? reviveGround - this.player.height - 10
+      : Math.min(this.player.y, 300);
+    this.player.vy = Math.min(this.player.vy, -260);
+    this.player.onGround = false;
   }
 
   private render(): void {
