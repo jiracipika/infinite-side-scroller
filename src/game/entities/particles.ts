@@ -1,7 +1,7 @@
 /**
  * Particle system for atmospheric effects and gameplay feedback.
  * Handles dust, leaves, snow, sparks, plus gameplay particles:
- * jump dust, landing impact, coin sparkle, enemy death.
+ * jump dust, landing impact, air jumps, coin sparkle, enemy death.
  */
 
 export interface Particle {
@@ -13,7 +13,19 @@ export interface Particle {
   maxLife: number;
   size: number;
   color: string;
-  type: 'dust' | 'leaf' | 'snow' | 'spark' | 'jump_dust' | 'landing' | 'coin_sparkle' | 'enemy_death' | 'score_popup';
+  type:
+    | 'dust'
+    | 'leaf'
+    | 'snow'
+    | 'spark'
+    | 'jump_dust'
+    | 'landing'
+    | 'air_jump'
+    | 'stomp_ring'
+    | 'damage_burst'
+    | 'coin_sparkle'
+    | 'enemy_death'
+    | 'score_popup';
   text?: string;
 }
 
@@ -38,7 +50,8 @@ export class ParticleSystem {
     dt: number
   ): void {
     const ambientCount = this.particles.filter(p =>
-      p.type !== 'jump_dust' && p.type !== 'landing' && p.type !== 'coin_sparkle' &&
+      p.type !== 'jump_dust' && p.type !== 'landing' && p.type !== 'air_jump' &&
+      p.type !== 'stomp_ring' && p.type !== 'damage_burst' && p.type !== 'coin_sparkle' &&
       p.type !== 'enemy_death' && p.type !== 'score_popup'
     ).length;
 
@@ -53,7 +66,7 @@ export class ParticleSystem {
       p.y += p.vy * dt;
 
       // Gravity for gameplay particles
-      if (p.type === 'jump_dust' || p.type === 'landing' || p.type === 'enemy_death') {
+      if (p.type === 'jump_dust' || p.type === 'landing' || p.type === 'enemy_death' || p.type === 'damage_burst') {
         p.vy += 200 * dt;
       }
       if (p.type === 'score_popup') {
@@ -106,11 +119,12 @@ export class ParticleSystem {
   }
 
   /** Spawn impact when player lands */
-  spawnLanding(x: number, y: number): void {
-    const count = this.reducedParticles ? 6 : 12;
+  spawnLanding(x: number, y: number, intensity: number = 1): void {
+    const impact = Math.max(0.6, Math.min(1.9, intensity));
+    const count = Math.round((this.reducedParticles ? 6 : 12) * impact);
     for (let i = 0; i < count; i++) {
       const angle = (Math.PI * 2 * i) / count + Math.random() * 0.3;
-      const speed = Math.random() * 100 + 30;
+      const speed = (Math.random() * 100 + 30) * impact;
       this.particles.push({
         x,
         y,
@@ -118,9 +132,96 @@ export class ParticleSystem {
         vy: -Math.abs(Math.sin(angle) * speed),
         life: 0.3 + Math.random() * 0.2,
         maxLife: 0.5,
-        size: Math.random() * 3 + 1,
+        size: (Math.random() * 3 + 1) * impact,
         color: '#c4a96a',
         type: 'landing',
+      });
+    }
+  }
+
+  /** Spawn a quick burst for double jumps and wall jumps */
+  spawnAirJump(x: number, y: number): void {
+    const ringCount = this.reducedParticles ? 1 : 2;
+    for (let i = 0; i < ringCount; i++) {
+      this.particles.push({
+        x,
+        y,
+        vx: 0,
+        vy: 0,
+        life: 0.22 + i * 0.06,
+        maxLife: 0.28 + i * 0.06,
+        size: 14 + i * 7,
+        color: i % 2 === 0 ? '#a855f7' : '#67e8f9',
+        type: 'air_jump',
+      });
+    }
+
+    const count = this.reducedParticles ? 5 : 10;
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI * 2 * i) / count + Math.random() * 0.35;
+      const speed = Math.random() * 110 + 70;
+      this.particles.push({
+        x,
+        y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed * 0.7,
+        life: 0.28 + Math.random() * 0.18,
+        maxLife: 0.46,
+        size: Math.random() * 2.5 + 1.5,
+        color: i % 2 === 0 ? '#c084fc' : '#7dd3fc',
+        type: 'air_jump',
+      });
+    }
+  }
+
+  /** Spawn a crunchy impact ring when bouncing off an enemy or another player */
+  spawnStompImpact(x: number, y: number): void {
+    this.particles.push({
+      x,
+      y,
+      vx: 0,
+      vy: 0,
+      life: 0.25,
+      maxLife: 0.25,
+      size: 22,
+      color: '#fef3c7',
+      type: 'stomp_ring',
+    });
+
+    const count = this.reducedParticles ? 6 : 12;
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI * 2 * i) / count;
+      const speed = Math.random() * 130 + 80;
+      this.particles.push({
+        x,
+        y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed * 0.55 - 30,
+        life: 0.24 + Math.random() * 0.18,
+        maxLife: 0.42,
+        size: Math.random() * 3 + 2,
+        color: i % 2 === 0 ? '#fbbf24' : '#fef3c7',
+        type: 'stomp_ring',
+      });
+    }
+  }
+
+  /** Spawn damage shards around the player */
+  spawnDamageBurst(x: number, y: number, color: string = '#ef4444'): void {
+    const count = this.reducedParticles ? 7 : 14;
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI * 2 * i) / count + Math.random() * 0.4;
+      const speed = Math.random() * 140 + 90;
+      this.particles.push({
+        x: x + (Math.random() - 0.5) * 14,
+        y: y + (Math.random() - 0.5) * 18,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 60,
+        life: 0.32 + Math.random() * 0.2,
+        maxLife: 0.52,
+        size: Math.random() * 4 + 2,
+        color,
+        type: 'damage_burst',
       });
     }
   }
