@@ -70,9 +70,9 @@ interface Props {
 }
 
 const POLISH_PLAN = [
-  { label: "Play", detail: "Endless and adventure stay one tap away" },
-  { label: "Connect", detail: "Wi‑Fi rooms live in one guided panel" },
-  { label: "Style", detail: "Character select is now its own screen" },
+  { label: "Start", detail: "Endless is always one tap away" },
+  { label: "Pick", detail: "Modes are grouped by solo, co-op, and competitive play" },
+  { label: "Tune", detail: "Runner, profile, saves, and settings stay below the fold" },
 ];
 
 type MenuView = "play" | "character" | "profile";
@@ -340,9 +340,9 @@ const StartScreen: FC<Props> = ({
           </div>
 
           <p className="dash-hero-lede">
-            A redesigned command deck with one-tap play, guided Wi‑Fi rooms, and
-            a separate character bay so navigation feels intentional instead of
-            cluttered.
+            A clearer command center: primary play up front, multiplayer and
+            competitive modes in one row, and setup tools tucked into focused
+            cards instead of a cluttered button pile.
           </p>
 
           <div
@@ -392,28 +392,74 @@ const StartScreen: FC<Props> = ({
           </div>
         </section>
 
-        <nav
-          className="dash-command-panel dash-nav-v3"
-          aria-label="Main menu navigation"
-        >
-          {(
-            [
-              ["play", "Play", "Modes and Wi‑Fi"],
-              ["character", "Character", selectedCharacter.name],
-              ["profile", "Profile", activeSlot?.name ?? "Setup"],
-            ] as const
-          ).map(([view, label, detail]) => (
+        <section className="dash-command-panel dash-modes-v2">
+          <div className="dash-section-title-row-v2">
+            <div>
+              <p className="dash-eyebrow">Modes</p>
+              <h2>Choose your run</h2>
+            </div>
+          </div>
+          <div className="dash-flow-tabs-v2" aria-label="Menu flow">
+            <span className="is-active">Play</span>
+            <span>Compete</span>
+            <span>Customize</span>
+          </div>
+          <div className="dash-mode-grid-v2">
+            {onLevelSelect && (
+              <button className="dash-mode-card-v2 solo" onClick={onLevelSelect}>
+                <small>Solo</small>
+                <b>Adventure</b>
+                <span>Levels + time attacks</span>
+                <em>→</em>
+              </button>
+            )}
             <button
-              key={view}
-              type="button"
-              className={activeView === view ? "is-active" : ""}
-              onClick={() => setActiveView(view)}
+              className="dash-mode-card-v2 coop"
+              onClick={() => setShowMultiplayer((v) => !v)}
             >
-              <b>{label}</b>
-              <span>{detail}</span>
+              <small>Co-op</small>
+              <b>{showMultiplayer ? "Hide Wi-Fi" : "Same Wi‑Fi"}</b>
+              <span>Host or join nearby</span>
+              <em>↔</em>
             </button>
-          ))}
-        </nav>
+            <button className="dash-mode-card-v2 coop" onClick={handleSplitScreen}>
+              <small>Co-op</small>
+              <b>Split Screen</b>
+              <span>Two players locally</span>
+              <em>▦</em>
+            </button>
+            {onPlayDailyChallenge && (
+              <button
+                className="dash-mode-card-v2 compete"
+                onClick={handleDailyChallengeClick}
+                disabled={dailyUsed}
+              >
+                <small>Compete</small>
+                <b>{dailyUsed ? "Daily Done" : "Daily"}</b>
+                <span>{dailyUsed ? "Resets tomorrow" : "One ranked shot"}</span>
+                <em>★</em>
+              </button>
+            )}
+            <button
+              className="dash-mode-card-v2 compete"
+              onClick={handleLeaderboardToggle}
+            >
+              <small>Compete</small>
+              <b>{showLeaderboard ? "Hide Board" : "Leaderboard"}</b>
+              <span>Records + ghost races</span>
+              <em>≡</em>
+            </button>
+            <button
+              className="dash-mode-card-v2 customize"
+              onClick={() => setShowProgression((v) => !v)}
+            >
+              <small>Customize</small>
+              <b>{showProgression ? "Hide Shop" : "Saves + Shop"}</b>
+              <span>Coins, checkpoints, perks</span>
+              <em>◇</em>
+            </button>
+          </div>
+        </section>
 
         {activeView === "play" && (
           <section className="dash-command-panel dash-modes-v2 dash-view-panel-v3">

@@ -193,7 +193,7 @@ export class RTCTransport {
 
   send(msg: RTCMessage): boolean {
     if (!this.isOpen) return false;
-    if ((this.channel?.bufferedAmount ?? 0) > 64_000) return false;
+    if ((this.channel?.bufferedAmount ?? 0) > 96_000) return false;
     try {
       this.channel!.send(JSON.stringify(msg));
       return true;
