@@ -501,7 +501,6 @@ export class Player {
     if (this.alive || this.coins < reviveCost) return false;
 
     this.coins -= reviveCost;
-    this.maxHealth += 1;
     this.health = Math.max(1, this.maxHealth);
     this.alive = true;
     this.invulnerable = true;

@@ -21,6 +21,8 @@
 export interface RTCSyncMessage {
   type: 'sync';
   ts: number; // sender's performance.now() at send time (for RTT)
+  seq?: number; // monotonic sync sequence; lets receivers ignore stale unordered packets
+  receivedAt?: number; // local receive time, filled in by the browser client
   echoTs?: number; // echoes the peer's last-received ts for RTT calc
   snapshot?: import('./types').NetPlayerSnapshot;
   input?: import('./types').NetInputCommand;

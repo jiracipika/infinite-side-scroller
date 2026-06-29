@@ -75,6 +75,8 @@ const POLISH_PLAN = [
   { label: "Tune", detail: "Runner, profile, saves, and settings stay below the fold" },
 ];
 
+type MenuView = "play" | "character" | "profile";
+
 const StartScreen: FC<Props> = ({
   onPlay,
   onPlayDailyChallenge,
@@ -88,6 +90,7 @@ const StartScreen: FC<Props> = ({
   const [seedInput, setSeedInput] = useState("");
   const [showSettings, setShowSettings] = useState(false);
   const [showMultiplayer, setShowMultiplayer] = useState(false);
+  const [activeView, setActiveView] = useState<MenuView>("play");
   const [playerName, setPlayerName] = useState("Player");
   const [avatarId, setAvatarId] = useState(AVATAR_PRESETS[0].id);
   const [roomCode, setRoomCode] = useState("");
@@ -140,6 +143,7 @@ const StartScreen: FC<Props> = ({
     const incomingCode = (initialRoomCode ?? "").trim().toUpperCase();
     if (!incomingCode) return;
     setShowMultiplayer(true);
+    setActiveView("play");
     setRoomCode(incomingCode);
   }, [initialRoomCode]);
 
@@ -341,7 +345,10 @@ const StartScreen: FC<Props> = ({
             cards instead of a cluttered button pile.
           </p>
 
-          <div className="dash-polish-plan-v2" aria-label="Recommended play plan">
+          <div
+            className="dash-polish-plan-v2"
+            aria-label="Recommended play plan"
+          >
             {POLISH_PLAN.map((item, index) => (
               <div key={item.label}>
                 <span>{String(index + 1).padStart(2, "0")}</span>
@@ -377,10 +384,10 @@ const StartScreen: FC<Props> = ({
             </button>
             <button
               className="dash-icon-action-v2"
-              onClick={() => setShowSettings((s) => !s)}
-              aria-label="Settings"
+              onClick={() => setActiveView("character")}
+              aria-label="Open character select"
             >
-              ⚙
+              ✦
             </button>
           </div>
         </section>
@@ -454,131 +461,226 @@ const StartScreen: FC<Props> = ({
           </div>
         </section>
 
-        <section className="dash-command-panel dash-runner-v2">
-          <div className="dash-section-title-row-v2">
-            <div>
-              <p className="dash-eyebrow">Runner</p>
-              <h2>{selectedCharacter.name}</h2>
+        {activeView === "play" && (
+          <section className="dash-command-panel dash-modes-v2 dash-view-panel-v3">
+            <div className="dash-section-title-row-v2">
+              <div>
+                <p className="dash-eyebrow">Modes</p>
+                <h2>Choose your run</h2>
+              </div>
             </div>
-            <span className="dash-subtle-pill-v2">
-              {selectedCharacter.description}
-            </span>
-          </div>
-          <div className="dash-runner-body-v2">
-            <div
-              className="dash-character-avatar-v2 dash-sprite-frame-v2"
-              style={{
-                background: `linear-gradient(145deg, ${selectedCharacter.bodyColor}33, ${selectedCharacter.bodyColor}11)`,
-                borderColor: selectedCharacter.outlineColor,
-                boxShadow: `0 18px 50px ${selectedCharacter.bodyColor}28, inset 0 1px 0 rgba(255,255,255,0.18)`,
-              }}
-            >
-              <CharacterSprite
-                characterId={selectedChar}
-                size={72}
-                decorative
-              />
+            <div className="dash-flow-tabs-v2" aria-label="Menu flow">
+              <span className="is-active">Play</span>
+              <span>Compete</span>
+              <span>Customize</span>
             </div>
-            <div className="dash-stat-stack-v2">
-              <StatBar
-                label="SPD"
-                value={selectedCharacter.speed}
-                color="#7170ff"
-              />
-              <StatBar
-                label="JMP"
-                value={selectedCharacter.jumpVelocity}
-                color="#10b981"
-              />
-              <StatBar
-                label="HP"
-                value={selectedCharacter.maxHealth / 5}
-                color="#f87171"
-              />
-            </div>
-          </div>
-          <div className="dash-character-grid-v2">
-            {CHARACTERS.map((c) => (
+            <div className="dash-mode-grid-v2">
+              {onLevelSelect && (
+                <button
+                  className="dash-mode-card-v2 solo"
+                  onClick={onLevelSelect}
+                >
+                  <small>Solo</small>
+                  <b>Adventure</b>
+                  <span>Levels + time attacks</span>
+                  <em>→</em>
+                </button>
+              )}
               <button
-                key={c.id}
-                type="button"
-                className={`dash-character-chip-v2 ${selectedChar === c.id ? "is-active" : ""}`}
-                onClick={() => {
-                  setSelectedChar(c.id);
-                  saveSelectedCharacter(c.id);
-                }}
-                style={{ "--chip-color": c.bodyColor } as CSSProperties}
+                className="dash-mode-card-v2 coop"
+                onClick={() => setShowMultiplayer((v) => !v)}
               >
-                <span className="dash-chip-sprite-v2">
-                  <CharacterSprite characterId={c.id} size={28} decorative />
-                </span>
-                {c.name}
+                <small>Co-op</small>
+                <b>{showMultiplayer ? "Hide Wi-Fi" : "Same Wi‑Fi"}</b>
+                <span>Host or join nearby</span>
+                <em>↔</em>
               </button>
-            ))}
-          </div>
-        </section>
+              <button
+                className="dash-mode-card-v2 coop"
+                onClick={handleSplitScreen}
+              >
+                <small>Co-op</small>
+                <b>Split Screen</b>
+                <span>Two players locally</span>
+                <em>▦</em>
+              </button>
+              {onPlayDailyChallenge && (
+                <button
+                  className="dash-mode-card-v2 compete"
+                  onClick={handleDailyChallengeClick}
+                  disabled={dailyUsed}
+                >
+                  <small>Compete</small>
+                  <b>{dailyUsed ? "Daily Done" : "Daily"}</b>
+                  <span>
+                    {dailyUsed ? "Resets tomorrow" : "One ranked shot"}
+                  </span>
+                  <em>★</em>
+                </button>
+              )}
+              <button
+                className="dash-mode-card-v2 compete"
+                onClick={handleLeaderboardToggle}
+              >
+                <small>Compete</small>
+                <b>{showLeaderboard ? "Hide Board" : "Leaderboard"}</b>
+                <span>Records + ghost races</span>
+                <em>≡</em>
+              </button>
+              <button
+                className="dash-mode-card-v2 customize"
+                onClick={() => setShowProgression((v) => !v)}
+              >
+                <small>Customize</small>
+                <b>{showProgression ? "Hide Shop" : "Saves + Shop"}</b>
+                <span>Coins, checkpoints, perks</span>
+                <em>◇</em>
+              </button>
+              <button
+                className="dash-mode-card-v2 customize"
+                onClick={() => setShowSettings((s) => !s)}
+              >
+                <small>Setup</small>
+                <b>{showSettings ? "Hide Settings" : "Settings"}</b>
+                <span>Controls, audio, and display</span>
+                <em>⚙</em>
+              </button>
+            </div>
+          </section>
+        )}
 
-        <section className="dash-command-panel dash-profile-v2">
-          <div className="dash-section-title-row-v2 compact">
-            <div>
-              <p className="dash-eyebrow">Profile</p>
-              <h2>Player setup</h2>
+        {activeView === "character" && (
+          <section className="dash-command-panel dash-runner-v2 dash-character-select-v3 dash-view-panel-v3">
+            <div className="dash-section-title-row-v2">
+              <div>
+                <p className="dash-eyebrow">Runner</p>
+                <h2>{selectedCharacter.name}</h2>
+              </div>
+              <span className="dash-subtle-pill-v2">
+                {selectedCharacter.description}
+              </span>
             </div>
-            <button
-              className="dash-text-button-v2"
-              onClick={() => setShowAchievements(true)}
-            >
-              Achievements {achieveCount}/{ACHIEVEMENTS.length}
-            </button>
-          </div>
-          <div className="dash-input-grid-v2">
-            <label>
-              <span>Name</span>
-              <input
-                type="text"
-                value={playerName}
-                onChange={(e) => setPlayerName(e.target.value.slice(0, 20))}
-                onBlur={() => {
-                  const safe = sanitizeLeaderboardName(playerName);
-                  setPlayerName(safe);
-                  saveLeaderboardName(safe);
-                }}
-                placeholder="Profile name"
-                className="ios-text-field dash-field-v2"
-                maxLength={20}
-              />
-            </label>
-            <label>
-              <span>Seed</span>
-              <input
-                type="text"
-                inputMode="numeric"
-                value={seedInput}
-                onChange={(e) =>
-                  setSeedInput(e.target.value.replace(/[^0-9]/g, ""))
+            <div className="dash-runner-body-v2 dash-character-hero-v3">
+              <div
+                className="dash-character-avatar-v2 dash-sprite-frame-v2 dash-character-stage-v3"
+                style={
+                  {
+                    "--hero-color": selectedCharacter.bodyColor,
+                    background: `linear-gradient(145deg, ${selectedCharacter.bodyColor}33, ${selectedCharacter.bodyColor}11)`,
+                    borderColor: selectedCharacter.outlineColor,
+                    boxShadow: `0 18px 50px ${selectedCharacter.bodyColor}28, inset 0 1px 0 rgba(255,255,255,0.18)`,
+                  } as CSSProperties
                 }
-                placeholder="Random"
-                className="ios-text-field dash-field-v2"
-                onKeyDown={(e) => e.key === "Enter" && handlePlay()}
-              />
-            </label>
-          </div>
-          <div className="dash-avatar-row-v2">
-            {AVATAR_PRESETS.map((preset) => (
-              <button
-                key={preset.id}
-                className={`dash-avatar-button-v2 ${avatarId === preset.id ? "is-active" : ""}`}
-                onClick={() => {
-                  setAvatarId(preset.id);
-                  saveLeaderboardAvatarId(preset.id);
-                }}
-                title={preset.label}
               >
-                {preset.icon}
+                <CharacterSprite
+                  characterId={selectedChar}
+                  size={124}
+                  decorative
+                />
+              </div>
+              <div className="dash-stat-stack-v2">
+                <StatBar
+                  label="SPD"
+                  value={selectedCharacter.speed}
+                  color="#7170ff"
+                />
+                <StatBar
+                  label="JMP"
+                  value={selectedCharacter.jumpVelocity}
+                  color="#10b981"
+                />
+                <StatBar
+                  label="HP"
+                  value={selectedCharacter.maxHealth / 5}
+                  color="#f87171"
+                />
+              </div>
+            </div>
+            <div className="dash-character-grid-v2 dash-character-roster-v3">
+              {CHARACTERS.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  className={`dash-character-chip-v2 dash-character-card-v3 ${selectedChar === c.id ? "is-active" : ""}`}
+                  onClick={() => {
+                    setSelectedChar(c.id);
+                    saveSelectedCharacter(c.id);
+                  }}
+                  style={{ "--chip-color": c.bodyColor } as CSSProperties}
+                >
+                  <span className="dash-chip-sprite-v2">
+                    <CharacterSprite characterId={c.id} size={28} decorative />
+                  </span>
+                  {c.name}
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {activeView === "profile" && (
+          <section className="dash-command-panel dash-profile-v2 dash-view-panel-v3">
+            <div className="dash-section-title-row-v2 compact">
+              <div>
+                <p className="dash-eyebrow">Profile</p>
+                <h2>Player setup</h2>
+              </div>
+              <button
+                className="dash-text-button-v2"
+                onClick={() => setShowAchievements(true)}
+              >
+                Achievements {achieveCount}/{ACHIEVEMENTS.length}
               </button>
-            ))}
-          </div>
-        </section>
+            </div>
+            <div className="dash-input-grid-v2">
+              <label>
+                <span>Name</span>
+                <input
+                  type="text"
+                  value={playerName}
+                  onChange={(e) => setPlayerName(e.target.value.slice(0, 20))}
+                  onBlur={() => {
+                    const safe = sanitizeLeaderboardName(playerName);
+                    setPlayerName(safe);
+                    saveLeaderboardName(safe);
+                  }}
+                  placeholder="Profile name"
+                  className="ios-text-field dash-field-v2"
+                  maxLength={20}
+                />
+              </label>
+              <label>
+                <span>Seed</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={seedInput}
+                  onChange={(e) =>
+                    setSeedInput(e.target.value.replace(/[^0-9]/g, ""))
+                  }
+                  placeholder="Random"
+                  className="ios-text-field dash-field-v2"
+                  onKeyDown={(e) => e.key === "Enter" && handlePlay()}
+                />
+              </label>
+            </div>
+            <div className="dash-avatar-row-v2">
+              {AVATAR_PRESETS.map((preset) => (
+                <button
+                  key={preset.id}
+                  className={`dash-avatar-button-v2 ${avatarId === preset.id ? "is-active" : ""}`}
+                  onClick={() => {
+                    setAvatarId(preset.id);
+                    saveLeaderboardAvatarId(preset.id);
+                  }}
+                  title={preset.label}
+                >
+                  {preset.icon}
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
 
         {showMultiplayer && (
           <MenuPanel

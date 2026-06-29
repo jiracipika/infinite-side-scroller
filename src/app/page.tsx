@@ -172,6 +172,7 @@ export default function Home() {
   const rtcRef = useRef<RTCTransport | null>(null);
   const rtcConnectedRef = useRef(false);
   const remoteRTCDataRef = useRef<RTCSyncMessage | null>(null);
+  const remoteRTCSeqRef = useRef(0);
   const rtcReconnectRef = useRef(0); // reconnect attempt counter
   const remotePlayerInfoRef = useRef<{ id: string; name: string } | null>(null);
   const [rtcStatus, setRtcStatus] = useState<'off' | 'connecting' | 'connected' | 'failed'>('off');
@@ -888,6 +889,7 @@ export default function Home() {
         const sentRtcSync = rtcRef.current.send({
           type: 'sync',
           ts: nowPerf,
+          seq: commandSeq,
           snapshot: localSnapshot,
           input,
           enemies: session.playerId === session.hostId && rtcBacklog < 48_000 ? game.getEnemySnapshots() : undefined,
@@ -904,7 +906,8 @@ export default function Home() {
 
         // Apply latest remote data received via data channel
         const remoteData = remoteRTCDataRef.current;
-        if (remoteData?.snapshot) {
+        const remoteAgeMs = remoteData?.receivedAt ? performance.now() - remoteData.receivedAt : Number.POSITIVE_INFINITY;
+        if (remoteData?.snapshot && remoteAgeMs < 1500) {
           const ri = remotePlayerInfoRef.current;
           game.setRemotePlayerState({
             id: ri?.id ?? 'remote',
@@ -914,11 +917,11 @@ export default function Home() {
             carriedById: null,
           });
         }
-        if (remoteData?.enemies) {
+        if (remoteData?.enemies && remoteAgeMs < 1500) {
           game.applyEnemySnapshots(remoteData.enemies);
         }
         // Apply cross-player enemy kills
-        if (remoteData?.killedEnemyIds?.length) {
+        if (remoteData?.killedEnemyIds?.length && remoteAgeMs < 1500) {
           game.killEnemiesById(remoteData.killedEnemyIds);
         }
 
@@ -1170,7 +1173,10 @@ export default function Home() {
 
       transport.onMessage = (msg) => {
         if (msg.type === 'sync') {
-          remoteRTCDataRef.current = msg;
+          const seq = msg.seq ?? 0;
+          if (seq && seq <= remoteRTCSeqRef.current) return;
+          remoteRTCSeqRef.current = Math.max(remoteRTCSeqRef.current, seq);
+          remoteRTCDataRef.current = { ...msg, receivedAt: performance.now() };
         }
       };
       transport.onClose = () => {
