@@ -101,6 +101,23 @@ const HUD: FC<Props> = ({ stats, settings }) => {
               </span>
             </div>
 
+            {/* Lives — only show when more than the default 2 (i.e. extra lives earned) */}
+            {stats.lives > 0 && (
+              <div className="ios-hud-pill" style={{ gap: 4 }}>
+                <span
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 700,
+                    color: '#f97316',
+                    lineHeight: 1,
+                    fontVariantNumeric: 'tabular-nums',
+                  }}
+                >
+                  {"\u2764"}{stats.lives}
+                </span>
+              </div>
+            )}
+
             {/* Power-ups */}
             {stats.powerUps.length > 0 && (
               <div style={{ display: 'flex', gap: 4, animation: 'fadeIn 0.25s ease both' }}>
@@ -228,6 +245,14 @@ const HUD: FC<Props> = ({ stats, settings }) => {
                 {stats.biome}
               </span>
             </div>
+            {/* Time-of-day indicator */}
+            {stats.dayPhase && (
+              <div className="ios-hud-pill" style={{ gap: 3 }}>
+                <span style={{ fontSize: 11, lineHeight: 1 }}>
+                  {stats.dayPhase === 'dawn' ? '\u{1F305}' : stats.dayPhase === 'day' ? '\u{2600}\u{FE0F}' : stats.dayPhase === 'dusk' ? '\u{1F31E}' : '\u{1F319}'}
+                </span>
+              </div>
+            )}
             {settings.showFPS && (
               <span
                 style={{

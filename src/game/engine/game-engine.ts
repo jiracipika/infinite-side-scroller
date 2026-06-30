@@ -240,6 +240,11 @@ export class GameEngine {
   private ghostPlaybackIndex = 0;
   private ghostSampleTimer = 0;
 
+  // Combo system — increments on consecutive enemy defeats, decays after 3s without a kill
+  private comboCount = 0;
+  private comboTimer = 0;
+  private readonly COMBO_DECAY_SECONDS = 3.0;
+
   constructor(
     canvas: HTMLCanvasElement,
     seed?: number,
@@ -335,6 +340,8 @@ export class GameEngine {
     this.ghostRecording = [];
     this.ghostPlaybackIndex = 0;
     this.ghostSampleTimer = 0;
+    this.comboCount = 0;
+    this.comboTimer = 0;
     this.prepareOpeningFrame();
     // Reset timing to avoid first-frame spike after restart
     this.lastTime = performance.now();
@@ -1194,22 +1201,28 @@ export class GameEngine {
         chunkWorldX,
         progressionLevel,
       );
+
+      // Apply level config filtering: restrict enemy types and density if a level is active.
+      let filteredSpawns = enemySpawns;
+      if (this.levelConfig) {
+        const allowedTypes = this.levelConfig.enemies.map((e) => e.toLowerCase());
+        filteredSpawns = enemySpawns.filter((s) => allowedTypes.includes(s.type));
+        // Apply level enemy density (0.1–1.0) to reduce/increase enemy count
+        const density = this.levelConfig.enemyDensity ?? 1.0;
+        filteredSpawns = filteredSpawns.filter((_, i) => this.seededRng(chunk.index * 313 + i) < density);
+      }
+
       // Fraction of base pool to use (capped at 100% of available spawns)
       const baseCount = Math.min(
-        Math.ceil(
-          enemySpawns.length * Math.min(this.difficulty.densityMult, 1.0),
-        ),
-        enemySpawns.length,
+        Math.ceil(filteredSpawns.length * Math.min(this.difficulty.densityMult, 1.0)),
+        filteredSpawns.length,
       );
-      const baseSpawns = enemySpawns.slice(0, baseCount);
+      const baseSpawns = filteredSpawns.slice(0, baseCount);
       // Beyond 100% density: each pool enemy has a probabilistic chance to spawn a second copy
       const bonusRate = Math.max(0, this.difficulty.densityMult - 1.0);
-      const bonusSpawns =
-        bonusRate > 0
-          ? enemySpawns.filter(
-              (_, i) => this.seededRng(chunk.index * 777 + i) < bonusRate,
-            )
-          : [];
+      const bonusSpawns = bonusRate > 0
+        ? filteredSpawns.filter((_, i) => this.seededRng(chunk.index * 777 + i) < bonusRate)
+        : [];
       const allSpawns = [...baseSpawns, ...bonusSpawns];
 
       for (const spawn of allSpawns) {
@@ -1269,7 +1282,16 @@ export class GameEngine {
         chunk.heights,
         progressionLevel,
       );
-      this.collectibles.push(...newCollectibles);
+      // In level mode, adjust collectible frequency based on level's powerUpFrequency.
+      let adjustedCollectibles = newCollectibles;
+      if (this.levelConfig) {
+        const freq = this.levelConfig.powerUpFrequency ?? 1.0;
+        adjustedCollectibles = newCollectibles.filter((c) => {
+          if (c.type === 'coin') return true; // always keep coins
+          return this.seededRng(chunk.index * 999 + c.x) < freq;
+        });
+      }
+      this.collectibles.push(...adjustedCollectibles);
 
       // Hazards
       const newHazards = spawnHazardsForChunk(
@@ -1279,11 +1301,15 @@ export class GameEngine {
         chunkWorldX,
         (s) => this.seededRng(s),
       );
-      this.hazards.push(...newHazards);
+      // In level mode, apply hazard density scaling.
+      let adjustedHazards = newHazards;
+      if (this.levelConfig) {
+        const hDensity = this.levelConfig.hazardDensity ?? 1.0;
+        adjustedHazards = newHazards.filter((_, i) => this.seededRng(chunk.index * 456 + i) < hDensity);
+      }
+      this.hazards.push(...adjustedHazards);
 
-      const replacedPlatforms = newHazards.filter(
-        (h) => h.type === "falling_platform",
-      );
+      const replacedPlatforms = adjustedHazards.filter((h) => h.type === 'falling_platform');
       if (replacedPlatforms.length > 0) {
         for (let i = chunk.platforms.length - 1; i >= 0; i--) {
           const plat = chunk.platforms[i];
@@ -1410,21 +1436,28 @@ export class GameEngine {
   }
 
   private awardEnemyDefeat(enemy: Enemy): void {
-    const pts = KILL_SCORES[enemy.type] ?? 100;
+    const basePts = KILL_SCORES[enemy.type] ?? 100;
+    this.comboCount += 1;
+    this.comboTimer = this.COMBO_DECAY_SECONDS;
+    const multiplier = this.getComboMultiplier();
+    const pts = Math.round(basePts * multiplier);
     this.player.score += pts;
     this.enemiesDefeated += 1;
-    this.particles.spawnEnemyDeath(
-      enemy.x + enemy.width / 2,
-      enemy.y + enemy.height / 2,
-    );
-    this.particles.spawnScorePopup(
-      enemy.x + enemy.width / 2,
-      enemy.y,
-      `+${pts}`,
-    );
+    this.particles.spawnEnemyDeath(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2);
+    const popupText = multiplier > 1 ? `+${pts} x${multiplier}` : `+${pts}`;
+    this.particles.spawnScorePopup(enemy.x + enemy.width / 2, enemy.y, popupText, multiplier > 1 ? '#fbbf24' : undefined);
     if (this.multiplayerEnabled && !this.multiplayerIsHost) {
       this.recentEnemyDefeatIds.push(enemy.netId);
     }
+  }
+
+  /** Returns the current combo multiplier based on combo count. */
+  private getComboMultiplier(): number {
+    if (this.comboCount < 3) return 1;
+    if (this.comboCount < 6) return 2;
+    if (this.comboCount < 10) return 3;
+    if (this.comboCount < 15) return 4;
+    return 5;
   }
 
   private handleUfoAbduction(enemy: UFO, dt: number): void {
@@ -1477,6 +1510,15 @@ export class GameEngine {
   private update(dt: number): void {
     this.gameTime += dt;
     this.playerBounceCooldown = Math.max(0, this.playerBounceCooldown - dt);
+
+    // Combo decay
+    if (this.comboTimer > 0) {
+      this.comboTimer -= dt;
+      if (this.comboTimer <= 0) {
+        this.comboCount = 0;
+        this.comboTimer = 0;
+      }
+    }
 
     // Update chunks — use a position slightly ahead of the player so enemies spawn in view.
     const lookAheadPx =
@@ -1994,6 +2036,22 @@ export class GameEngine {
       );
     }
 
+    // Lives system: spend a life to respawn instead of going straight to game over.
+    if (!this.player.alive && this.player.lives > 0) {
+      this.player.lives -= 1;
+      this.player.alive = true;
+      this.player.health = this.player.maxHealth;
+      this.player.invulnerable = true;
+      this.player.invulnerableTimer = 2.5;
+      this.player.score = Math.max(0, this.player.score - 50); // small death penalty
+      this.placePlayerOnSafeReviveGround();
+      this.player.vx = 0;
+      this.player.vy = -200;
+      this.player.onGround = false;
+      this.camera.shake(4, 0.3);
+      this.particles.spawnScorePopup(this.player.centerX, this.player.y - 10, `${this.player.lives} LIVE${this.player.lives === 1 ? '' : 'S'} LEFT`, '#f97316');
+    }
+
     if (!this.player.alive) {
       this._state = "gameover";
       this.camera.shake(8, 0.5);
@@ -2029,9 +2087,9 @@ export class GameEngine {
       biome: biome.name,
       powerUps,
       fps: profilerMetrics.fps,
-      comboCount: 0,
-      comboMultiplier: 1,
-      dayPhase: "day",
+      comboCount: this.comboCount,
+      comboMultiplier: this.getComboMultiplier(),
+      dayPhase: this.getDayPhase(),
       ...(this.levelConfig
         ? {
             levelTimeRemaining:
@@ -2051,13 +2109,24 @@ export class GameEngine {
     });
   }
 
+  /** Place player on safe ground after reviving (handles falling deaths). */
   private placePlayerOnSafeReviveGround(): void {
-    const reviveGround = this.getGroundY(this.player.centerX);
-    this.player.y = Number.isFinite(reviveGround)
-      ? reviveGround - this.player.height - 10
-      : Math.min(this.player.y, 300);
-    this.player.vy = Math.min(this.player.vy, -260);
-    this.player.onGround = false;
+    if (this.player.y > 1200) {
+      const reviveGround = this.getGroundY(this.player.centerX);
+      this.player.y = Number.isFinite(reviveGround)
+        ? reviveGround - this.player.height - 8
+        : 300;
+    }
+  }
+
+  /** Day/night cycle — based on game time, full cycle every 120s. */
+  private getDayPhase(): 'dawn' | 'day' | 'dusk' | 'night' {
+    const cycleSeconds = 120;
+    const phase = (this.gameTime % cycleSeconds) / cycleSeconds; // 0.0–1.0
+    if (phase < 0.15) return 'dawn';
+    if (phase < 0.50) return 'day';
+    if (phase < 0.65) return 'dusk';
+    return 'night';
   }
 
   private render(): void {
@@ -2226,6 +2295,19 @@ export class GameEngine {
     }
 
     this.renderer.drawParticles(this.particles.getParticles(), this.camera);
+
+    // Day/night tint overlay
+    const phase = this.getDayPhase();
+    if (phase === 'night') {
+      ctx.fillStyle = 'rgba(10, 14, 40, 0.38)';
+      ctx.fillRect(0, 0, width, height);
+    } else if (phase === 'dusk') {
+      ctx.fillStyle = 'rgba(60, 30, 10, 0.18)';
+      ctx.fillRect(0, 0, width, height);
+    } else if (phase === 'dawn') {
+      ctx.fillStyle = 'rgba(80, 50, 20, 0.12)';
+      ctx.fillRect(0, 0, width, height);
+    }
 
     // Pause overlay
     if (this._state === "paused") {
