@@ -13,7 +13,8 @@
     "mobile:android": "npm --prefix apps/mobile run android",
     "mobile:web": "npm --prefix apps/mobile run web",
     "verify:game": "node scripts/verify-game-content.mjs",
-    "verify:multiplayer": "node scripts/verify-multiplayer-config.mjs"
+    "verify:multiplayer": "node scripts/verify-multiplayer-config.mjs",
+    "verify": "npm run verify:game && npm run verify:multiplayer && npm run typecheck && npm run lint"
   },
   "dependencies": {
     "framer-motion": "^12.40.0",

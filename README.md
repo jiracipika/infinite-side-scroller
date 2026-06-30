@@ -46,13 +46,28 @@ Progression is stored locally on-device.
 ## Build and verification
 
 ```bash
-npm run typecheck
-npm run lint
+npm run verify
 npm run build
 npm run start
 ```
 
+`npm run verify` runs:
+
+- `verify:game` — validates level and character content invariants.
+- `verify:multiplayer` — validates HTTP/P2P timing and reconciliation envelopes.
+- `typecheck` — TypeScript with incremental cache disabled.
+- `lint` — Next/ESLint.
+
 Production builds do not suppress TypeScript or ESLint errors; run the explicit checks before pushing.
+
+## Release smoke test
+
+1. Run `npm run verify && npm run build` locally.
+2. Push `main`.
+3. On the deployed web app, open the menu and confirm the `Release tester checklist` is visible.
+4. Play Endless for one death/save cycle.
+5. Start Split Screen and confirm both runners stay visible.
+6. Host a Same-Wi-Fi room, join from a second browser/device, and keep the debug overlay visible long enough to confirm either P2P or HTTP fallback remains active.
 
 ## Multiplayer Deployment
 
