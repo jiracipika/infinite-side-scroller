@@ -76,6 +76,12 @@ const POLISH_PLAN = [
   { label: "Tune", detail: "Runner, profile, saves, and settings stay below the fold" },
 ];
 
+const TESTER_CHECKLIST = [
+  "Endless: launch, jump, collect coins, confirm game-over save slot updates",
+  "Split-screen: start both runners and verify both cameras stay readable",
+  "Same-Wi-Fi: host room, scan/join, confirm HTTP fallback or P2P overlay stays active",
+];
+
 type MenuView = "play" | "character" | "profile";
 
 const StartScreen: FC<Props> = ({
@@ -378,6 +384,15 @@ const StartScreen: FC<Props> = ({
                 <small>{item.detail}</small>
               </div>
             ))}
+          </div>
+
+          <div className="dash-tester-checklist-v2" aria-label="Release tester checklist">
+            <b>Release tester checklist</b>
+            <ul>
+              {TESTER_CHECKLIST.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
           </div>
 
           <div className="dash-quick-stats-v2">
