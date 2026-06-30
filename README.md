@@ -43,12 +43,16 @@ From the main menu:
 
 Progression is stored locally on-device.
 
-## Build
+## Build and verification
 
 ```bash
+npm run typecheck
+npm run lint
 npm run build
 npm run start
 ```
+
+Production builds do not suppress TypeScript or ESLint errors; run the explicit checks before pushing.
 
 ## Multiplayer Deployment
 

@@ -1,7 +1,5 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  typescript: { ignoreBuildErrors: true },
-  eslint: { ignoreDuringBuilds: true },
   // Expose TURN server credentials to the browser for WebRTC P2P connectivity.
   // Configure these in your hosting environment (e.g. Vercel project settings):
   //   TURN_URLS       — comma-separated, e.g. "turn:turn.example.com:3478,turn:turn.example.com:3478?transport=tcp"
