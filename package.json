@@ -11,7 +11,8 @@
     "mobile:dev": "npm --prefix apps/mobile run start",
     "mobile:ios": "npm --prefix apps/mobile run ios",
     "mobile:android": "npm --prefix apps/mobile run android",
-    "mobile:web": "npm --prefix apps/mobile run web"
+    "mobile:web": "npm --prefix apps/mobile run web",
+    "verify:game": "node scripts/verify-game-content.mjs"
   },
   "dependencies": {
     "framer-motion": "^12.40.0",
