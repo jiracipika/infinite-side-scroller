@@ -2,18 +2,21 @@
  * Multiplayer timing + reconciliation tuning.
  *
  * The netcode is tick-based: the client fires a sync every MP_TICK_MS and the
- * server reports the same rate. Keep these in one place so we can tune feel
- * under varying latency.
+ * server reports the same fallback rate while WebRTC P2P can run faster.
+ * Keep these in one place so we can tune feel under varying latency.
  */
 
 /** Fixed simulation / sync tick rate in Hz. */
 export const MP_TICK_RATE_HZ = 25;
-/** Milliseconds per tick — the single source of truth for sync cadence. */
+/** Milliseconds per tick — the single source of truth for HTTP/fallback sync cadence. */
 export const MP_TICK_MS = 1000 / MP_TICK_RATE_HZ; // 40ms
+/** P2P WebRTC sends movement every animation frame-ish tick for LAN responsiveness. */
+export const MP_P2P_TICK_RATE_HZ = 60;
+export const MP_P2P_TICK_MS = 1000 / MP_P2P_TICK_RATE_HZ;
 
 /**
  * HTTP polling fires every Nth tick. P2P (WebRTC) and split-screen fire every
- * tick (25 Hz). HTTP is expensive (full fetch round-trip per sync) so we halve
+ * tick (60 Hz for P2P, 25 Hz for split-screen). HTTP is expensive (full fetch round-trip per sync) so we halve
  * it: 25 / 2 ≈ 12.5 Hz, comfortably inside the 115ms interpolation window.
  */
 export const MP_HTTP_TICK_DIVISOR = 2;
@@ -24,8 +27,8 @@ export const MP_SERVER_TICK_RATE = MP_TICK_RATE_HZ;
 export const MP_SNAPSHOT_RATE = MP_TICK_RATE_HZ;
 
 export const MP_INTERPOLATION_DELAY_MS = 115;
-/** Reduced interpolation delay for P2P (WebRTC) — data arrives in 1–5 ms. */
-export const MP_P2P_INTERPOLATION_DELAY_MS = 45;
+/** Reduced interpolation delay for P2P (WebRTC) — LAN packets usually arrive inside one frame. */
+export const MP_P2P_INTERPOLATION_DELAY_MS = 16;
 export const MP_MAX_EXTRAPOLATION_MS = 120;
 export const MP_RECONCILE_SMALL_THRESHOLD = 4;
 export const MP_RECONCILE_MEDIUM_THRESHOLD = 18;
