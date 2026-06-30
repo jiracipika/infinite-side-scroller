@@ -17,7 +17,7 @@ import { ALL_LEVELS } from '@/game/data/levels';
 import { createMultiplayerRoom, joinMultiplayerRoom, leaveMultiplayerRoom, syncMultiplayerRoom, postRTCOffer, postRTCAnswer, getRTCSignal, clearRTCSignal, postRTCCandidates } from '@/game/multiplayer/client';
 import { RTCTransport, isRTCAvailable, type RTCSyncMessage } from '@/game/multiplayer/rtc';
 import type { NetInputCommand, NetPlayerSnapshot, NetRoomState, NetSyncResponse } from '@/game/multiplayer/types';
-import { MP_INPUT_BUFFER_SIZE, MP_INTERPOLATION_DELAY_MS, MP_P2P_INTERPOLATION_DELAY_MS, MP_TICK_MS, MP_HTTP_TICK_DIVISOR } from '@/game/multiplayer/config';
+import { MP_INPUT_BUFFER_SIZE, MP_INTERPOLATION_DELAY_MS, MP_P2P_INTERPOLATION_DELAY_MS, MP_P2P_TICK_MS, MP_TICK_MS, MP_HTTP_TICK_DIVISOR } from '@/game/multiplayer/config';
 import {
   addRunRewards,
   buildProgressionBonuses,
@@ -965,7 +965,7 @@ export default function Home() {
     let cancelled = false;
     let timer: number | null = null;
     let httpTickCounter = 0; // increments every tick; HTTP fires every Nth
-    // Tick-based netcode: fixed 25 Hz (40ms) cadence regardless of LAN/WAN.
+    // Tick-based fallback remains 25 Hz; WebRTC LAN sync runs at 60 Hz below.
     syncIntervalMsRef.current = MP_TICK_MS;
 
     const schedule = (delay: number) => {
@@ -1046,10 +1046,10 @@ export default function Home() {
         setNetOverlay((prev) => ({
           ...prev,
           rttMs: quantize(rtcRef.current?.rtt ?? 0, 1),
-          clientSnapshotRate: quantize(1000 / Math.max(33, sinceLastSend), 1),
+          clientSnapshotRate: quantize(1000 / Math.max(MP_P2P_TICK_MS, sinceLastSend), 1),
         }));
 
-        schedule(MP_TICK_MS); // 25 Hz tick-based P2P sync
+        schedule(MP_P2P_TICK_MS); // 60 Hz direct P2P sync for near-instant LAN movement
         return;
       }
 
@@ -1393,7 +1393,7 @@ export default function Home() {
           const deadline = Date.now() + 15000;
           let gotAnswer = false;
           while (!cancelled && Date.now() < deadline) {
-            await new Promise((r) => setTimeout(r, 400));
+            await new Promise((r) => setTimeout(r, 100));
             if (cancelled) return;
             const signal = await getRTCSignal(session.roomId).catch(() => null);
             if (signal) {
@@ -1415,7 +1415,7 @@ export default function Home() {
           // Joiner: wait for host's offer
           const deadline = Date.now() + 15000;
           while (!cancelled && Date.now() < deadline) {
-            await new Promise((r) => setTimeout(r, 400));
+            await new Promise((r) => setTimeout(r, 100));
             if (cancelled) return;
             const signal = await getRTCSignal(session.roomId).catch(() => null);
             if (signal?.hasOffer && signal.offer) {
@@ -1444,7 +1444,7 @@ export default function Home() {
             void flushCandidates();
             void pollRemoteCandidates();
           }
-        }, 500);
+        }, 100);
 
         // Wait for the data channel to open
         const connectDeadline = Date.now() + 10000;
