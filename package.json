@@ -23,7 +23,8 @@
     "verify:manifest": "node scripts/verify-manifest.mjs",
     "verify:engine": "node scripts/verify-engine-api.mjs",
     "verify:multiplayer-api": "node scripts/verify-multiplayer-api.mjs",
-    "verify:touch": "node scripts/verify-touch-controls.mjs"
+    "verify:touch": "node scripts/verify-touch-controls.mjs",
+    "release:evidence": "node scripts/release-evidence.mjs"
   },
   "dependencies": {
     "framer-motion": "^12.40.0",
