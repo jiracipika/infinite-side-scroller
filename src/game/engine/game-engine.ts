@@ -396,6 +396,13 @@ export class GameEngine {
       this.multiplayerPlayerId === hostId;
   }
 
+  grantLocalPlayerLife(count = 1): void {
+    const amount = Number.isFinite(count) ? Math.max(0, Math.floor(count)) : 0;
+    if (amount === 0) return;
+    this.player.lives += amount;
+    this.particles.spawnScorePopup(this.player.centerX, this.player.y - 10, `+${amount} LIVE${amount === 1 ? '' : 'S'}`, '#22c55e');
+  }
+
   setProgressionBonuses(bonuses: PlayerProgressionBonuses): void {
     this.progressionBonuses = { ...DEFAULT_PROGRESSION_BONUSES, ...bonuses };
     this.player.applyProgressionBonuses(this.progressionBonuses);
