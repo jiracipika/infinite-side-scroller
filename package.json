@@ -14,11 +14,12 @@
     "mobile:web": "npm --prefix apps/mobile run web",
     "verify:game": "node scripts/verify-game-content.mjs",
     "verify:multiplayer": "node scripts/verify-multiplayer-config.mjs",
-    "verify": "npm run verify:game && npm run verify:multiplayer && npm run verify:progression && npm run verify:achievements && npm run verify:saves && npm run verify:hud && npm run typecheck && npm run lint",
+    "verify": "npm run verify:game && npm run verify:multiplayer && npm run verify:progression && npm run verify:achievements && npm run verify:saves && npm run verify:hud && npm run verify:mobile && npm run typecheck && npm run lint",
     "verify:progression": "node scripts/verify-progression.mjs",
     "verify:achievements": "node scripts/verify-achievements.mjs",
     "verify:saves": "node scripts/verify-save-slots.mjs",
-    "verify:hud": "node scripts/verify-hud.mjs"
+    "verify:hud": "node scripts/verify-hud.mjs",
+    "verify:mobile": "node scripts/verify-mobile.mjs"
   },
   "dependencies": {
     "framer-motion": "^12.40.0",
