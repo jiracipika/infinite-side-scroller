@@ -1,0 +1,58 @@
+#!/usr/bin/env node
+import fs from 'node:fs'
+import path from 'node:path'
+
+const root = process.cwd()
+const pagePath = path.join(root, 'src/app/page.tsx')
+const hudPath = path.join(root, 'src/components/HUD.tsx')
+const startPath = path.join(root, 'src/components/StartScreen.tsx')
+const errors = []
+
+function read(file) {
+  if (!fs.existsSync(file)) {
+    errors.push(`${path.relative(root, file)} missing`)
+    return ''
+  }
+  return fs.readFileSync(file, 'utf8')
+}
+
+function requireMarker(source, label, marker) {
+  if (!source.includes(marker)) errors.push(`${label} missing marker: ${marker}`)
+}
+
+const page = read(pagePath)
+const hud = read(hudPath)
+const start = read(startPath)
+
+for (const marker of [
+  'Pause button',
+  'handlePause',
+  'onPointerDown',
+  'onPointerUp',
+  'TouchControls',
+  'jump',
+  'dash',
+]) {
+  requireMarker(page, 'page.tsx', marker)
+}
+
+for (const marker of ['stats.lives', 'stats.health', 'stats.coins', 'stats.distance']) {
+  requireMarker(hud, 'HUD.tsx', marker)
+}
+
+for (const marker of ['dash-tester-checklist-v2', 'Recommended play plan', 'Same-Wi-Fi']) {
+  requireMarker(start, 'StartScreen.tsx', marker)
+}
+
+const pointerHandlers = [...page.matchAll(/onPointer(?:Down|Up|Cancel)/g)].length
+if (pointerHandlers < 4) errors.push(`expected at least 4 pointer handlers for touch controls, found ${pointerHandlers}`)
+
+const ariaLabels = [...page.matchAll(/aria-label=/g)].length
+if (ariaLabels < 3) errors.push(`expected at least 3 aria-labels in page controls, found ${ariaLabels}`)
+
+if (errors.length > 0) {
+  console.error(errors.join('\n'))
+  process.exit(1)
+}
+
+console.log(`Touch controls verified: ${pointerHandlers} pointer handlers, ${ariaLabels} aria labels, pause/jump/dash/start checklist/HUD markers present.`)
