@@ -80,9 +80,12 @@ const GameOverScreen: FC<Props> = ({ stats, onRestart, onQuit }) => {
     <div
       className="absolute inset-0 flex items-center justify-center pointer-events-auto"
       style={{ animation: 'iosFadeIn 0.3s ease' }}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="game-over-title"
     >
       {/* Frosted overlay */}
-      <div className="absolute inset-0 ios-overlay" />
+      <div className="absolute inset-0 ios-overlay" aria-hidden="true" />
 
       {/* Modal sheet */}
       <div
@@ -113,6 +116,7 @@ const GameOverScreen: FC<Props> = ({ stats, onRestart, onQuit }) => {
           >
             {/* Death icon */}
             <div
+              aria-hidden="true"
               style={{
                 fontSize: 36,
                 lineHeight: 1,
@@ -125,6 +129,7 @@ const GameOverScreen: FC<Props> = ({ stats, onRestart, onQuit }) => {
             </div>
 
             <h2
+              id="game-over-title"
               className="ios-title1"
               style={{ letterSpacing: '-0.4px' }}
             >
@@ -193,6 +198,7 @@ const GameOverScreen: FC<Props> = ({ stats, onRestart, onQuit }) => {
               onTouchEnd={handleRestartTouch}
               onContextMenu={(e) => e.preventDefault()}
               style={{ fontSize: 17 }}
+              aria-label="Play again"
             >
               Play Again
             </button>
@@ -202,6 +208,7 @@ const GameOverScreen: FC<Props> = ({ stats, onRestart, onQuit }) => {
               onClick={onQuit}
               onTouchEnd={handleQuitTouch}
               onContextMenu={(e) => e.preventDefault()}
+              aria-label="Return to main menu"
             >
               Main Menu
             </button>
@@ -252,7 +259,7 @@ const StatRow: FC<StatRowProps> = ({ label, value, highlight, delay = 0 }) => (
 /* ── Star icon ───────────────────────────────────────────────── */
 
 const StarIcon: FC = () => (
-  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
     <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
   </svg>
 );

@@ -70,17 +70,7 @@ interface Props {
   initialRoomCode?: string;
 }
 
-const POLISH_PLAN = [
-  { label: "Start", detail: "Endless is always one tap away" },
-  { label: "Pick", detail: "Modes are grouped by solo, co-op, and competitive play" },
-  { label: "Tune", detail: "Runner, profile, saves, and settings stay below the fold" },
-];
 
-const TESTER_CHECKLIST = [
-  "Endless: launch, jump, collect coins, confirm game-over save slot updates",
-  "Split-screen: start both runners and verify both cameras stay readable",
-  "Same-Wi-Fi: host room, scan/join, confirm HTTP fallback or P2P overlay stays active",
-];
 
 type MenuView = "play" | "character" | "profile";
 
@@ -359,7 +349,7 @@ const StartScreen: FC<Props> = ({
               <AppIcon />
               <div>
                 <p className="dash-eyebrow">Dashverse</p>
-                <h1>Pick a mode. Start moving.</h1>
+                <h1>Pick a mode</h1>
               </div>
             </div>
             <div className="dash-live-pill">
@@ -368,32 +358,8 @@ const StartScreen: FC<Props> = ({
           </div>
 
           <p className="dash-hero-lede">
-            A clearer command center: primary play up front, multiplayer and
-            competitive modes in one row, and setup tools tucked into focused
-            cards instead of a cluttered button pile.
+            Endless runner with co-op, daily challenges, and online ghost races.
           </p>
-
-          <div
-            className="dash-polish-plan-v2"
-            aria-label="Recommended play plan"
-          >
-            {POLISH_PLAN.map((item, index) => (
-              <div key={item.label}>
-                <span>{String(index + 1).padStart(2, "0")}</span>
-                <b>{item.label}</b>
-                <small>{item.detail}</small>
-              </div>
-            ))}
-          </div>
-
-          <div className="dash-tester-checklist-v2" aria-label="Release tester checklist">
-            <b>Release tester checklist</b>
-            <ul>
-              {TESTER_CHECKLIST.map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
-          </div>
 
           <div className="dash-quick-stats-v2">
             <span>
@@ -429,7 +395,7 @@ const StartScreen: FC<Props> = ({
           </div>
         </section>
 
-        <section className="dash-command-panel dash-modes-v2">
+        <section className="dash-command-panel dash-modes-v2 dash-view-panel-v3">
           <div className="dash-section-title-row-v2">
             <div>
               <p className="dash-eyebrow">Modes</p>
@@ -441,9 +407,15 @@ const StartScreen: FC<Props> = ({
             <span>Compete</span>
             <span>Customize</span>
           </div>
+          <p className="dash-tester-checklist-v2">
+            Recommended play plan: run Adventure first, try Daily next, then use Same-Wi-Fi for nearby co-op.
+          </p>
           <div className="dash-mode-grid-v2">
             {onLevelSelect && (
-              <button className="dash-mode-card-v2 solo" onClick={onLevelSelect}>
+              <button
+                className="dash-mode-card-v2 solo"
+                onClick={onLevelSelect}
+              >
                 <small>Solo</small>
                 <b>Adventure</b>
                 <span>Levels + time attacks</span>
@@ -455,11 +427,14 @@ const StartScreen: FC<Props> = ({
               onClick={() => setShowMultiplayer((v) => !v)}
             >
               <small>Co-op</small>
-              <b>{showMultiplayer ? "Hide Wi-Fi" : "Same Wi‑Fi"}</b>
+              <b>{showMultiplayer ? "Hide Wi-Fi" : "Same-Wi-Fi"}</b>
               <span>Host or join nearby</span>
               <em>↔</em>
             </button>
-            <button className="dash-mode-card-v2 coop" onClick={handleSplitScreen}>
+            <button
+              className="dash-mode-card-v2 coop"
+              onClick={handleSplitScreen}
+            >
               <small>Co-op</small>
               <b>Split Screen</b>
               <span>Two players locally</span>
@@ -473,7 +448,9 @@ const StartScreen: FC<Props> = ({
               >
                 <small>Compete</small>
                 <b>{dailyUsed ? "Daily Done" : "Daily"}</b>
-                <span>{dailyUsed ? "Resets tomorrow" : "One ranked shot"}</span>
+                <span>
+                  {dailyUsed ? "Resets tomorrow" : "One ranked shot"}
+                </span>
                 <em>★</em>
               </button>
             )}
@@ -495,96 +472,19 @@ const StartScreen: FC<Props> = ({
               <span>Coins, checkpoints, perks</span>
               <em>◇</em>
             </button>
+            <button
+              className="dash-mode-card-v2 customize"
+              onClick={() => setShowSettings((s) => !s)}
+            >
+              <small>Setup</small>
+              <b>{showSettings ? "Hide Settings" : "Settings"}</b>
+              <span>Controls, audio, and display</span>
+              <em>⚙</em>
+            </button>
           </div>
         </section>
 
-        {activeView === "play" && (
-          <section className="dash-command-panel dash-modes-v2 dash-view-panel-v3">
-            <div className="dash-section-title-row-v2">
-              <div>
-                <p className="dash-eyebrow">Modes</p>
-                <h2>Choose your run</h2>
-              </div>
-            </div>
-            <div className="dash-flow-tabs-v2" aria-label="Menu flow">
-              <span className="is-active">Play</span>
-              <span>Compete</span>
-              <span>Customize</span>
-            </div>
-            <div className="dash-mode-grid-v2">
-              {onLevelSelect && (
-                <button
-                  className="dash-mode-card-v2 solo"
-                  onClick={onLevelSelect}
-                >
-                  <small>Solo</small>
-                  <b>Adventure</b>
-                  <span>Levels + time attacks</span>
-                  <em>→</em>
-                </button>
-              )}
-              <button
-                className="dash-mode-card-v2 coop"
-                onClick={() => setShowMultiplayer((v) => !v)}
-              >
-                <small>Co-op</small>
-                <b>{showMultiplayer ? "Hide Wi-Fi" : "Same Wi‑Fi"}</b>
-                <span>Host or join nearby</span>
-                <em>↔</em>
-              </button>
-              <button
-                className="dash-mode-card-v2 coop"
-                onClick={handleSplitScreen}
-              >
-                <small>Co-op</small>
-                <b>Split Screen</b>
-                <span>Two players locally</span>
-                <em>▦</em>
-              </button>
-              {onPlayDailyChallenge && (
-                <button
-                  className="dash-mode-card-v2 compete"
-                  onClick={handleDailyChallengeClick}
-                  disabled={dailyUsed}
-                >
-                  <small>Compete</small>
-                  <b>{dailyUsed ? "Daily Done" : "Daily"}</b>
-                  <span>
-                    {dailyUsed ? "Resets tomorrow" : "One ranked shot"}
-                  </span>
-                  <em>★</em>
-                </button>
-              )}
-              <button
-                className="dash-mode-card-v2 compete"
-                onClick={handleLeaderboardToggle}
-              >
-                <small>Compete</small>
-                <b>{showLeaderboard ? "Hide Board" : "Leaderboard"}</b>
-                <span>Records + ghost races</span>
-                <em>≡</em>
-              </button>
-              <button
-                className="dash-mode-card-v2 customize"
-                onClick={() => setShowProgression((v) => !v)}
-              >
-                <small>Customize</small>
-                <b>{showProgression ? "Hide Shop" : "Saves + Shop"}</b>
-                <span>Coins, checkpoints, perks</span>
-                <em>◇</em>
-              </button>
-              <button
-                className="dash-mode-card-v2 customize"
-                onClick={() => setShowSettings((s) => !s)}
-              >
-                <small>Setup</small>
-                <b>{showSettings ? "Hide Settings" : "Settings"}</b>
-                <span>Controls, audio, and display</span>
-                <em>⚙</em>
-              </button>
-            </div>
-          </section>
-        )}
+        {activeView === "play" && null}
 
         {activeView === "character" && (
           <section className="dash-command-panel dash-runner-v2 dash-character-select-v3 dash-view-panel-v3">

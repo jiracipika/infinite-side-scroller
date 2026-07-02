@@ -57,11 +57,15 @@ const HUD: FC<Props> = ({ stats, settings }) => {
       {(isLowHealth || isDead) && (
         <div
           className="absolute inset-0 z-0 pointer-events-none ios-low-health-vignette"
+          aria-hidden="true"
         />
       )}
 
       <div
         className="absolute inset-x-0 top-0 z-10 pointer-events-none"
+        role="status"
+        aria-live="off"
+        aria-label="Heads up display"
         style={{
           paddingTop: 'calc(env(safe-area-inset-top, 0px) + 10px)',
           paddingLeft: 'calc(env(safe-area-inset-left, 0px) + 16px)',
@@ -75,7 +79,12 @@ const HUD: FC<Props> = ({ stats, settings }) => {
             style={{ display: 'flex', flexDirection: 'column', gap: 6, animation: 'fadeSlideUp 0.4s ease both' }}
           >
             {/* Hearts */}
-            <div className="ios-hud-pill" style={{ gap: 5 }}>
+            <div
+              className="ios-hud-pill"
+              style={{ gap: 5 }}
+              aria-label={`Health: ${filledHearts} of ${totalHearts} hearts${isLowHealth ? ', low health' : ''}`}
+              role="status"
+            >
               {Array.from({ length: totalHearts }).map((_, i) => (
                 <HeartIcon
                   key={i}
@@ -86,13 +95,14 @@ const HUD: FC<Props> = ({ stats, settings }) => {
             </div>
 
             {/* Coins */}
-            <div className="ios-hud-pill" style={{ gap: 5 }}>
+            <div className="ios-hud-pill" style={{ gap: 5 }} aria-label={`${stats.coins} coins`}>
               <CoinIcon />
               <span
+                aria-hidden="true"
                 style={{
                   fontSize: 13,
                   fontWeight: 600,
-                  color: 'rgba(255,255,255,0.9)',
+                  color: 'var(--ios-label)',
                   fontVariantNumeric: 'tabular-nums',
                   lineHeight: 1,
                 }}
@@ -103,12 +113,13 @@ const HUD: FC<Props> = ({ stats, settings }) => {
 
             {/* Lives — only show when more than the default 2 (i.e. extra lives earned) */}
             {stats.lives > 0 && (
-              <div className="ios-hud-pill" style={{ gap: 4 }}>
+              <div className="ios-hud-pill" style={{ gap: 4 }} aria-label={`${stats.lives} extra lives`}>
                 <span
+                  aria-hidden="true"
                   style={{
                     fontSize: 13,
                     fontWeight: 700,
-                    color: '#f97316',
+                    color: 'var(--ios-orange)',
                     lineHeight: 1,
                     fontVariantNumeric: 'tabular-nums',
                   }}
@@ -142,11 +153,12 @@ const HUD: FC<Props> = ({ stats, settings }) => {
           >
             <div
               key={scoreFlash ? 'flash' : 'idle'}
+              aria-label={`${stats.score.toLocaleString()} points`}
               style={{
                 fontSize: 32,
                 fontWeight: 700,
                 letterSpacing: '-0.4px',
-                color: 'rgba(255,255,255,0.96)',
+                color: 'var(--ios-label)',
                 textShadow: '0 2px 16px rgba(0,0,0,0.7)',
                 fontVariantNumeric: 'tabular-nums',
                 lineHeight: 1.05,
@@ -154,13 +166,14 @@ const HUD: FC<Props> = ({ stats, settings }) => {
                 transformOrigin: 'center bottom',
               }}
             >
-              {stats.score.toLocaleString()}
+              <span aria-hidden="true">{stats.score.toLocaleString()}</span>
             </div>
             <div
+              aria-hidden="true"
               style={{
                 fontSize: 11,
                 fontWeight: 500,
-                color: 'rgba(235,235,245,0.28)',
+                color: 'var(--ios-label3)',
                 letterSpacing: '0.04em',
                 fontVariantNumeric: 'tabular-nums',
                 marginTop: 3,
@@ -171,21 +184,24 @@ const HUD: FC<Props> = ({ stats, settings }) => {
 
             {/* Level progress bar */}
             {stats.levelTarget && stats.levelTarget > 0 && (
-              <div style={{ marginTop: 4, width: 80 }}>
+              <div style={{ marginTop: 4, width: 80 }} role="progressbar" aria-valuenow={Math.round((stats.distance / stats.levelTarget) * 100)} aria-valuemin={0} aria-valuemax={100} aria-label="Level progress">
                 <div style={{ height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.12)', overflow: 'hidden' }}>
                   <div style={{
                     height: '100%',
                     borderRadius: 2,
                     width: `${Math.min(100, (stats.distance / stats.levelTarget) * 100)}%`,
-                    background: 'linear-gradient(90deg, #30D158, #0A84FF)',
+                    background: 'linear-gradient(90deg, var(--ios-green), var(--ios-tint))',
                     transition: 'width 0.3s ease',
                   }} />
                 </div>
                 {stats.levelTimeRemaining !== undefined && stats.levelTimeRemaining > 0 && (
-                  <div style={{
-                    fontSize: 10, fontWeight: 700, color: stats.levelTimeRemaining < 10 ? '#FF453A' : '#5AC8FA',
-                    marginTop: 2, textAlign: 'center', fontVariantNumeric: 'tabular-nums',
-                  }}>
+                  <div
+                    aria-hidden="true"
+                    style={{
+                      fontSize: 10, fontWeight: 700, color: stats.levelTimeRemaining < 10 ? 'var(--ios-red)' : 'var(--ios-tint)',
+                      marginTop: 2, textAlign: 'center', fontVariantNumeric: 'tabular-nums',
+                    }}
+                  >
                     {Math.ceil(stats.levelTimeRemaining)}s
                   </div>
                 )}
@@ -196,21 +212,22 @@ const HUD: FC<Props> = ({ stats, settings }) => {
             {(stats.comboCount ?? 0) > 1 && (
               <div
                 key={comboFlash ? 'flash' : 'idle'}
+                aria-label={`Combo of ${stats.comboCount}, multiplier ${stats.comboMultiplier}x`}
                 style={{
                   marginTop: 4,
                   padding: '2px 10px',
                   borderRadius: 10,
-                  background: 'rgba(251, 191, 36, 0.25)',
-                  border: '1px solid rgba(251, 191, 36, 0.4)',
+                  background: 'rgba(255, 214, 10, 0.22)',
+                  border: '1px solid rgba(255, 214, 10, 0.4)',
                   fontSize: 12,
                   fontWeight: 700,
-                  color: '#fbbf24',
+                  color: 'var(--ios-yellow)',
                   fontVariantNumeric: 'tabular-nums',
                   animation: comboFlash ? 'scoreFlash 0.2s ease both' : undefined,
-                  textShadow: '0 0 8px rgba(251, 191, 36, 0.5)',
+                  textShadow: '0 0 8px rgba(255, 214, 10, 0.5)',
                 }}
               >
-                {stats.comboCount} COMBO x{stats.comboMultiplier}
+                <span aria-hidden="true">{stats.comboCount} COMBO x{stats.comboMultiplier}</span>
               </div>
             )}
           </div>
@@ -232,12 +249,14 @@ const HUD: FC<Props> = ({ stats, settings }) => {
               key={stats.biome}
               className="ios-hud-pill"
               style={{ animation: 'biomeReveal 0.35s cubic-bezier(0.34,1.56,0.64,1) both' }}
+              aria-label={`Current biome: ${stats.biome}`}
             >
               <span
+                aria-hidden="true"
                 style={{
                   fontSize: 10,
                   fontWeight: 600,
-                  color: 'rgba(235,235,245,0.44)',
+                  color: 'var(--ios-label2)',
                   letterSpacing: '0.08em',
                   textTransform: 'uppercase',
                 }}
@@ -247,7 +266,7 @@ const HUD: FC<Props> = ({ stats, settings }) => {
             </div>
             {/* Time-of-day indicator */}
             {stats.dayPhase && (
-              <div className="ios-hud-pill" style={{ gap: 3 }}>
+              <div className="ios-hud-pill" style={{ gap: 3 }} aria-hidden="true">
                 <span style={{ fontSize: 11, lineHeight: 1 }}>
                   {stats.dayPhase === 'dawn' ? '\u{1F305}' : stats.dayPhase === 'day' ? '\u{2600}\u{FE0F}' : stats.dayPhase === 'dusk' ? '\u{1F31E}' : '\u{1F319}'}
                 </span>
@@ -255,9 +274,10 @@ const HUD: FC<Props> = ({ stats, settings }) => {
             )}
             {settings.showFPS && (
               <span
+                aria-hidden="true"
                 style={{
                   fontSize: 10,
-                  color: 'rgba(235,235,245,0.2)',
+                  color: 'var(--ios-label3)',
                   fontVariantNumeric: 'tabular-nums',
                   fontFamily: 'ui-monospace, "SF Mono", Menlo, monospace',
                   lineHeight: 1,
@@ -283,7 +303,8 @@ const HeartIcon: FC<{ filled: boolean; pulsing: boolean }> = ({ filled, pulsing 
     width="14"
     height="14"
     viewBox="0 0 24 24"
-    fill={filled ? '#FF3B30' : 'rgba(255,255,255,0.13)'}
+    fill={filled ? 'var(--ios-red)' : 'rgba(255,255,255,0.13)'}
+    aria-hidden="true"
     style={
       pulsing
         ? {
@@ -300,8 +321,8 @@ const HeartIcon: FC<{ filled: boolean; pulsing: boolean }> = ({ filled, pulsing 
 );
 
 const CoinIcon: FC = () => (
-  <svg width="12" height="12" viewBox="0 0 24 24">
-    <circle cx="12" cy="12" r="10" fill="#FFD60A" />
+  <svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
+    <circle cx="12" cy="12" r="10" fill="var(--ios-yellow)" />
     <circle cx="12" cy="12" r="10" fill="none" stroke="rgba(0,0,0,0.18)" strokeWidth="1.5" />
     <text
       x="12" y="16.5"
