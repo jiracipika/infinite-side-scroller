@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useCallback, useState, type FC } from 'react';
+import { useEffect, useCallback, useRef, useState, type FC } from 'react';
 
 /**
  * Touch controls overlay for mobile — iOS game controller aesthetic.
@@ -182,12 +182,34 @@ const TINTS = {
 const TouchBtn: FC<TouchBtnProps> = ({
   active, onStart, onEnd, size, tint, children, 'aria-label': ariaLabel,
 }) => {
+  const activePointerRef = useRef<number | null>(null);
   const dim = size === 'lg' ? 66 : size === 'md' ? 56 : size === 'sm' ? 50 : 42;
   const t = TINTS[tint ?? 'none'];
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    activePointerRef.current = e.pointerId;
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    onStart();
+  };
+
+  const handlePointerRelease = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (activePointerRef.current !== e.pointerId) return;
+    e.preventDefault();
+    e.stopPropagation();
+    activePointerRef.current = null;
+    if (e.currentTarget.hasPointerCapture?.(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+    onEnd();
+  };
 
   return (
     <button
       aria-label={ariaLabel}
+      aria-pressed={active}
       style={{
         width: dim,
         height: dim,
@@ -208,9 +230,15 @@ const TouchBtn: FC<TouchBtnProps> = ({
         WebkitUserSelect: 'none',
         WebkitTouchCallout: 'none',
       }}
-      onTouchStart={(e) => { e.preventDefault(); e.stopPropagation(); onStart(); }}
-      onTouchEnd={(e)   => { e.preventDefault(); e.stopPropagation(); onEnd(); }}
-      onTouchCancel={(e) => { e.preventDefault(); e.stopPropagation(); onEnd(); }}
+      onPointerDown={handlePointerDown}
+      onPointerUp={handlePointerRelease}
+      onPointerCancel={handlePointerRelease}
+      onLostPointerCapture={(e) => {
+        if (activePointerRef.current === e.pointerId) {
+          activePointerRef.current = null;
+          onEnd();
+        }
+      }}
       onContextMenu={(e) => e.preventDefault()}
     >
       {children}
