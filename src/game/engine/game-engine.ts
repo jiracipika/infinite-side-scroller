@@ -58,6 +58,21 @@ const FIXED_DT = 1 / 60;
 const MAX_ACCUMULATED = 0.1;
 const START_SAFE_ZONE_END = 760;
 
+// High-DPR phones can silently allocate 3x/4x fullscreen canvases, turning a
+// 390x844 viewport into a multi-megapixel render target. Cap backing-store
+// resolution while preserving CSS-space gameplay coordinates.
+const MAX_CANVAS_DPR = 2;
+const MOBILE_CANVAS_DPR = 1.5;
+const MOBILE_CANVAS_AREA = 900 * 520;
+
+function getCanvasRenderDpr(rawDpr: number, width: number, height: number): number {
+  const safeDpr = Number.isFinite(rawDpr) && rawDpr > 0 ? rawDpr : 1;
+  const cappedDpr = Math.min(safeDpr, MAX_CANVAS_DPR);
+  return width * height <= MOBILE_CANVAS_AREA
+    ? Math.min(cappedDpr, MOBILE_CANVAS_DPR)
+    : cappedDpr;
+}
+
 export type EngineState = "playing" | "paused" | "gameover";
 
 export interface RemotePlayerViewState {
@@ -951,7 +966,7 @@ export class GameEngine {
   }
 
   private handleResize = (): void => {
-    const dpr = window.devicePixelRatio || 1;
+    const rawDpr = window.devicePixelRatio || 1;
     const host = this.canvas.parentElement;
     const hostRect = host?.getBoundingClientRect();
     const canvasRect = this.canvas.getBoundingClientRect();
@@ -970,6 +985,7 @@ export class GameEngine {
     );
     const width = Math.max(1, hostWidth);
     const height = Math.max(1, hostHeight);
+    const dpr = getCanvasRenderDpr(rawDpr, width, height);
     const pixelWidth = Math.max(1, Math.floor(width * dpr));
     const pixelHeight = Math.max(1, Math.floor(height * dpr));
 
