@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useCallback, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useCallback, useRef, useState } from 'react';
 import { GameEngine, type CameraMode } from '@/game';
 import { useGameStore } from '@/components/GameStore';
 import { loadSelectedCharacter } from '@/game/data/characters';
@@ -1594,25 +1594,6 @@ export default function Home() {
     stats.score,
   ]);
 
-  const pressVirtualControl = (code: string, pressed: boolean) => {
-    window.dispatchEvent(new KeyboardEvent(pressed ? "keydown" : "keyup", { code, key: code, bubbles: true }))
-  };
-
-  const touchButtonStyle = (accent: string): CSSProperties => ({
-    width: 68,
-    height: 68,
-    borderRadius: 999,
-    border: `1px solid ${accent}`,
-    background: "rgba(2,6,23,0.52)",
-    color: "#fff",
-    fontWeight: 800,
-    fontSize: 13,
-    letterSpacing: "0.04em",
-    backdropFilter: "blur(12px)",
-    WebkitBackdropFilter: "blur(12px)",
-    touchAction: "none",
-  });
-
   return (
     <main className="fixed inset-0 overflow-hidden bg-black select-none">
       <canvas
@@ -1916,48 +1897,6 @@ export default function Home() {
           }}
         >
           {multiplayerNotice}
-        </div>
-      )}
-
-      {/* TouchControls — mobile action buttons for jump/dash/shoot */}
-      {state === "playing" && !splitScreenSeed && (
-        <div
-          aria-label="TouchControls"
-          className="absolute inset-x-0 bottom-6 z-20 flex items-end justify-between px-5 sm:hidden"
-          style={{ pointerEvents: "none" }}
-        >
-          <button
-            type="button"
-            aria-label="Jump"
-            style={{ ...touchButtonStyle("rgba(56,189,248,0.65)"), pointerEvents: "auto" }}
-            onPointerDown={() => pressVirtualControl("Space", true)}
-            onPointerUp={() => pressVirtualControl("Space", false)}
-            onPointerCancel={() => pressVirtualControl("Space", false)}
-          >
-            JUMP
-          </button>
-          <div className="flex gap-3" style={{ pointerEvents: "auto" }}>
-            <button
-              type="button"
-              aria-label="Dash"
-              style={touchButtonStyle("rgba(168,85,247,0.65)")}
-              onPointerDown={() => pressVirtualControl("ShiftLeft", true)}
-              onPointerUp={() => pressVirtualControl("ShiftLeft", false)}
-              onPointerCancel={() => pressVirtualControl("ShiftLeft", false)}
-            >
-              DASH
-            </button>
-            <button
-              type="button"
-              aria-label="Shoot"
-              style={touchButtonStyle("rgba(34,197,94,0.65)")}
-              onPointerDown={() => pressVirtualControl("KeyF", true)}
-              onPointerUp={() => pressVirtualControl("KeyF", false)}
-              onPointerCancel={() => pressVirtualControl("KeyF", false)}
-            >
-              FIRE
-            </button>
-          </div>
         </div>
       )}
 

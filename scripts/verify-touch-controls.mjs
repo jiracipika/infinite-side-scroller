@@ -29,11 +29,7 @@ const touchControls = read(touchControlsPath)
 for (const marker of [
   'Pause button',
   'handlePause',
-  'onPointerDown',
-  'onPointerUp',
-  'TouchControls',
-  'jump',
-  'dash',
+  '<TouchControls />',
 ]) {
   requireMarker(page, 'page.tsx', marker)
 }
@@ -50,15 +46,19 @@ for (const marker of ['onPointerDown', 'setPointerCapture', 'onLostPointerCaptur
   requireMarker(touchControls, 'TouchControls.tsx', marker)
 }
 
+for (const marker of ['jump-press', 'dash-press', 'attack-press', 'carry-press', 'Carry teammate']) {
+  requireMarker(touchControls, 'TouchControls.tsx', marker)
+}
+
 for (const marker of ['navigator.vibrate', 'visibilitychange', 'pagehide']) {
   requireMarker(touchControls, 'TouchControls.tsx', marker)
 }
 
-const pointerHandlers = [...page.matchAll(/onPointer(?:Down|Up|Cancel)/g)].length
-if (pointerHandlers < 4) errors.push(`expected at least 4 pointer handlers for touch controls, found ${pointerHandlers}`)
+const legacyKeyboardShim = page.includes('new KeyboardEvent') || page.includes('pressVirtualControl')
+if (legacyKeyboardShim) errors.push('page.tsx still contains legacy KeyboardEvent touch shim')
 
-const ariaLabels = [...page.matchAll(/aria-label=/g)].length
-if (ariaLabels < 3) errors.push(`expected at least 3 aria-labels in page controls, found ${ariaLabels}`)
+const ariaLabels = [...touchControls.matchAll(/aria-label=/g)].length
+if (ariaLabels < 5) errors.push(`expected at least 5 aria-labels in TouchControls.tsx, found ${ariaLabels}`)
 
 const touchControlPointerHandlers = [...touchControls.matchAll(/onPointer(?:Down|Up|Cancel)|onLostPointerCapture/g)].length
 if (touchControlPointerHandlers < 4) {
@@ -70,4 +70,4 @@ if (errors.length > 0) {
   process.exit(1)
 }
 
-console.log(`Touch controls verified: ${pointerHandlers} page pointer handlers, ${touchControlPointerHandlers} touch button pointer handlers, ${ariaLabels} aria labels, pause/jump/dash/start checklist/HUD markers present.`)
+console.log(`Touch controls verified: canonical TouchControls mounted, ${touchControlPointerHandlers} touch button pointer handlers, ${ariaLabels} aria labels, jump/dash/attack/carry/start checklist/HUD markers present, no legacy KeyboardEvent shim.`)

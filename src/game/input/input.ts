@@ -25,6 +25,8 @@ export class InputManager {
   private touchAttackPressed = false;
   private touchDash = false;
   private touchDashPressed = false;
+  private touchCarry = false;
+  private touchCarryPressed = false;
 
   private handleGameInput: ((e: CustomEvent) => void) | null = null;
   private readonly inputChannel: string;
@@ -74,6 +76,14 @@ export class InputManager {
               this.touchDash = true;
             } else {
               this.touchDash = false;
+            }
+            break;
+          case 'carry-press':
+            if (value) {
+              if (!this.touchCarry) this.touchCarryPressed = true;
+              this.touchCarry = true;
+            } else {
+              this.touchCarry = false;
             }
             break;
         }
@@ -127,6 +137,7 @@ export class InputManager {
     if (code === 'KeyF') {
       if (this.acceptsKey('ArrowDown') && this.keys.has('ArrowDown') && !this.prevKeys.has('ArrowDown')) return true;
       if (this.acceptsKey('KeyL') && this.keys.has('KeyL') && !this.prevKeys.has('KeyL')) return true;
+      if (this.touchCarryPressed) return true;
     }
     if ((code === 'Space' || code === 'ArrowUp' || code === 'KeyW') && this.touchJumpPressed) {
       return true;
@@ -155,6 +166,7 @@ export class InputManager {
     this.touchJumpPressed = false;
     this.touchAttackPressed = false;
     this.touchDashPressed = false;
+    this.touchCarryPressed = false;
   }
 
   /** Clean up event listeners */
@@ -186,7 +198,7 @@ export class InputManager {
       || (this.acceptsKey('ShiftRight') && this.keys.has('ShiftRight'))
       || this.touchDash
     );
-    const carryPressed = this.acceptsKey('KeyF') && this.keys.has('KeyF');
+    const carryPressed = (this.acceptsKey('KeyF') && this.keys.has('KeyF')) || this.touchCarry;
     const carryAltPressed = (
       (this.acceptsKey('ArrowDown') && this.keys.has('ArrowDown'))
       || (this.acceptsKey('KeyL') && this.keys.has('KeyL'))

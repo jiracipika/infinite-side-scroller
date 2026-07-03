@@ -7,7 +7,7 @@ import { useEffect, useCallback, useRef, useState, type FC } from 'react';
  *
  * Layout:
  *   Left side  — Left / Right D-pad buttons
- *   Right side — Attack (smaller, orange) + Jump (large, blue)
+ *   Right side — Dash / Attack / Carry (small) + Jump (large, blue)
  *
  * Emits 'game-input' CustomEvents consumed by InputManager.
  * Respects iOS safe-area-inset-bottom for notched devices.
@@ -24,6 +24,7 @@ const TouchControls: FC<TouchControlsProps> = ({ channel = 'game-input', compact
   const [jumpHeld, setJumpHeld] = useState(false);
   const [attackHeld, setAttackHeld] = useState(false);
   const [dashHeld, setDashHeld] = useState(false);
+  const [carryHeld, setCarryHeld] = useState(false);
 
   const emit = useCallback((type: string, value: boolean) => {
     window.dispatchEvent(new CustomEvent(channel, { detail: { type, value } }));
@@ -45,12 +46,14 @@ const TouchControls: FC<TouchControlsProps> = ({ channel = 'game-input', compact
   const endAttack = useCallback(() => { setAttackHeld(false); emit('attack-press', false); }, [emit]);
   const startDash = useCallback(() => { setDashHeld(true); pulseHaptic(14); emit('dash-press', true); }, [emit, pulseHaptic]);
   const endDash = useCallback(() => { setDashHeld(false); emit('dash-press', false); }, [emit]);
+  const startCarry = useCallback(() => { setCarryHeld(true); pulseHaptic(8); emit('carry-press', true); }, [emit, pulseHaptic]);
+  const endCarry = useCallback(() => { setCarryHeld(false); emit('carry-press', false); }, [emit]);
 
   const releaseAll = useCallback(() => {
     setLeftHeld(false); setRightHeld(false);
-    setJumpHeld(false); setAttackHeld(false); setDashHeld(false);
+    setJumpHeld(false); setAttackHeld(false); setDashHeld(false); setCarryHeld(false);
     emit('move-left', false); emit('move-right', false);
-    emit('jump-press', false); emit('attack-press', false); emit('dash-press', false);
+    emit('jump-press', false); emit('attack-press', false); emit('dash-press', false); emit('carry-press', false);
     pulseHaptic(0);
   }, [emit, pulseHaptic]);
 
@@ -108,7 +111,7 @@ const TouchControls: FC<TouchControlsProps> = ({ channel = 'game-input', compact
         </TouchBtn>
       </div>
 
-      {/* ── Right: Dash + Attack + Jump ─────────────────────── */}
+      {/* ── Right: Dash + Attack + Carry + Jump ─────────────── */}
       <div
         className="absolute pointer-events-auto"
         style={{
@@ -126,7 +129,7 @@ const TouchControls: FC<TouchControlsProps> = ({ channel = 'game-input', compact
             onStart={startDash}
             onEnd={endDash}
             size={compact ? 'xs' : 'sm'}
-            tint="orange"
+            tint="purple"
             aria-label="Dash"
           >
             <DashLabel />
@@ -140,6 +143,16 @@ const TouchControls: FC<TouchControlsProps> = ({ channel = 'game-input', compact
             aria-label="Attack"
           >
             <AtkLabel />
+          </TouchBtn>
+          <TouchBtn
+            active={carryHeld}
+            onStart={startCarry}
+            onEnd={endCarry}
+            size={compact ? 'xs' : 'sm'}
+            tint="green"
+            aria-label="Carry teammate"
+          >
+            <CarryLabel />
           </TouchBtn>
         </div>
         <TouchBtn
@@ -166,7 +179,7 @@ interface TouchBtnProps {
   onStart: () => void;
   onEnd: () => void;
   size: 'xs' | 'sm' | 'md' | 'lg';
-  tint?: 'blue' | 'orange';
+  tint?: 'blue' | 'orange' | 'purple' | 'green';
   'aria-label': string;
   children: React.ReactNode;
 }
@@ -185,6 +198,20 @@ const TINTS = {
     border:     'rgba(255,149,0,0.22)',
     borderActive: 'rgba(255,149,0,0.7)',
     glow:       '0 0 14px rgba(255,149,0,0.42)',
+  },
+  purple: {
+    bg:         'rgba(175,82,222,0.18)',
+    bgActive:   'rgba(175,82,222,0.56)',
+    border:     'rgba(175,82,222,0.22)',
+    borderActive: 'rgba(175,82,222,0.7)',
+    glow:       '0 0 14px rgba(175,82,222,0.42)',
+  },
+  green: {
+    bg:         'rgba(52,199,89,0.18)',
+    bgActive:   'rgba(52,199,89,0.56)',
+    border:     'rgba(52,199,89,0.22)',
+    borderActive: 'rgba(52,199,89,0.7)',
+    glow:       '0 0 14px rgba(52,199,89,0.42)',
   },
   none: {
     bg:         'rgba(120,120,128,0.22)',
@@ -309,4 +336,16 @@ const DashLabel: FC = () => (
     <path d="M5 12h14" />
     <path d="M13 6l6 6-6 6" />
   </svg>
+);
+
+const CarryLabel: FC = () => (
+  <span style={{
+    fontSize: 10,
+    fontWeight: 800,
+    color: 'rgba(255,255,255,0.85)',
+    letterSpacing: '0.05em',
+    lineHeight: 1,
+  }}>
+    HELP
+  </span>
 );
