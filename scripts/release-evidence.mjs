@@ -12,6 +12,7 @@ const requiredScripts = [
   'verify:achievements',
   'verify:saves',
   'verify:hud',
+  'verify:codemagic',
   'verify:mobile',
   'verify:manifest',
   'verify:engine',

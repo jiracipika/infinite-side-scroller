@@ -55,6 +55,7 @@ npm run start
 
 - `verify:game` — validates level and character content invariants.
 - `verify:multiplayer` — validates HTTP/P2P timing and reconciliation envelopes.
+- `verify:codemagic` — validates mobile Codemagic workflow coverage for Expo prebuild, Android APK/AAB artifacts, and iOS signing.
 - `typecheck` — TypeScript with incremental cache disabled.
 - `lint` — Next/ESLint.
 
