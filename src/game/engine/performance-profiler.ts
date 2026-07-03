@@ -19,8 +19,10 @@ export class PerformanceProfiler {
   private worstFrameTime = 16.67;
 
   private frameCount = 0;
-  private fpsTimer = 0;
+  private fpsElapsedMs = 0;
   private totalFrames = 0;
+  private frameWorkStart = 0;
+  private lastRafTime: number | null = null;
 
   // Frame time history for percentiles
   private frameTimeHistory: number[] = [];
@@ -30,40 +32,46 @@ export class PerformanceProfiler {
   private updateTimes: number[] = [];
   private renderTimes: number[] = [];
 
-  startFrame(): void {
-    this.frameTime = performance.now();
+  startFrame(rafTime: number = performance.now()): void {
+    this.frameWorkStart = performance.now();
+
+    if (this.lastRafTime !== null) {
+      const frameInterval = Math.max(0, rafTime - this.lastRafTime);
+      this.frameTime = frameInterval;
+
+      // FPS must be based on requestAnimationFrame cadence, not how long the
+      // update/render work took. Using work duration can report impossible FPS
+      // values on fast devices and prevent adaptive quality from engaging.
+      this.frameCount++;
+      this.fpsElapsedMs += frameInterval;
+
+      if (this.fpsElapsedMs >= 1000) {
+        this.fps = Math.round((this.frameCount * 1000) / this.fpsElapsedMs);
+        this.frameCount = 0;
+        this.fpsElapsedMs = 0;
+      }
+
+      this.frameTimeHistory.push(frameInterval);
+      if (this.frameTimeHistory.length > this.historySize) {
+        this.frameTimeHistory.shift();
+      }
+    }
+
+    this.lastRafTime = rafTime;
   }
 
   endFrame(): ProfilerMetrics {
-    const now = performance.now();
-    const delta = now - this.frameTime;
-
-    // Update FPS
-    this.frameCount++;
-    this.fpsTimer += delta / 1000;
-
-    if (this.fpsTimer >= 1.0) {
-      this.fps = this.frameCount;
-      this.frameCount = 0;
-      this.fpsTimer = 0;
-    }
-
-    // Track frame time
-    this.frameTimeHistory.push(delta);
-    if (this.frameTimeHistory.length > this.historySize) {
-      this.frameTimeHistory.shift();
-    }
-
-    // Update average and worst
     this.totalFrames++;
-    this.avgFrameTime = (this.avgFrameTime * (this.totalFrames - 1) + delta) / this.totalFrames;
-    if (delta > this.worstFrameTime) {
-      this.worstFrameTime = delta;
-    }
+    const workDuration = performance.now() - this.frameWorkStart;
 
-    // Decay worst frame time slowly
-    if (this.totalFrames % 60 === 0 && this.worstFrameTime > 100) {
-      this.worstFrameTime *= 0.95;
+    if (this.frameTimeHistory.length > 0) {
+      const sum = this.frameTimeHistory.reduce((a, b) => a + b, 0);
+      this.avgFrameTime = sum / this.frameTimeHistory.length;
+      this.worstFrameTime = Math.max(...this.frameTimeHistory);
+    } else {
+      this.frameTime = workDuration;
+      this.avgFrameTime = workDuration;
+      this.worstFrameTime = workDuration;
     }
 
     return this.getMetrics();
@@ -108,8 +116,10 @@ export class PerformanceProfiler {
   reset(): void {
     this.fps = 60;
     this.frameCount = 0;
-    this.fpsTimer = 0;
+    this.fpsElapsedMs = 0;
     this.totalFrames = 0;
+    this.frameWorkStart = 0;
+    this.lastRafTime = null;
     this.avgFrameTime = 16.67;
     this.worstFrameTime = 16.67;
     this.frameTimeHistory = [];

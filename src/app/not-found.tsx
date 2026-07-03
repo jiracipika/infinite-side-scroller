@@ -2,6 +2,8 @@
 
 import Link from 'next/link';
 
+type LinkPointerEvent = React.MouseEvent<HTMLAnchorElement>;
+
 export default function NotFound() {
   return (
     <div className="min-h-screen flex items-center justify-center px-4" style={{ background: '#000' }}>
@@ -24,16 +26,16 @@ export default function NotFound() {
             textDecoration: 'none',
             transition: 'opacity 0.12s ease, transform 0.12s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.12s ease',
           }}
-          onMouseEnter={(e) => {
+          onMouseEnter={(e: LinkPointerEvent) => {
             (e.currentTarget as HTMLElement).style.opacity = '0.88';
             (e.currentTarget as HTMLElement).style.boxShadow = '0 6px 20px rgba(10,132,255,0.5)';
           }}
-          onMouseLeave={(e) => {
+          onMouseLeave={(e: LinkPointerEvent) => {
             (e.currentTarget as HTMLElement).style.opacity = '1';
             (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 14px rgba(10,132,255,0.35)';
           }}
-          onMouseDown={(e) => { (e.currentTarget as HTMLElement).style.transform = 'scale(0.97)'; }}
-          onMouseUp={(e) => { (e.currentTarget as HTMLElement).style.transform = 'scale(1)'; }}
+          onMouseDown={(e: LinkPointerEvent) => { (e.currentTarget as HTMLElement).style.transform = 'scale(0.97)'; }}
+          onMouseUp={(e: LinkPointerEvent) => { (e.currentTarget as HTMLElement).style.transform = 'scale(1)'; }}
         >
           Play Again
         </Link>

@@ -14,7 +14,7 @@
     "mobile:web": "npm --prefix apps/mobile run web",
     "verify:game": "node scripts/verify-game-content.mjs",
     "verify:multiplayer": "node scripts/verify-multiplayer-config.mjs",
-    "verify": "npm run verify:game && npm run verify:multiplayer && npm run verify:multiplayer-api && npm run verify:progression && npm run verify:achievements && npm run verify:saves && npm run verify:hud && npm run verify:mobile && npm run verify:manifest && npm run verify:engine && npm run verify:touch && npm run typecheck && npm run lint",
+    "verify": "npm run verify:game && npm run verify:multiplayer && npm run verify:multiplayer-api && npm run verify:performance && npm run verify:progression && npm run verify:achievements && npm run verify:saves && npm run verify:hud && npm run verify:mobile && npm run verify:manifest && npm run verify:engine && npm run verify:touch && npm run typecheck && npm run lint",
     "verify:progression": "node scripts/verify-progression.mjs",
     "verify:achievements": "node scripts/verify-achievements.mjs",
     "verify:saves": "node scripts/verify-save-slots.mjs",
@@ -24,6 +24,7 @@
     "verify:engine": "node scripts/verify-engine-api.mjs",
     "verify:multiplayer-api": "node scripts/verify-multiplayer-api.mjs",
     "verify:touch": "node scripts/verify-touch-controls.mjs",
+    "verify:performance": "node scripts/verify-performance-profiler.mjs",
     "release:evidence": "node scripts/release-evidence.mjs"
   },
   "dependencies": {

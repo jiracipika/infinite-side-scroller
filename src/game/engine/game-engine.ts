@@ -1027,7 +1027,7 @@ export class GameEngine {
 
   private loop = (currentTime: number): void => {
     if (!this._running) return;
-    this.profiler.startFrame();
+    this.profiler.startFrame(currentTime);
 
     let dt = (currentTime - this.lastTime) / 1000;
     this.lastTime = currentTime;
@@ -1047,7 +1047,9 @@ export class GameEngine {
       this.profiler.recordUpdateTime(performance.now() - updateStart);
     }
 
+    const renderStart = performance.now();
     this.render();
+    this.profiler.recordRenderTime(performance.now() - renderStart);
     this.profiler.endFrame();
     this.updateAdaptiveQuality();
     this.animationId = requestAnimationFrame(this.loop);
@@ -1058,7 +1060,7 @@ export class GameEngine {
     if (!this.adaptiveQualityEnabled) return;
 
     const metrics = this.profiler.getMetrics();
-    this.qualityChangeTimer += 1 / 60; // Approximate frame time
+    this.qualityChangeTimer += Math.min(metrics.frameTime / 1000, MAX_ACCUMULATED);
 
     if (this.qualityChangeTimer >= this.qualityChangeCooldown) {
       this.qualityChangeTimer = 0;
