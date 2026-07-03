@@ -1993,7 +1993,7 @@ export class GameEngine {
     }
 
     // Camera
-    this.camera.update(this.player.centerX, this.player.centerY);
+    this.camera.update(this.player.centerX, this.player.centerY, dt);
 
     // Particles
     const biome = getBiomeAt(this.player.centerX);

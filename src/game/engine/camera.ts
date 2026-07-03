@@ -87,7 +87,7 @@ export class Camera {
     this.shakeTimer = this.shakeDuration;
   }
 
-  update(playerX: number, playerY: number): void {
+  update(playerX: number, playerY: number, dt: number = 1 / 60): void {
     const desired = this.getDesiredPosition(playerX, playerY);
 
     // Always update target — lerp provides the smoothing
@@ -97,9 +97,12 @@ export class Camera {
     const splitMode = this.config.mode === 'split';
     const lerpSpeed = splitMode ? Math.max(this.config.lerpSpeed, 0.24) : this.config.lerpSpeed;
 
-    // Smooth lerp
-    this.x += (this.targetX - this.x) * lerpSpeed;
-    this.y += (this.targetY - this.y) * lerpSpeed;
+    // Frame-rate independent lerp: convert the per-frame factor (tuned for
+    // 60 Hz) into an exponential decay rate that is correct at any dt.
+    // 1 - (1 - k)^60  maps a 60 Hz factor to its per-second equivalent.
+    const lerpDt = 1 - Math.pow(1 - lerpSpeed, dt * 60);
+    this.x += (this.targetX - this.x) * lerpDt;
+    this.y += (this.targetY - this.y) * lerpDt;
 
     // In split-screen, recenter aggressively if we drift too far from the desired track
     // (e.g. resize/orientation timing or a long frame hitch).
@@ -113,10 +116,11 @@ export class Camera {
     // Don't go above sky
     if (this.y < -200) this.y = -200;
 
-    // Update shake
+    // Update shake — use real frame delta so duration is correct on any
+    // refresh rate (120 Hz, variable, or a long frame hitch).
     if (this.shakeTimer > 0) {
-      this.shakeTimer -= 1 / 60;
-      const decay = this.shakeTimer / this.shakeDuration;
+      this.shakeTimer -= dt;
+      const decay = this.shakeDuration > 0 ? Math.max(0, this.shakeTimer / this.shakeDuration) : 0;
       const intensity = this.shakeIntensity * decay;
       this.shakeOffsetX = (Math.random() * 2 - 1) * intensity;
       this.shakeOffsetY = (Math.random() * 2 - 1) * intensity;
