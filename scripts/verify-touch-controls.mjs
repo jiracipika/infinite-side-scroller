@@ -50,6 +50,10 @@ for (const marker of ['onPointerDown', 'setPointerCapture', 'onLostPointerCaptur
   requireMarker(touchControls, 'TouchControls.tsx', marker)
 }
 
+for (const marker of ['navigator.vibrate', 'visibilitychange', 'pagehide']) {
+  requireMarker(touchControls, 'TouchControls.tsx', marker)
+}
+
 const pointerHandlers = [...page.matchAll(/onPointer(?:Down|Up|Cancel)/g)].length
 if (pointerHandlers < 4) errors.push(`expected at least 4 pointer handlers for touch controls, found ${pointerHandlers}`)
 

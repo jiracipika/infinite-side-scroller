@@ -19,37 +19,53 @@ interface TouchControlsProps {
 }
 
 const TouchControls: FC<TouchControlsProps> = ({ channel = 'game-input', compact = false, forceVisible = false }) => {
-  const [leftHeld,   setLeftHeld]   = useState(false);
-  const [rightHeld,  setRightHeld]  = useState(false);
-  const [jumpHeld,   setJumpHeld]   = useState(false);
+  const [leftHeld, setLeftHeld] = useState(false);
+  const [rightHeld, setRightHeld] = useState(false);
+  const [jumpHeld, setJumpHeld] = useState(false);
   const [attackHeld, setAttackHeld] = useState(false);
-  const [dashHeld,   setDashHeld]   = useState(false);
+  const [dashHeld, setDashHeld] = useState(false);
 
   const emit = useCallback((type: string, value: boolean) => {
     window.dispatchEvent(new CustomEvent(channel, { detail: { type, value } }));
   }, [channel]);
 
-  const startLeft   = useCallback(() => { setLeftHeld(true);    emit('move-left',    true);  }, [emit]);
-  const endLeft     = useCallback(() => { setLeftHeld(false);   emit('move-left',    false); }, [emit]);
-  const startRight  = useCallback(() => { setRightHeld(true);   emit('move-right',   true);  }, [emit]);
-  const endRight    = useCallback(() => { setRightHeld(false);  emit('move-right',   false); }, [emit]);
-  const startJump   = useCallback(() => { setJumpHeld(true);    emit('jump-press',   true);  }, [emit]);
-  const endJump     = useCallback(() => { setJumpHeld(false);   emit('jump-press',   false); }, [emit]);
-  const startAttack = useCallback(() => { setAttackHeld(true);  emit('attack-press', true);  }, [emit]);
-  const endAttack   = useCallback(() => { setAttackHeld(false); emit('attack-press', false); }, [emit]);
-  const startDash   = useCallback(() => { setDashHeld(true);    emit('dash-press',   true);  }, [emit]);
-  const endDash     = useCallback(() => { setDashHeld(false);   emit('dash-press',   false); }, [emit]);
+  const pulseHaptic = useCallback((pattern: number | number[] = 8) => {
+    // Best-effort mobile feedback. Unsupported browsers simply no-op.
+    if (typeof navigator === 'undefined' || !('vibrate' in navigator)) return;
+    navigator.vibrate(pattern);
+  }, []);
+
+  const startLeft = useCallback(() => { setLeftHeld(true); pulseHaptic(6); emit('move-left', true); }, [emit, pulseHaptic]);
+  const endLeft = useCallback(() => { setLeftHeld(false); emit('move-left', false); }, [emit]);
+  const startRight = useCallback(() => { setRightHeld(true); pulseHaptic(6); emit('move-right', true); }, [emit, pulseHaptic]);
+  const endRight = useCallback(() => { setRightHeld(false); emit('move-right', false); }, [emit]);
+  const startJump = useCallback(() => { setJumpHeld(true); pulseHaptic(10); emit('jump-press', true); }, [emit, pulseHaptic]);
+  const endJump = useCallback(() => { setJumpHeld(false); emit('jump-press', false); }, [emit]);
+  const startAttack = useCallback(() => { setAttackHeld(true); pulseHaptic([8, 18, 8]); emit('attack-press', true); }, [emit, pulseHaptic]);
+  const endAttack = useCallback(() => { setAttackHeld(false); emit('attack-press', false); }, [emit]);
+  const startDash = useCallback(() => { setDashHeld(true); pulseHaptic(14); emit('dash-press', true); }, [emit, pulseHaptic]);
+  const endDash = useCallback(() => { setDashHeld(false); emit('dash-press', false); }, [emit]);
 
   const releaseAll = useCallback(() => {
     setLeftHeld(false); setRightHeld(false);
     setJumpHeld(false); setAttackHeld(false); setDashHeld(false);
     emit('move-left', false); emit('move-right', false);
     emit('jump-press', false); emit('attack-press', false); emit('dash-press', false);
-  }, [emit]);
+    pulseHaptic(0);
+  }, [emit, pulseHaptic]);
 
   useEffect(() => {
+    const releaseOnHidden = () => {
+      if (document.visibilityState === 'hidden') releaseAll();
+    };
     window.addEventListener('blur', releaseAll);
-    return () => window.removeEventListener('blur', releaseAll);
+    window.addEventListener('pagehide', releaseAll);
+    document.addEventListener('visibilitychange', releaseOnHidden);
+    return () => {
+      window.removeEventListener('blur', releaseAll);
+      window.removeEventListener('pagehide', releaseAll);
+      document.removeEventListener('visibilitychange', releaseOnHidden);
+    };
   }, [releaseAll]);
 
   const [isTouchDevice, setIsTouchDevice] = useState(false);
@@ -108,20 +124,20 @@ const TouchControls: FC<TouchControlsProps> = ({ channel = 'game-input', compact
           <TouchBtn
             active={dashHeld}
             onStart={startDash}
-          onEnd={endDash}
-          size={compact ? 'xs' : 'sm'}
-          tint="orange"
-          aria-label="Dash"
+            onEnd={endDash}
+            size={compact ? 'xs' : 'sm'}
+            tint="orange"
+            aria-label="Dash"
           >
             <DashLabel />
           </TouchBtn>
           <TouchBtn
             active={attackHeld}
             onStart={startAttack}
-          onEnd={endAttack}
-          size={compact ? 'xs' : 'sm'}
-          tint="orange"
-          aria-label="Attack"
+            onEnd={endAttack}
+            size={compact ? 'xs' : 'sm'}
+            tint="orange"
+            aria-label="Attack"
           >
             <AtkLabel />
           </TouchBtn>
