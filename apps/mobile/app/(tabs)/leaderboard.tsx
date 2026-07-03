@@ -1,11 +1,19 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+type ScoreEntry = {
+  rank: number;
+  name: string;
+  score: string;
+  coins: string;
+  highlight?: boolean;
+};
 
 export default function LeaderboardScreen() {
   const [selectedTab, setSelectedTab] = React.useState<'global' | 'local'>('global');
 
-  // Placeholder leaderboard data
-  const globalScores = [
+  const globalScores: ScoreEntry[] = [
     { rank: 1, name: 'SpeedRunner99', score: '125,430', coins: '342' },
     { rank: 2, name: 'PlatformMaster', score: '98,750', coins: '289' },
     { rank: 3, name: 'JumpKing', score: '87,200', coins: '265' },
@@ -18,7 +26,7 @@ export default function LeaderboardScreen() {
     { rank: 10, name: 'ForestGhost', score: '55,120', coins: '143' },
   ];
 
-  const localScores = [
+  const localScores: ScoreEntry[] = [
     { rank: 1, name: 'You', score: '45,670', coins: '156', highlight: true },
     { rank: 2, name: 'Yesterday', score: '32,140', coins: '98' },
     { rank: 3, name: 'BestRun', score: '28,950', coins: '87' },
@@ -29,14 +37,19 @@ export default function LeaderboardScreen() {
   const scores = selectedTab === 'global' ? globalScores : localScores;
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Leaderboard</Text>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <View style={styles.header}>
+        <Text style={styles.title} accessibilityRole="header">Leaderboard</Text>
+        <Text style={styles.subtitle}>Compare score, distance, and coin runs without leaving the game.</Text>
+      </View>
 
-      {/* Tab Switcher */}
-      <View style={styles.tabSwitcher}>
+      <View style={styles.tabSwitcher} accessibilityRole="tablist">
         <TouchableOpacity
           style={[styles.tabButton, selectedTab === 'global' && styles.tabButtonActive]}
           onPress={() => setSelectedTab('global')}
+          accessibilityRole="tab"
+          accessibilityLabel="Global leaderboard"
+          accessibilityState={{ selected: selectedTab === 'global' }}
         >
           <Text style={[styles.tabButtonText, selectedTab === 'global' && styles.tabButtonTextActive]}>
             Global
@@ -45,6 +58,9 @@ export default function LeaderboardScreen() {
         <TouchableOpacity
           style={[styles.tabButton, selectedTab === 'local' && styles.tabButtonActive]}
           onPress={() => setSelectedTab('local')}
+          accessibilityRole="tab"
+          accessibilityLabel="Your best runs"
+          accessibilityState={{ selected: selectedTab === 'local' }}
         >
           <Text style={[styles.tabButtonText, selectedTab === 'local' && styles.tabButtonTextActive]}>
             Your Best
@@ -52,9 +68,8 @@ export default function LeaderboardScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Leaderboard List */}
       <ScrollView style={styles.listContainer} contentContainerStyle={styles.listContent}>
-        <View style={styles.headerRow}>
+        <View style={styles.headerRow} accessible accessibilityLabel="Leaderboard columns: rank, player, score, coins">
           <Text style={styles.headerRank}>#</Text>
           <Text style={styles.headerName}>Player</Text>
           <Text style={styles.headerScore}>Score</Text>
@@ -68,54 +83,45 @@ export default function LeaderboardScreen() {
             name={entry.name}
             score={entry.score}
             coins={entry.coins}
-            highlight={(entry as any).highlight}
+            highlight={entry.highlight}
           />
         ))}
 
-        {/* Footer note */}
         {selectedTab === 'global' && (
           <Text style={styles.footerNote}>
-            Global leaderboard coming soon! Compete with players worldwide.
+            Global leaderboard coming soon. Local runs still count toward your best score.
           </Text>
         )}
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
-const LeaderboardEntry: React.FC<{
-  rank: number;
-  name: string;
-  score: string;
-  coins: string;
-  highlight?: boolean;
-}> = ({ rank, name, score, coins, highlight }) => {
+const LeaderboardEntry: React.FC<ScoreEntry> = ({ rank, name, score, coins, highlight }) => {
   const getRankColor = () => {
-    if (rank === 1) return '#fbbf24'; // Gold
-    if (rank === 2) return '#9ca3af'; // Silver
-    if (rank === 3) return '#b45309'; // Bronze
-    return 'rgba(255,255,255,0.4)';
+    if (rank === 1) return '#fbbf24';
+    if (rank === 2) return '#d1d5db';
+    if (rank === 3) return '#d97706';
+    return 'rgba(255,255,255,0.52)';
   };
 
   const getRankIcon = () => {
-    if (rank === 1) return '👑';
-    if (rank === 2) return '🥈';
-    if (rank === 3) return '🥉';
-    return rank;
+    if (rank === 1) return '1st';
+    if (rank === 2) return '2nd';
+    if (rank === 3) return '3rd';
+    return `${rank}`;
   };
 
   return (
-    <View style={[styles.entryRow, highlight && styles.entryRowHighlight]}>
-      <Text style={[styles.entryRank, { color: getRankColor() }]}>
-        {getRankIcon()}
-      </Text>
-      <Text style={[styles.entryName, highlight && styles.entryNameHighlight]}>
-        {name}
-      </Text>
-      <Text style={[styles.entryScore, highlight && styles.entryScoreHighlight]}>
-        {score}
-      </Text>
-      <Text style={styles.entryCoins}>{coins} 💰</Text>
+    <View
+      style={[styles.entryRow, highlight && styles.entryRowHighlight]}
+      accessible
+      accessibilityLabel={`${rank}. ${name}. Score ${score}. ${coins} coins${highlight ? '. Your highlighted run.' : ''}`}
+    >
+      <Text style={[styles.entryRank, { color: getRankColor() }]}>{getRankIcon()}</Text>
+      <Text style={[styles.entryName, highlight && styles.entryNameHighlight]}>{name}</Text>
+      <Text style={[styles.entryScore, highlight && styles.entryScoreHighlight]}>{score}</Text>
+      <Text style={styles.entryCoins}>{coins} coins</Text>
     </View>
   );
 };
@@ -125,38 +131,51 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#0f0f1a',
   },
+  header: {
+    paddingHorizontal: 24,
+    paddingTop: 16,
+    paddingBottom: 18,
+  },
   title: {
     color: '#fff',
     fontSize: 28,
+    lineHeight: 34,
     fontWeight: '700',
-    marginTop: 16,
-    marginBottom: 20,
+    marginBottom: 8,
+  },
+  subtitle: {
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 15,
+    lineHeight: 21,
   },
   tabSwitcher: {
     flexDirection: 'row',
     marginHorizontal: 24,
     marginBottom: 20,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 14,
     padding: 4,
   },
   tabButton: {
     flex: 1,
-    paddingVertical: 10,
-    borderRadius: 8,
+    minHeight: 48,
+    borderRadius: 10,
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 10,
   },
   tabButtonActive: {
-    backgroundColor: 'rgba(68, 136, 204, 0.2)',
+    backgroundColor: 'rgba(68, 136, 204, 0.24)',
   },
   tabButtonText: {
-    color: 'rgba(255,255,255,0.5)',
+    color: 'rgba(255,255,255,0.6)',
     fontSize: 14,
-    fontWeight: '500',
+    lineHeight: 18,
+    fontWeight: '600',
   },
   tabButtonTextActive: {
-    color: '#4488cc',
-    fontWeight: '600',
+    color: '#8ec5ff',
+    fontWeight: '800',
   },
   listContainer: {
     flex: 1,
@@ -166,92 +185,100 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
   headerRow: {
+    minHeight: 44,
     flexDirection: 'row',
+    alignItems: 'center',
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.08)',
+    borderBottomColor: 'rgba(255,255,255,0.1)',
     marginBottom: 8,
   },
   headerRank: {
-    color: 'rgba(255,255,255,0.3)',
+    color: 'rgba(255,255,255,0.48)',
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '700',
     textTransform: 'uppercase',
-    width: 40,
+    width: 44,
   },
   headerName: {
-    color: 'rgba(255,255,255,0.3)',
+    color: 'rgba(255,255,255,0.48)',
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '700',
     textTransform: 'uppercase',
     flex: 1,
   },
   headerScore: {
-    color: 'rgba(255,255,255,0.3)',
+    color: 'rgba(255,255,255,0.48)',
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '700',
     textTransform: 'uppercase',
-    width: 70,
+    width: 72,
     textAlign: 'right',
   },
   headerCoins: {
-    color: 'rgba(255,255,255,0.3)',
+    color: 'rgba(255,255,255,0.48)',
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '700',
     textTransform: 'uppercase',
-    width: 70,
+    width: 82,
     textAlign: 'right',
   },
   entryRow: {
+    minHeight: 48,
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 12,
-    borderRadius: 10,
-    marginBottom: 4,
+    borderRadius: 12,
+    marginBottom: 6,
   },
   entryRowHighlight: {
-    backgroundColor: 'rgba(68, 136, 204, 0.1)',
+    backgroundColor: 'rgba(68, 136, 204, 0.14)',
     borderWidth: 1,
-    borderColor: 'rgba(68, 136, 204, 0.2)',
+    borderColor: 'rgba(68, 136, 204, 0.32)',
   },
   entryRank: {
-    fontSize: 16,
-    fontWeight: '600',
-    width: 40,
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: '800',
+    width: 44,
     textAlign: 'center',
   },
   entryName: {
-    color: 'rgba(255,255,255,0.7)',
+    color: 'rgba(255,255,255,0.78)',
     fontSize: 15,
-    fontWeight: '500',
+    lineHeight: 20,
+    fontWeight: '600',
     flex: 1,
   },
   entryNameHighlight: {
     color: '#fff',
-    fontWeight: '600',
+    fontWeight: '800',
   },
   entryScore: {
-    color: 'rgba(255,255,255,0.5)',
+    color: 'rgba(255,255,255,0.64)',
     fontSize: 14,
-    fontWeight: '600',
-    width: 70,
+    lineHeight: 18,
+    fontWeight: '700',
+    width: 72,
     textAlign: 'right',
   },
   entryScoreHighlight: {
-    color: '#4488cc',
+    color: '#8ec5ff',
   },
   entryCoins: {
-    color: 'rgba(250, 204, 21, 0.6)',
+    color: 'rgba(250, 204, 21, 0.72)',
     fontSize: 13,
-    width: 70,
+    lineHeight: 18,
+    width: 82,
     textAlign: 'right',
   },
   footerNote: {
-    color: 'rgba(255,255,255,0.3)',
-    fontSize: 12,
+    color: 'rgba(255,255,255,0.42)',
+    fontSize: 13,
+    lineHeight: 19,
     textAlign: 'center',
-    marginTop: 16,
+    marginTop: 18,
     fontStyle: 'italic',
   },
 });

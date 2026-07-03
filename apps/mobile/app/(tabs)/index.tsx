@@ -209,12 +209,16 @@ const TouchControls: React.FC<{
       <View style={styles.leftControls}>
         <DirectionButton
           icon="arrow-back"
+          label="Move left"
+          hint="Hold to move Dashverse left"
           onPress={() => handleTouchStart('move-left')}
           onRelease={() => handleTouchEnd('move-left')}
         />
         <View style={{ width: 12 }} />
         <DirectionButton
           icon="arrow-forward"
+          label="Move right"
+          hint="Hold to move Dashverse right"
           onPress={() => handleTouchStart('move-right')}
           onRelease={() => handleTouchEnd('move-right')}
         />
@@ -225,6 +229,8 @@ const TouchControls: React.FC<{
         <DirectionButton
           size="sm"
           icon="flash"
+          label="Attack"
+          hint="Hold to attack while running"
           onPress={() => handleTouchStart('attack-press')}
           onRelease={() => handleTouchEnd('attack-press')}
           accent="orange"
@@ -233,6 +239,8 @@ const TouchControls: React.FC<{
         <DirectionButton
           size="lg"
           icon="arrow-up"
+          label="Jump"
+          hint="Hold to jump over obstacles"
           onPress={() => handleTouchStart('jump-press')}
           onRelease={() => handleTouchEnd('jump-press')}
           accent="blue"
@@ -246,15 +254,20 @@ const DirectionButton: React.FC<{
   icon: keyof typeof Ionicons.glyphMap;
   size?: 'sm' | 'lg';
   accent?: 'blue' | 'orange';
+  label: string;
+  hint: string;
   onPress: () => void;
   onRelease: () => void;
-}> = ({ icon, size = 'lg', accent, onPress, onRelease }) => {
+}> = ({ icon, size = 'lg', accent, label, hint, onPress, onRelease }) => {
   const btnSize = size === 'lg' ? 64 : 48;
 
   return (
     <TouchableOpacity
       onPressIn={onPress}
       onPressOut={onRelease}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityHint={hint}
       style={[
         styles.touchBtn,
         { width: btnSize, height: btnSize, borderRadius: btnSize / 2 },
@@ -278,7 +291,11 @@ const HUD: React.FC<{ stats: GameStats; onPause: () => void }> = ({ stats, onPau
       <View style={styles.hudRow} pointerEvents="box-none">
         {/* Left: Hearts + Coins */}
         <View style={styles.hudLeft}>
-          <View style={styles.hudBadge}>
+          <View
+            style={styles.hudBadge}
+            accessible
+            accessibilityLabel={`Health ${stats.health} of ${stats.maxHealth}`}
+          >
             {hearts.map(i => (
               <Text
                 key={i}
@@ -291,7 +308,7 @@ const HUD: React.FC<{ stats: GameStats; onPause: () => void }> = ({ stats, onPau
               </Text>
             ))}
           </View>
-          <View style={styles.hudBadge}>
+          <View style={styles.hudBadge} accessible accessibilityLabel={`${stats.coins} coins`}>
             <Text style={styles.coinDot}>●</Text>
             <Text style={styles.coinCount}>{stats.coins}</Text>
           </View>
@@ -315,7 +332,13 @@ const HUD: React.FC<{ stats: GameStats; onPause: () => void }> = ({ stats, onPau
           <View style={styles.hudBadge}>
             <Text style={styles.biomeText}>{stats.biome}</Text>
           </View>
-          <TouchableOpacity onPress={onPause} style={styles.pauseBtn}>
+          <TouchableOpacity
+            onPress={onPause}
+            style={styles.pauseBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Pause game"
+            accessibilityHint="Pauses the current run"
+          >
             <Ionicons name="pause" size={16} color="rgba(255,255,255,0.7)" />
           </TouchableOpacity>
         </View>
@@ -369,7 +392,14 @@ const MenuOverlay: React.FC<{ onPlay: (seed?: number) => void; highScore: number
         </View>
       </View>
 
-      <TouchableOpacity style={styles.playBtn} onPress={() => onPlay()} activeOpacity={0.82}>
+      <TouchableOpacity
+        style={styles.playBtn}
+        onPress={() => onPlay()}
+        activeOpacity={0.82}
+        accessibilityRole="button"
+        accessibilityLabel="Play Endless"
+        accessibilityHint="Start a new endless run"
+      >
         <LinearGradient colors={['#0A84FF', '#5E5CE6', '#BF5AF2']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.playBtnGradient}>
           <Text style={styles.playBtnText}>Play Endless</Text>
           <Text style={styles.playBtnSubtext}>Jump straight into a run</Text>
@@ -394,15 +424,15 @@ const PauseOverlay: React.FC<{
     <View style={styles.menuContent}>
       <Text style={styles.overlayTitle}>Paused</Text>
 
-      <TouchableOpacity style={styles.playBtn} onPress={onResume} activeOpacity={0.8}>
+      <TouchableOpacity style={styles.playBtn} onPress={onResume} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel="Resume run">
         <Text style={styles.playBtnText}>Resume</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.secondaryBtn} onPress={onRestart} activeOpacity={0.8}>
+      <TouchableOpacity style={styles.secondaryBtn} onPress={onRestart} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel="Restart run">
         <Text style={styles.secondaryBtnText}>Restart</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.quitBtn} onPress={onQuit} activeOpacity={0.8}>
+      <TouchableOpacity style={styles.quitBtn} onPress={onQuit} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel="Quit to menu">
         <Text style={styles.quitBtnText}>Quit to Menu</Text>
       </TouchableOpacity>
     </View>
@@ -437,11 +467,11 @@ const GameOverOverlay: React.FC<{
           <StatCard label="Coins" value={`${stats.coins}`} />
         </View>
 
-        <TouchableOpacity style={styles.playBtn} onPress={onRestart} activeOpacity={0.8}>
+        <TouchableOpacity style={styles.playBtn} onPress={onRestart} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel="Play again">
           <Text style={styles.playBtnText}>Play Again</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.secondaryBtn} onPress={onQuit} activeOpacity={0.8}>
+        <TouchableOpacity style={styles.secondaryBtn} onPress={onQuit} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel="Return to main menu">
           <Text style={styles.secondaryBtnText}>Main Menu</Text>
         </TouchableOpacity>
       </View>
@@ -548,7 +578,7 @@ const styles = StyleSheet.create({
   distanceText: { color: 'rgba(255,255,255,0.25)', fontSize: 11, marginTop: 2 },
   biomeText: { color: 'rgba(255,255,255,0.4)', fontSize: 11, fontWeight: '500' },
   pauseBtn: {
-    width: 36, height: 36, borderRadius: 18,
+    width: 48, height: 48, borderRadius: 24,
     backgroundColor: 'rgba(0,0,0,0.4)',
     alignItems: 'center', justifyContent: 'center',
   },
@@ -761,6 +791,7 @@ const styles = StyleSheet.create({
   },
   secondaryBtn: {
     width: 280,
+    minHeight: 48,
     paddingVertical: 10,
     borderRadius: 12,
     alignItems: 'center',
@@ -776,6 +807,7 @@ const styles = StyleSheet.create({
   },
   quitBtn: {
     width: 280,
+    minHeight: 48,
     paddingVertical: 10,
     borderRadius: 12,
     alignItems: 'center',
