@@ -54,9 +54,17 @@ assert(mobilePkg.scripts && typeof mobilePkg.scripts.start === 'string', 'mobile
 const bundleScriptPath = path.join(mobileDir, 'scripts/bundle-game-html.js')
 assert(fs.existsSync(bundleScriptPath), 'scripts/bundle-game-html.js must exist')
 
+// 7. Native touch bridge must allow simultaneous holds (move + jump/attack) and avoid stale releases.
+const mobileGamePath = path.join(mobileDir, 'app/(tabs)/index.tsx')
+assert(fs.existsSync(mobileGamePath), 'apps/mobile/app/(tabs)/index.tsx must exist')
+const mobileGame = fs.existsSync(mobileGamePath) ? fs.readFileSync(mobileGamePath, 'utf8') : ''
+assert(mobileGame.includes('heldInputsRef = useRef<Set<string>>(new Set())'), 'mobile controls must track a Set of held inputs for simultaneous move+jump/attack')
+assert(mobileGame.includes('JSON.stringify({ type, value })'), 'mobile WebView input bridge must serialize event detail safely')
+assert(mobileGame.includes('onTouchCancel={onRelease}'), 'mobile controls must release held inputs on touch cancel')
+
 if (failures > 0) {
   console.error(`${failures} mobile bundle check(s) failed`)
   process.exit(1)
 }
 
-console.log(`Mobile bundle verified: app.json valid (${expo.name} v${expo.version}), entry files present, game.html ${Math.round(gameHtmlSize / 1024)}KB, ${requiredAssets.length} required assets present, bundle script exists.`)
+console.log(`Mobile bundle verified: app.json valid (${expo.name} v${expo.version}), entry files present, game.html ${Math.round(gameHtmlSize / 1024)}KB, ${requiredAssets.length} required assets present, bundle script exists, simultaneous touch bridge present.`)

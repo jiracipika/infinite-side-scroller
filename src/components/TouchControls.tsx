@@ -36,18 +36,18 @@ const TouchControls: FC<TouchControlsProps> = ({ channel = 'game-input', compact
     navigator.vibrate(pattern);
   }, []);
 
-  const startLeft = useCallback(() => { setLeftHeld(true); pulseHaptic(6); emit('move-left', true); }, [emit, pulseHaptic]);
-  const endLeft = useCallback(() => { setLeftHeld(false); emit('move-left', false); }, [emit]);
-  const startRight = useCallback(() => { setRightHeld(true); pulseHaptic(6); emit('move-right', true); }, [emit, pulseHaptic]);
-  const endRight = useCallback(() => { setRightHeld(false); emit('move-right', false); }, [emit]);
-  const startJump = useCallback(() => { setJumpHeld(true); pulseHaptic(10); emit('jump-press', true); }, [emit, pulseHaptic]);
-  const endJump = useCallback(() => { setJumpHeld(false); emit('jump-press', false); }, [emit]);
-  const startAttack = useCallback(() => { setAttackHeld(true); pulseHaptic([8, 18, 8]); emit('attack-press', true); }, [emit, pulseHaptic]);
-  const endAttack = useCallback(() => { setAttackHeld(false); emit('attack-press', false); }, [emit]);
-  const startDash = useCallback(() => { setDashHeld(true); pulseHaptic(14); emit('dash-press', true); }, [emit, pulseHaptic]);
-  const endDash = useCallback(() => { setDashHeld(false); emit('dash-press', false); }, [emit]);
-  const startCarry = useCallback(() => { setCarryHeld(true); pulseHaptic(8); emit('carry-press', true); }, [emit, pulseHaptic]);
-  const endCarry = useCallback(() => { setCarryHeld(false); emit('carry-press', false); }, [emit]);
+  const startLeft = useCallback(() => { emit('move-left', true); setLeftHeld(true); pulseHaptic(6); }, [emit, pulseHaptic]);
+  const endLeft = useCallback(() => { emit('move-left', false); setLeftHeld(false); }, [emit]);
+  const startRight = useCallback(() => { emit('move-right', true); setRightHeld(true); pulseHaptic(6); }, [emit, pulseHaptic]);
+  const endRight = useCallback(() => { emit('move-right', false); setRightHeld(false); }, [emit]);
+  const startJump = useCallback(() => { emit('jump-press', true); setJumpHeld(true); pulseHaptic(10); }, [emit, pulseHaptic]);
+  const endJump = useCallback(() => { emit('jump-press', false); setJumpHeld(false); }, [emit]);
+  const startAttack = useCallback(() => { emit('attack-press', true); setAttackHeld(true); pulseHaptic([8, 18, 8]); }, [emit, pulseHaptic]);
+  const endAttack = useCallback(() => { emit('attack-press', false); setAttackHeld(false); }, [emit]);
+  const startDash = useCallback(() => { emit('dash-press', true); setDashHeld(true); pulseHaptic(14); }, [emit, pulseHaptic]);
+  const endDash = useCallback(() => { emit('dash-press', false); setDashHeld(false); }, [emit]);
+  const startCarry = useCallback(() => { emit('carry-press', true); setCarryHeld(true); pulseHaptic(8); }, [emit, pulseHaptic]);
+  const endCarry = useCallback(() => { emit('carry-press', false); setCarryHeld(false); }, [emit]);
 
   const releaseAll = useCallback(() => {
     setLeftHeld(false); setRightHeld(false);
@@ -84,7 +84,7 @@ const TouchControls: FC<TouchControlsProps> = ({ channel = 'game-input', compact
   return (
     <div
       className="absolute inset-0 z-20 pointer-events-none select-none"
-      style={{ touchAction: 'auto' }}
+      style={{ touchAction: 'none' }}
     >
       {/* ── Left: D-Pad ──────────────────────────────────────── */}
       <div

@@ -3,6 +3,7 @@ import {
   View,
   StyleSheet,
   TouchableOpacity,
+  Pressable,
   Text,
   Dimensions,
   Platform,
@@ -47,8 +48,9 @@ export default function GameScreen() {
   const [showMenu, setShowMenu] = useState(true);
 
   const sendInput = useCallback((type: string, value: boolean) => {
+    const detail = JSON.stringify({ type, value });
     webViewRef.current?.injectJavaScript(
-      `window.dispatchEvent(new CustomEvent('game-input', {detail: {type:'${type}',value:${value}}})); true;`
+      `window.dispatchEvent(new CustomEvent('game-input', { detail: ${detail} })); true;`
     );
   }, []);
 
@@ -182,25 +184,25 @@ export default function GameScreen() {
 const TouchControls: React.FC<{
   sendInput: (type: string, value: boolean) => void;
 }> = ({ sendInput }) => {
-  const holdRef = useRef<{ type: string } | null>(null);
+  const heldInputsRef = useRef<Set<string>>(new Set());
 
   const handleTouchStart = useCallback((type: string) => {
-    holdRef.current = { type };
+    if (heldInputsRef.current.has(type)) return;
+    heldInputsRef.current.add(type);
     sendInput(type, true);
   }, [sendInput]);
 
   const handleTouchEnd = useCallback((type: string) => {
-    if (holdRef.current?.type === type) {
-      holdRef.current = null;
-      sendInput(type, false);
-    }
+    if (!heldInputsRef.current.has(type)) return;
+    heldInputsRef.current.delete(type);
+    sendInput(type, false);
   }, [sendInput]);
 
   const releaseAll = useCallback(() => {
-    if (holdRef.current) {
-      sendInput(holdRef.current.type, false);
-      holdRef.current = null;
+    for (const type of heldInputsRef.current) {
+      sendInput(type, false);
     }
+    heldInputsRef.current.clear();
   }, [sendInput]);
 
   return (
@@ -262,9 +264,10 @@ const DirectionButton: React.FC<{
   const btnSize = size === 'lg' ? 64 : 48;
 
   return (
-    <TouchableOpacity
+    <Pressable
       onPressIn={onPress}
       onPressOut={onRelease}
+      onTouchCancel={onRelease}
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityHint={hint}
@@ -274,10 +277,9 @@ const DirectionButton: React.FC<{
         accent === 'blue' && styles.touchBtnBlue,
         accent === 'orange' && styles.touchBtnOrange,
       ]}
-      activeOpacity={0.7}
     >
       <Ionicons name={icon} size={size === 'lg' ? 24 : 18} color="rgba(255,255,255,0.7)" />
-    </TouchableOpacity>
+    </Pressable>
   );
 };
 

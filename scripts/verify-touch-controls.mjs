@@ -54,6 +54,13 @@ for (const marker of ['navigator.vibrate', 'visibilitychange', 'pagehide']) {
   requireMarker(touchControls, 'TouchControls.tsx', marker)
 }
 
+if (!touchControls.includes("style={{ touchAction: 'none' }}")) {
+  errors.push('TouchControls overlay must use touchAction:none so browser gestures do not delay game input')
+}
+if (!touchControls.includes("emit('jump-press', true); setJumpHeld(true)")) {
+  errors.push('TouchControls must emit jump before React state/haptic work')
+}
+
 const legacyKeyboardShim = page.includes('new KeyboardEvent') || page.includes('pressVirtualControl')
 if (legacyKeyboardShim) errors.push('page.tsx still contains legacy KeyboardEvent touch shim')
 

@@ -16,10 +16,10 @@ export const MP_P2P_TICK_MS = 1000 / MP_P2P_TICK_RATE_HZ;
 
 /**
  * HTTP polling fires every Nth tick. P2P (WebRTC) and split-screen fire every
- * tick (60 Hz for P2P, 25 Hz for split-screen). HTTP is expensive (full fetch round-trip per sync) so we halve
- * it: 25 / 2 ≈ 12.5 Hz, comfortably inside the 115ms interpolation window.
+ * tick (60 Hz for P2P, 25 Hz for split-screen). Same-Wi‑Fi fallback needs
+ * every tick so remote input does not feel delayed when P2P is still connecting.
  */
-export const MP_HTTP_TICK_DIVISOR = 2;
+export const MP_HTTP_TICK_DIVISOR = 1;
 
 /** Server-side tick rate (matches the client tick). */
 export const MP_SERVER_TICK_RATE = MP_TICK_RATE_HZ;
@@ -28,7 +28,7 @@ export const MP_SNAPSHOT_RATE = MP_TICK_RATE_HZ;
 
 export const MP_INTERPOLATION_DELAY_MS = 115;
 /** Reduced interpolation delay for P2P (WebRTC) — LAN packets usually arrive inside one frame. */
-export const MP_P2P_INTERPOLATION_DELAY_MS = 16;
+export const MP_P2P_INTERPOLATION_DELAY_MS = 32;
 export const MP_MAX_EXTRAPOLATION_MS = 120;
 export const MP_RECONCILE_SMALL_THRESHOLD = 4;
 export const MP_RECONCILE_MEDIUM_THRESHOLD = 18;

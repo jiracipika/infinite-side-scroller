@@ -99,8 +99,8 @@ function getIceServers(): RTCIceServer[] {
 
 const DEFAULT_ICE_SERVERS = getIceServers();
 
-/** Default ICE gathering timeout — tiny because trickle ICE keeps gathering after SDP is posted. */
-const DEFAULT_ICE_TIMEOUT_MS = 250;
+/** Default ICE gathering timeout — mobile Wi‑Fi/STUN can need several seconds even with trickle ICE. */
+const DEFAULT_ICE_TIMEOUT_MS = 3000;
 
 export class RTCTransport {
   private pc: RTCPeerConnection;
