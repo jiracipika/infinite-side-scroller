@@ -1523,6 +1523,7 @@ export class GameEngine {
       this.player.vy = 180;
       enemy.disrupt();
       this.camera.shake(5, 0.25);
+      this.particles.spawnHitFlash(this.player.centerX, this.player.centerY);
       this.particles.spawnScorePopup(
         this.player.centerX,
         this.player.y - 12,
@@ -1798,6 +1799,7 @@ export class GameEngine {
             this.player.vx = kb;
             this.player.vy = -250;
             this.camera.shake(6, 0.3);
+            this.particles.spawnHitFlash(this.player.centerX, this.player.centerY);
             this.particles.spawnScorePopup(
               this.player.centerX,
               this.player.y - 10,
@@ -1855,6 +1857,7 @@ export class GameEngine {
           ) {
             if (this.player.takeDamage(proj.damage)) {
               proj.life = 0;
+              this.particles.spawnHitFlash(this.player.centerX, this.player.centerY);
               this.particles.spawnScorePopup(
                 this.player.centerX,
                 this.player.y - 10,
@@ -1880,6 +1883,7 @@ export class GameEngine {
         if (this.player.takeDamage(1)) {
           this.player.vy = -300;
           this.camera.shake(5, 0.25);
+          this.particles.spawnHitFlash(this.player.centerX, this.player.centerY);
           this.particles.spawnScorePopup(
             this.player.centerX,
             this.player.y - 10,

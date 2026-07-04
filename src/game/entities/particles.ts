@@ -23,6 +23,9 @@ export class ParticleSystem {
   private maxGameplay = 200;
   private reducedParticles = false;
 
+  /** Per-frame reusable ambient counter — avoids allocating a filtered array on every spawn check. */
+  private ambientCount = 0;
+
   setReducedParticles(v: boolean): void {
     this.reducedParticles = v;
     this.maxAmbient = v ? 30 : 100;
@@ -37,18 +40,13 @@ export class ParticleSystem {
     biomeType: string,
     dt: number
   ): void {
-    const ambientCount = this.particles.filter(p =>
-      p.type !== 'jump_dust' && p.type !== 'landing' && p.type !== 'coin_sparkle' &&
-      p.type !== 'enemy_death' && p.type !== 'score_popup'
-    ).length;
-
-    // Spawn ambient particles
-    if (ambientCount < this.maxAmbient && Math.random() < 0.3) {
-      this.spawnAmbient(cameraX, cameraY, screenWidth, screenHeight, biomeType);
-    }
-
-    // Update
-    for (const p of this.particles) {
+    // In-place compaction: shift live particles to the front, then truncate.
+    // This avoids allocating a new array (via .filter) on every frame.
+    const list = this.particles;
+    let writeIdx = 0;
+    let ambient = 0;
+    for (let i = 0; i < list.length; i++) {
+      const p = list[i];
       p.x += p.vx * dt;
       p.y += p.vy * dt;
 
@@ -61,9 +59,22 @@ export class ParticleSystem {
       }
 
       p.life -= dt;
-    }
 
-    this.particles = this.particles.filter(p => p.life > 0);
+      if (p.life > 0) {
+        if (p.type === 'dust' || p.type === 'leaf' || p.type === 'snow' || p.type === 'spark') {
+          ambient++;
+        }
+        if (writeIdx !== i) list[writeIdx] = p;
+        writeIdx++;
+      }
+    }
+    list.length = writeIdx;
+    this.ambientCount = ambient;
+
+    // Spawn ambient particles
+    if (ambient < this.maxAmbient && Math.random() < 0.3) {
+      this.spawnAmbient(cameraX, cameraY, screenWidth, screenHeight, biomeType);
+    }
   }
 
   private spawnAmbient(cx: number, cy: number, sw: number, sh: number, biome: string): void {
@@ -156,6 +167,25 @@ export class ParticleSystem {
         maxLife: 0.7,
         size: Math.random() * 4 + 2,
         color,
+        type: 'enemy_death',
+      });
+    }
+  }
+
+  /** Spawn a red impact burst when the player takes damage */
+  spawnHitFlash(x: number, y: number): void {
+    const count = this.reducedParticles ? 5 : 10;
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI * 2 * i) / count + Math.random() * 0.4;
+      const speed = Math.random() * 120 + 60;
+      this.particles.push({
+        x, y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 30,
+        life: 0.3 + Math.random() * 0.2,
+        maxLife: 0.5,
+        size: Math.random() * 3 + 2,
+        color: i % 2 === 0 ? '#ef4444' : '#fca5a5',
         type: 'enemy_death',
       });
     }
