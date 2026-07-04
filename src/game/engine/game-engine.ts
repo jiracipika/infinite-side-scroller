@@ -194,6 +194,8 @@ export class GameEngine {
     fps: number;
     comboCount?: number;
     comboMultiplier?: number;
+    maxCombo?: number;
+    enemiesDefeated?: number;
     dayPhase?: "dawn" | "day" | "dusk" | "night";
     levelTimeRemaining?: number;
     levelTarget?: number;
@@ -258,6 +260,7 @@ export class GameEngine {
   // Combo system — increments on consecutive enemy defeats, decays after 3s without a kill
   private comboCount = 0;
   private comboTimer = 0;
+  private maxCombo = 0;
   private readonly COMBO_DECAY_SECONDS = 3.0;
 
   constructor(
@@ -357,6 +360,7 @@ export class GameEngine {
     this.ghostSampleTimer = 0;
     this.comboCount = 0;
     this.comboTimer = 0;
+    this.maxCombo = 0;
     this.prepareOpeningFrame();
     // Reset timing to avoid first-frame spike after restart
     this.lastTime = performance.now();
@@ -1463,6 +1467,7 @@ export class GameEngine {
   private awardEnemyDefeat(enemy: Enemy): void {
     const basePts = KILL_SCORES[enemy.type] ?? 100;
     this.comboCount += 1;
+    if (this.comboCount > this.maxCombo) this.maxCombo = this.comboCount;
     this.comboTimer = this.COMBO_DECAY_SECONDS;
     const multiplier = this.getComboMultiplier();
     const pts = Math.round(basePts * multiplier);
@@ -2118,6 +2123,8 @@ export class GameEngine {
       fps: profilerMetrics.fps,
       comboCount: this.comboCount,
       comboMultiplier: this.getComboMultiplier(),
+      maxCombo: this.maxCombo,
+      enemiesDefeated: this.enemiesDefeated,
       dayPhase: this.getDayPhase(),
       ...(this.levelConfig
         ? {

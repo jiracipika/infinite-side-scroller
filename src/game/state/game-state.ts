@@ -27,6 +27,8 @@ export interface GameStats {
   powerUps: string[];
   comboCount?: number;
   comboMultiplier?: number;
+  maxCombo?: number;
+  enemiesDefeated?: number;
   dayPhase?: 'dawn' | 'day' | 'dusk' | 'night';
   levelTimeRemaining?: number;
   levelTarget?: number;

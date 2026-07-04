@@ -52,6 +52,8 @@ const GameOverScreen: FC<Props> = ({ stats, onRestart, onQuit }) => {
   const displayBest     = useCountUp(stats.highScore,               680, 320);
   const displayDistance = useCountUp(Math.round(stats.distance),    600, 440);
   const displayCoins    = useCountUp(stats.coins,                   550, 520);
+  const displayMaxCombo = useCountUp(stats.maxCombo ?? 0,            500, 600);
+  const displayKills    = useCountUp(stats.enemiesDefeated ?? 0,     500, 680);
   const handleRestartTouch = (e: TouchEvent<HTMLButtonElement>) => {
     e.preventDefault();
     onRestart();
@@ -73,6 +75,8 @@ const GameOverScreen: FC<Props> = ({ stats, onRestart, onQuit }) => {
       distance: Math.round(stats.distance),
       coins: stats.coins,
       characterId: loadSelectedCharacter(),
+      maxCombo: stats.maxCombo,
+      enemiesDefeated: stats.enemiesDefeated,
     });
   }, [stats.coins, stats.distance, stats.score]);
 
@@ -177,6 +181,17 @@ const GameOverScreen: FC<Props> = ({ stats, onRestart, onQuit }) => {
               label="Coins"
               value={String(displayCoins)}
               delay={420}
+            />
+            <StatRow
+              label="Best Combo"
+              value={displayMaxCombo > 0 ? `x${displayMaxCombo}` : '—'}
+              highlight={displayMaxCombo >= 10}
+              delay={500}
+            />
+            <StatRow
+              label="Defeated"
+              value={String(displayKills)}
+              delay={580}
             />
           </div>
 

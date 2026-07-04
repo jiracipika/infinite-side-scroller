@@ -7,6 +7,8 @@ export interface LeaderboardEntry {
   coins: number;
   characterId: string;
   createdAt: number;
+  maxCombo?: number;
+  enemiesDefeated?: number;
 }
 
 const STORAGE_KEY = 'iss-leaderboard-v1';
@@ -85,6 +87,11 @@ export function saveLeaderboardAvatarId(avatarId: string): void {
   }
 }
 
+function sanitizeOptionalNumber(v: unknown): number | undefined {
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : undefined;
+}
+
 function rankEntries(entries: LeaderboardEntry[]): LeaderboardEntry[] {
   return [...entries].sort((a, b) => {
     if (b.score !== a.score) return b.score - a.score;
@@ -108,7 +115,9 @@ export function loadLeaderboard(): LeaderboardEntry[] {
         if (!Number.isFinite(e.score) || !Number.isFinite(e.distance) || !Number.isFinite(e.coins)) return null;
         const createdAt = Number.isFinite(e.createdAt) ? Number(e.createdAt) : Date.now();
         const id = typeof e.id === 'string' && e.id ? e.id : `${createdAt}-${Math.random().toString(36).slice(2, 8)}`;
-        return {
+        const maxCombo = sanitizeOptionalNumber(e.maxCombo);
+        const enemiesDefeated = sanitizeOptionalNumber(e.enemiesDefeated);
+        const base: LeaderboardEntry = {
           id,
           name: sanitizeLeaderboardName(e.name),
           avatarId: sanitizeAvatarId(e.avatarId),
@@ -118,6 +127,9 @@ export function loadLeaderboard(): LeaderboardEntry[] {
           characterId: typeof e.characterId === 'string' ? e.characterId : 'knight',
           createdAt,
         };
+        if (maxCombo !== undefined) base.maxCombo = maxCombo;
+        if (enemiesDefeated !== undefined) base.enemiesDefeated = enemiesDefeated;
+        return base;
       })
       .filter((entry): entry is LeaderboardEntry => !!entry);
 
@@ -144,6 +156,8 @@ export function addLeaderboardEntry(input: Omit<LeaderboardEntry, 'id' | 'create
     score: Math.max(0, Math.floor(input.score)),
     distance: Math.max(0, Math.floor(input.distance)),
     coins: Math.max(0, Math.floor(input.coins)),
+    maxCombo: sanitizeOptionalNumber(input.maxCombo),
+    enemiesDefeated: sanitizeOptionalNumber(input.enemiesDefeated),
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     createdAt: Date.now(),
   };

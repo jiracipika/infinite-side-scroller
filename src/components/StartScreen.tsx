@@ -723,7 +723,7 @@ const StartScreen: FC<Props> = ({
                     key={entry.id}
                     rank={idx + 1}
                     title={`${getAvatarPreset(entry.avatarId).icon} ${entry.name}`}
-                    meta={`${entry.distance}m • ${entry.coins} coins`}
+                    meta={`${entry.distance}m • ${entry.coins} coins${entry.maxCombo ? ` • x${entry.maxCombo} combo` : ''}${entry.enemiesDefeated ? ` • ${entry.enemiesDefeated} kills` : ''}`}
                     score={entry.score}
                   />
                 ))}
