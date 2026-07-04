@@ -17,6 +17,8 @@ export interface CharacterDef {
   unlockCost: number;
   baseUnlocked?: boolean;
   ability: string;
+  /** 0 = full knockback, 1 = immune. Cyborg's signature trait. */
+  knockbackResistance?: number;
 }
 
 export const CHARACTERS: CharacterDef[] = [
@@ -112,6 +114,7 @@ export const CHARACTERS: CharacterDef[] = [
     maxHealth: 4,
     width: 24,
     height: 33,
+    knockbackResistance: 0.5,
   },
   {
     id: 'spirit',

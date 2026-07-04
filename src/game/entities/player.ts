@@ -112,6 +112,7 @@ export class Player {
   private coinFractionRemainder = 0;
   private characterSpeedScale = 1;
   private characterJumpScale = 1;
+  private characterKnockbackResistance = 0;
   private baseMaxHealth = 3;
 
   constructor(config: PlayerConfig = DEFAULT_PLAYER_CONFIG) {
@@ -131,6 +132,7 @@ export class Player {
     this.baseMaxHealth = char.maxHealth;
     this.characterSpeedScale = char.speed;
     this.characterJumpScale = char.jumpVelocity;
+    this.characterKnockbackResistance = Math.max(0, Math.min(1, char.knockbackResistance ?? 0));
     this.config = {
       ...DEFAULT_PLAYER_CONFIG,
       speed: DEFAULT_PLAYER_CONFIG.speed * char.speed,
@@ -545,6 +547,11 @@ export class Player {
 
   get magnetRadius(): number {
     return 150 + this.progressionBonuses.magnetRadiusBonus;
+  }
+
+  /** Multiplier applied to incoming knockback velocity (0 = none, 1 = full). */
+  get knockbackScale(): number {
+    return 1 - this.characterKnockbackResistance;
   }
 
   tryAutoRevive(): boolean {

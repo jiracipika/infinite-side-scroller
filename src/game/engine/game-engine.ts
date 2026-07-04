@@ -1436,8 +1436,8 @@ export class GameEngine {
 
     const pushDir = this.player.centerX < enemy.x + enemy.width / 2 ? -1 : 1;
     this.player.x += pushDir * (overlapX + 3);
-    this.player.vx = pushDir * Math.max(180, Math.abs(this.player.vx));
-    this.player.vy = Math.min(this.player.vy, -120);
+    this.player.vx = pushDir * Math.max(180, Math.abs(this.player.vx)) * this.player.knockbackScale;
+    this.player.vy = Math.min(this.player.vy, -120) * this.player.knockbackScale;
   }
 
   private isRemotePlayerStompCollision(dt: number): boolean {
@@ -1788,9 +1788,9 @@ export class GameEngine {
           this.player.shieldTimer = 0;
           enemy.takeDamage(enemy.stompable ? 1 : 2);
           if (!enemy.alive) this.awardEnemyDefeat(enemy);
-          const kb = this.player.centerX < enemy.x ? -180 : 180;
+          const kb = (this.player.centerX < enemy.x ? -180 : 180) * this.player.knockbackScale;
           this.player.vx = kb;
-          this.player.vy = -180;
+          this.player.vy = -180 * this.player.knockbackScale;
           this.camera.shake(4, 0.18);
           this.particles.spawnScorePopup(
             enemy.x + enemy.width / 2,
@@ -1800,9 +1800,9 @@ export class GameEngine {
           );
         } else {
           if (this.player.takeDamage(enemy.effectiveDamage)) {
-            const kb = this.player.centerX < enemy.x ? -200 : 200;
+            const kb = (this.player.centerX < enemy.x ? -200 : 200) * this.player.knockbackScale;
             this.player.vx = kb;
-            this.player.vy = -250;
+            this.player.vy = -250 * this.player.knockbackScale;
             this.camera.shake(6, 0.3);
             this.particles.spawnHitFlash(this.player.centerX, this.player.centerY);
             this.particles.spawnScorePopup(
