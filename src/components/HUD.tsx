@@ -51,6 +51,26 @@ const HUD: FC<Props> = ({ stats, settings }) => {
     };
   }, [stats.comboCount]);
 
+  // Combo decay urgency — communicates how much time is left before the combo
+  // resets. Transitions from green → yellow → red as the window closes, and
+  // enables a fast pulse in the final second so players feel the pressure.
+  const COMBO_DECAY_SECONDS = 3.0;
+  const comboTime = stats.comboTimeRemaining ?? 0;
+  const comboFraction = Math.min(1, comboTime / COMBO_DECAY_SECONDS);
+  const comboUrgencyActive = comboTime > 0 && comboTime < 1.5;
+  const comboUrgencyFastPulse = comboTime > 0 && comboTime < 1.0;
+  const comboUrgency = {
+    fraction: comboFraction,
+    gradient:
+      comboFraction < 0.33
+        ? 'linear-gradient(90deg, #ef4444, #f87171)'
+        : comboFraction < 0.66
+          ? 'linear-gradient(90deg, #f59e0b, #fbbf24)'
+          : 'linear-gradient(90deg, #22c55e, #4ade80)',
+    active: comboUrgencyActive,
+    fastPulse: comboUrgencyFastPulse,
+  };
+
   return (
     <>
       {/* Low health vignette — fullscreen pulsing red edge */}
@@ -208,26 +228,56 @@ const HUD: FC<Props> = ({ stats, settings }) => {
               </div>
             )}
 
-            {/* Combo counter */}
+            {/* Combo counter with decay urgency bar */}
             {(stats.comboCount ?? 0) > 1 && (
-              <div
-                key={comboFlash ? 'flash' : 'idle'}
-                aria-label={`Combo of ${stats.comboCount}, multiplier ${stats.comboMultiplier}x`}
-                style={{
-                  marginTop: 4,
-                  padding: '2px 10px',
-                  borderRadius: 10,
-                  background: 'rgba(255, 214, 10, 0.22)',
-                  border: '1px solid rgba(255, 214, 10, 0.4)',
-                  fontSize: 12,
-                  fontWeight: 700,
-                  color: 'var(--ios-yellow)',
-                  fontVariantNumeric: 'tabular-nums',
-                  animation: comboFlash ? 'scoreFlash 0.2s ease both' : undefined,
-                  textShadow: '0 0 8px rgba(255, 214, 10, 0.5)',
-                }}
-              >
-                <span aria-hidden="true">{stats.comboCount} COMBO x{stats.comboMultiplier}</span>
+              <div style={{ marginTop: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                <div
+                  key={comboFlash ? 'flash' : 'idle'}
+                  aria-label={`Combo of ${stats.comboCount}, multiplier ${stats.comboMultiplier}x`}
+                  style={{
+                    padding: '2px 10px',
+                    borderRadius: 10,
+                    background: comboUrgency.active
+                      ? 'rgba(239, 68, 68, 0.22)'
+                      : 'rgba(255, 214, 10, 0.22)',
+                    border: comboUrgency.active
+                      ? '1px solid rgba(239, 68, 68, 0.5)'
+                      : '1px solid rgba(255, 214, 10, 0.4)',
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color: comboUrgency.active ? 'var(--ios-red)' : 'var(--ios-yellow)',
+                    fontVariantNumeric: 'tabular-nums',
+                    animation: comboUrgency.fastPulse
+                      ? 'comboUrgencyPulse 0.4s ease-in-out infinite alternate'
+                      : comboFlash
+                        ? 'scoreFlash 0.2s ease both'
+                        : undefined,
+                    textShadow: comboUrgency.active
+                      ? '0 0 8px rgba(239, 68, 68, 0.6)'
+                      : '0 0 8px rgba(255, 214, 10, 0.5)',
+                  }}
+                >
+                  <span aria-hidden="true">{stats.comboCount} COMBO x{stats.comboMultiplier}</span>
+                </div>
+                {/* Combo decay urgency bar */}
+                <div
+                  aria-hidden="true"
+                  style={{
+                    width: 76,
+                    height: 3,
+                    borderRadius: 2,
+                    background: 'rgba(255,255,255,0.1)',
+                    overflow: 'hidden',
+                  }}
+                >
+                  <div style={{
+                    height: '100%',
+                    width: `${comboUrgency.fraction * 100}%`,
+                    borderRadius: 2,
+                    background: comboUrgency.gradient,
+                    transition: 'width 0.12s linear',
+                  }} />
+                </div>
               </div>
             )}
           </div>

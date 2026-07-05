@@ -195,6 +195,7 @@ export class GameEngine {
     comboCount?: number;
     comboMultiplier?: number;
     maxCombo?: number;
+    comboTimeRemaining?: number;
     enemiesDefeated?: number;
     dayPhase?: "dawn" | "day" | "dusk" | "night";
     levelTimeRemaining?: number;
@@ -2137,6 +2138,7 @@ export class GameEngine {
       comboCount: this.comboCount,
       comboMultiplier: this.getComboMultiplier(),
       maxCombo: this.maxCombo,
+      comboTimeRemaining: this.comboTimer > 0 ? this.comboTimer : 0,
       enemiesDefeated: this.enemiesDefeated,
       dayPhase: this.getDayPhase(),
       ...(this.levelConfig

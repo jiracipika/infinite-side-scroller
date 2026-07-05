@@ -28,6 +28,8 @@ export interface GameStats {
   comboCount?: number;
   comboMultiplier?: number;
   maxCombo?: number;
+  /** Seconds remaining before the current combo resets (0 when no active combo). */
+  comboTimeRemaining?: number;
   enemiesDefeated?: number;
   dayPhase?: 'dawn' | 'day' | 'dusk' | 'night';
   levelTimeRemaining?: number;
