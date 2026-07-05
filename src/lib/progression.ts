@@ -376,7 +376,13 @@ export function markDailyChallengePlayed(slotId: SaveSlotId, day: string = toIso
   if (typeof window === 'undefined') return;
   try {
     const raw = localStorage.getItem(DAILY_RUNS_KEY);
-    const parsed = raw ? (JSON.parse(raw) as Record<string, string[]>) : {};
+    let parsed: Record<string, string[]>;
+    try {
+      parsed = raw ? (JSON.parse(raw) as Record<string, string[]>) : {};
+    } catch {
+      // Corrupted JSON in storage — start fresh rather than silently failing.
+      parsed = {};
+    }
     const next: Record<string, string[]> = {};
     const keepDays = [day];
     for (const key of Object.keys(parsed)) {
@@ -389,7 +395,7 @@ export function markDailyChallengePlayed(slotId: SaveSlotId, day: string = toIso
     next[day] = existing;
     localStorage.setItem(DAILY_RUNS_KEY, JSON.stringify(next));
   } catch {
-    // ignore
+    // ignore write failures
   }
 }
 
