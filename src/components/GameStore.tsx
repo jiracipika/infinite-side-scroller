@@ -92,6 +92,9 @@ function reducer(state: State, action: Action): State {
         totalCoins: prev.totalCoins + state.stats.coins,
         bestDistance: Math.max(prev.bestDistance, Math.round(state.stats.distance)),
         bestCoins: Math.max(prev.bestCoins, state.stats.coins),
+        bestCombo: Math.max(prev.bestCombo, state.stats.maxCombo ?? 0),
+        bestKills: Math.max(prev.bestKills, state.stats.enemiesDefeated ?? 0),
+        totalKills: prev.totalKills + (state.stats.enemiesDefeated ?? 0),
       };
       saveLifetimeStats(updated);
 

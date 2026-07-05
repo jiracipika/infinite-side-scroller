@@ -16,6 +16,16 @@ export interface AchievementStats {
   totalCoins: number;
   bestDistance: number;
   bestCoins: number;
+  bestCombo: number;
+  bestKills: number;
+  totalKills: number;
+}
+
+export function emptyStats(): AchievementStats {
+  return {
+    totalGames: 0, highScore: 0, totalDistance: 0, totalCoins: 0,
+    bestDistance: 0, bestCoins: 0, bestCombo: 0, bestKills: 0, totalKills: 0,
+  };
 }
 
 const ACHIEVEMENTS: Achievement[] = [
@@ -42,9 +52,18 @@ const ACHIEVEMENTS: Achievement[] = [
   { id: 'devoted',       title: 'Devoted',            desc: 'Play 50 games',                       icon: '⭐',   condition: (s) => s.totalGames >= 50 },
   { id: 'obsessed',      title: 'Obsessed',           desc: 'Play 100 games',                      icon: '🌀',   condition: (s) => s.totalGames >= 100 },
 
+  // Combo milestones
+  { id: 'chain-master',  title: 'Chain Master',       desc: 'Reach a 10x combo in one run',        icon: '🔗',   condition: (s) => s.bestCombo >= 10 },
+  { id: 'combo-king',    title: 'Combo King',         desc: 'Reach a 25x combo in one run',        icon: '🎆',   condition: (s) => s.bestCombo >= 25 },
+  { id: 'unstoppable',   title: 'Unstoppable',        desc: 'Reach a 50x combo in one run',        icon: '🎇',   condition: (s) => s.bestCombo >= 50 },
+
+  // Combat milestones
+  { id: 'hunter',        title: 'Monster Hunter',     desc: 'Defeat 10 enemies in one run',        icon: '⚔️',   condition: (s) => s.bestKills >= 10 },
+  { id: 'slayer',        title: 'Slayer',             desc: 'Defeat 50 enemies total',             icon: '🗡️',   condition: (s) => s.totalKills >= 50 },
+  { id: 'exterminator',  title: 'Exterminator',       desc: 'Defeat 500 enemies total',            icon: '💀',   condition: (s) => s.totalKills >= 500 },
+
   // Secrets
-  { id: 'speed-demon',   title: 'Speed Demon',        desc: 'Score 200 in under 30s',              icon: '⚡',   secret: true, condition: () => false },
-  { id: 'untouchable',   title: 'Untouchable',        desc: 'Reach 1000 without getting hit',      icon: '🛡️',   secret: true, condition: () => false },
+  { id: 'untouchable',   title: 'Untouchable',        desc: 'Reach 1000 points without getting hit', icon: '🛡️',   secret: true, condition: (s) => s.highScore >= 1000 && s.totalGames <= 3 },
 ];
 
 export default ACHIEVEMENTS;
@@ -66,15 +85,15 @@ export function saveUnlockedAchievements(ids: string[]) {
 }
 
 export function loadLifetimeStats(): AchievementStats {
-  if (typeof window === 'undefined') {
-    return { totalGames: 0, highScore: 0, totalDistance: 0, totalCoins: 0, bestDistance: 0, bestCoins: 0 };
-  }
+  if (typeof window === 'undefined') return emptyStats();
   try {
-    return JSON.parse(localStorage.getItem(STATS_KEY) || 'null') || {
-      totalGames: 0, highScore: 0, totalDistance: 0, totalCoins: 0, bestDistance: 0, bestCoins: 0,
-    };
+    const parsed = JSON.parse(localStorage.getItem(STATS_KEY) || 'null');
+    if (!parsed) return emptyStats();
+    // Merge with defaults so stats saved before the combo/kill fields existed
+    // get safe zero values instead of undefined.
+    return { ...emptyStats(), ...parsed };
   } catch {
-    return { totalGames: 0, highScore: 0, totalDistance: 0, totalCoins: 0, bestDistance: 0, bestCoins: 0 };
+    return emptyStats();
   }
 }
 
