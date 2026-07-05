@@ -13,7 +13,7 @@ export interface Particle {
   maxLife: number;
   size: number;
   color: string;
-  type: 'dust' | 'leaf' | 'snow' | 'spark' | 'jump_dust' | 'landing' | 'coin_sparkle' | 'enemy_death' | 'score_popup';
+  type: 'dust' | 'leaf' | 'snow' | 'spark' | 'jump_dust' | 'landing' | 'coin_sparkle' | 'enemy_death' | 'score_popup' | 'heal';
   text?: string;
 }
 
@@ -187,6 +187,26 @@ export class ParticleSystem {
         size: Math.random() * 3 + 2,
         color: i % 2 === 0 ? '#ef4444' : '#fca5a5',
         type: 'enemy_death',
+      });
+    }
+  }
+
+  /** Spawn rising heal particles (used by Healer regen, healing aura, health pickups). */
+  spawnHeal(x: number, y: number): void {
+    const count = this.reducedParticles ? 4 : 8;
+    for (let i = 0; i < count; i++) {
+      const angle = -Math.PI / 2 + (Math.random() - 0.5) * 1.2;
+      const speed = Math.random() * 40 + 20;
+      this.particles.push({
+        x: x + (Math.random() - 0.5) * 18,
+        y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 30,
+        life: 0.8 + Math.random() * 0.4,
+        maxLife: 1.2,
+        size: Math.random() * 2 + 2,
+        color: i % 2 === 0 ? '#22c55e' : '#86efac',
+        type: 'heal',
       });
     }
   }

@@ -286,6 +286,7 @@ export class GameEngine {
     this.player.setDoubleJump(true);
     this.particles = new ParticleSystem();
     this.renderer = new GameRenderer(this.ctx);
+    this.wireHealCallback();
 
     // Initialize performance and entity pools
     this.profiler = new PerformanceProfiler();
@@ -314,6 +315,17 @@ export class GameEngine {
     this.camera.snapTo(this.player.centerX, this.player.centerY);
   }
 
+  /**
+   * Connect player.onHeal to the particle system so any health gain —
+   * Healer passive regen, healing-aura ticks, coin-luck heals — emits a
+   * visible green particle burst at the player's position.
+   */
+  private wireHealCallback(): void {
+    this.player.onHeal = () => {
+      this.particles.spawnHeal(this.player.centerX, this.player.centerY);
+    };
+  }
+
   setSeed(seed: number, characterId?: string): void {
     this.worldSeed = seed;
     if (characterId) this._characterId = characterId;
@@ -322,6 +334,7 @@ export class GameEngine {
     this.player.applyCharacter(getCharacterById(this._characterId));
     this.player.applyProgressionBonuses(this.progressionBonuses);
     this.player.setDoubleJump(true);
+    this.wireHealCallback();
     this.particles.clear();
     this.entityPools.clear();
     this.profiler.reset();

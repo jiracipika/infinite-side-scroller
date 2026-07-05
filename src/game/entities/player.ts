@@ -105,6 +105,13 @@ export class Player {
   private healerRegenTimer = 0;
   private healingAuraTimer = 0;
   private healingAuraTickTimer = 0;
+  /**
+   * Optional callback fired whenever the player gains health (regen, aura,
+   * coin-luck heal, health pickup). The engine uses this to spawn heal
+   * particles at the player's position, giving visual feedback for passive
+   * healing that previously happened silently.
+   */
+  onHeal: (() => void) | null = null;
   private progressionBonuses: PlayerProgressionBonuses = {
     ...DEFAULT_PROGRESSION_BONUSES,
   };
@@ -462,7 +469,9 @@ export class Player {
   }
 
   heal(amount: number): void {
+    const before = this.health;
     this.health = Math.min(this.maxHealth, this.health + amount);
+    if (this.health > before && this.onHeal) this.onHeal();
   }
 
   addCoins(amount: number): void {

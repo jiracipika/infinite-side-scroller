@@ -907,6 +907,17 @@ export class GameRenderer {
             p.size,
           );
           break;
+        case "heal":
+          // soft green glow that shrinks as it rises
+          ctx.globalAlpha = alpha * 0.4;
+          ctx.beginPath();
+          ctx.arc(screen.x, screen.y, p.size * 2.2, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalAlpha = alpha * 0.85;
+          ctx.beginPath();
+          ctx.arc(screen.x, screen.y, p.size, 0, Math.PI * 2);
+          ctx.fill();
+          break;
         default:
           ctx.fillRect(screen.x, screen.y, p.size, p.size);
       }
