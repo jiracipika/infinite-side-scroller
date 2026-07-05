@@ -32,6 +32,7 @@ import { getCharacterById } from "../data/characters";
 import type { Platform as PlatformData } from "../world/chunk";
 import { PerformanceProfiler } from "./performance-profiler";
 import { EntityPools } from "./entity-pools";
+import { comboMultiplierFor } from "./combo-tiers";
 import type {
   NetEnemySnapshot,
   NetInputCommand,
@@ -1480,6 +1481,7 @@ export class GameEngine {
 
   private awardEnemyDefeat(enemy: Enemy): void {
     const basePts = KILL_SCORES[enemy.type] ?? 100;
+    const prevMultiplier = this.getComboMultiplier();
     this.comboCount += 1;
     if (this.comboCount > this.maxCombo) this.maxCombo = this.comboCount;
     this.comboTimer = this.COMBO_DECAY_SECONDS;
@@ -1488,6 +1490,19 @@ export class GameEngine {
     this.player.score += pts;
     this.enemiesDefeated += 1;
     this.particles.spawnEnemyDeath(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2);
+
+    // Combo tier milestone — celebrate when the multiplier increases.
+    if (multiplier > prevMultiplier && multiplier >= 2) {
+      this.particles.spawnScorePopup(
+        this.player.centerX,
+        this.player.y - 28,
+        `COMBO x${multiplier}!`,
+        '#22c55e',
+      );
+      // Quick burst to visually reinforce the tier-up.
+      this.camera.shake(3, 0.15);
+    }
+
     const popupText = multiplier > 1 ? `+${pts} x${multiplier}` : `+${pts}`;
     this.particles.spawnScorePopup(enemy.x + enemy.width / 2, enemy.y, popupText, multiplier > 1 ? '#fbbf24' : undefined);
     if (this.multiplayerEnabled && !this.multiplayerIsHost) {
@@ -1497,11 +1512,7 @@ export class GameEngine {
 
   /** Returns the current combo multiplier based on combo count. */
   private getComboMultiplier(): number {
-    if (this.comboCount < 3) return 1;
-    if (this.comboCount < 6) return 2;
-    if (this.comboCount < 10) return 3;
-    if (this.comboCount < 15) return 4;
-    return 5;
+    return comboMultiplierFor(this.comboCount);
   }
 
   private handleUfoAbduction(enemy: UFO, dt: number): void {
