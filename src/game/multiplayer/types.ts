@@ -5,6 +5,7 @@ export interface NetPlayerSnapshot {
   vy: number;
   facingRight: boolean;
   onGround: boolean;
+  hasDoubleJumped: boolean;
   health: number;
   maxHealth: number;
   alive: boolean;
