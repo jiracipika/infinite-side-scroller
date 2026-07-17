@@ -20,6 +20,7 @@ import { Alien } from "../entities/Alien";
 import { UFO } from "../entities/UFO";
 import { ParticleSystem } from "../entities/particles";
 import { GameRenderer } from "../rendering/renderer";
+import { getSfxEngine, type SfxEngine } from "../audio";
 import { getBiomeAt } from "../world/biomes";
 import { getDifficulty } from "../difficulty";
 import type { Collectible } from "../entities/Collectibles";
@@ -160,6 +161,9 @@ export class GameEngine {
   private profiler: PerformanceProfiler;
   private entityPools: EntityPools;
 
+  // Procedural audio — shares the global AudioContext singleton.
+  private sfx: SfxEngine = getSfxEngine();
+
   // Adaptive quality
   private adaptiveQualityEnabled = true;
   private currentQualityLevel = "high"; // 'high', 'medium', 'low'
@@ -297,7 +301,12 @@ export class GameEngine {
     this.handleResize();
     this.prepareOpeningFrame();
     window.addEventListener("resize", this.handleResize);
+    document.addEventListener("visibilitychange", this.handleVisibilityChange);
   }
+
+  private handleVisibilityChange = (): void => {
+    this.sfx.setEnabled(!document.hidden);
+  };
 
   get state(): EngineState {
     return this._state;
@@ -315,6 +324,16 @@ export class GameEngine {
   setCameraMode(mode: CameraMode): void {
     this.camera.setMode(mode);
     this.camera.snapTo(this.player.centerX, this.player.centerY);
+  }
+
+  /** Update audio volumes from persisted settings. */
+  setAudioVolumes(master: number, sfx: number): void {
+    this.sfx.setVolumes(master, sfx);
+  }
+
+  /** Resume the AudioContext (must be called from a user gesture). */
+  resumeAudio(): void {
+    this.sfx.resume();
   }
 
   /**
@@ -761,6 +780,7 @@ export class GameEngine {
       if (cmd.jumpPressed && this.player.onGround) {
         this.player.vy = tuning.jumpVelocity;
         this.player.onGround = false;
+        this.sfx.play("jump");
       }
 
       this.player.vy += tuning.gravity * dt;
@@ -1058,6 +1078,10 @@ export class GameEngine {
     this.stop();
     this.input.destroy();
     window.removeEventListener("resize", this.handleResize);
+    document.removeEventListener("visibilitychange", this.handleVisibilityChange);
+    // Note: the SFX singleton is shared across engine instances and across
+    // split-screen players, so we intentionally do NOT dispose it here. It is
+    // cleaned up automatically when the page unloads.
   }
 
   private loop = (currentTime: number): void => {
@@ -1490,6 +1514,7 @@ export class GameEngine {
     this.player.score += pts;
     this.enemiesDefeated += 1;
     this.particles.spawnEnemyDeath(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2);
+    this.sfx.play("enemyDefeat");
 
     // Combo tier milestone — celebrate when the multiplier increases.
     if (multiplier > prevMultiplier && multiplier >= 2) {
@@ -1501,6 +1526,7 @@ export class GameEngine {
       );
       // Quick burst to visually reinforce the tier-up.
       this.camera.shake(3, 0.15);
+      this.sfx.play("comboTier");
     }
 
     const popupText = multiplier > 1 ? `+${pts} x${multiplier}` : `+${pts}`;
@@ -1560,6 +1586,7 @@ export class GameEngine {
         "ABDUCTED!",
         "#22d3ee",
       );
+      this.sfx.play("damage");
     }
   }
 
@@ -1647,9 +1674,10 @@ export class GameEngine {
     } else {
       this.player.update(dt, this.input, groundY, platforms);
 
-      // Landing particles
+      // Landing particles + SFX
       if (this.player.onGround && !this.wasOnGround) {
         this.particles.spawnLanding(this.player.centerX, this.player.bottom);
+        this.sfx.play("land");
       }
 
       // Jump dust particles
@@ -1823,6 +1851,7 @@ export class GameEngine {
             "SHIELD BASH!",
             "#67e8f9",
           );
+          this.sfx.play("shieldBreak");
         } else {
           if (this.player.takeDamage(enemy.effectiveDamage)) {
             const kb = (this.player.centerX < enemy.x ? -200 : 200) * this.player.knockbackScale;
@@ -1836,6 +1865,7 @@ export class GameEngine {
               "-1 ♥",
               "#ef4444",
             );
+            this.sfx.play("damage");
             this.separatePlayerFromEnemy(enemy);
           } else {
             this.separatePlayerFromEnemy(enemy);
@@ -1894,6 +1924,7 @@ export class GameEngine {
                 "-1 ♥",
                 "#ef4444",
               );
+              this.sfx.play("damage");
             }
           }
         }
@@ -1920,6 +1951,7 @@ export class GameEngine {
             "-1 ♥",
             "#ef4444",
           );
+          this.sfx.play("damage");
         }
       }
     }
@@ -1957,6 +1989,7 @@ export class GameEngine {
               c.y + c.height / 2,
             );
             this.particles.spawnScorePopup(c.x, c.y, "+10", "#fbbf24");
+            this.sfx.play("coin");
             break;
           case "health":
             if (this.player.health < this.player.maxHealth) {
@@ -1965,34 +1998,42 @@ export class GameEngine {
             } else {
               this.particles.spawnScorePopup(c.x, c.y, "FULL!", "#86efac");
             }
+            this.sfx.play("powerup");
             break;
           case "speedBoost":
             this.player.applySpeedBoost(1.5, c.value);
             this.particles.spawnScorePopup(c.x, c.y, "SPEED!", "#3b82f6");
+            this.sfx.play("powerup");
             break;
           case "doubleJump":
             this.player.restoreDoubleJump();
             this.particles.spawnScorePopup(c.x, c.y, "2x JUMP!", "#a855f7");
+            this.sfx.play("powerup");
             break;
           case "shield":
             this.player.applyShield(c.value * 8);
             this.particles.spawnScorePopup(c.x, c.y, "SHIELD!", "#06b6d4");
+            this.sfx.play("powerup");
             break;
           case "magnet":
             this.player.applyMagnet(c.value);
             this.particles.spawnScorePopup(c.x, c.y, "MAGNET!", "#f59e0b");
+            this.sfx.play("powerup");
             break;
           case "slingshot":
             this.player.equipWeapon("slingshot", c.value);
             this.particles.spawnScorePopup(c.x, c.y, "SLINGSHOT!", "#f59e0b");
+            this.sfx.play("powerup");
             break;
           case "bow":
             this.player.equipWeapon("bow", c.value);
             this.particles.spawnScorePopup(c.x, c.y, "BOW UP!", "#eab308");
+            this.sfx.play("powerup");
             break;
           case "healingAura":
             this.player.applyHealingAura(c.value);
             this.particles.spawnScorePopup(c.x, c.y, "HEAL AURA!", "#14b8a6");
+            this.sfx.play("powerup");
             break;
           case "portal": {
             const targetX = c.portalTargetX ?? c.x + 640;
@@ -2057,6 +2098,7 @@ export class GameEngine {
       if (this.player.distance >= this.levelConfig.targetDistance) {
         this.levelCompleted = true;
         this._state = "paused";
+        this.sfx.play("levelComplete");
         this.onLevelComplete?.({
           score: Math.max(0, Math.floor(this.player.score)),
           coins: Math.max(0, Math.floor(this.player.coins)),
@@ -2114,6 +2156,7 @@ export class GameEngine {
     if (!this.player.alive) {
       this._state = "gameover";
       this.camera.shake(8, 0.5);
+      this.sfx.play("gameOver");
       this.onGameOver?.();
     }
 

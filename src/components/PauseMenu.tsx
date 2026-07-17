@@ -2,6 +2,7 @@
 
 import { useState, type FC } from 'react';
 import { useGameStore } from './GameStore';
+import { getSfxEngine } from '@/game/audio';
 
 interface Props {
   onResume: () => void;
@@ -199,7 +200,10 @@ const SettingsPanel: FC = () => {
           <input
             type="range" min="0" max="1" step="0.05"
             value={settings.masterVolume}
-            onChange={(e) => setSettings({ masterVolume: parseFloat(e.target.value) })}
+            onChange={(e) => {
+              setSettings({ masterVolume: parseFloat(e.target.value) });
+              getSfxEngine().play('click');
+            }}
           />
         </div>
 
@@ -249,7 +253,10 @@ const CameraModeRow: FC<{
             key={mode.id}
             type="button"
             className={value === mode.id ? 'ios-btn-primary' : 'ios-btn-secondary'}
-            onClick={() => onChange(mode.id)}
+            onClick={() => {
+              onChange(mode.id);
+              getSfxEngine().play('click');
+            }}
             style={{ height: 34, fontSize: 13 }}
           >
             {mode.label}
@@ -265,7 +272,10 @@ const CameraModeRow: FC<{
 const IOSToggle: FC<{ checked: boolean; onChange: (v: boolean) => void }> = ({ checked, onChange }) => (
   <button
     className="ios-toggle-track"
-    onClick={() => onChange(!checked)}
+    onClick={() => {
+      onChange(!checked);
+      getSfxEngine().play('click');
+    }}
     style={{ background: checked ? 'var(--ios-green)' : 'var(--ios-fill)' }}
     role="switch"
     aria-checked={checked}

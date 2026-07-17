@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { useGameStore } from "./GameStore";
+import { getSfxEngine } from "@/game/audio";
 import {
   CHARACTERS,
   saveSelectedCharacter,
@@ -1069,7 +1070,10 @@ const CameraModeRow: FC<{
             className={
               value === mode.id ? "ios-btn-primary" : "ios-btn-secondary"
             }
-            onClick={() => onChange(mode.id)}
+            onClick={() => {
+              onChange(mode.id);
+              getSfxEngine().play("click");
+            }}
             style={{ height: 34, fontSize: 13 }}
           >
             {mode.label}
@@ -1167,7 +1171,10 @@ const SliderRow: FC<{
       max="1"
       step="0.05"
       value={value}
-      onChange={(e) => onChange(parseFloat(e.target.value))}
+      onChange={(e) => {
+        onChange(parseFloat(e.target.value));
+        getSfxEngine().play("click");
+      }}
     />
   </div>
 );
@@ -1189,7 +1196,10 @@ const IOSToggle: FC<{ checked: boolean; onChange: (v: boolean) => void }> = ({
 }) => (
   <button
     className="ios-toggle-track"
-    onClick={() => onChange(!checked)}
+    onClick={() => {
+      onChange(!checked);
+      getSfxEngine().play("click");
+    }}
     style={{ background: checked ? "var(--ios-green)" : "var(--ios-fill)" }}
     role="switch"
     aria-checked={checked}

@@ -417,6 +417,24 @@ export default function Home() {
     gameRef.current?.setCameraMode(settings.cameraMode as CameraMode);
   }, [settings.cameraMode]);
 
+  // Sync audio volumes from settings into the engine's SFX singleton.
+  useEffect(() => {
+    gameRef.current?.setAudioVolumes(settings.masterVolume, settings.sfxVolume);
+  }, [settings.masterVolume, settings.sfxVolume]);
+
+  // Resume the AudioContext on first user gesture (browser autoplay policy).
+  useEffect(() => {
+    const resume = () => gameRef.current?.resumeAudio();
+    window.addEventListener("pointerdown", resume, { once: true });
+    window.addEventListener("keydown", resume, { once: true });
+    window.addEventListener("touchstart", resume, { once: true });
+    return () => {
+      window.removeEventListener("pointerdown", resume);
+      window.removeEventListener("keydown", resume);
+      window.removeEventListener("touchstart", resume);
+    };
+  }, []);
+
   // Sync engine pause/resume with React state
   useEffect(() => {
     if (!gameRef.current) return;

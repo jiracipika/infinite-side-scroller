@@ -2,6 +2,9 @@
 // test runner. Resolves the at-slash path alias (tsconfig.json paths) to
 // ./src/ so test files import source modules the same way app code does.
 //
+// Also resolves extensionless relative imports (e.g. `./sfx` → `./sfx.ts`)
+// so multi-file barrel exports work under Node's type-stripping mode.
+//
 // Requires Node >= 22 (for --experimental-strip-types type erasure).
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -17,5 +20,19 @@ export async function resolve(specifier, context, nextResolve) {
       parentURL: pathToFileURL(ROOT + '/').href,
     });
   }
+
+  // Resolve extensionless relative imports (./foo or ../foo) to ./foo.ts
+  // so barrel files importing sibling modules work under type stripping.
+  if (
+    (specifier.startsWith('./') || specifier.startsWith('../')) &&
+    !path.extname(specifier)
+  ) {
+    const parentDir = context.parentURL
+      ? path.dirname(fileURLToPath(context.parentURL))
+      : ROOT;
+    const abs = path.resolve(parentDir, specifier + '.ts');
+    return nextResolve(pathToFileURL(abs).href, context);
+  }
+
   return nextResolve(specifier, context);
 }
