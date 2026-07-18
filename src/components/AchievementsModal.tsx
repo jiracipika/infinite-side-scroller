@@ -3,6 +3,8 @@
 import { useState, useEffect, type FC } from 'react';
 import ACHIEVEMENTS, {
   loadUnlockedAchievements,
+  loadLifetimeStats,
+  type AchievementStats,
 } from '@/lib/achievements';
 
 /* ── Toast notification (shown briefly when unlocked) ── */
@@ -62,9 +64,11 @@ interface Props {
 
 export default function AchievementsModal({ onClose }: Props) {
   const [unlocked, setUnlocked] = useState<string[]>([]);
+  const [stats, setStats] = useState<AchievementStats | null>(null);
 
   useEffect(() => {
     setUnlocked(loadUnlockedAchievements());
+    setStats(loadLifetimeStats());
   }, []);
 
   const total = ACHIEVEMENTS.length;
@@ -119,6 +123,16 @@ export default function AchievementsModal({ onClose }: Props) {
           <div style={{ overflowY: 'auto', borderTop: '0.5px solid var(--ios-separator)', flex: 1 }}>
             {ACHIEVEMENTS.map((a) => {
               const isUnlocked = unlocked.includes(a.id);
+              const isHiddenSecret = a.secret && !isUnlocked;
+              // Show a progress bar only for visible, locked achievements that
+              // expose a progress callback. Skip secrets (their progress would
+              // leak the unlock target) and unlocked items (already complete).
+              const prog = (!isUnlocked && !isHiddenSecret && stats)
+                ? (a.progress?.(stats) ?? null)
+                : null;
+              const pct = prog && prog.target > 0
+                ? Math.min(100, Math.round((prog.current / prog.target) * 100))
+                : 0;
               return (
                 <div
                   key={a.id}
@@ -128,7 +142,7 @@ export default function AchievementsModal({ onClose }: Props) {
                     gap: 12,
                     padding: '12px 16px',
                     borderTop: '0.5px solid rgba(255,255,255,0.04)',
-                    opacity: isUnlocked ? 1 : 0.4,
+                    opacity: isUnlocked ? 1 : 0.55,
                   }}
                 >
                   <div
@@ -156,6 +170,43 @@ export default function AchievementsModal({ onClose }: Props) {
                     <div style={{ fontSize: 12, color: 'rgba(235,235,245,0.4)', marginTop: 2 }}>
                       {a.secret && !isUnlocked ? 'Secret achievement' : a.desc}
                     </div>
+                    {/* Live progress bar for locked, non-secret achievements */}
+                    {prog && (
+                      <div style={{ marginTop: 6 }}>
+                        <div
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            fontSize: 10,
+                            fontWeight: 600,
+                            color: 'rgba(235,235,245,0.45)',
+                            marginBottom: 3,
+                            fontVariantNumeric: 'tabular-nums',
+                          }}
+                        >
+                          <span>{formatProgressValue(prog.current)} / {formatProgressValue(prog.target)}</span>
+                          <span>{pct}%</span>
+                        </div>
+                        <div
+                          style={{
+                            height: 4,
+                            borderRadius: 2,
+                            background: 'rgba(255,255,255,0.08)',
+                            overflow: 'hidden',
+                          }}
+                        >
+                          <div
+                            style={{
+                              height: '100%',
+                              borderRadius: 2,
+                              width: `${pct}%`,
+                              background: 'linear-gradient(90deg, rgba(255,214,10,0.55), rgba(255,159,10,0.55))',
+                              transition: 'width 0.4s ease-out',
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                   {isUnlocked && (
                     <div style={{ fontSize: 16, flexShrink: 0 }}>✅</div>
@@ -176,4 +227,23 @@ export default function AchievementsModal({ onClose }: Props) {
 
     </div>
   );
+}
+
+/* ── Helpers ──────────────────────────────────────────────────────── */
+
+/**
+ * Compact formatting for achievement progress values. Large milestones
+ * (e.g. 100,000m total distance) would otherwise overflow the narrow row,
+ * so we abbreviate to "k"/"M" suffixes. Small values render as-is.
+ */
+function formatProgressValue(value: number): string {
+  if (value >= 1_000_000) {
+    const m = value / 1_000_000;
+    return `${m % 1 === 0 ? m : m.toFixed(1)}M`;
+  }
+  if (value >= 10_000) {
+    const k = value / 1_000;
+    return `${k % 1 === 0 ? k : k.toFixed(1)}k`;
+  }
+  return value.toLocaleString();
 }

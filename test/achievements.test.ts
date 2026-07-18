@@ -237,3 +237,78 @@ describe('checkNewAchievements', () => {
     assert.ok(!result.includes('exterminator'));
   });
 });
+
+describe('achievement progress', () => {
+  // Helper: find an achievement by id (throws if missing, like a test should).
+  function find(id: string) {
+    const a = ACHIEVEMENTS.find((x) => x.id === id);
+    if (!a) throw new Error(`achievement ${id} not found`);
+    return a;
+  }
+
+  it('every non-secret achievement exposes a progress callback', () => {
+    const nonSecrets = ACHIEVEMENTS.filter((a) => !a.secret);
+    assert.ok(nonSecrets.length >= 15, 'expected several non-secret achievements');
+    for (const a of nonSecrets) {
+      assert.equal(typeof a.progress, 'function', `${a.id} should expose progress`);
+    }
+  });
+
+  it('secret achievements do not expose progress (would leak the target)', () => {
+    for (const a of ACHIEVEMENTS) {
+      if (a.secret) {
+        assert.equal(a.progress, undefined, `secret ${a.id} must not expose progress`);
+      }
+    }
+  });
+
+  it('progress is clamped to [0, target] (never negative, never exceeds target)', () => {
+    const a = find('centurion'); // target 100
+    const empty = a.progress!(emptyStats())!;
+    assert.equal(empty.current, 0);
+    assert.equal(empty.target, 100);
+
+    const partial = a.progress!(stats({ highScore: 40 }))!;
+    assert.equal(partial.current, 40);
+    assert.ok(partial.current <= partial.target, 'partial should not exceed target');
+
+    // A run that overshoots should report current === target (clamped), not beyond.
+    const overshoot = a.progress!(stats({ highScore: 9999 }))!;
+    assert.equal(overshoot.current, overshoot.target, 'overshoot should clamp to target');
+  });
+
+  it('progress.current equals target exactly when condition is satisfied', () => {
+    // For every non-secret achievement, when the unlock condition holds,
+    // the progress bar should read 100% (current === target). This guards
+    // against the two falling out of sync.
+    for (const a of ACHIEVEMENTS) {
+      if (a.secret || !a.progress) continue;
+      const mega = stats({
+        totalGames: 10_000,
+        highScore: 1_000_000,
+        totalDistance: 1_000_000,
+        totalCoins: 1_000_000,
+        bestDistance: 1_000_000,
+        bestCoins: 1_000_000,
+        bestCombo: 1_000,
+        bestKills: 1_000,
+        totalKills: 1_000_000,
+      });
+      const p = a.progress(mega)!;
+      assert.equal(p.current, p.target, `${a.id}: progress should be at target when unlocked`);
+      assert.ok(a.condition(mega), `${a.id}: condition should hold for mega stats`);
+    }
+  });
+
+  it('progress reflects the stat named in the description', () => {
+    // Spot-check a few to make sure each milestone tracks the right field.
+    assert.equal(find('centurion').progress!(stats({ highScore: 25 }))!.current, 25);
+    assert.equal(find('marathon').progress!(stats({ bestDistance: 1500 }))!.current, 1500);
+    assert.equal(find('tycoon').progress!(stats({ bestCoins: 12 }))!.current, 12);
+    assert.equal(find('rich').progress!(stats({ totalCoins: 200 }))!.current, 200);
+    assert.equal(find('regular').progress!(stats({ totalGames: 3 }))!.current, 3);
+    assert.equal(find('chain-master').progress!(stats({ bestCombo: 7 }))!.current, 7);
+    assert.equal(find('slayer').progress!(stats({ totalKills: 30 }))!.current, 30);
+    assert.equal(find('hunter').progress!(stats({ bestKills: 4 }))!.current, 4);
+  });
+});

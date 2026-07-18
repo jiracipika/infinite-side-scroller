@@ -1,5 +1,12 @@
 /* ── Achievement definitions ── */
 
+export interface AchievementProgress {
+  /** Current value the player has reached. */
+  current: number;
+  /** Target required to unlock the achievement. */
+  target: number;
+}
+
 export interface Achievement {
   id: string;
   title: string;
@@ -7,6 +14,13 @@ export interface Achievement {
   icon: string;
   secret?: boolean;
   condition: (stats: AchievementStats) => boolean;
+  /**
+   * Optional: returns the player's live progress toward this achievement.
+   * When provided and the achievement is locked, the UI shows a progress
+   * bar with "current / target" so players can see how close they are.
+   * Should return null for hidden progress (already-unlocked or N/A).
+   */
+  progress?: (stats: AchievementStats) => AchievementProgress | null;
 }
 
 export interface AchievementStats {
@@ -28,39 +42,47 @@ export function emptyStats(): AchievementStats {
   };
 }
 
+/** Returns a progress object with a current value clamped to [0, target]. */
+function progress(current: number, target: number): AchievementProgress {
+  return {
+    current: Math.max(0, Math.min(current, target)),
+    target,
+  };
+}
+
 const ACHIEVEMENTS: Achievement[] = [
   // Score milestones
-  { id: 'first-flight',  title: 'First Flight',   desc: 'Play your first game',                icon: '🛫',   condition: (s) => s.totalGames >= 1 },
-  { id: 'centurion',     title: 'Centurion',       desc: 'Score 100 points',                    icon: '💯',   condition: (s) => s.highScore >= 100 },
-  { id: 'high-roller',   title: 'High Roller',     desc: 'Score 500 points',                    icon: '🎯',   condition: (s) => s.highScore >= 500 },
-  { id: 'thousandaire',  title: 'Thousandaire',    desc: 'Score 1,000 points',                  icon: '👑',   condition: (s) => s.highScore >= 1000 },
-  { id: 'legend',        title: 'Legend',           desc: 'Score 5,000 points',                  icon: '🏆',   condition: (s) => s.highScore >= 5000 },
+  { id: 'first-flight',  title: 'First Flight',   desc: 'Play your first game',                icon: '🛫',   condition: (s) => s.totalGames >= 1, progress: (s) => progress(s.totalGames, 1) },
+  { id: 'centurion',     title: 'Centurion',       desc: 'Score 100 points',                    icon: '💯',   condition: (s) => s.highScore >= 100, progress: (s) => progress(s.highScore, 100) },
+  { id: 'high-roller',   title: 'High Roller',     desc: 'Score 500 points',                    icon: '🎯',   condition: (s) => s.highScore >= 500, progress: (s) => progress(s.highScore, 500) },
+  { id: 'thousandaire',  title: 'Thousandaire',    desc: 'Score 1,000 points',                  icon: '👑',   condition: (s) => s.highScore >= 1000, progress: (s) => progress(s.highScore, 1000) },
+  { id: 'legend',        title: 'Legend',           desc: 'Score 5,000 points',                  icon: '🏆',   condition: (s) => s.highScore >= 5000, progress: (s) => progress(s.highScore, 5000) },
 
   // Distance milestones
-  { id: 'explorer',      title: 'Explorer',         desc: 'Travel 500m in one run',              icon: '🧭',   condition: (s) => s.bestDistance >= 500 },
-  { id: 'marathon',      title: 'Marathon',          desc: 'Travel 2,000m in one run',            icon: '🏃',   condition: (s) => s.bestDistance >= 2000 },
-  { id: 'odyssey',       title: 'Odyssey',           desc: 'Travel 10,000m in one run',           icon: '🗺️',   condition: (s) => s.bestDistance >= 10000 },
-  { id: 'globe-trotter', title: 'Globe Trotter',     desc: 'Travel 100km total',                  icon: '🌍',   condition: (s) => s.totalDistance >= 100000 },
+  { id: 'explorer',      title: 'Explorer',         desc: 'Travel 500m in one run',              icon: '🧭',   condition: (s) => s.bestDistance >= 500, progress: (s) => progress(s.bestDistance, 500) },
+  { id: 'marathon',      title: 'Marathon',          desc: 'Travel 2,000m in one run',            icon: '🏃',   condition: (s) => s.bestDistance >= 2000, progress: (s) => progress(s.bestDistance, 2000) },
+  { id: 'odyssey',       title: 'Odyssey',           desc: 'Travel 10,000m in one run',           icon: '🗺️',   condition: (s) => s.bestDistance >= 10000, progress: (s) => progress(s.bestDistance, 10000) },
+  { id: 'globe-trotter', title: 'Globe Trotter',     desc: 'Travel 100km total',                  icon: '🌍',   condition: (s) => s.totalDistance >= 100000, progress: (s) => progress(s.totalDistance, 100000) },
 
   // Coin milestones
-  { id: 'penny',         title: 'First Coin',        desc: 'Collect your first coin',             icon: '🪙',   condition: (s) => s.totalCoins >= 1 },
-  { id: 'rich',          title: 'Money Bags',         desc: 'Collect 500 coins total',             icon: '💰',   condition: (s) => s.totalCoins >= 500 },
-  { id: 'tycoon',        title: 'Tycoon',             desc: 'Collect 50 coins in one run',         icon: '💎',   condition: (s) => s.bestCoins >= 50 },
+  { id: 'penny',         title: 'First Coin',        desc: 'Collect your first coin',             icon: '🪙',   condition: (s) => s.totalCoins >= 1, progress: (s) => progress(s.totalCoins, 1) },
+  { id: 'rich',          title: 'Money Bags',         desc: 'Collect 500 coins total',             icon: '💰',   condition: (s) => s.totalCoins >= 500, progress: (s) => progress(s.totalCoins, 500) },
+  { id: 'tycoon',        title: 'Tycoon',             desc: 'Collect 50 coins in one run',         icon: '💎',   condition: (s) => s.bestCoins >= 50, progress: (s) => progress(s.bestCoins, 50) },
 
   // Games played
-  { id: 'regular',       title: 'Regular',            desc: 'Play 10 games',                       icon: '🎮',   condition: (s) => s.totalGames >= 10 },
-  { id: 'devoted',       title: 'Devoted',            desc: 'Play 50 games',                       icon: '⭐',   condition: (s) => s.totalGames >= 50 },
-  { id: 'obsessed',      title: 'Obsessed',           desc: 'Play 100 games',                      icon: '🌀',   condition: (s) => s.totalGames >= 100 },
+  { id: 'regular',       title: 'Regular',            desc: 'Play 10 games',                       icon: '🎮',   condition: (s) => s.totalGames >= 10, progress: (s) => progress(s.totalGames, 10) },
+  { id: 'devoted',       title: 'Devoted',            desc: 'Play 50 games',                       icon: '⭐',   condition: (s) => s.totalGames >= 50, progress: (s) => progress(s.totalGames, 50) },
+  { id: 'obsessed',      title: 'Obsessed',           desc: 'Play 100 games',                      icon: '🌀',   condition: (s) => s.totalGames >= 100, progress: (s) => progress(s.totalGames, 100) },
 
   // Combo milestones
-  { id: 'chain-master',  title: 'Chain Master',       desc: 'Reach a 10x combo in one run',        icon: '🔗',   condition: (s) => s.bestCombo >= 10 },
-  { id: 'combo-king',    title: 'Combo King',         desc: 'Reach a 25x combo in one run',        icon: '🎆',   condition: (s) => s.bestCombo >= 25 },
-  { id: 'unstoppable',   title: 'Unstoppable',        desc: 'Reach a 50x combo in one run',        icon: '🎇',   condition: (s) => s.bestCombo >= 50 },
+  { id: 'chain-master',  title: 'Chain Master',       desc: 'Reach a 10x combo in one run',        icon: '🔗',   condition: (s) => s.bestCombo >= 10, progress: (s) => progress(s.bestCombo, 10) },
+  { id: 'combo-king',    title: 'Combo King',         desc: 'Reach a 25x combo in one run',        icon: '🎆',   condition: (s) => s.bestCombo >= 25, progress: (s) => progress(s.bestCombo, 25) },
+  { id: 'unstoppable',   title: 'Unstoppable',        desc: 'Reach a 50x combo in one run',        icon: '🎇',   condition: (s) => s.bestCombo >= 50, progress: (s) => progress(s.bestCombo, 50) },
 
   // Combat milestones
-  { id: 'hunter',        title: 'Monster Hunter',     desc: 'Defeat 10 enemies in one run',        icon: '⚔️',   condition: (s) => s.bestKills >= 10 },
-  { id: 'slayer',        title: 'Slayer',             desc: 'Defeat 50 enemies total',             icon: '🗡️',   condition: (s) => s.totalKills >= 50 },
-  { id: 'exterminator',  title: 'Exterminator',       desc: 'Defeat 500 enemies total',            icon: '💀',   condition: (s) => s.totalKills >= 500 },
+  { id: 'hunter',        title: 'Monster Hunter',     desc: 'Defeat 10 enemies in one run',        icon: '⚔️',   condition: (s) => s.bestKills >= 10, progress: (s) => progress(s.bestKills, 10) },
+  { id: 'slayer',        title: 'Slayer',             desc: 'Defeat 50 enemies total',             icon: '🗡️',   condition: (s) => s.totalKills >= 50, progress: (s) => progress(s.totalKills, 50) },
+  { id: 'exterminator',  title: 'Exterminator',       desc: 'Defeat 500 enemies total',            icon: '💀',   condition: (s) => s.totalKills >= 500, progress: (s) => progress(s.totalKills, 500) },
 
   // Secrets
   { id: 'untouchable',   title: 'Untouchable',        desc: 'Reach 1000 points without getting hit', icon: '🛡️',   secret: true, condition: (s) => s.highScore >= 1000 && s.totalGames <= 3 },
