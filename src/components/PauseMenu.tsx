@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, type FC } from 'react';
+import { useState, useEffect, useRef, type FC } from 'react';
 import { useGameStore } from './GameStore';
 import { getSfxEngine } from '@/game/audio';
+import { resolvePauseKey } from './pause-keys';
 
 interface Props {
   onResume: () => void;
@@ -12,6 +13,47 @@ interface Props {
 
 const PauseMenu: FC<Props> = ({ onResume, onRestart, onQuit }) => {
   const [showSettings, setShowSettings] = useState(false);
+
+  // Keyboard shortcuts: R = Restart, Q = Main Menu.
+  // - Grace period (250ms) so a key held through the pause transition does not
+  //   fire before the sheet finishes mounting / the stagger animation starts.
+  // - Modifier guard (via resolvePauseKey) prevents hijacking Ctrl+R reload,
+  //   Cmd+Q quit browser, Alt+Q, Shift+R, and other OS/browser shortcuts.
+  // - Debounce: keys auto-repeat on hold; only act on the first keydown.
+  // - Escape is NOT bound here: page.tsx owns the global Escape toggle and
+  //   already resumes when state === "paused". Binding it again would
+  //   double-fire the resume action.
+  // - Space is never bound: it is the jump key, and a reflexive press should
+  //   never silently restart or quit a run from the pause screen.
+  const keyboardReadyRef = useRef(false);
+  const lastKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    keyboardReadyRef.current = false;
+    const grace = window.setTimeout(() => { keyboardReadyRef.current = true; }, 250);
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.repeat) return;
+      const action = resolvePauseKey(
+        e.code,
+        e.ctrlKey || e.metaKey || e.altKey || e.shiftKey,
+      );
+      if (!action) return;
+      // Debounce: ignore if this exact key already fired since mount.
+      if (lastKeyRef.current === e.code) return;
+      // Wait until the mount grace window has elapsed.
+      if (!keyboardReadyRef.current) return;
+      lastKeyRef.current = e.code;
+      e.preventDefault();
+      if (action === 'restart') onRestart();
+      else onQuit();
+    };
+
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.clearTimeout(grace);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [onRestart, onQuit]);
 
   return (
     <div
@@ -78,6 +120,7 @@ const PauseMenu: FC<Props> = ({ onResume, onRestart, onQuit }) => {
           <ActionRow
             icon={<RestartIcon />}
             label="Restart"
+            kbdHint="R"
             onClick={onRestart}
             delay={70}
           />
@@ -96,6 +139,7 @@ const PauseMenu: FC<Props> = ({ onResume, onRestart, onQuit }) => {
             icon={<QuitIcon />}
             label="Main Menu"
             destructive
+            kbdHint="Q"
             onClick={onQuit}
             delay={150}
           />
@@ -138,11 +182,12 @@ interface ActionRowProps {
   bold?: boolean;
   muted?: boolean;
   destructive?: boolean;
+  kbdHint?: string;
   onClick: () => void;
   delay: number;
 }
 
-const ActionRow: FC<ActionRowProps> = ({ icon, label, bold, muted, destructive, onClick, delay }) => (
+const ActionRow: FC<ActionRowProps> = ({ icon, label, bold, muted, destructive, kbdHint, onClick, delay }) => (
   <button
     className={[
       'ios-action-row',
@@ -171,6 +216,7 @@ const ActionRow: FC<ActionRowProps> = ({ icon, label, bold, muted, destructive, 
       {icon}
     </span>
     {label}
+    {kbdHint && <kbd className="ios-kbd-hint" aria-hidden="true">{kbdHint}</kbd>}
   </button>
 );
 
