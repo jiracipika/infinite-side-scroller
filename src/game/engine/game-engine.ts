@@ -326,6 +326,15 @@ export class GameEngine {
     this.camera.snapTo(this.player.centerX, this.player.centerY);
   }
 
+  /**
+   * Toggle reduced-motion (accessibility) mode on the camera. When enabled,
+   * screen shake is suppressed for users with motion sensitivity. Pair with
+   * the CSS `prefers-reduced-motion` guard via resolveReducedMotion().
+   */
+  setReducedMotion(enabled: boolean): void {
+    this.camera.setReducedMotion(enabled);
+  }
+
   /** Update audio volumes from persisted settings. */
   setAudioVolumes(master: number, sfx: number): void {
     this.sfx.setVolumes(master, sfx);

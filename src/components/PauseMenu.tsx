@@ -225,6 +225,12 @@ const SettingsPanel: FC = () => {
           />
         </div>
 
+        {/* Reduced motion (accessibility) */}
+        <ReducedMotionRow
+          value={settings.reducedMotion}
+          onChange={(reducedMotion) => setSettings({ reducedMotion })}
+        />
+
         <CameraModeRow
           value={settings.cameraMode}
           onChange={(cameraMode) => setSettings({ cameraMode })}
@@ -268,6 +274,44 @@ const CameraModeRow: FC<{
 };
 
 /* ── iOS Toggle ─────────────────────────────────────────────── */
+
+const ReducedMotionRow: FC<{
+  value: 'auto' | 'on' | 'off';
+  onChange: (value: 'auto' | 'on' | 'off') => void;
+}> = ({ value, onChange }) => {
+  const options: Array<{ id: 'auto' | 'on' | 'off'; label: string; hint?: string }> = [
+    { id: 'auto', label: 'Auto' },
+    { id: 'on', label: 'On' },
+    { id: 'off', label: 'Off' },
+  ];
+
+  return (
+    <div className="ios-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 6 }}>
+      <span className="ios-row-label">Reduced Motion</span>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 6 }}>
+        {options.map((opt) => (
+          <button
+            key={opt.id}
+            type="button"
+            className={value === opt.id ? 'ios-btn-primary' : 'ios-btn-secondary'}
+            onClick={() => {
+              onChange(opt.id);
+              getSfxEngine().play('click');
+            }}
+            style={{ height: 34, fontSize: 13 }}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+      <span className="ios-footnote" style={{ marginTop: 2 }}>
+        Auto honors your system setting. On cuts screen shake &amp; large animations.
+      </span>
+    </div>
+  );
+};
+
+/* ── iOS Toggle (original) ──────────────────────────────────── */
 
 const IOSToggle: FC<{ checked: boolean; onChange: (v: boolean) => void }> = ({ checked, onChange }) => (
   <button

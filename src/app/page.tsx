@@ -1,7 +1,7 @@
 'use client';
-
 import { useEffect, useCallback, useRef, useState } from 'react';
 import { GameEngine, type CameraMode } from '@/game';
+import { resolveReducedMotion } from '@/game/state/game-state';
 import { useGameStore } from '@/components/GameStore';
 import { loadSelectedCharacter } from '@/game/data/characters';
 import StartScreen from '@/components/StartScreen';
@@ -417,6 +417,32 @@ export default function Home() {
   useEffect(() => {
     gameRef.current?.setCameraMode(settings.cameraMode as CameraMode);
   }, [settings.cameraMode]);
+
+  // Apply reduced-motion (accessibility) preference to the engine. 'auto'
+  // honors the OS prefers-reduced-motion setting; 'on'/'off' override it.
+  // Also re-evaluates when the OS setting changes while in 'auto' mode.
+  useEffect(() => {
+    const apply = () => gameRef.current?.setReducedMotion(resolveReducedMotion(settings.reducedMotion));
+    apply();
+    if (settings.reducedMotion !== 'auto') return;
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    let mql: MediaQueryList;
+    try {
+      mql = window.matchMedia('(prefers-reduced-motion: reduce)');
+    } catch {
+      return;
+    }
+    const onChange = () => apply();
+    // Safari < 14 only supports the deprecated addListener API.
+    if (typeof mql.addEventListener === 'function') {
+      mql.addEventListener('change', onChange);
+      return () => mql.removeEventListener('change', onChange);
+    } else if (typeof (mql as { addListener?: (cb: (e: MediaQueryListEvent) => void) => void }).addListener === 'function') {
+      (mql as { addListener: (cb: (e: MediaQueryListEvent) => void) => void }).addListener(onChange);
+      return () => (mql as { removeListener: (cb: (e: MediaQueryListEvent) => void) => void }).removeListener(onChange);
+    }
+    return;
+  }, [settings.reducedMotion]);
 
   // Sync audio volumes from settings into the engine's SFX singleton.
   useEffect(() => {
@@ -1616,7 +1642,12 @@ export default function Home() {
   ]);
 
   return (
-    <main className="fixed inset-0 overflow-hidden bg-black select-none">
+    <main
+      className={[
+        'fixed inset-0 overflow-hidden bg-black select-none',
+        settings.reducedMotion === 'on' ? 'reduce-motion-forced' : '',
+      ].join(' ').trim()}
+    >
       <canvas
         ref={canvasRef}
         className="absolute inset-0 w-full h-full block"

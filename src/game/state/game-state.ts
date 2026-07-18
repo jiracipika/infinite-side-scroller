@@ -12,6 +12,12 @@ export interface GameSettings {
   showDebug: boolean;
   reducedParticles: boolean;
   cameraMode: 'auto' | 'horizontal' | 'vertical';
+  /**
+   * 'auto'  — honor the OS/browser prefers-reduced-motion setting (default).
+   * 'on'   — force reduced motion regardless of OS setting.
+   * 'off'  — play full motion even if the OS asks for reduced motion.
+   */
+  reducedMotion: 'auto' | 'on' | 'off';
 }
 
 export interface GameStats {
@@ -52,6 +58,7 @@ export const DEFAULT_SETTINGS: GameSettings = {
   showDebug: false,
   reducedParticles: false,
   cameraMode: 'auto',
+  reducedMotion: 'auto',
 };
 
 const STORAGE_KEY = 'dashverse';
@@ -81,4 +88,25 @@ export function loadHighScore(): number {
 export function saveHighScore(s: number): void {
   if (typeof window === 'undefined') return;
   try { localStorage.setItem(`${STORAGE_KEY}-highscore`, String(s)); } catch { /* ignore */ }
+}
+
+/**
+ * Resolve the effective reduced-motion preference.
+ *
+ * - 'on'  always wins (the player explicitly asked for less motion).
+ * - 'off' always wins (the player explicitly opted in to full motion).
+ * - 'auto' defers to the OS/browser: returns true when the user has set
+ *   prefers-reduced-motion: reduce at the platform level.
+ *
+ * Safe on the server (no window): returns false there.
+ */
+export function resolveReducedMotion(setting: 'auto' | 'on' | 'off'): boolean {
+  if (setting === 'on') return true;
+  if (setting === 'off') return false;
+  if (typeof window === 'undefined' || !window.matchMedia) return false;
+  try {
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  } catch {
+    return false;
+  }
 }

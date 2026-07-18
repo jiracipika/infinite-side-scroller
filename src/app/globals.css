@@ -1793,3 +1793,73 @@ input[type="range"]::-moz-range-thumb {
   font-size: 10px;
   font-weight: 800;
 }
+
+/* ════════════════════════════════════════════════════════════════
+   Reduced-motion accessibility guard
+   ════════════════════════════════════════════════════════════════
+
+   Honors the OS/browser prefers-reduced-motion: reduce setting that
+   motion-sensitive users (vestibular disorders, migraines, seizures)
+   enable system-wide. The same effect is force-applied when the player
+   toggles the in-game Reduced Motion setting to "on" — see
+   .reduce-motion-forced on the root game container.
+
+   Strategy:
+   - Kill infinite/looping decorative animations (twinkles, glows, pulses).
+   - Replace spring/bounce entrance animations with a short opacity fade.
+   - Disable CSS transitions that transform/scale (shake, parallax, pop).
+   - Keep opacity-only transitions so state changes remain legible.
+   - Screen shake on the <canvas> is suppressed in JS (see Camera).
+   ════════════════════════════════════════════════════════════════ */
+
+@media (prefers-reduced-motion: reduce) {
+  /* Disable looping animations — these are the most common triggers. */
+  .ios-low-health-vignette,
+  .ios-twinkle,
+  .ios-glow,
+  .new-high-score-badge,
+  [style*="animation"][style*="infinite"] {
+    animation: none !important;
+  }
+
+  /* Collapse bounce/scale/slide entrances to a brief fade so users still
+     get feedback that something appeared, without vestibular motion. */
+  .ios-modal-in,
+  .ios-sheet,
+  .ios-card,
+  .ios-bounce-in,
+  .ios-spring-in,
+  [style*="animation"]:not([style*="infinite"]) {
+    animation-duration: 0.18s !important;
+    animation-timing-function: ease-out !important;
+    animation-delay: 0s !important;
+  }
+
+  /* Drop transform-heavy transitions (shake, pop, parallax). Keep opacity
+     and color transitions for legible state changes. */
+  * {
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Player-driven override: force the reduced-motion profile even when the
+   OS has not set prefers-reduced-motion. Toggled via the Settings panel
+   (adds .reduce-motion-forced to the root game container). */
+.reduce-motion-forced {
+  /* Same kills as the media query. Duplicated (not inherited) because a
+     class on the container cannot replicate the OS-level media query. */
+}
+.reduce-motion-forced .ios-low-health-vignette,
+.reduce-motion-forced .new-high-score-badge,
+.reduce-motion-forced [style*="animation"][style*="infinite"] {
+  animation: none !important;
+}
+.reduce-motion-forced [style*="animation"]:not([style*="infinite"]) {
+  animation-duration: 0.18s !important;
+  animation-timing-function: ease-out !important;
+  animation-delay: 0s !important;
+}
+.reduce-motion-forced * {
+  transition-duration: 0.01ms !important;
+}

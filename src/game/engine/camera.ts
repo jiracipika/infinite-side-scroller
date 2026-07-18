@@ -51,6 +51,11 @@ export class Camera {
   private shakeTimer = 0;
   private shakeOffsetX = 0;
   private shakeOffsetY = 0;
+  // When true, screen shake is suppressed entirely (accessibility: users
+  // with vestibular disorders or motion sensitivity). Shake() calls are
+  // still recorded (so duration tracking stays consistent) but produce
+  // zero offset. Set via setReducedMotion().
+  private reducedMotion = false;
 
   constructor(config: CameraConfig = DEFAULT_CAMERA_CONFIG) {
     this.config = config;
@@ -58,6 +63,30 @@ export class Camera {
 
   setMode(mode: CameraMode): void {
     this.config = { ...this.config, mode };
+  }
+
+  /**
+   * Enable or disable reduced-motion mode. When enabled, screen shake is
+   * suppressed (offsets forced to 0) for accessibility. Existing shake
+   * state is cleared immediately so an in-flight shake does not leak a
+   * final frame of motion when the user toggles the setting mid-shake.
+   */
+  setReducedMotion(enabled: boolean): void {
+    const next = !!enabled;
+    if (this.reducedMotion === next) return;
+    this.reducedMotion = next;
+    if (next) {
+      this.shakeOffsetX = 0;
+      this.shakeOffsetY = 0;
+      this.shakeIntensity = 0;
+      this.shakeDuration = 0;
+      this.shakeTimer = 0;
+    }
+  }
+
+  /** Whether reduced-motion suppression is currently active. */
+  isReducedMotion(): boolean {
+    return this.reducedMotion;
   }
 
   setScreenSize(width: number, height: number): void {
@@ -121,9 +150,16 @@ export class Camera {
     if (this.shakeTimer > 0) {
       this.shakeTimer -= dt;
       const decay = this.shakeDuration > 0 ? Math.max(0, this.shakeTimer / this.shakeDuration) : 0;
-      const intensity = this.shakeIntensity * decay;
-      this.shakeOffsetX = (Math.random() * 2 - 1) * intensity;
-      this.shakeOffsetY = (Math.random() * 2 - 1) * intensity;
+      if (this.reducedMotion) {
+        // Accessibility: keep duration tracking consistent but emit no
+        // offset so the viewport stays stable for motion-sensitive users.
+        this.shakeOffsetX = 0;
+        this.shakeOffsetY = 0;
+      } else {
+        const intensity = this.shakeIntensity * decay;
+        this.shakeOffsetX = (Math.random() * 2 - 1) * intensity;
+        this.shakeOffsetY = (Math.random() * 2 - 1) * intensity;
+      }
     } else {
       this.shakeOffsetX = 0;
       this.shakeOffsetY = 0;
