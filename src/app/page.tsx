@@ -1573,6 +1573,8 @@ export default function Home() {
         coins: stats.coins,
         score: stats.score,
         distance: Math.round(stats.distance),
+        maxCombo: stats.maxCombo ?? 0,
+        enemiesDefeated: stats.enemiesDefeated ?? 0,
       });
       if (runModeRef.current === "daily") {
         markDailyChallengePlayed(slotId, getTodayIsoDay());

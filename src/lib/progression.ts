@@ -42,6 +42,10 @@ export interface SaveSlot {
   lifetimeCoinsCollected: number;
   bestScore: number;
   bestDistance: number;
+  /** Best combo (x) reached in a single run on this slot. */
+  bestCombo: number;
+  /** Most enemies defeated in a single run on this slot. */
+  bestKills: number;
   totalRuns: number;
   unlockedUpgradeIds: string[];
   unlockedCharacterIds: string[];
@@ -106,6 +110,8 @@ function createSlot(id: SaveSlotId, label: string): SaveSlot {
     lifetimeCoinsCollected: 0,
     bestScore: 0,
     bestDistance: 0,
+    bestCombo: 0,
+    bestKills: 0,
     totalRuns: 0,
     unlockedUpgradeIds: [],
     unlockedCharacterIds: [...BASE_CHARACTER_IDS],
@@ -162,6 +168,8 @@ function normalizeSlot(value: unknown, fallback: SaveSlot): SaveSlot {
     lifetimeCoinsCollected: Number.isFinite(s.lifetimeCoinsCollected) ? Math.max(0, Math.floor(Number(s.lifetimeCoinsCollected))) : fallback.lifetimeCoinsCollected,
     bestScore: Number.isFinite(s.bestScore) ? Math.max(0, Math.floor(Number(s.bestScore))) : fallback.bestScore,
     bestDistance: Number.isFinite(s.bestDistance) ? Math.max(0, Math.floor(Number(s.bestDistance))) : fallback.bestDistance,
+    bestCombo: Number.isFinite(s.bestCombo) ? Math.max(0, Math.floor(Number(s.bestCombo))) : fallback.bestCombo,
+    bestKills: Number.isFinite(s.bestKills) ? Math.max(0, Math.floor(Number(s.bestKills))) : fallback.bestKills,
     totalRuns: Number.isFinite(s.totalRuns) ? Math.max(0, Math.floor(Number(s.totalRuns))) : fallback.totalRuns,
     unlockedUpgradeIds: unlocked,
     unlockedCharacterIds: unlockedCharacters,
@@ -274,8 +282,13 @@ export function clearSlotCheckpoint(slotId: SaveSlotId): SaveSlot[] {
   return withUpdatedSlot(slotId, (slot) => ({ ...slot, updatedAt: now(), checkpoint: null }));
 }
 
-export function addRunRewards(slotId: SaveSlotId, run: { coins: number; score: number; distance: number }): SaveSlot[] {
+export function addRunRewards(
+  slotId: SaveSlotId,
+  run: { coins: number; score: number; distance: number; maxCombo?: number; enemiesDefeated?: number },
+): SaveSlot[] {
   const earnedCoins = Math.max(0, Math.floor(run.coins));
+  const runCombo = Number.isFinite(run.maxCombo) ? Math.max(0, Math.floor(run.maxCombo as number)) : 0;
+  const runKills = Number.isFinite(run.enemiesDefeated) ? Math.max(0, Math.floor(run.enemiesDefeated as number)) : 0;
   return withUpdatedSlot(slotId, (slot) => ({
     ...slot,
     updatedAt: now(),
@@ -284,6 +297,8 @@ export function addRunRewards(slotId: SaveSlotId, run: { coins: number; score: n
     totalRuns: slot.totalRuns + 1,
     bestScore: Math.max(slot.bestScore, Math.max(0, Math.floor(run.score))),
     bestDistance: Math.max(slot.bestDistance, Math.max(0, Math.floor(run.distance))),
+    bestCombo: Math.max(slot.bestCombo, runCombo),
+    bestKills: Math.max(slot.bestKills, runKills),
     checkpoint: null,
   }));
 }

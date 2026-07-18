@@ -1485,6 +1485,14 @@ button,
   color: #8a8f98;
   font-size: 10px;
 }
+.dash-save-grid .dash-slot-bests {
+  color: #c7c9d1;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  margin-top: 2px;
+  font-variant-numeric: tabular-nums;
+}
 .dash-shop-row {
   grid-template-columns: 1fr auto;
 }

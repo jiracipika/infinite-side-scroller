@@ -799,6 +799,11 @@ const StartScreen: FC<Props> = ({
                   <small>
                     {slot.checkpoint ? "Checkpoint ready" : "No save"}
                   </small>
+                  {slot.totalRuns > 0 && (
+                    <small className="dash-slot-bests" aria-label={`Best score ${slot.bestScore}, best combo x${slot.bestCombo}, ${slot.bestKills} kills`}>
+                      ★{slot.bestScore.toLocaleString()} · 🔗x{slot.bestCombo} · ⚔{slot.bestKills}
+                    </small>
+                  )}
                 </button>
               ))}
             </div>

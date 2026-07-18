@@ -48,6 +48,8 @@ function normalizeSlot(value, fallback) {
     spentCoins: Number.isFinite(s.spentCoins) ? Math.max(0, Math.floor(Number(s.spentCoins))) : fallback.spentCoins,
     bestScore: Number.isFinite(s.bestScore) ? Math.max(0, Math.floor(Number(s.bestScore))) : fallback.bestScore,
     bestDistance: Number.isFinite(s.bestDistance) ? Math.max(0, Math.floor(Number(s.bestDistance))) : fallback.bestDistance,
+    bestCombo: Number.isFinite(s.bestCombo) ? Math.max(0, Math.floor(Number(s.bestCombo))) : fallback.bestCombo,
+    bestKills: Number.isFinite(s.bestKills) ? Math.max(0, Math.floor(Number(s.bestKills))) : fallback.bestKills,
     totalRuns: Number.isFinite(s.totalRuns) ? Math.max(0, Math.floor(Number(s.totalRuns))) : fallback.totalRuns,
     unlockedUpgradeIds: unlocked,
     checkpoint: normalizeCheckpoint(s.checkpoint),
@@ -64,6 +66,8 @@ const defaultSlot = {
   lifetimeCoinsCollected: 0,
   bestScore: 0,
   bestDistance: 0,
+  bestCombo: 0,
+  bestKills: 0,
   totalRuns: 0,
   unlockedUpgradeIds: [],
   unlockedCharacterIds: ['knight', 'ninja', 'tank'],
@@ -110,9 +114,24 @@ assert(result8.unlockedUpgradeIds.length === 2, 'invalid upgrade IDs should be f
 assert(result8.unlockedUpgradeIds.includes('valid'), 'valid upgrade ID should be kept')
 assert(result8.unlockedUpgradeIds.includes('also-valid'), 'second valid upgrade ID should be kept')
 
+// Test 9: bestCombo / bestKills default to 0 when missing (backward-compat with old saves)
+const result9 = normalizeSlot({}, defaultSlot)
+assert(result9.bestCombo === 0, 'missing bestCombo should default to 0')
+assert(result9.bestKills === 0, 'missing bestKills should default to 0')
+
+// Test 10: bestCombo / bestKills clamp negatives to 0 and floor fractions
+const result10 = normalizeSlot({ bestCombo: -7, bestKills: 12.9 }, defaultSlot)
+assert(result10.bestCombo === 0, 'negative bestCombo should clamp to 0')
+assert(result10.bestKills === 12, 'fractional bestKills should floor to 12')
+
+// Test 11: non-numeric bestCombo / bestKills fall back to default
+const result11 = normalizeSlot({ bestCombo: 'oops', bestKills: null }, defaultSlot)
+assert(result11.bestCombo === 0, 'non-numeric bestCombo should fall back to 0')
+assert(result11.bestKills === 0, 'null bestKills should fall back to 0')
+
 if (failures > 0) {
   console.error(`${failures} save slot resilience test(s) failed`)
   process.exit(1)
 }
 
-console.log(`Save slot resilience verified: 8 edge cases passed (null input, malformed checkpoint, negative coins, fractional values, name truncation, valid checkpoint, missing characterId, invalid upgrade IDs).`)
+console.log(`Save slot resilience verified: 11 edge cases passed (null input, malformed checkpoint, negative coins, fractional values, name truncation, valid checkpoint, missing characterId, invalid upgrade IDs, bestCombo/bestKills defaults, bestCombo/bestKills clamp+floor, non-numeric bestCombo/bestKills fallback).`)

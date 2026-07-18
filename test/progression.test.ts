@@ -137,6 +137,72 @@ describe('addRunRewards', () => {
   });
 });
 
+describe('addRunRewards (combo + kills bests)', () => {
+  beforeEach(freshStorage);
+
+  it('persists maxCombo and enemiesDefeated as per-slot bests', () => {
+    const slotId: SaveSlotId = 'slot1';
+    const slots = addRunRewards(slotId, {
+      coins: 50, score: 1200, distance: 3400, maxCombo: 18, enemiesDefeated: 24,
+    });
+    const slot = slots.find((s) => s.id === slotId)!;
+    assert.equal(slot.bestCombo, 18, 'bestCombo should persist from run');
+    assert.equal(slot.bestKills, 24, 'bestKills should persist from run');
+  });
+
+  it('keeps the max combo across runs (lower combo does not overwrite)', () => {
+    const slotId: SaveSlotId = 'slot1';
+    addRunRewards(slotId, { coins: 10, score: 0, distance: 0, maxCombo: 20, enemiesDefeated: 5 });
+    const slots2 = addRunRewards(slotId, { coins: 10, score: 0, distance: 0, maxCombo: 7, enemiesDefeated: 12 });
+    const slot = slots2.find((s) => s.id === slotId)!;
+    assert.equal(slot.bestCombo, 20, 'bestCombo should keep the higher value');
+    assert.equal(slot.bestKills, 12, 'bestKills should track the higher value');
+  });
+
+  it('defaults combo/kills to 0 when omitted (backward compatible)', () => {
+    const slotId: SaveSlotId = 'slot1';
+    const slots = addRunRewards(slotId, { coins: 30, score: 0, distance: 0 });
+    const slot = slots.find((s) => s.id === slotId)!;
+    assert.equal(slot.bestCombo, 0, 'omitted maxCombo should leave bestCombo at 0');
+    assert.equal(slot.bestKills, 0, 'omitted enemiesDefeated should leave bestKills at 0');
+  });
+
+  it('clamps negative combo/kills to 0', () => {
+    const slotId: SaveSlotId = 'slot1';
+    const slots = addRunRewards(slotId, {
+      coins: 0, score: 0, distance: 0,
+      maxCombo: -5 as unknown as number, enemiesDefeated: -3 as unknown as number,
+    });
+    const slot = slots.find((s) => s.id === slotId)!;
+    assert.equal(slot.bestCombo, 0, 'negative maxCombo should clamp to 0');
+    assert.equal(slot.bestKills, 0, 'negative enemiesDefeated should clamp to 0');
+  });
+
+  it('new slots created by createSlot default bestCombo/bestKills to 0', () => {
+    const slots = loadSaveSlots();
+    for (const slot of slots) {
+      assert.equal(slot.bestCombo, 0, `${slot.id} bestCombo should start at 0`);
+      assert.equal(slot.bestKills, 0, `${slot.id} bestKills should start at 0`);
+    }
+  });
+
+  it('recovers bestCombo/bestKills (0) from old saves missing the fields', () => {
+    // Simulate an old v1 save that predates bestCombo/bestKills.
+    const legacy = [{
+      id: 'slot1', name: 'Save 1', createdAt: 1, updatedAt: 1,
+      bankCoins: 100, spentCoins: 0, lifetimeCoinsCollected: 100,
+      bestScore: 500, bestDistance: 800, totalRuns: 2,
+      unlockedUpgradeIds: [], unlockedCharacterIds: ['knight'], checkpoint: null,
+    }];
+    localStorageStub.setItem('iss-save-slots-v1', JSON.stringify(legacy));
+    const slots = loadSaveSlots();
+    const slot = slots.find((s) => s.id === 'slot1')!;
+    assert.equal(slot.bestCombo, 0, 'legacy save missing bestCombo should default to 0');
+    assert.equal(slot.bestKills, 0, 'legacy save missing bestKills should default to 0');
+    assert.equal(slot.bestScore, 500, 'legacy bestScore should still be recovered');
+  });
+});
+
 describe('purchaseUpgrade', () => {
   beforeEach(freshStorage);
 
