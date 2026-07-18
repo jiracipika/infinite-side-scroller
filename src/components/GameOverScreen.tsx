@@ -4,9 +4,11 @@ import { useEffect, useState, useRef, type FC, type TouchEvent } from 'react';
 import { type GameStats } from '@/game/state/game-state';
 import { addLeaderboardEntry, loadLeaderboardAvatarId, loadLeaderboardName } from '@/lib/leaderboard';
 import { loadSelectedCharacter } from '@/game/data/characters';
+import { type NewRecords } from './GameStore';
 
 interface Props {
   stats: GameStats;
+  newRecords?: NewRecords;
   onRestart: () => void;
   onQuit: () => void;
 }
@@ -44,9 +46,16 @@ const useCountUp = (target: number, duration = 750, delay = 0): number => {
 
 /* ── Screen ─────────────────────────────────────────────────── */
 
-const GameOverScreen: FC<Props> = ({ stats, onRestart, onQuit }) => {
+const GameOverScreen: FC<Props> = ({ stats, newRecords, onRestart, onQuit }) => {
   const submittedRef = useRef(false);
   const isNewHighScore = stats.score >= stats.highScore && stats.score > 0;
+
+  const records = newRecords ?? {
+    score: false, distance: false, coins: false, combo: false, kills: false,
+  };
+  const recordCount = (records.score ? 1 : 0) + (records.distance ? 1 : 0) +
+    (records.coins ? 1 : 0) + (records.combo ? 1 : 0) + (records.kills ? 1 : 0);
+  const showRecordBanner = recordCount >= 2;
 
   const displayScore    = useCountUp(stats.score,                   820, 200);
   const displayBest     = useCountUp(stats.highScore,               680, 320);
@@ -157,6 +166,24 @@ const GameOverScreen: FC<Props> = ({ stats, onRestart, onQuit }) => {
                 New High Score!
               </div>
             )}
+
+            {showRecordBanner && !isNewHighScore && (
+              <div
+                style={{
+                  marginTop: 10,
+                  fontSize: 13,
+                  fontWeight: 700,
+                  color: 'var(--ios-green)',
+                  padding: '4px 12px',
+                  borderRadius: 16,
+                  background: 'rgba(48,209,88,0.15)',
+                  border: '1px solid rgba(48,209,88,0.35)',
+                  animation: 'iosBounceIn 0.5s cubic-bezier(0.34,1.56,0.64,1) 0.35s both',
+                }}
+              >
+                {recordCount} New Records!
+              </div>
+            )}
           </div>
 
           {/* ── Stats table ──────────────────────────────────── */}
@@ -165,6 +192,7 @@ const GameOverScreen: FC<Props> = ({ stats, onRestart, onQuit }) => {
               label="Score"
               value={displayScore.toLocaleString()}
               highlight={isNewHighScore}
+              isNewBest={records.score}
               delay={180}
             />
             <StatRow
@@ -175,22 +203,26 @@ const GameOverScreen: FC<Props> = ({ stats, onRestart, onQuit }) => {
             <StatRow
               label="Distance"
               value={`${displayDistance}m`}
+              isNewBest={records.distance}
               delay={340}
             />
             <StatRow
               label="Coins"
               value={String(displayCoins)}
+              isNewBest={records.coins}
               delay={420}
             />
             <StatRow
               label="Best Combo"
               value={displayMaxCombo > 0 ? `x${displayMaxCombo}` : '—'}
               highlight={displayMaxCombo >= 10}
+              isNewBest={records.combo}
               delay={500}
             />
             <StatRow
               label="Defeated"
               value={String(displayKills)}
+              isNewBest={records.kills}
               delay={580}
             />
           </div>
@@ -242,28 +274,57 @@ interface StatRowProps {
   label: string;
   value: string;
   highlight?: boolean;
+  isNewBest?: boolean;
   delay?: number;
 }
 
-const StatRow: FC<StatRowProps> = ({ label, value, highlight, delay = 0 }) => (
+const StatRow: FC<StatRowProps> = ({ label, value, highlight, isNewBest, delay = 0 }) => (
   <div
     className="ios-row"
     style={{
       animation: `rowSlideIn 0.32s ease ${delay}ms both`,
     }}
   >
-    <span className="ios-row-label">{label}</span>
+    <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+      <span className="ios-row-label">{label}</span>
+      {isNewBest && (
+        <span
+          style={{
+            fontSize: 9,
+            fontWeight: 800,
+            letterSpacing: '0.04em',
+            color: 'var(--ios-green)',
+            background: 'rgba(48,209,88,0.15)',
+            border: '1px solid rgba(48,209,88,0.3)',
+            borderRadius: 5,
+            padding: '1px 5px',
+            lineHeight: 1.3,
+            textTransform: 'uppercase',
+            animation: `iosBounceIn 0.4s cubic-bezier(0.34,1.56,0.64,1) ${delay + 200}ms both`,
+          }}
+        >
+          NEW!
+        </span>
+      )}
+    </span>
     <span
       className="ios-row-value"
       style={
-        highlight
+        isNewBest
           ? {
-              color: 'var(--ios-yellow)',
+              color: 'var(--ios-green)',
               fontWeight: 700,
               fontVariantNumeric: 'tabular-nums',
-              textShadow: '0 0 12px rgba(255,214,10,0.4)',
+              textShadow: '0 0 12px rgba(48,209,88,0.4)',
             }
-          : { fontVariantNumeric: 'tabular-nums' }
+          : highlight
+            ? {
+                color: 'var(--ios-yellow)',
+                fontWeight: 700,
+                fontVariantNumeric: 'tabular-nums',
+                textShadow: '0 0 12px rgba(255,214,10,0.4)',
+              }
+            : { fontVariantNumeric: 'tabular-nums' }
       }
     >
       {value}

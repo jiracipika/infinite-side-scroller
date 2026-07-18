@@ -10,11 +10,28 @@ import {
   saveUnlockedAchievements, checkNewAchievements,
 } from '@/lib/achievements';
 
+export interface NewRecords {
+  score: boolean;
+  distance: boolean;
+  coins: boolean;
+  combo: boolean;
+  kills: boolean;
+}
+
+const NO_RECORDS: NewRecords = {
+  score: false,
+  distance: false,
+  coins: false,
+  combo: false,
+  kills: false,
+};
+
 export interface GameStoreAPI {
   state: GameState;
   stats: GameStats;
   settings: GameSettings;
   seed: number;
+  newRecords: NewRecords;
   startGame: (seed?: number) => void;
   pauseGame: () => void;
   resumeGame: () => void;
@@ -57,6 +74,7 @@ interface State {
   settings: GameSettings;
   seed: number;
   hydrated: boolean;
+  newRecords: NewRecords;
 }
 
 function reducer(state: State, action: Action): State {
@@ -74,6 +92,7 @@ function reducer(state: State, action: Action): State {
         gameState: 'playing',
         seed: action.seed,
         stats: { ...DEFAULT_STATS, highScore: state.stats.highScore },
+        newRecords: NO_RECORDS,
       };
     case 'PAUSE':
       return state.gameState === 'playing' ? { ...state, gameState: 'paused' } : state;
@@ -81,10 +100,22 @@ function reducer(state: State, action: Action): State {
       return state.gameState === 'paused' ? { ...state, gameState: 'playing' } : state;
     case 'GAMEOVER': {
       const hs = Math.max(state.stats.score, state.stats.highScore);
+      const isNewScoreRecord = state.stats.score > state.stats.highScore;
       saveHighScore(hs);
 
       // Persist lifetime stats for achievements
       const prev = loadLifetimeStats();
+
+      // Compare run results against the PREVIOUS lifetime bests to see which
+      // records were broken. Must do this BEFORE updating persisted stats.
+      const newRecords: NewRecords = {
+        score:  isNewScoreRecord && state.stats.score > 0,
+        distance: Math.round(state.stats.distance) > prev.bestDistance,
+        coins:    state.stats.coins > prev.bestCoins,
+        combo:    (state.stats.maxCombo ?? 0) > prev.bestCombo,
+        kills:    (state.stats.enemiesDefeated ?? 0) > prev.bestKills,
+      };
+
       const updated = {
         totalGames: prev.totalGames + 1,
         highScore: Math.max(prev.highScore, state.stats.score),
@@ -105,7 +136,7 @@ function reducer(state: State, action: Action): State {
         saveUnlockedAchievements([...prevUnlocked, ...newIds]);
       }
 
-      return { ...state, gameState: 'gameover', stats: { ...state.stats, highScore: hs } };
+      return { ...state, gameState: 'gameover', stats: { ...state.stats, highScore: hs }, newRecords };
     }
     case 'QUIT_TO_MENU':
       return { ...state, gameState: 'menu' };
@@ -131,6 +162,7 @@ export function GameStoreProvider({ children }: { children: ReactNode }) {
     settings: DEFAULT_SETTINGS,
     seed: 42,
     hydrated: false,
+    newRecords: NO_RECORDS,
   });
 
   useEffect(() => {
@@ -143,6 +175,7 @@ export function GameStoreProvider({ children }: { children: ReactNode }) {
     stats: state.stats,
     settings: state.settings,
     seed: state.seed,
+    newRecords: state.newRecords,
     startGame: (seed?: number) => dispatch({ type: 'START', seed: seed ?? Math.floor(Math.random() * 999999) }),
     pauseGame: () => dispatch({ type: 'PAUSE' }),
     resumeGame: () => dispatch({ type: 'RESUME' }),

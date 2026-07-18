@@ -231,6 +231,7 @@ export default function Home() {
     stats,
     settings,
     seed,
+    newRecords,
     startGame,
     pauseGame,
     resumeGame,
@@ -1660,6 +1661,7 @@ export default function Home() {
           {state === "gameover" && (
             <GameOverScreen
               stats={stats}
+              newRecords={newRecords}
               onRestart={
                 currentLevel
                   ? () => handleStartLevel(currentLevel)
