@@ -1863,3 +1863,38 @@ input[type="range"]::-moz-range-thumb {
 .reduce-motion-forced * {
   transition-duration: 0.01ms !important;
 }
+
+/* ── Keyboard hint badges ─────────────────────────────────────
+   Small ⌨ key caps shown next to game-over actions so desktop/PWA players
+   discover the Enter/Esc shortcuts. Hidden on touch-primary devices, where a
+   physical keyboard is the exception and the caps would be noise. */
+.ios-kbd-hint {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.6em;
+  padding: 1px 5px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.78);
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  font-variant-numeric: tabular-nums;
+  text-transform: none;
+}
+@media (hover: hover) and (pointer: fine) {
+  .ios-kbd-hint {
+    display: inline-flex;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* The hint fades in with its parent button; nothing to suppress here, but
+     keep the rule explicit so future animations on .ios-kbd-hint are caught. */
+  .ios-kbd-hint {
+    transition: none;
+  }
+}

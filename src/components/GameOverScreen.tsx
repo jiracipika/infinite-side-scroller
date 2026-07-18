@@ -5,6 +5,7 @@ import { type GameStats } from '@/game/state/game-state';
 import { addLeaderboardEntry, loadLeaderboardAvatarId, loadLeaderboardName } from '@/lib/leaderboard';
 import { loadSelectedCharacter } from '@/game/data/characters';
 import { type NewRecords } from './GameStore';
+import { resolveGameOverKey } from './game-over-keys';
 
 interface Props {
   stats: GameStats;
@@ -71,6 +72,47 @@ const GameOverScreen: FC<Props> = ({ stats, newRecords, onRestart, onQuit }) => 
     e.preventDefault();
     onQuit();
   };
+
+  // Keyboard shortcuts: Enter = Play Again, Esc = Main Menu.
+  // - Grace period (700ms) so a reflexive keypress at the moment of death
+  //   cannot skip the score count-up or fire before React mounts the overlay.
+  // - Modifier guard (via resolveGameOverKey) prevents hijacking Ctrl+Enter,
+  //   Cmd+Esc, Alt+Space, and other OS/browser shortcuts.
+  // - Debounce: keys auto-repeat on hold; only act on the first keydown.
+  // - No Space binding: Space is the jump key, and binding it here would let
+  //   a held jump press instantly restart the run.
+  const keyboardReadyRef = useRef(false);
+  const lastKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    keyboardReadyRef.current = false;
+    const grace = window.setTimeout(() => { keyboardReadyRef.current = true; }, 700);
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.repeat) return;
+      // Suppress the OS/browser default for Enter and Escape so, e.g., a
+      // button doesn't double-fire via its native onClick, and Escape
+      // doesn't exit fullscreen / trigger other page handlers.
+      const action = resolveGameOverKey(
+        e.code,
+        e.ctrlKey || e.metaKey || e.altKey || e.shiftKey,
+      );
+      if (!action) return;
+      // Debounce: ignore if this exact key already fired since mount.
+      if (lastKeyRef.current === e.code) return;
+      // Wait until the count-up grace window has elapsed.
+      if (!keyboardReadyRef.current) return;
+      lastKeyRef.current = e.code;
+      e.preventDefault();
+      if (action === 'restart') onRestart();
+      else onQuit();
+    };
+
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.clearTimeout(grace);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [onRestart, onQuit]);
 
   useEffect(() => {
     if (submittedRef.current) return;
@@ -247,7 +289,10 @@ const GameOverScreen: FC<Props> = ({ stats, newRecords, onRestart, onQuit }) => 
               style={{ fontSize: 17 }}
               aria-label="Play again"
             >
-              Play Again
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                Play Again
+                <kbd className="ios-kbd-hint" aria-hidden="true">Enter</kbd>
+              </span>
             </button>
             <button
               type="button"
@@ -257,7 +302,10 @@ const GameOverScreen: FC<Props> = ({ stats, newRecords, onRestart, onQuit }) => 
               onContextMenu={(e) => e.preventDefault()}
               aria-label="Return to main menu"
             >
-              Main Menu
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                Main Menu
+                <kbd className="ios-kbd-hint" aria-hidden="true">Esc</kbd>
+              </span>
             </button>
           </div>
         </div>
