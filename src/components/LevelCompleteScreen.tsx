@@ -1,9 +1,10 @@
 'use client';
 
-import { type FC, useEffect, useState } from 'react';
+import { type FC, useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import type { LevelConfig } from '@/game/data/levels';
 import { BIOME_COLORS } from './LevelSelectScreen';
+import { resolveLevelCompleteKey } from './level-complete-keys';
 
 interface LevelResult {
   score: number;
@@ -67,6 +68,51 @@ const LevelCompleteScreen: FC<Props> = ({ level, result, onNext, onRetry, onBack
     const timer = setTimeout(() => setShowButtons(true), 1200);
     return () => clearTimeout(timer);
   }, []);
+
+  // Keyboard shortcuts: Enter = Next (or Retry if no Next), R = Retry, Esc = Levels.
+  // - Grace period (1300ms) so a reflexive keypress at the moment of level
+  //   completion cannot skip the star/score reveal animation. Set just after
+  //   the action buttons appear (1200ms) so keyboard and touch are in sync.
+  // - Modifier guard (via resolveLevelCompleteKey) prevents hijacking
+  //   Ctrl+Enter, Cmd+Esc, Alt+R, Shift+R (browser reload), etc.
+  // - Debounce: keys auto-repeat on hold; only act on the first keydown.
+  // - No Space binding: Space is the jump key, and binding it here would let
+  //   a held jump press instantly retry or advance the level.
+  // - `canAdvance` mirrors the render gate for the Next button (≥1 star AND a
+  //   next-level handler exists), so Enter only triggers Next when Next would
+  //   be visible — otherwise it retries, matching "confirm" intent.
+  const canAdvance = Boolean(onNext) && stars >= 1;
+  const keyboardReadyRef = useRef(false);
+  const lastKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    keyboardReadyRef.current = false;
+    const grace = window.setTimeout(() => { keyboardReadyRef.current = true; }, 1300);
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.repeat) return;
+      const action = resolveLevelCompleteKey(
+        e.code,
+        e.ctrlKey || e.metaKey || e.altKey || e.shiftKey,
+        canAdvance,
+      );
+      if (!action) return;
+      // Debounce: ignore if this exact key already fired since mount.
+      if (lastKeyRef.current === e.code) return;
+      // Wait until the reveal grace window has elapsed.
+      if (!keyboardReadyRef.current) return;
+      lastKeyRef.current = e.code;
+      e.preventDefault();
+      if (action === 'next') onNext?.();
+      else if (action === 'retry') onRetry();
+      else onBack();
+    };
+
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.clearTimeout(grace);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [canAdvance, onNext, onRetry, onBack]);
 
   return (
     <div style={{
@@ -150,9 +196,11 @@ const LevelCompleteScreen: FC<Props> = ({ level, result, onNext, onRetry, onBack
               flex: 1, padding: 14, borderRadius: 12,
               background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
               color: 'rgba(255,255,255,0.6)', fontSize: 15, fontWeight: 600, cursor: 'pointer',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
             }}
           >
             Levels
+            <kbd className="ios-kbd-hint" aria-hidden="true">Esc</kbd>
           </motion.button>
           <motion.button
             onClick={onRetry}
@@ -161,9 +209,11 @@ const LevelCompleteScreen: FC<Props> = ({ level, result, onNext, onRetry, onBack
               flex: 1, padding: 14, borderRadius: 12,
               background: biome.accent, border: 'none',
               color: '#000', fontSize: 15, fontWeight: 700, cursor: 'pointer',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
             }}
           >
             Retry
+            <kbd className="ios-kbd-hint" aria-hidden="true">R</kbd>
           </motion.button>
           {onNext && stars >= 1 && (
             <motion.button
@@ -173,9 +223,11 @@ const LevelCompleteScreen: FC<Props> = ({ level, result, onNext, onRetry, onBack
                 flex: 1, padding: 14, borderRadius: 12,
                 background: 'linear-gradient(135deg, #30D158, #0A84FF)', border: 'none',
                 color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer',
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
               }}
             >
               Next →
+              <kbd className="ios-kbd-hint" aria-hidden="true">Enter</kbd>
             </motion.button>
           )}
         </motion.div>
