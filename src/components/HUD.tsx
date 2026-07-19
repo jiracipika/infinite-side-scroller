@@ -3,6 +3,7 @@
 import { useRef, useState, useEffect, type FC } from 'react';
 import { type GameStats, type GameSettings } from '@/game/state/game-state';
 import { useGameHaptics } from '@/game/input/haptics';
+import { fpsBucket } from './fps-readout';
 
 interface Props {
   stats: GameStats;
@@ -330,18 +331,11 @@ const HUD: FC<Props> = ({ stats, settings }) => {
               </div>
             )}
             {settings.showFPS && (
-              <span
-                aria-hidden="true"
-                style={{
-                  fontSize: 10,
-                  color: 'var(--ios-label3)',
-                  fontVariantNumeric: 'tabular-nums',
-                  fontFamily: 'ui-monospace, "SF Mono", Menlo, monospace',
-                  lineHeight: 1,
-                }}
-              >
-                {stats.fps} fps
-              </span>
+              <FpsReadout
+                fps={stats.fps}
+                frameTimeMs={stats.frameTimeMs}
+                frameTime95Ms={stats.frameTime95Ms}
+              />
             )}
           </div>
 
@@ -393,3 +387,64 @@ const CoinIcon: FC = () => (
     </text>
   </svg>
 );
+
+/* ── FPS / frame-time readout ────────────────────────────────── */
+
+const FPS_COLORS: Record<'good' | 'ok' | 'bad', string> = {
+  good: 'var(--ios-green)',
+  ok: 'var(--ios-yellow)',
+  bad: 'var(--ios-red)',
+};
+
+const FpsReadout: FC<{
+  fps: number;
+  frameTimeMs?: number;
+  frameTime95Ms?: number;
+}> = ({ fps, frameTimeMs, frameTime95Ms }) => {
+  const bucket = fpsBucket(fps);
+  const color = FPS_COLORS[bucket];
+  // Show the p95 (worst-typical) frame time when available — it reveals stutter
+  // that the plain average hides. Fall back to the current frame time, then to
+  // nothing if the profiler hasn't populated yet (e.g. first frame).
+  const p95 = frameTime95Ms != null && frameTime95Ms > 0 ? frameTime95Ms : null;
+  const cur = frameTimeMs != null && frameTimeMs > 0 ? frameTimeMs : null;
+  const sub =
+    p95 != null ? `p95 ${p95.toFixed(1)}ms`
+      : cur != null ? `${cur.toFixed(1)}ms`
+        : null;
+  return (
+    <div
+      aria-hidden="true"
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'flex-end',
+        gap: 1,
+        fontFamily: 'ui-monospace, "SF Mono", Menlo, monospace',
+        lineHeight: 1,
+      }}
+    >
+      <span
+        style={{
+          fontSize: 10,
+          color,
+          fontWeight: 700,
+          fontVariantNumeric: 'tabular-nums',
+        }}
+      >
+        {Math.round(fps)} fps
+      </span>
+      {sub && (
+        <span
+          style={{
+            fontSize: 9,
+            color: 'var(--ios-label3)',
+            fontVariantNumeric: 'tabular-nums',
+          }}
+        >
+          {sub}
+        </span>
+      )}
+    </div>
+  );
+};

@@ -30,6 +30,10 @@ export interface GameStats {
   lives: number;
   biome: string;
   fps: number;
+  /** Most recent frame interval (ms). Populated from the profiler; undefined in non-engine contexts. */
+  frameTimeMs?: number;
+  /** 95th-percentile frame interval (ms) over the profiler's rolling window. */
+  frameTime95Ms?: number;
   powerUps: string[];
   comboCount?: number;
   comboMultiplier?: number;

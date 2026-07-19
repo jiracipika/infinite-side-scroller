@@ -197,6 +197,8 @@ export class GameEngine {
     biome: string;
     powerUps: string[];
     fps: number;
+    frameTimeMs?: number;
+    frameTime95Ms?: number;
     comboCount?: number;
     comboMultiplier?: number;
     maxCombo?: number;
@@ -2198,6 +2200,8 @@ export class GameEngine {
       biome: biome.name,
       powerUps,
       fps: profilerMetrics.fps,
+      frameTimeMs: profilerMetrics.frameTime,
+      frameTime95Ms: profilerMetrics.frameTime95th,
       comboCount: this.comboCount,
       comboMultiplier: this.getComboMultiplier(),
       maxCombo: this.maxCombo,
