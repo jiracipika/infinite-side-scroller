@@ -77,6 +77,7 @@ export const SHOP_UPGRADES: ShopUpgrade[] = [
   { id: 'sling_calibrator', name: 'Sling Calibrator', description: '+1 slingshot/bow damage', cost: 100 },
   { id: 'bow_focus', name: 'Bow Focus', description: 'Faster projectile speed', cost: 100 },
   { id: 'phoenix_chip', name: 'Phoenix Chip', description: 'Auto revive once per run', cost: 220 },
+  { id: 'regrowth_locket', name: 'Regrowth Locket', description: '12% chance to heal on coin pickup', cost: 180 },
 ];
 
 export const DEFAULT_PROGRESSION_BONUSES: PlayerProgressionBonuses = {
@@ -365,6 +366,7 @@ export function buildProgressionBonuses(upgradeIds: string[]): PlayerProgression
   if (has('sling_calibrator')) bonuses.projectileDamageBonus += 1;
   if (has('bow_focus')) bonuses.projectileSpeedMultiplier += 0.15;
   if (has('phoenix_chip')) bonuses.autoReviveOnce = true;
+  if (has('regrowth_locket')) bonuses.healOnCoinChance += 0.12;
 
   return bonuses;
 }

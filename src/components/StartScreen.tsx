@@ -820,7 +820,7 @@ const StartScreen: FC<Props> = ({
             </div>
             <div className="dash-panel-heading-row with-margin">
               <span>Shop upgrades</span>
-              <small>10 permanent perks</small>
+              <small>11 permanent perks</small>
             </div>
             <div className="dash-list-scroll shop">
               {SHOP_UPGRADES.map((upgrade) => {

@@ -77,6 +77,16 @@ describe('buildProgressionBonuses', () => {
     assert.equal(b.autoReviveOnce, true);
   });
 
+  it('applies regrowth_locket heal-on-coin chance', () => {
+    const b = buildProgressionBonuses(['regrowth_locket']);
+    assert.equal(b.healOnCoinChance, 0.12);
+  });
+
+  it('defaults healOnCoinChance to 0 (mechanic dormant without regrowth_locket)', () => {
+    const b = buildProgressionBonuses([]);
+    assert.equal(b.healOnCoinChance, 0);
+  });
+
   it('stacks multiple upgrades without interference', () => {
     const b = buildProgressionBonuses([
       'swift_boots', 'spring_anklet', 'iron_heart', 'coin_charm',
@@ -249,6 +259,20 @@ describe('purchaseUpgrade', () => {
     // swift_boots has a defined cost in SHOP_UPGRADES; verify deduction happened
     assert.ok(slot.bankCoins < 500, 'cost should have been deducted');
     assert.ok(slot.spentCoins > 0, 'spentCoins should track total spent');
+  });
+
+  it('purchases regrowth_locket and activates heal-on-coin chance', () => {
+    const slotId: SaveSlotId = 'slot1';
+    addRunRewards(slotId, { coins: 500, score: 0, distance: 0 });
+    const result = purchaseUpgrade(slotId, 'regrowth_locket');
+    assert.equal(result.ok, true);
+    const slot = result.slots.find((s) => s.id === slotId)!;
+    assert.ok(
+      slot.unlockedUpgradeIds.includes('regrowth_locket'),
+      'regrowth_locket should be recorded as unlocked',
+    );
+    const bonuses = buildProgressionBonuses(slot.unlockedUpgradeIds);
+    assert.equal(bonuses.healOnCoinChance, 0.12);
   });
 });
 
