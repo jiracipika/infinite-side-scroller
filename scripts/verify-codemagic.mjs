@@ -58,6 +58,29 @@ assert(codemagic.includes('workflows:'), 'codemagic.yaml must define workflows')
 assert(pkg?.scripts?.['verify:codemagic'] === 'node scripts/verify-codemagic.mjs', 'package.json must expose verify:codemagic')
 assert(pkg?.scripts?.verify?.includes('verify:codemagic'), 'npm run verify must include verify:codemagic')
 
+// Guard against stray/duplicate Codemagic configs accumulating in the repo
+// root (e.g. accidental copies with corrupt filenames or leftover Capacitor
+// configs from a different project). Only the canonical codemagic.yaml is
+// allowed at the top level.
+const rootEntries = fs.readdirSync(root, { withFileTypes: true })
+  .filter((entry) => {
+    const lower = entry.name.toLowerCase()
+    return lower.startsWith('codemagic') && lower !== 'codemagic.yaml'
+  })
+assert(
+  rootEntries.length === 0,
+  `stray Codemagic config file(s) in repo root (only codemagic.yaml is allowed): ${rootEntries.map((e) => JSON.stringify(e.name)).join(', ')}`,
+)
+// Reject any tracked file whose name contains control chars or backticks,
+// which historically indicate a botched copy (e.g. "codemagic.yaml`\n").
+const badNames = rootEntries
+  .map((e) => e.name)
+  .filter((name) => /[\x00-\x1f`]/.test(name))
+assert(
+  badNames.length === 0,
+  `repo root contains file(s) with control characters or backticks in their name: ${badNames.map((n) => JSON.stringify(n)).join(', ')}`,
+)
+
 const expo = appJson?.expo
 const iosBundleId = expo?.ios?.bundleIdentifier
 const androidPackage = expo?.android?.package
