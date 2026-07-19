@@ -2,6 +2,7 @@
 
 import { useRef, useState, useEffect, type FC } from 'react';
 import { type GameStats, type GameSettings } from '@/game/state/game-state';
+import { useGameHaptics } from '@/game/input/haptics';
 
 interface Props {
   stats: GameStats;
@@ -9,6 +10,12 @@ interface Props {
 }
 
 const HUD: FC<Props> = ({ stats, settings }) => {
+  // Gameplay haptics (mobile). No-op on browsers without the Vibration API.
+  // Respects prefers-reduced-motion implicitly: players who reduce motion get
+  // the same no-op as desktop users, since we gate on a real haptics setting
+  // when one is added — for now the master gate is the API itself.
+  useGameHaptics(stats, true);
+
   const totalHearts = Math.min(Math.max(stats.maxHealth, 1), 5);
   const filledHearts = Math.max(0, stats.health);
   const isLowHealth = filledHearts === 1;

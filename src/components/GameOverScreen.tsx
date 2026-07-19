@@ -6,6 +6,7 @@ import { addLeaderboardEntry, loadLeaderboardAvatarId, loadLeaderboardName } fro
 import { loadSelectedCharacter } from '@/game/data/characters';
 import { type NewRecords } from './GameStore';
 import { resolveGameOverKey } from './game-over-keys';
+import { fireHaptic } from '@/game/input/haptics';
 
 interface Props {
   stats: GameStats;
@@ -130,6 +131,12 @@ const GameOverScreen: FC<Props> = ({ stats, newRecords, onRestart, onQuit }) => 
       enemiesDefeated: stats.enemiesDefeated,
     });
   }, [stats.coins, stats.distance, stats.score]);
+
+  // Death haptic — one long dramatic pattern when the game-over sheet appears.
+  // Fires once on mount only; safe no-op on browsers without Vibration API.
+  useEffect(() => {
+    fireHaptic('death');
+  }, []);
 
   return (
     <div
