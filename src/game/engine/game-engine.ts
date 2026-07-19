@@ -34,6 +34,7 @@ import type { Platform as PlatformData } from "../world/chunk";
 import { PerformanceProfiler } from "./performance-profiler";
 import { EntityPools } from "./entity-pools";
 import { comboMultiplierFor } from "./combo-tiers";
+import { getDayPhase, getDayTint, rgbaToString } from "./day-cycle";
 import type {
   NetEnemySnapshot,
   NetInputCommand,
@@ -2239,12 +2240,7 @@ export class GameEngine {
 
   /** Day/night cycle — based on game time, full cycle every 120s. */
   private getDayPhase(): 'dawn' | 'day' | 'dusk' | 'night' {
-    const cycleSeconds = 120;
-    const phase = (this.gameTime % cycleSeconds) / cycleSeconds; // 0.0–1.0
-    if (phase < 0.15) return 'dawn';
-    if (phase < 0.50) return 'day';
-    if (phase < 0.65) return 'dusk';
-    return 'night';
+    return getDayPhase(this.gameTime);
   }
 
   private render(): void {
@@ -2414,16 +2410,13 @@ export class GameEngine {
 
     this.renderer.drawParticles(this.particles.getParticles(), this.camera);
 
-    // Day/night tint overlay
-    const phase = this.getDayPhase();
-    if (phase === 'night') {
-      ctx.fillStyle = 'rgba(10, 14, 40, 0.38)';
-      ctx.fillRect(0, 0, width, height);
-    } else if (phase === 'dusk') {
-      ctx.fillStyle = 'rgba(60, 30, 10, 0.18)';
-      ctx.fillRect(0, 0, width, height);
-    } else if (phase === 'dawn') {
-      ctx.fillStyle = 'rgba(80, 50, 20, 0.12)';
+    // Day/night tint overlay — continuously interpolated by the day-cycle
+    // module (smoothstep between keyframes). The renderer keeps the discrete
+    // phase label for the HUD but the on-canvas tint no longer pops at phase
+    // boundaries.
+    const tint = getDayTint(this.gameTime);
+    if (tint.a > 0.0005) {
+      ctx.fillStyle = rgbaToString(tint);
       ctx.fillRect(0, 0, width, height);
     }
 
