@@ -12,6 +12,7 @@ import TouchControls from '@/components/TouchControls';
 import SplitScreenMode from '@/components/SplitScreenMode';
 import LevelSelectScreen from '@/components/LevelSelectScreen';
 import LevelCompleteScreen from '@/components/LevelCompleteScreen';
+import { shouldAutoPause } from '@/components/auto-pause';
 import type { LevelConfig } from '@/game/data/levels';
 import { ALL_LEVELS } from '@/game/data/levels';
 import { createMultiplayerRoom, joinMultiplayerRoom, leaveMultiplayerRoom, syncMultiplayerRoom, postRTCOffer, postRTCAnswer, getRTCSignal, clearRTCSignal, postRTCCandidates } from '@/game/multiplayer/client';
@@ -468,6 +469,27 @@ export default function Home() {
     if (state === "paused") gameRef.current.pause();
     else if (state === "playing") gameRef.current.resume();
   }, [state]);
+
+  // Protect solo runs from background-tab deaths. Mobile app switches, phone
+  // calls, and screen locks all surface as document visibility changes. Keep
+  // the pause menu open on return rather than resuming into danger. Multiplayer
+  // remains live because pausing only one client would desynchronise the room.
+  useEffect(() => {
+    const pauseIfBackgrounded = () => {
+      if (!shouldAutoPause({
+        gameState: state,
+        visibilityState: document.visibilityState,
+        multiplayerActive: multiplayerSession !== null,
+      })) return;
+
+      pauseGame();
+      gameRef.current?.pause();
+    };
+
+    document.addEventListener('visibilitychange', pauseIfBackgrounded);
+    pauseIfBackgrounded();
+    return () => document.removeEventListener('visibilitychange', pauseIfBackgrounded);
+  }, [state, multiplayerSession, pauseGame]);
 
   // Escape key toggles pause
   useEffect(() => {
