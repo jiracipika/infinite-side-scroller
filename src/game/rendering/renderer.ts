@@ -11,6 +11,7 @@ import { Particle } from "../entities/particles";
 import { getBlendedBiomeColors } from "../world/biomes";
 import type { Collectible } from "../entities/Collectibles";
 import { TerrainCache } from "../engine/terrain-cache";
+import { drawCharacterSpriteArt } from "./character-art";
 
 export class GameRenderer {
   private terrainCache: TerrainCache;
@@ -492,157 +493,15 @@ export class GameRenderer {
     ctx.scale(player.facingRight ? 1 : -1, 1);
     ctx.translate(-w / 2, -h / 2);
 
-    // Cape/scarf sits behind the silhouette and gives direction at a glance.
-    const capeColor =
-      char.id === "ninja" ? "rgba(239,68,68,0.55)" : "rgba(185,28,28,0.42)";
-    ctx.fillStyle = capeColor;
-    ctx.beginPath();
-    ctx.moveTo(4, 10);
-    ctx.lineTo(-7 - Math.max(0, stride), 16);
-    ctx.lineTo(4, h - 7);
-    ctx.closePath();
-    ctx.fill();
-
-    // Legs and boots
-    ctx.fillStyle = this.shadeHexColor(char.outlineColor, -18);
-    ctx.fillRect(5, h - 11, 5, 10 + stride);
-    ctx.fillRect(w - 10, h - 11, 5, 10 - stride);
-    ctx.fillStyle = "#111827";
-    ctx.fillRect(3, h - 2, 8, 3);
-    ctx.fillRect(w - 11, h - 2, 8, 3);
-
-    const torso = ctx.createLinearGradient(0, 4, 0, h - 7);
-    torso.addColorStop(0, this.shadeHexColor(char.bodyColor, 22));
-    torso.addColorStop(1, char.outlineColor);
-    ctx.fillStyle = torso;
-    this.drawRoundedRect(ctx, 2, 8, w - 4, h - 11, 5);
-    ctx.fill();
-
-    ctx.strokeStyle = this.shadeHexColor(char.outlineColor, -22);
-    ctx.lineWidth = 1.2;
-    ctx.stroke();
-
-    // Character-specific accents keep unlocks from looking like recolors.
-    if (char.id === "mage") {
-      ctx.fillStyle = "#312e81";
-      ctx.beginPath();
-      ctx.moveTo(w / 2, -2);
-      ctx.lineTo(2, 12);
-      ctx.lineTo(w - 2, 12);
-      ctx.closePath();
-      ctx.fill();
-      ctx.fillStyle = "#fef08a";
-      ctx.fillRect(w / 2 + 2, 4, 2, 2);
-    } else if (char.id === "ranger") {
-      ctx.fillStyle = "#166534";
-      ctx.fillRect(3, 7, w - 6, 2);
-      ctx.fillStyle = "#65a30d";
-      ctx.fillRect(2, 11, w - 4, 2);
-      ctx.strokeStyle = "#86efac";
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(2, h - 13);
-      ctx.lineTo(w - 2, h - 20);
-      ctx.stroke();
-    } else if (char.id === "cyborg") {
-      ctx.fillStyle = "#0f172a";
-      ctx.fillRect(3, 9, w - 6, 3);
-      ctx.fillStyle = "#22d3ee";
-      ctx.fillRect(5, 10, w - 10, 1.6);
-      ctx.fillStyle = "#334155";
-      ctx.fillRect(-2, 13, 4, 9);
-      ctx.fillRect(w - 2, 13, 4, 9);
-    } else if (char.id === "spirit") {
-      ctx.fillStyle = "rgba(221,214,254,0.75)";
-      ctx.beginPath();
-      ctx.moveTo(3, h - 10);
-      ctx.quadraticCurveTo(w / 2, h - 1, w - 3, h - 10);
-      ctx.closePath();
-      ctx.fill();
-      ctx.fillStyle = "#a78bfa";
-      ctx.fillRect(4, 7, w - 8, 2);
-    } else if (char.id === "healer") {
-      ctx.fillStyle = "#0d9488";
-      ctx.fillRect(3, 9, w - 6, 3);
-      ctx.strokeStyle = "#ccfbf1";
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(w / 2, 6);
-      ctx.lineTo(w / 2, h - 12);
-      ctx.moveTo(6, h - 16);
-      ctx.lineTo(w - 6, h - 16);
-      ctx.stroke();
-    } else if (char.id === "tank") {
-      ctx.fillStyle = "rgba(255,255,255,0.18)";
-      ctx.fillRect(4, 11, w - 8, 5);
-      ctx.fillStyle = "#334155";
-      ctx.fillRect(-2, 13, 5, 10);
-      ctx.fillRect(w - 3, 13, 5, 10);
-    } else if (char.id === "ninja") {
-      ctx.fillStyle = "#0f172a";
-      this.drawRoundedRect(ctx, 3, 3, w - 6, 15, 5);
-      ctx.fill();
-      ctx.fillStyle = "#dc2626";
-      ctx.fillRect(4, 10, w - 8, 3);
-    } else {
-      ctx.fillStyle = "#94a3b8";
-      ctx.fillRect(4, 5, w - 8, 5);
-      ctx.fillStyle = "#fbbf24";
-      ctx.fillRect(w / 2 - 1, 1, 2, 5);
-    }
-
-    // Head / face — all features biased toward the FRONT (right edge) so the
-    // facing direction is unmistakable at a glance. ctx.scale handles the mirror
-    // when facing left, so the snout/eyes automatically flip to the correct side.
-    ctx.fillStyle = char.id === "ninja" ? "#111827" : "#e2e8f0";
-    this.drawRoundedRect(ctx, 3, 4, w - 6, 12, 4);
-    ctx.fill();
-    ctx.strokeStyle = this.shadeHexColor(char.outlineColor, -18);
-    ctx.stroke();
-
-    // Forward-pointing snout/nose — small triangle protruding past the face edge.
-    // This is the element that tells you which way the character is looking.
-    // Uses the face/skin tone so it reads as a muzzle, not body color.
-    ctx.fillStyle = char.id === "ninja" ? "#334155" : "#cbd5e1";
-    ctx.beginPath();
-    ctx.moveTo(w - 4, 7);
-    ctx.lineTo(w + 3, 10);
-    ctx.lineTo(w - 4, 13);
-    ctx.closePath();
-    ctx.fill();
-
-    if (char.id === "knight" || char.id === "tank" || char.id === "cyborg") {
-      // Armored visor — biased toward the front half of the face
-      ctx.fillStyle = "#0f172a";
-      ctx.fillRect(Math.floor(w / 2) - 1, 8, w - 4 - Math.floor(w / 2), 4);
-      ctx.fillStyle = char.eyeColor;
-      ctx.fillRect(w - 9, 9, 4, 2);
-    } else {
-      // Two forward-facing eyes clustered on the front side
-      ctx.fillStyle = char.eyeColor;
-      ctx.fillRect(w - 12, 8, 3, 3);
-      ctx.fillRect(w - 7, 8, 3, 3);
-      ctx.fillStyle = "#020617";
-      ctx.fillRect(w - 11, 9, 1, 1);
-      ctx.fillRect(w - 6, 9, 1, 1);
-    }
-
-    // Chest highlight
-    ctx.fillStyle = "rgba(255,255,255,0.18)";
-    ctx.fillRect(5, 18, w - 10, 3);
-
-    // Dash accent
-    if (player.dashing) {
-      ctx.fillStyle = "rgba(125,211,252,0.42)";
-      ctx.fillRect(-8, 8, 8, h - 12);
-    }
-
-    // Wall-slide sparks
-    if (player.wallSliding) {
-      ctx.fillStyle = "#fef08a";
-      ctx.fillRect(w + 1, h - 9, 2, 2);
-      ctx.fillRect(w + 3, h - 5, 2, 2);
-    }
+    drawCharacterSpriteArt(ctx, char, {
+      x: 0,
+      y: 0,
+      width: w,
+      height: h,
+      stride,
+      dashing: player.dashing,
+      wallSliding: player.wallSliding,
+    });
 
     ctx.restore();
     ctx.globalAlpha = 1;
