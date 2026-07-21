@@ -44,6 +44,12 @@ export class InputManager {
         window.addEventListener('keyup', this.onKeyUp);
       }
 
+      // Browsers do not emit keyup/pointerup when focus is lost mid-input.
+      // Clear every held control so returning from an app switch, alert, or
+      // locked screen cannot leave the player running or attacking forever.
+      window.addEventListener('blur', this.releaseAll);
+      document.addEventListener('visibilitychange', this.onVisibilityChange);
+
       // Listen for touch control events from React overlay
       this.handleGameInput = (e: CustomEvent) => {
         const { type, value } = e.detail;
@@ -102,6 +108,25 @@ export class InputManager {
 
   private onKeyUp = (e: KeyboardEvent): void => {
     this.keys.delete(e.code);
+  };
+
+  private onVisibilityChange = (): void => {
+    if (document.visibilityState === 'hidden') this.releaseAll();
+  };
+
+  private releaseAll = (): void => {
+    this.keys.clear();
+    this.prevKeys.clear();
+    this.touchLeft = false;
+    this.touchRight = false;
+    this.touchJump = false;
+    this.touchJumpPressed = false;
+    this.touchAttack = false;
+    this.touchAttackPressed = false;
+    this.touchDash = false;
+    this.touchDashPressed = false;
+    this.touchCarry = false;
+    this.touchCarryPressed = false;
   };
 
   private acceptsKey(code: string): boolean {
@@ -176,6 +201,8 @@ export class InputManager {
         window.removeEventListener('keydown', this.onKeyDown);
         window.removeEventListener('keyup', this.onKeyUp);
       }
+      window.removeEventListener('blur', this.releaseAll);
+      document.removeEventListener('visibilitychange', this.onVisibilityChange);
       if (this.handleGameInput) {
         window.removeEventListener(this.inputChannel, this.handleGameInput as EventListener);
       }
