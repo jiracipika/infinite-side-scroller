@@ -29,7 +29,8 @@ const touchControls = read(touchControlsPath)
 for (const marker of [
   'Pause button',
   'handlePause',
-  '<TouchControls />',
+  '<TouchControls',
+  'hapticsEnabled={settings.hapticsEnabled}',
 ]) {
   requireMarker(page, 'page.tsx', marker)
 }

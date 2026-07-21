@@ -1108,6 +1108,7 @@ export class GameEngine {
   private loop = (currentTime: number): void => {
     if (!this._running) return;
     this.profiler.startFrame(currentTime);
+    this.input.beginFrame();
 
     let dt = (currentTime - this.lastTime) / 1000;
     this.lastTime = currentTime;

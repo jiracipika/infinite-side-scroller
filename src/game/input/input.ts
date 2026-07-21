@@ -3,12 +3,18 @@
  */
 
 import type { NetInputCommand } from '../multiplayer/types';
+import {
+  EMPTY_GAMEPAD_INPUT,
+  readGamepadInput,
+  type GamepadInputState,
+} from './gamepad';
 
 export type KeyState = 'up' | 'down' | 'pressed';
 
 export interface InputOptions {
   channel?: string;
   enableKeyboard?: boolean;
+  enableGamepad?: boolean;
   keyboardScheme?: 'all' | 'wasd' | 'arrows';
 }
 
@@ -31,11 +37,15 @@ export class InputManager {
   private handleGameInput: ((e: CustomEvent) => void) | null = null;
   private readonly inputChannel: string;
   private readonly keyboardEnabled: boolean;
+  private readonly gamepadEnabled: boolean;
   private readonly keyboardScheme: 'all' | 'wasd' | 'arrows';
+  private gamepad: GamepadInputState = { ...EMPTY_GAMEPAD_INPUT };
+  private prevGamepad: GamepadInputState = { ...EMPTY_GAMEPAD_INPUT };
 
   constructor(options: InputOptions = {}) {
     this.inputChannel = options.channel ?? 'game-input';
     this.keyboardEnabled = options.enableKeyboard ?? true;
+    this.gamepadEnabled = options.enableGamepad ?? true;
     this.keyboardScheme = options.keyboardScheme ?? 'all';
 
     if (typeof window !== 'undefined') {
@@ -127,7 +137,18 @@ export class InputManager {
     this.touchDashPressed = false;
     this.touchCarry = false;
     this.touchCarryPressed = false;
+    this.gamepad = { ...EMPTY_GAMEPAD_INPUT };
+    this.prevGamepad = { ...EMPTY_GAMEPAD_INPUT };
   };
+
+  /** Poll connected controllers once before each rendered frame. */
+  beginFrame(): void {
+    this.gamepad = this.gamepadEnabled ? readGamepadInput() : { ...EMPTY_GAMEPAD_INPUT };
+  }
+
+  private getGamepad(): GamepadInputState {
+    return this.gamepad;
+  }
 
   private acceptsKey(code: string): boolean {
     if (this.keyboardScheme === 'all') return true;
@@ -140,15 +161,21 @@ export class InputManager {
   /** Check if a key or virtual button is currently held down */
   isDown(code: string): boolean {
     if (this.acceptsKey(code) && this.keys.has(code)) return true;
-    // Map touch controls to key codes
-    if (code === 'ArrowLeft' || code === 'KeyA') return this.touchLeft;
-    if (code === 'ArrowRight' || code === 'KeyD') return this.touchRight;
+    const gamepad = this.getGamepad();
+    // Map touch and controller actions to their keyboard equivalents.
+    if (code === 'ArrowLeft' || code === 'KeyA') return this.touchLeft || gamepad.left;
+    if (code === 'ArrowRight' || code === 'KeyD') return this.touchRight || gamepad.right;
+    if (code === 'Space' || code === 'ArrowUp' || code === 'KeyW') return this.touchJump || gamepad.jump;
+    if (code === 'KeyE' || code === 'KeyJ' || code === 'KeyZ') return this.touchAttack || gamepad.attack;
+    if (code === 'KeyX' || code === 'ShiftLeft') return this.touchDash || gamepad.dash;
+    if (code === 'KeyF') return this.touchCarry || gamepad.carry;
     return false;
   }
 
   /** Check if a key or virtual button was just pressed this frame */
   isPressed(code: string): boolean {
     if (this.acceptsKey(code) && this.keys.has(code) && !this.prevKeys.has(code)) return true;
+    const gamepad = this.getGamepad();
     if (code === 'KeyX') {
       if (this.acceptsKey('KeyQ') && this.keys.has('KeyQ') && !this.prevKeys.has('KeyQ')) return true;
       if (this.acceptsKey('KeyK') && this.keys.has('KeyK') && !this.prevKeys.has('KeyK')) return true;
@@ -162,15 +189,18 @@ export class InputManager {
     if (code === 'KeyF') {
       if (this.acceptsKey('ArrowDown') && this.keys.has('ArrowDown') && !this.prevKeys.has('ArrowDown')) return true;
       if (this.acceptsKey('KeyL') && this.keys.has('KeyL') && !this.prevKeys.has('KeyL')) return true;
-      if (this.touchCarryPressed) return true;
+      if (this.touchCarryPressed || (gamepad.carry && !this.prevGamepad.carry)) return true;
     }
-    if ((code === 'Space' || code === 'ArrowUp' || code === 'KeyW') && this.touchJumpPressed) {
+    if ((code === 'Space' || code === 'ArrowUp' || code === 'KeyW')
+      && (this.touchJumpPressed || (gamepad.jump && !this.prevGamepad.jump))) {
       return true;
     }
-    if ((code === 'KeyX' || code === 'ShiftLeft') && this.touchDashPressed) {
+    if ((code === 'KeyX' || code === 'ShiftLeft')
+      && (this.touchDashPressed || (gamepad.dash && !this.prevGamepad.dash))) {
       return true;
     }
-    if ((code === 'KeyE' || code === 'KeyJ') && this.touchAttackPressed) {
+    if ((code === 'KeyE' || code === 'KeyJ' || code === 'KeyZ')
+      && (this.touchAttackPressed || (gamepad.attack && !this.prevGamepad.attack))) {
       return true;
     }
     return false;
@@ -182,12 +212,14 @@ export class InputManager {
       (this.acceptsKey('KeyE') && this.keys.has('KeyE'))
       || (this.acceptsKey('KeyJ') && this.keys.has('KeyJ'))
       || this.touchAttack
+      || this.getGamepad().attack
     );
   }
 
-  /** Call at end of frame to snapshot current key state for next-frame press detection */
+  /** Call at end of frame to snapshot current input state for press detection. */
   endFrame(): void {
     this.prevKeys = new Set(this.keys);
+    this.prevGamepad = { ...this.gamepad };
     this.touchJumpPressed = false;
     this.touchAttackPressed = false;
     this.touchDashPressed = false;
@@ -217,15 +249,15 @@ export class InputManager {
         ? 1
         : 0;
 
-    const jumpPressed = this.isDown('Space') || this.isDown('ArrowUp') || this.isDown('KeyW') || this.touchJump;
+    const jumpPressed = this.isDown('Space') || this.isDown('ArrowUp') || this.isDown('KeyW');
     const attackPressed = this.isAttackDown();
     const dashPressed = (
-      (this.acceptsKey('KeyQ') && this.keys.has('KeyQ'))
+      this.isDown('KeyX')
+      || (this.acceptsKey('KeyQ') && this.keys.has('KeyQ'))
       || (this.acceptsKey('KeyK') && this.keys.has('KeyK'))
       || (this.acceptsKey('ShiftRight') && this.keys.has('ShiftRight'))
-      || this.touchDash
     );
-    const carryPressed = (this.acceptsKey('KeyF') && this.keys.has('KeyF')) || this.touchCarry;
+    const carryPressed = this.isDown('KeyF');
     const carryAltPressed = (
       (this.acceptsKey('ArrowDown') && this.keys.has('ArrowDown'))
       || (this.acceptsKey('KeyL') && this.keys.has('KeyL'))

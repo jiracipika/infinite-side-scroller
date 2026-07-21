@@ -1042,6 +1042,15 @@ const SettingsPanel: FC = () => {
           value={settings.cameraMode}
           onChange={(cameraMode) => setSettings({ cameraMode })}
         />
+        <div
+          className="ios-row"
+          style={{ flexDirection: "column", alignItems: "flex-start", gap: 5 }}
+        >
+          <span className="ios-row-label">Controller</span>
+          <span className="ios-footnote" style={{ color: "var(--ios-label3)" }}>
+            Left stick / D-pad move · A jump · B dash · X attack · Y help
+          </span>
+        </div>
       </div>
     </div>
   );
