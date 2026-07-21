@@ -16,9 +16,12 @@ interface TouchControlsProps {
   channel?: string;
   compact?: boolean;
   forceVisible?: boolean;
+  hapticsEnabled?: boolean;
 }
 
-const TouchControls: FC<TouchControlsProps> = ({ channel = 'game-input', compact = false, forceVisible = false }) => {
+const TouchControls: FC<TouchControlsProps> = ({
+  channel = 'game-input', compact = false, forceVisible = false, hapticsEnabled = true,
+}) => {
   const [leftHeld, setLeftHeld] = useState(false);
   const [rightHeld, setRightHeld] = useState(false);
   const [jumpHeld, setJumpHeld] = useState(false);
@@ -32,9 +35,9 @@ const TouchControls: FC<TouchControlsProps> = ({ channel = 'game-input', compact
 
   const pulseHaptic = useCallback((pattern: number | number[] = 8) => {
     // Best-effort mobile feedback. Unsupported browsers simply no-op.
-    if (typeof navigator === 'undefined' || !('vibrate' in navigator)) return;
-    navigator.vibrate(pattern);
-  }, []);
+    if (!hapticsEnabled || typeof navigator === 'undefined' || !('vibrate' in navigator)) return;
+    try { navigator.vibrate(pattern); } catch { /* Ignore restricted browser failures. */ }
+  }, [hapticsEnabled]);
 
   const startLeft = useCallback(() => { emit('move-left', true); setLeftHeld(true); pulseHaptic(6); }, [emit, pulseHaptic]);
   const endLeft = useCallback(() => { emit('move-left', false); setLeftHeld(false); }, [emit]);

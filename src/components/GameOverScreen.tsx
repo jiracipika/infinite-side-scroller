@@ -11,6 +11,7 @@ import { fireHaptic } from '@/game/input/haptics';
 interface Props {
   stats: GameStats;
   newRecords?: NewRecords;
+  hapticsEnabled?: boolean;
   onRestart: () => void;
   onQuit: () => void;
 }
@@ -48,7 +49,7 @@ const useCountUp = (target: number, duration = 750, delay = 0): number => {
 
 /* ── Screen ─────────────────────────────────────────────────── */
 
-const GameOverScreen: FC<Props> = ({ stats, newRecords, onRestart, onQuit }) => {
+const GameOverScreen: FC<Props> = ({ stats, newRecords, hapticsEnabled = true, onRestart, onQuit }) => {
   const submittedRef = useRef(false);
   const isNewHighScore = stats.score >= stats.highScore && stats.score > 0;
 
@@ -130,13 +131,13 @@ const GameOverScreen: FC<Props> = ({ stats, newRecords, onRestart, onQuit }) => 
       maxCombo: stats.maxCombo,
       enemiesDefeated: stats.enemiesDefeated,
     });
-  }, [stats.coins, stats.distance, stats.score]);
+  }, [stats.coins, stats.distance, stats.enemiesDefeated, stats.maxCombo, stats.score]);
 
   // Death haptic — one long dramatic pattern when the game-over sheet appears.
   // Fires once on mount only; safe no-op on browsers without Vibration API.
   useEffect(() => {
-    fireHaptic('death');
-  }, []);
+    fireHaptic('death', hapticsEnabled);
+  }, [hapticsEnabled]);
 
   return (
     <div

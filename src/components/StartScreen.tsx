@@ -1029,6 +1029,11 @@ const SettingsPanel: FC = () => {
           onChange={(v) => setSettings({ showFPS: v })}
         />
         <ToggleRow
+          label="Haptics"
+          value={settings.hapticsEnabled}
+          onChange={(v) => setSettings({ hapticsEnabled: v })}
+        />
+        <ToggleRow
           label="Reduced Particles"
           value={settings.reducedParticles}
           onChange={(v) => setSettings({ reducedParticles: v })}

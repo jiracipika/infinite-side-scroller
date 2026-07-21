@@ -5,6 +5,7 @@ import { GameEngine } from '@/game';
 import TouchControls from './TouchControls';
 import { loadSelectedCharacter } from '@/game/data/characters';
 import { MP_TICK_MS } from '@/game/multiplayer/config';
+import { useGameStore } from './GameStore';
 
 interface LocalStats {
   score: number;
@@ -24,6 +25,7 @@ const LOCAL_HOST_ID = 'local-bottom';
 const LOCAL_GUEST_ID = 'local-top';
 
 const SplitScreenMode: FC<Props> = ({ seed, onExit }) => {
+  const { settings } = useGameStore();
   const topCanvasRef = useRef<HTMLCanvasElement>(null);
   const bottomCanvasRef = useRef<HTMLCanvasElement>(null);
   const topGameRef = useRef<GameEngine | null>(null);
@@ -237,6 +239,7 @@ const SplitScreenMode: FC<Props> = ({ seed, onExit }) => {
         height={mobilePaneSize}
         rotated
         touchChannel="game-input-top"
+        hapticsEnabled={settings.hapticsEnabled}
       />
 
       <div
@@ -273,6 +276,7 @@ const SplitScreenMode: FC<Props> = ({ seed, onExit }) => {
         width={mobilePaneSize}
         height={mobilePaneSize}
         touchChannel="game-input-bottom"
+        hapticsEnabled={settings.hapticsEnabled}
       />
     </div>
   );
@@ -290,7 +294,8 @@ const SplitPane: FC<{
   height: number;
   rotated?: boolean;
   touchChannel?: string;
-}> = ({ canvasRef, label, stats, dead, onRestart, width, height, rotated = false, touchChannel }) => (
+  hapticsEnabled?: boolean;
+}> = ({ canvasRef, label, stats, dead, onRestart, width, height, rotated = false, touchChannel, hapticsEnabled }) => (
   <div
     style={{
       width,
@@ -313,7 +318,7 @@ const SplitPane: FC<{
       }}
     >
       <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />
-      {touchChannel && <TouchControls channel={touchChannel} compact />}
+      {touchChannel && <TouchControls channel={touchChannel} compact hapticsEnabled={hapticsEnabled} />}
       <SplitHud label={label} stats={stats} />
       {dead && <PaneDeadOverlay onRestart={onRestart} />}
     </div>

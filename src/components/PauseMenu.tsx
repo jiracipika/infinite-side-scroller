@@ -262,6 +262,15 @@ const SettingsPanel: FC = () => {
           />
         </div>
 
+        {/* Mobile vibration feedback */}
+        <div className="ios-row">
+          <span className="ios-row-label">Haptics</span>
+          <IOSToggle
+            checked={settings.hapticsEnabled}
+            onChange={(v) => setSettings({ hapticsEnabled: v })}
+          />
+        </div>
+
         {/* Reduced particles */}
         <div className="ios-row">
           <span className="ios-row-label">Reduced Particles</span>

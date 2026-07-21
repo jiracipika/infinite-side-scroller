@@ -12,10 +12,7 @@ interface Props {
 
 const HUD: FC<Props> = ({ stats, settings }) => {
   // Gameplay haptics (mobile). No-op on browsers without the Vibration API.
-  // Respects prefers-reduced-motion implicitly: players who reduce motion get
-  // the same no-op as desktop users, since we gate on a real haptics setting
-  // when one is added — for now the master gate is the API itself.
-  useGameHaptics(stats, true);
+  useGameHaptics(stats, settings.hapticsEnabled);
 
   const totalHearts = Math.min(Math.max(stats.maxHealth, 1), 5);
   const filledHearts = Math.max(0, stats.health);

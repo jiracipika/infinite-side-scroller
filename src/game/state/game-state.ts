@@ -10,6 +10,8 @@ export interface GameSettings {
   musicVolume: number;
   showFPS: boolean;
   showDebug: boolean;
+  /** Enables touch feedback and gameplay-event vibration on supported devices. */
+  hapticsEnabled: boolean;
   reducedParticles: boolean;
   cameraMode: 'auto' | 'horizontal' | 'vertical';
   /**
@@ -60,6 +62,7 @@ export const DEFAULT_SETTINGS: GameSettings = {
   musicVolume: 0.6,
   showFPS: false,
   showDebug: false,
+  hapticsEnabled: true,
   reducedParticles: false,
   cameraMode: 'auto',
   reducedMotion: 'auto',

@@ -1660,6 +1660,8 @@ export default function Home() {
     state,
     stats.coins,
     stats.distance,
+    stats.enemiesDefeated,
+    stats.maxCombo,
     stats.score,
   ]);
 
@@ -1717,6 +1719,7 @@ export default function Home() {
             <GameOverScreen
               stats={stats}
               newRecords={newRecords}
+              hapticsEnabled={settings.hapticsEnabled}
               onRestart={
                 currentLevel
                   ? () => handleStartLevel(currentLevel)
@@ -1740,7 +1743,7 @@ export default function Home() {
         />
       )}
       {state === "playing" && <HUD stats={stats} settings={settings} />}
-      {state === "playing" && <TouchControls />}
+      {state === "playing" && <TouchControls hapticsEnabled={settings.hapticsEnabled} />}
       {state === "playing" && multiplayerSession && (
         <div
           className="absolute left-1/2 z-20 pointer-events-none"

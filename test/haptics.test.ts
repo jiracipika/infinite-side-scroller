@@ -8,6 +8,7 @@ import {
   COMBO_MILESTONE_STEP,
   type HapticEvent,
 } from '@/game/input/haptics';
+import { DEFAULT_SETTINGS } from '@/game/state/game-state';
 
 /**
  * Gameplay haptics resolver.
@@ -25,6 +26,12 @@ import {
  * resolver suite.
  */
 describe('resolveHapticPattern', () => {
+  it('is enabled by default and respects the settings gate', () => {
+    assert.equal(DEFAULT_SETTINGS.hapticsEnabled, true);
+    assert.deepEqual(resolveHapticPattern('damage', true), HAPTIC_PATTERNS.damage);
+    assert.equal(resolveHapticPattern('damage', false), 0);
+  });
+
   it('returns the declared pattern for every known HapticEvent (exhaustive)', () => {
     const allEvents = Object.keys(HAPTIC_PATTERNS) as HapticEvent[];
     // Sanity: the constants table covers the events we care about.
