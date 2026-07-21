@@ -309,6 +309,15 @@ export class GameEngine {
 
   private handleVisibilityChange = (): void => {
     this.sfx.setEnabled(!document.hidden);
+    if (!document.hidden) {
+      // RAF is suspended in background tabs. Drop the hidden-time gap so a
+      // returning multiplayer session neither fast-forwards simulation nor
+      // reports a fake multi-second frame that forces adaptive low quality.
+      const now = performance.now();
+      this.lastTime = now;
+      this.accumulated = 0;
+      this.profiler.resumeFrameClock(now);
+    }
   };
 
   get state(): EngineState {

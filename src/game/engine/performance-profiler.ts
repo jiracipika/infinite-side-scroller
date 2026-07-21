@@ -113,6 +113,22 @@ export class PerformanceProfiler {
     return this.renderTimes.reduce((a, b) => a + b, 0) / this.renderTimes.length;
   }
 
+  /**
+   * Start a fresh timing sample after requestAnimationFrame has been suspended.
+   * Browsers pause RAF while a tab is hidden; treating that gap as one giant
+   * frame would falsely tank the FPS readout and trigger adaptive low quality.
+   * Lifetime counters and update/render work metrics intentionally survive.
+   */
+  resumeFrameClock(rafTime: number = performance.now()): void {
+    this.lastRafTime = rafTime;
+    this.frameCount = 0;
+    this.fpsElapsedMs = 0;
+    this.frameTime = 0;
+    this.avgFrameTime = 16.67;
+    this.worstFrameTime = 16.67;
+    this.frameTimeHistory = [];
+  }
+
   reset(): void {
     this.fps = 60;
     this.frameCount = 0;
