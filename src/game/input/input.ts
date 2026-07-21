@@ -15,6 +15,8 @@ export interface InputOptions {
   channel?: string;
   enableKeyboard?: boolean;
   enableGamepad?: boolean;
+  /** Browser Gamepad API slot to reserve for this engine instance. */
+  gamepadIndex?: number;
   keyboardScheme?: 'all' | 'wasd' | 'arrows';
 }
 
@@ -38,6 +40,7 @@ export class InputManager {
   private readonly inputChannel: string;
   private readonly keyboardEnabled: boolean;
   private readonly gamepadEnabled: boolean;
+  private readonly gamepadIndex: number | undefined;
   private readonly keyboardScheme: 'all' | 'wasd' | 'arrows';
   private gamepad: GamepadInputState = { ...EMPTY_GAMEPAD_INPUT };
   private prevGamepad: GamepadInputState = { ...EMPTY_GAMEPAD_INPUT };
@@ -46,6 +49,7 @@ export class InputManager {
     this.inputChannel = options.channel ?? 'game-input';
     this.keyboardEnabled = options.enableKeyboard ?? true;
     this.gamepadEnabled = options.enableGamepad ?? true;
+    this.gamepadIndex = options.gamepadIndex;
     this.keyboardScheme = options.keyboardScheme ?? 'all';
 
     if (typeof window !== 'undefined') {
@@ -143,7 +147,9 @@ export class InputManager {
 
   /** Poll connected controllers once before each rendered frame. */
   beginFrame(): void {
-    this.gamepad = this.gamepadEnabled ? readGamepadInput() : { ...EMPTY_GAMEPAD_INPUT };
+    this.gamepad = this.gamepadEnabled
+      ? readGamepadInput(this.gamepadIndex)
+      : { ...EMPTY_GAMEPAD_INPUT };
   }
 
   private getGamepad(): GamepadInputState {

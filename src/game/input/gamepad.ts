@@ -40,14 +40,22 @@ export function mapGamepadInput(gamepad: Gamepad): GamepadInputState {
   };
 }
 
-/** Read the first connected controller without assuming Gamepad API support. */
-export function readGamepadInput(): GamepadInputState {
+/**
+ * Read a connected controller without assuming Gamepad API support.
+ * When a slot is requested, never fall back to another controller: that keeps
+ * one physical pad from driving both players in split-screen mode.
+ */
+export function readGamepadInput(gamepadIndex?: number): GamepadInputState {
   if (typeof navigator === 'undefined' || typeof navigator.getGamepads !== 'function') {
     return { ...EMPTY_GAMEPAD_INPUT };
   }
 
   try {
     const gamepads = navigator.getGamepads();
+    if (gamepadIndex !== undefined) {
+      const gamepad = gamepads[gamepadIndex];
+      return gamepad?.connected ? mapGamepadInput(gamepad) : { ...EMPTY_GAMEPAD_INPUT };
+    }
     for (const gamepad of gamepads) {
       if (gamepad?.connected) return mapGamepadInput(gamepad);
     }

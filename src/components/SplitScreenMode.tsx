@@ -94,6 +94,7 @@ const SplitScreenMode: FC<Props> = ({ seed, onExit }) => {
       input: {
         channel: 'game-input-top',
         enableKeyboard: !isTouchDevice,
+        gamepadIndex: 0,
         keyboardScheme: 'wasd',
       },
       cameraMode: 'split',
@@ -102,6 +103,7 @@ const SplitScreenMode: FC<Props> = ({ seed, onExit }) => {
       input: {
         channel: 'game-input-bottom',
         enableKeyboard: !isTouchDevice,
+        gamepadIndex: 1,
         keyboardScheme: 'arrows',
       },
       cameraMode: 'split',

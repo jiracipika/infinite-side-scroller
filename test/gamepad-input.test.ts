@@ -112,4 +112,40 @@ describe('InputManager gamepad support', () => {
     assert.equal(input.isAttackDown(), false);
     input.destroy();
   });
+
+  it('reserves distinct controller slots for split-screen players', () => {
+    const playerOnePad = makeGamepad({ axis: -1, buttons: [0] });
+    const playerTwoPad = makeGamepad({ axis: 1, buttons: [2] });
+    Object.defineProperty(globalThis, 'navigator', {
+      configurable: true,
+      value: { getGamepads: () => [playerOnePad, playerTwoPad] },
+    });
+
+    const playerOne = new InputManager({ enableKeyboard: false, gamepadIndex: 0 });
+    const playerTwo = new InputManager({ enableKeyboard: false, gamepadIndex: 1 });
+    playerOne.beginFrame();
+    playerTwo.beginFrame();
+
+    assert.equal(playerOne.isDown('ArrowLeft'), true);
+    assert.equal(playerOne.isDown('ArrowRight'), false);
+    assert.equal(playerOne.isPressed('Space'), true);
+    assert.equal(playerOne.isPressed('KeyE'), false);
+    assert.equal(playerTwo.isDown('ArrowLeft'), false);
+    assert.equal(playerTwo.isDown('ArrowRight'), true);
+    assert.equal(playerTwo.isPressed('Space'), false);
+    assert.equal(playerTwo.isPressed('KeyE'), true);
+
+    playerOne.destroy();
+    playerTwo.destroy();
+  });
+
+  it('does not let an absent reserved controller fall back to player one', () => {
+    gamepad = makeGamepad({ axis: 1, buttons: [0] });
+    const playerTwo = new InputManager({ enableKeyboard: false, gamepadIndex: 1 });
+    playerTwo.beginFrame();
+
+    assert.equal(playerTwo.isDown('ArrowRight'), false);
+    assert.equal(playerTwo.isPressed('Space'), false);
+    playerTwo.destroy();
+  });
 });
