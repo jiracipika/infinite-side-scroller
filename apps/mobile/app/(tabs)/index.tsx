@@ -7,6 +7,7 @@ import {
   Text,
   Dimensions,
   Platform,
+  AppState,
   SafeAreaView,
 } from 'react-native';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
@@ -204,6 +205,19 @@ const TouchControls: React.FC<{
     }
     heldInputsRef.current.clear();
   }, [sendInput]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', nextState => {
+      if (nextState !== 'active') releaseAll();
+    });
+    return () => subscription.remove();
+  }, [releaseAll]);
+
+  // Releasing on unmount covers navigation, pause/game-over overlays, and fast
+  // refreshes that remove the controls while a finger is still held down.
+  useEffect(() => {
+    return releaseAll;
+  }, [releaseAll]);
 
   return (
     <View style={styles.touchOverlay} pointerEvents="box-none">

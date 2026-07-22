@@ -61,6 +61,9 @@ const mobileGame = fs.existsSync(mobileGamePath) ? fs.readFileSync(mobileGamePat
 assert(mobileGame.includes('heldInputsRef = useRef<Set<string>>(new Set())'), 'mobile controls must track a Set of held inputs for simultaneous move+jump/attack')
 assert(mobileGame.includes('JSON.stringify({ type, value })'), 'mobile WebView input bridge must serialize event detail safely')
 assert(mobileGame.includes('onTouchCancel={onRelease}'), 'mobile controls must release held inputs on touch cancel')
+assert(mobileGame.includes("AppState.addEventListener('change'"), 'mobile controls must observe native app backgrounding')
+assert(mobileGame.includes("nextState !== 'active'"), 'mobile controls must release held inputs whenever the app leaves the active state')
+assert(mobileGame.includes('return releaseAll;'), 'mobile controls must release held inputs when the overlay unmounts')
 
 if (failures > 0) {
   console.error(`${failures} mobile bundle check(s) failed`)
