@@ -136,9 +136,9 @@ const HUD: FC<Props> = ({ stats, settings }) => {
               </span>
             </div>
 
-            {/* Lives — only show when more than the default 2 (i.e. extra lives earned) */}
-            {stats.lives > 0 && (
-              <div className="ios-hud-pill" style={{ gap: 4 }} aria-label={`${stats.lives} extra lives`}>
+            {/* Extra lives — the run starts with two, so only surface earned lives. */}
+            {stats.lives > 2 && (
+              <div className="ios-hud-pill" style={{ gap: 4 }} aria-label={`${stats.lives - 2} extra lives`}>
                 <span
                   aria-hidden="true"
                   style={{
@@ -149,7 +149,7 @@ const HUD: FC<Props> = ({ stats, settings }) => {
                     fontVariantNumeric: 'tabular-nums',
                   }}
                 >
-                  {"\u2764"}{stats.lives}
+                  {"\u2764"}+{stats.lives - 2}
                 </span>
               </div>
             )}

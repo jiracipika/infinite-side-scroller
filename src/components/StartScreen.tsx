@@ -80,7 +80,7 @@ interface Props {
 
 
 
-type MenuView = "play" | "character" | "profile";
+type MenuView = "character" | "profile";
 
 const StartScreen: FC<Props> = ({
   onPlay,
@@ -95,7 +95,7 @@ const StartScreen: FC<Props> = ({
   const [seedInput, setSeedInput] = useState("");
   const [showSettings, setShowSettings] = useState(false);
   const [showMultiplayer, setShowMultiplayer] = useState(false);
-  const [activeView, setActiveView] = useState<MenuView>("play");
+  const [activeView, setActiveView] = useState<MenuView>("character");
   const [playerName, setPlayerName] = useState("Player");
   const [avatarId, setAvatarId] = useState(AVATAR_PRESETS[0].id);
   const [roomCode, setRoomCode] = useState("");
@@ -151,7 +151,7 @@ const StartScreen: FC<Props> = ({
     const incomingCode = (initialRoomCode ?? "").trim().toUpperCase();
     if (!incomingCode) return;
     setShowMultiplayer(true);
-    setActiveView("play");
+    setActiveView("profile");
     setRoomCode(incomingCode);
   }, [initialRoomCode]);
 
@@ -358,7 +358,7 @@ const StartScreen: FC<Props> = ({
         <section className="dash-command-panel dash-hero-v2">
           <div className="dash-topbar-v2">
             <div className="dash-brand-v2">
-              <AppIcon />
+              <AppIcon characterId={selectedChar} />
               <div>
                 <p className="dash-eyebrow">Dashverse</p>
                 <h1>Pick a mode</h1>
@@ -398,11 +398,20 @@ const StartScreen: FC<Props> = ({
               <small>Jump straight into a run</small>
             </button>
             <button
-              className="dash-icon-action-v2"
+              className={`dash-icon-action-v2 ${activeView === "character" ? "is-active" : ""}`}
               onClick={() => setActiveView("character")}
               aria-label="Open character select"
+              aria-pressed={activeView === "character"}
             >
-              ✦
+              <CharacterSprite characterId={selectedChar} size={38} decorative />
+            </button>
+            <button
+              className={`dash-icon-action-v2 ${activeView === "profile" ? "is-active" : ""}`}
+              onClick={() => setActiveView("profile")}
+              aria-label="Open player profile"
+              aria-pressed={activeView === "profile"}
+            >
+              <span aria-hidden="true">●</span>
             </button>
           </div>
         </section>
@@ -512,8 +521,6 @@ const StartScreen: FC<Props> = ({
             </button>
           </div>
         </section>
-
-        {activeView === "play" && null}
 
         {activeView === "character" && (
           <section className="dash-command-panel dash-runner-v2 dash-character-select-v3 dash-view-panel-v3">
@@ -1037,8 +1044,8 @@ const StarField: FC = () => {
 
 /* ── App icon with ambient glow ring ─────────────────────────── */
 
-const AppIcon: FC = () => (
-  <div style={{ position: "relative", width: 88, height: 88 }}>
+const AppIcon: FC<{ characterId: string }> = ({ characterId }) => (
+  <div className="dash-app-icon-v3">
     {/* Expanding glow ring */}
     <div
       style={{
@@ -1076,12 +1083,10 @@ const AppIcon: FC = () => (
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        fontSize: 46,
-        lineHeight: 1,
         userSelect: "none",
       }}
     >
-      ∞
+      <CharacterSprite characterId={characterId} size={72} decorative />
     </div>
   </div>
 );
