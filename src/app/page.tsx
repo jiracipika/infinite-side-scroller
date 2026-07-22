@@ -1743,7 +1743,14 @@ export default function Home() {
         />
       )}
       {state === "playing" && <HUD stats={stats} settings={settings} />}
-      {state === "playing" && <TouchControls hapticsEnabled={settings.hapticsEnabled} />}
+      {state === "playing" && (
+        <TouchControls
+          hapticsEnabled={settings.hapticsEnabled}
+          layout={settings.touchControlLayout}
+          controlSize={settings.touchControlSize}
+          opacity={settings.touchControlOpacity}
+        />
+      )}
       {state === "playing" && multiplayerSession && (
         <div
           className="absolute left-1/2 z-20 pointer-events-none"

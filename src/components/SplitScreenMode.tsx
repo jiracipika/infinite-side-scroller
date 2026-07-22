@@ -6,6 +6,7 @@ import TouchControls from './TouchControls';
 import { loadSelectedCharacter } from '@/game/data/characters';
 import { MP_TICK_MS } from '@/game/multiplayer/config';
 import { useGameStore } from './GameStore';
+import type { TouchControlLayout, TouchControlSize } from '@/game/state/game-state';
 
 interface LocalStats {
   score: number;
@@ -242,6 +243,9 @@ const SplitScreenMode: FC<Props> = ({ seed, onExit }) => {
         rotated
         touchChannel="game-input-top"
         hapticsEnabled={settings.hapticsEnabled}
+        touchLayout={settings.touchControlLayout}
+        touchSize={settings.touchControlSize}
+        touchOpacity={settings.touchControlOpacity}
       />
 
       <div
@@ -279,6 +283,9 @@ const SplitScreenMode: FC<Props> = ({ seed, onExit }) => {
         height={mobilePaneSize}
         touchChannel="game-input-bottom"
         hapticsEnabled={settings.hapticsEnabled}
+        touchLayout={settings.touchControlLayout}
+        touchSize={settings.touchControlSize}
+        touchOpacity={settings.touchControlOpacity}
       />
     </div>
   );
@@ -297,7 +304,13 @@ const SplitPane: FC<{
   rotated?: boolean;
   touchChannel?: string;
   hapticsEnabled?: boolean;
-}> = ({ canvasRef, label, stats, dead, onRestart, width, height, rotated = false, touchChannel, hapticsEnabled }) => (
+  touchLayout?: TouchControlLayout;
+  touchSize?: TouchControlSize;
+  touchOpacity?: number;
+}> = ({
+  canvasRef, label, stats, dead, onRestart, width, height, rotated = false,
+  touchChannel, hapticsEnabled, touchLayout, touchSize, touchOpacity,
+}) => (
   <div
     style={{
       width,
@@ -320,7 +333,16 @@ const SplitPane: FC<{
       }}
     >
       <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />
-      {touchChannel && <TouchControls channel={touchChannel} compact hapticsEnabled={hapticsEnabled} />}
+      {touchChannel && (
+        <TouchControls
+          channel={touchChannel}
+          compact
+          hapticsEnabled={hapticsEnabled}
+          layout={touchLayout}
+          controlSize={touchSize}
+          opacity={touchOpacity}
+        />
+      )}
       <SplitHud label={label} stats={stats} />
       {dead && <PaneDeadOverlay onRestart={onRestart} />}
     </div>

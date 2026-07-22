@@ -1,6 +1,12 @@
 'use client';
 
 import { useEffect, useCallback, useRef, useState, type FC } from 'react';
+import type { TouchControlLayout, TouchControlSize } from '@/game/state/game-state';
+import {
+  resolveTouchButtonDimension,
+  resolveTouchControlPlacement,
+  type TouchButtonSize,
+} from '@/game/input/touch-controls';
 
 /**
  * Touch controls overlay for mobile — iOS game controller aesthetic.
@@ -17,10 +23,19 @@ interface TouchControlsProps {
   compact?: boolean;
   forceVisible?: boolean;
   hapticsEnabled?: boolean;
+  layout?: TouchControlLayout;
+  controlSize?: TouchControlSize;
+  opacity?: number;
 }
 
 const TouchControls: FC<TouchControlsProps> = ({
-  channel = 'game-input', compact = false, forceVisible = false, hapticsEnabled = true,
+  channel = 'game-input',
+  compact = false,
+  forceVisible = false,
+  hapticsEnabled = true,
+  layout = 'standard',
+  controlSize = 'standard',
+  opacity = 0.82,
 }) => {
   const [leftHeld, setLeftHeld] = useState(false);
   const [rightHeld, setRightHeld] = useState(false);
@@ -83,22 +98,42 @@ const TouchControls: FC<TouchControlsProps> = ({
 
   // Bottom offset — honours iOS safe area (notch/home bar)
   const bottomInset = 'max(24px, env(safe-area-inset-bottom, 24px))';
+  const placement = resolveTouchControlPlacement(layout);
+  const movementSide = placement.movement === 'right'
+    ? { right: compact ? 10 : 16 }
+    : { left: compact ? 10 : 16 };
+  const actionSide = placement.actions === 'left'
+    ? { left: compact ? 10 : 16 }
+    : { right: compact ? 10 : 16 };
+  const safeOpacity = Math.max(0.55, Math.min(1, opacity));
 
   return (
     <div
       className="absolute inset-0 z-20 pointer-events-none select-none"
       style={{ touchAction: 'none' }}
+      role="group"
+      aria-label="Touch game controls"
     >
-      {/* ── Left: D-Pad ──────────────────────────────────────── */}
+      {/* Movement cluster — side follows the player's handedness preference. */}
       <div
         className="absolute pointer-events-auto"
-        style={{ bottom: compact ? 'max(12px, env(safe-area-inset-bottom, 12px))' : bottomInset, left: compact ? 10 : 16, display: 'flex', gap: compact ? 8 : 10 }}
+        role="group"
+        aria-label="Movement controls"
+        style={{
+          bottom: compact ? 'max(12px, env(safe-area-inset-bottom, 12px))' : bottomInset,
+          ...movementSide,
+          display: 'flex',
+          gap: compact ? 8 : 10,
+          opacity: safeOpacity,
+        }}
       >
         <TouchBtn
           active={leftHeld}
           onStart={startLeft}
           onEnd={endLeft}
           size={compact ? 'md' : 'lg'}
+          controlSize={controlSize}
+          compact={compact}
           aria-label="Move left"
         >
           <ChevronLeft />
@@ -108,22 +143,27 @@ const TouchControls: FC<TouchControlsProps> = ({
           onStart={startRight}
           onEnd={endRight}
           size={compact ? 'md' : 'lg'}
+          controlSize={controlSize}
+          compact={compact}
           aria-label="Move right"
         >
           <ChevronRight />
         </TouchBtn>
       </div>
 
-      {/* ── Right: Dash + Attack + Carry + Jump ─────────────── */}
+      {/* Action cluster occupies the opposite side. */}
       <div
         className="absolute pointer-events-auto"
+        role="group"
+        aria-label="Action controls"
         style={{
           bottom: compact ? 'max(12px, env(safe-area-inset-bottom, 12px))' : bottomInset,
-          right: compact ? 10 : 16,
+          ...actionSide,
           display: 'flex',
           flexDirection: 'column',
-          alignItems: 'flex-end',
+          alignItems: layout === 'mirrored' ? 'flex-start' : 'flex-end',
           gap: compact ? 8 : 10,
+          opacity: safeOpacity,
         }}
       >
         <div style={{ display: 'flex', gap: compact ? 8 : 10 }}>
@@ -132,6 +172,8 @@ const TouchControls: FC<TouchControlsProps> = ({
             onStart={startDash}
             onEnd={endDash}
             size={compact ? 'xs' : 'sm'}
+            controlSize={controlSize}
+            compact={compact}
             tint="purple"
             aria-label="Dash"
           >
@@ -142,6 +184,8 @@ const TouchControls: FC<TouchControlsProps> = ({
             onStart={startAttack}
             onEnd={endAttack}
             size={compact ? 'xs' : 'sm'}
+            controlSize={controlSize}
+            compact={compact}
             tint="orange"
             aria-label="Attack"
           >
@@ -152,6 +196,8 @@ const TouchControls: FC<TouchControlsProps> = ({
             onStart={startCarry}
             onEnd={endCarry}
             size={compact ? 'xs' : 'sm'}
+            controlSize={controlSize}
+            compact={compact}
             tint="green"
             aria-label="Carry teammate"
           >
@@ -163,6 +209,8 @@ const TouchControls: FC<TouchControlsProps> = ({
           onStart={startJump}
           onEnd={endJump}
           size={compact ? 'md' : 'lg'}
+          controlSize={controlSize}
+          compact={compact}
           tint="blue"
           aria-label="Jump"
         >
@@ -181,7 +229,9 @@ interface TouchBtnProps {
   active: boolean;
   onStart: () => void;
   onEnd: () => void;
-  size: 'xs' | 'sm' | 'md' | 'lg';
+  size: TouchButtonSize;
+  controlSize: TouchControlSize;
+  compact: boolean;
   tint?: 'blue' | 'orange' | 'purple' | 'green';
   'aria-label': string;
   children: React.ReactNode;
@@ -226,10 +276,10 @@ const TINTS = {
 };
 
 const TouchBtn: FC<TouchBtnProps> = ({
-  active, onStart, onEnd, size, tint, children, 'aria-label': ariaLabel,
+  active, onStart, onEnd, size, controlSize, compact, tint, children, 'aria-label': ariaLabel,
 }) => {
   const activePointerRef = useRef<number | null>(null);
-  const dim = size === 'lg' ? 66 : size === 'md' ? 56 : size === 'sm' ? 50 : 42;
+  const dim = resolveTouchButtonDimension(size, controlSize, compact);
   const t = TINTS[tint ?? 'none'];
 
   const handlePointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
@@ -254,6 +304,7 @@ const TouchBtn: FC<TouchBtnProps> = ({
 
   return (
     <button
+      type="button"
       aria-label={ariaLabel}
       aria-pressed={active}
       style={{

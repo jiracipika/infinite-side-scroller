@@ -44,6 +44,20 @@ From the main menu:
 
 Progression is stored locally on-device.
 
+## Mobile controls
+
+Touch controls use pointer capture so held actions release reliably when a finger
+leaves a button, the app backgrounds, or the browser loses focus. Open `Settings`
+from the main menu or pause sheet to:
+
+- move the movement cluster to the left or right thumb;
+- choose small, default, or large touch targets;
+- adjust control visibility without making the buttons unreadable;
+- enable or disable haptic feedback.
+
+The same preferences apply to solo, nearby multiplayer, and mobile split-screen
+play. Older or damaged saved settings are repaired automatically at startup.
+
 ## Run Lab
 
 Every meaningful completed run is summarized locally on the device. Open `Run Lab`

@@ -100,7 +100,10 @@ describe('GameSettings reducedMotion field (persistence contract)', () => {
         showDebug: false,
         reducedParticles: false,
         cameraMode: 'horizontal',
-      } satisfies Omit<GameSettings, 'reducedMotion'>),
+      } satisfies Omit<
+        GameSettings,
+        'reducedMotion' | 'touchControlLayout' | 'touchControlSize' | 'touchControlOpacity'
+      >),
     );
     const loaded = loadSettings();
     assert.equal(loaded.reducedMotion, 'auto');

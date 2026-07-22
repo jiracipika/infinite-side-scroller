@@ -7,6 +7,9 @@ const pagePath = path.join(root, 'src/app/page.tsx')
 const hudPath = path.join(root, 'src/components/HUD.tsx')
 const startPath = path.join(root, 'src/components/StartScreen.tsx')
 const touchControlsPath = path.join(root, 'src/components/TouchControls.tsx')
+const touchSettingsPath = path.join(root, 'src/components/TouchControlSettings.tsx')
+const gameSettingsPath = path.join(root, 'src/game/state/game-state.ts')
+const splitScreenPath = path.join(root, 'src/components/SplitScreenMode.tsx')
 const errors = []
 
 function read(file) {
@@ -25,6 +28,9 @@ const page = read(pagePath)
 const hud = read(hudPath)
 const start = read(startPath)
 const touchControls = read(touchControlsPath)
+const touchSettings = read(touchSettingsPath)
+const gameSettings = read(gameSettingsPath)
+const splitScreen = read(splitScreenPath)
 
 for (const marker of [
   'Pause button',
@@ -55,6 +61,44 @@ for (const marker of ['navigator.vibrate', 'visibilitychange', 'pagehide']) {
   requireMarker(touchControls, 'TouchControls.tsx', marker)
 }
 
+for (const marker of [
+  'layout={settings.touchControlLayout}',
+  'controlSize={settings.touchControlSize}',
+  'opacity={settings.touchControlOpacity}',
+]) {
+  requireMarker(page, 'page.tsx', marker)
+}
+
+for (const marker of [
+  'Touch Layout',
+  'Button Size',
+  'Control Visibility',
+  'aria-pressed',
+]) {
+  requireMarker(touchSettings, 'TouchControlSettings.tsx', marker)
+}
+
+for (const marker of [
+  'aria-controls="settings-panel"',
+  'schedulePanelReveal("settings-panel")',
+  'id="settings-panel"',
+]) {
+  requireMarker(start, 'StartScreen.tsx', marker)
+}
+
+for (const marker of [
+  'touchControlLayout',
+  'touchControlSize',
+  'touchControlOpacity',
+  'normalizeSettings',
+]) {
+  requireMarker(gameSettings, 'game-state.ts', marker)
+}
+
+for (const marker of ['touchLayout={settings.touchControlLayout}', 'touchSize={settings.touchControlSize}']) {
+  requireMarker(splitScreen, 'SplitScreenMode.tsx', marker)
+}
+
 if (!touchControls.includes("style={{ touchAction: 'none' }}")) {
   errors.push('TouchControls overlay must use touchAction:none so browser gestures do not delay game input')
 }
@@ -78,4 +122,4 @@ if (errors.length > 0) {
   process.exit(1)
 }
 
-console.log(`Touch controls verified: canonical TouchControls mounted, ${touchControlPointerHandlers} touch button pointer handlers, ${ariaLabels} aria labels, jump/dash/attack/carry/start checklist/HUD markers present, no legacy KeyboardEvent shim.`)
+console.log(`Touch controls verified: canonical controls mounted, ${touchControlPointerHandlers} pointer handlers, ${ariaLabels} aria labels, persistent layout/size/visibility settings wired through solo and split screen, no legacy KeyboardEvent shim.`)

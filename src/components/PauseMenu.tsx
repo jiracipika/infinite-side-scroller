@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, type FC } from 'react';
 import { useGameStore } from './GameStore';
 import { getSfxEngine } from '@/game/audio';
 import { resolvePauseKey } from './pause-keys';
+import TouchControlSettings from './TouchControlSettings';
 
 interface Props {
   onResume: () => void;
@@ -70,6 +71,10 @@ const PauseMenu: FC<Props> = ({ onResume, onRestart, onQuit }) => {
           zIndex: 10,
           width: '100%',
           maxWidth: 340,
+          maxHeight: 'calc(100dvh - max(24px, env(safe-area-inset-top, 0px)) - max(24px, env(safe-area-inset-bottom, 0px)))',
+          overflowY: 'auto',
+          overscrollBehavior: 'contain',
+          WebkitOverflowScrolling: 'touch',
           padding: '0 8px 16px',
           animation: 'iosModalIn 0.38s cubic-bezier(0.34,1.56,0.64,1) both',
         }}
@@ -270,6 +275,9 @@ const SettingsPanel: FC = () => {
             onChange={(v) => setSettings({ hapticsEnabled: v })}
           />
         </div>
+
+        {/* Touch layout, target size, and visibility */}
+        <TouchControlSettings />
 
         {/* Reduced particles */}
         <div className="ios-row">

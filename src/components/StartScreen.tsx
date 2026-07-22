@@ -53,6 +53,7 @@ import {
   type RunRecord,
 } from "@/lib/run-history";
 import { schedulePanelReveal } from "@/lib/menu-panel-reveal";
+import TouchControlSettings from "./TouchControlSettings";
 import {
   fetchOnlineLeaderboard,
   fetchOnlineReplay,
@@ -512,7 +513,12 @@ const StartScreen: FC<Props> = ({
             </button>
             <button
               className="dash-mode-card-v2 customize"
-              onClick={() => setShowSettings((s) => !s)}
+              aria-expanded={showSettings}
+              aria-controls="settings-panel"
+              onClick={() => {
+                if (!showSettings) schedulePanelReveal("settings-panel");
+                setShowSettings((s) => !s);
+              }}
             >
               <small>Setup</small>
               <b>{showSettings ? "Hide Settings" : "Settings"}</b>
@@ -727,7 +733,7 @@ const StartScreen: FC<Props> = ({
         )}
 
         {showSettings && (
-          <div className="dash-panel-wrap">
+          <div id="settings-panel" className="dash-panel-wrap">
             <SettingsPanel />
           </div>
         )}
@@ -1130,6 +1136,7 @@ const SettingsPanel: FC = () => {
           value={settings.reducedParticles}
           onChange={(v) => setSettings({ reducedParticles: v })}
         />
+        <TouchControlSettings />
         <CameraModeRow
           value={settings.cameraMode}
           onChange={(cameraMode) => setSettings({ cameraMode })}
