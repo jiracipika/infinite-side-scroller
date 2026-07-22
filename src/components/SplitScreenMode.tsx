@@ -287,7 +287,7 @@ const SplitScreenMode: FC<Props> = ({ seed, onExit }) => {
 export default SplitScreenMode;
 
 const SplitPane: FC<{
-  canvasRef: RefObject<HTMLCanvasElement>;
+  canvasRef: RefObject<HTMLCanvasElement | null>;
   label: string;
   stats: LocalStats;
   dead: boolean;

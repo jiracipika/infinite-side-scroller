@@ -47,6 +47,13 @@ import {
   type SaveSlotId,
 } from "@/lib/progression";
 import {
+  clearRunHistory,
+  loadRunHistory,
+  summarizeRunHistory,
+  type RunRecord,
+} from "@/lib/run-history";
+import { schedulePanelReveal } from "@/lib/menu-panel-reveal";
+import {
   fetchOnlineLeaderboard,
   fetchOnlineReplay,
   type OnlineBoardScope,
@@ -95,6 +102,8 @@ const StartScreen: FC<Props> = ({
   const [mpError, setMpError] = useState("");
   const [showAchievements, setShowAchievements] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [showRunHistory, setShowRunHistory] = useState(false);
+  const [runHistory, setRunHistory] = useState<RunRecord[]>([]);
   const [showProgression, setShowProgression] = useState(false);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [onlineScope, setOnlineScope] = useState<OnlineBoardScope>("global");
@@ -122,6 +131,7 @@ const StartScreen: FC<Props> = ({
     setPlayerName(storedName);
     setAvatarId(loadLeaderboardAvatarId());
     setLeaderboard(loadLeaderboard());
+    setRunHistory(loadRunHistory());
     setSaveSlots(loadSaveSlots());
     setActiveSlot(loadActiveSaveSlotId());
   }, []);
@@ -308,6 +318,7 @@ const StartScreen: FC<Props> = ({
     () => hasPlayedDailyChallenge(activeSlotId, getTodayIsoDay()),
     [activeSlotId],
   );
+  const runSummary = useMemo(() => summarizeRunHistory(runHistory), [runHistory]);
 
   useEffect(() => {
     if (!activeSlot) return;
@@ -463,6 +474,23 @@ const StartScreen: FC<Props> = ({
               <b>{showLeaderboard ? "Hide Board" : "Leaderboard"}</b>
               <span>Records + ghost races</span>
               <em>≡</em>
+            </button>
+            <button
+              className="dash-mode-card-v2 customize"
+              aria-expanded={showRunHistory}
+              aria-controls="run-lab-panel"
+              onClick={() => {
+                if (!showRunHistory) {
+                  setRunHistory(loadRunHistory());
+                  schedulePanelReveal("run-lab-panel");
+                }
+                setShowRunHistory((value) => !value);
+              }}
+            >
+              <small>Review</small>
+              <b>{showRunHistory ? "Hide Run Lab" : "Run Lab"}</b>
+              <span>Trends + recent debriefs</span>
+              <em>↗</em>
             </button>
             <button
               className="dash-mode-card-v2 customize"
@@ -697,6 +725,63 @@ const StartScreen: FC<Props> = ({
           </div>
         )}
 
+        {showRunHistory && (
+          <MenuPanel
+            id="run-lab-panel"
+            title="Run lab"
+            subtitle="A private, on-device debrief of your latest 20 meaningful runs."
+          >
+            {runHistory.length === 0 ? (
+              <p className="dash-empty-text">Finish a run to unlock trend analysis.</p>
+            ) : (
+              <>
+                <div className="dash-quick-stats-v2" aria-label="Run history summary">
+                  <span><small>Runs</small><b>{runSummary.runs}</b></span>
+                  <span><small>Average</small><b>{runSummary.averageScore.toLocaleString()}</b></span>
+                  <span><small>Best</small><b>{runSummary.bestScore.toLocaleString()}</b></span>
+                  <span>
+                    <small>Recent trend</small>
+                    <b>{runSummary.scoreTrend > 0 ? "+" : ""}{runSummary.scoreTrend.toLocaleString()}</b>
+                  </span>
+                </div>
+                <div className="dash-panel-heading-row with-margin">
+                  <span>Recent debriefs</span>
+                  <button
+                    aria-label="Clear all run history"
+                    onClick={() => {
+                      clearRunHistory();
+                      setRunHistory([]);
+                    }}
+                  >
+                    Clear
+                  </button>
+                </div>
+                <p className="dash-run-insight" role="status">
+                  {runSummary.scoreTrend > 0
+                    ? `Trending up by ${runSummary.scoreTrend.toLocaleString()} points across your latest runs.`
+                    : runSummary.scoreTrend < 0
+                      ? `Trending down by ${Math.abs(runSummary.scoreTrend).toLocaleString()} points. Focus on survival and clean combos.`
+                      : runSummary.runs < 4
+                        ? "Complete a few more runs to reveal a useful trend."
+                        : "Your recent scores are holding steady."}
+                  {` Average distance: ${runSummary.averageDistance.toLocaleString()}m.`}
+                </p>
+                <div className="dash-list-scroll">
+                  {runHistory.map((run, index) => (
+                    <ScoreRow
+                      key={run.id}
+                      rank={index + 1}
+                      title={run.characterId.charAt(0).toUpperCase() + run.characterId.slice(1)}
+                      meta={`${new Date(run.playedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })} • ${run.distance}m • ${run.coins} coins • x${run.maxCombo} combo • ${run.enemiesDefeated} kills`}
+                      score={run.score}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+          </MenuPanel>
+        )}
+
         {showLeaderboard && (
           <MenuPanel
             title="Top runs"
@@ -868,11 +953,13 @@ const StartScreen: FC<Props> = ({
 export default StartScreen;
 
 const MenuPanel: FC<{
+  id?: string;
   title: string;
   subtitle?: string;
   children: ReactNode;
-}> = ({ title, subtitle, children }) => (
+}> = ({ id, title, subtitle, children }) => (
   <section
+    id={id}
     className="dash-card dash-expand-panel"
     style={{ animation: "iosSlideDown 0.24s ease both" }}
   >

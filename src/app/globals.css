@@ -1394,6 +1394,16 @@ button,
 .dash-panel-heading-row.with-margin {
   margin-top: 4px;
 }
+.dash-run-insight {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(94, 106, 210, 0.28);
+  border-radius: 12px;
+  color: #b9bec8;
+  background: rgba(94, 106, 210, 0.09);
+  font-size: 12px;
+  line-height: 1.45;
+}
 .dash-list-scroll {
   display: grid;
   gap: 7px;

@@ -7,6 +7,7 @@ import { loadSelectedCharacter } from '@/game/data/characters';
 import { type NewRecords } from './GameStore';
 import { resolveGameOverKey } from './game-over-keys';
 import { fireHaptic } from '@/game/input/haptics';
+import { recordRun } from '@/lib/run-history';
 
 interface Props {
   stats: GameStats;
@@ -130,6 +131,14 @@ const GameOverScreen: FC<Props> = ({ stats, newRecords, hapticsEnabled = true, o
       characterId: loadSelectedCharacter(),
       maxCombo: stats.maxCombo,
       enemiesDefeated: stats.enemiesDefeated,
+    });
+    recordRun({
+      score: stats.score,
+      distance: stats.distance,
+      coins: stats.coins,
+      maxCombo: stats.maxCombo ?? 0,
+      enemiesDefeated: stats.enemiesDefeated ?? 0,
+      characterId: loadSelectedCharacter(),
     });
   }, [stats.coins, stats.distance, stats.enemiesDefeated, stats.maxCombo, stats.score]);
 

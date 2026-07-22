@@ -6,8 +6,9 @@ Cross-platform endless side-scrolling dash adventure with:
 - Nearby multiplayer (same Wi-Fi rooms)
 - Local split-screen mode
 - 3-slot save system per device
-- Coin bank + shop upgrades (10 unlocks)
-- Local leaderboard
+- Coin bank + shop upgrades (11 permanent perks)
+- Local and online leaderboards with ghost races
+- Private Run Lab with a bounded 20-run history, trend delta, averages, and debriefs
 
 ## Web (Desktop + Mobile Browser)
 
@@ -42,6 +43,14 @@ From the main menu:
 4. Use `Continue` to resume from the last autosaved checkpoint in that slot
 
 Progression is stored locally on-device.
+
+## Run Lab
+
+Every meaningful completed run is summarized locally on the device. Open `Run Lab`
+from the main menu to compare the latest 20 runs, including score, distance, coins,
+combo, kills, character, dates, rolling averages, and a plain-language recent-score
+trend. The history can be cleared at any time. Corrupt, duplicated, or unordered
+browser data is normalized defensively and never blocks game startup.
 
 ## Build and verification
 
