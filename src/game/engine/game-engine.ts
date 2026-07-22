@@ -172,6 +172,8 @@ export class GameEngine {
   private qualityChangeCooldown = 2.0; // seconds between quality changes
 
   private animationId: number | null = null;
+  private resizeObserver: ResizeObserver | null = null;
+  private resizeFrameId: number | null = null;
   private lastTime = 0;
   private accumulated = 0;
   private _running = false;
@@ -303,9 +305,25 @@ export class GameEngine {
 
     this.handleResize();
     this.prepareOpeningFrame();
-    window.addEventListener("resize", this.handleResize);
+    window.addEventListener("resize", this.scheduleResize);
     document.addEventListener("visibilitychange", this.handleVisibilityChange);
+
+    // Canvas hosts can resize without a window resize (split-screen layout,
+    // sidebars, fullscreen transitions, embedded webviews). Observe the host
+    // so the backing store and camera stay pixel-sharp instead of stretching.
+    if (typeof ResizeObserver !== "undefined") {
+      this.resizeObserver = new ResizeObserver(this.scheduleResize);
+      this.resizeObserver.observe(this.canvas.parentElement ?? this.canvas);
+    }
   }
+
+  private scheduleResize = (): void => {
+    if (this.resizeFrameId !== null) return;
+    this.resizeFrameId = requestAnimationFrame(() => {
+      this.resizeFrameId = null;
+      this.handleResize();
+    });
+  };
 
   private handleVisibilityChange = (): void => {
     this.sfx.setEnabled(!document.hidden);
@@ -1098,8 +1116,14 @@ export class GameEngine {
   destroy(): void {
     this.stop();
     this.input.destroy();
-    window.removeEventListener("resize", this.handleResize);
+    window.removeEventListener("resize", this.scheduleResize);
     document.removeEventListener("visibilitychange", this.handleVisibilityChange);
+    this.resizeObserver?.disconnect();
+    this.resizeObserver = null;
+    if (this.resizeFrameId !== null) {
+      cancelAnimationFrame(this.resizeFrameId);
+      this.resizeFrameId = null;
+    }
     // Note: the SFX singleton is shared across engine instances and across
     // split-screen players, so we intentionally do NOT dispose it here. It is
     // cleaned up automatically when the page unloads.
