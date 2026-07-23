@@ -10,6 +10,7 @@ import {
   AppState,
   SafeAreaView,
   Share,
+  type GestureResponderEvent,
 } from 'react-native';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import { Ionicons } from '@expo/vector-icons';
@@ -191,6 +192,7 @@ const TouchControls: React.FC<{
   sendInput: (type: string, value: boolean) => void;
 }> = ({ sendInput }) => {
   const heldInputsRef = useRef<Set<string>>(new Set());
+  const [movementDirection, setMovementDirectionState] = useState<-1 | 0 | 1>(0);
 
   const handleTouchStart = useCallback((type: string) => {
     if (heldInputsRef.current.has(type)) return;
@@ -204,11 +206,26 @@ const TouchControls: React.FC<{
     sendInput(type, false);
   }, [sendInput]);
 
+  const setMovementDirection = useCallback((next: -1 | 0 | 1) => {
+    const previous = heldInputsRef.current.has('move-left')
+      ? -1
+      : heldInputsRef.current.has('move-right')
+        ? 1
+        : 0;
+    if (previous === next) return;
+    if (previous === -1) handleTouchEnd('move-left');
+    if (previous === 1) handleTouchEnd('move-right');
+    if (next === -1) handleTouchStart('move-left');
+    if (next === 1) handleTouchStart('move-right');
+    setMovementDirectionState(next);
+  }, [handleTouchEnd, handleTouchStart]);
+
   const releaseAll = useCallback(() => {
     for (const type of heldInputsRef.current) {
       sendInput(type, false);
     }
     heldInputsRef.current.clear();
+    setMovementDirectionState(0);
   }, [sendInput]);
 
   useEffect(() => {
@@ -226,36 +243,36 @@ const TouchControls: React.FC<{
 
   return (
     <View style={styles.touchOverlay} pointerEvents="box-none">
-      {/* Left side: D-pad */}
+      {/* Left side: one broad pad supports press-and-slide direction changes. */}
       <View style={styles.leftControls}>
-        <DirectionButton
-          icon="arrow-back"
-          label="Move left"
-          hint="Hold to move Dashverse left"
-          onPress={() => handleTouchStart('move-left')}
-          onRelease={() => handleTouchEnd('move-left')}
-        />
-        <View style={{ width: 12 }} />
-        <DirectionButton
-          icon="arrow-forward"
-          label="Move right"
-          hint="Hold to move Dashverse right"
-          onPress={() => handleTouchStart('move-right')}
-          onRelease={() => handleTouchEnd('move-right')}
+        <NativeMovementPad
+          direction={movementDirection}
+          onDirectionChange={setMovementDirection}
         />
       </View>
 
-      {/* Right side: Jump + Attack */}
+      {/* Right side: independent action targets support simultaneous fingers. */}
       <View style={styles.rightControls}>
-        <DirectionButton
-          size="sm"
-          icon="flash"
-          label="Attack"
-          hint="Hold to attack while running"
-          onPress={() => handleTouchStart('attack-press')}
-          onRelease={() => handleTouchEnd('attack-press')}
-          accent="orange"
-        />
+        <View style={styles.actionRow}>
+          <DirectionButton
+            size="sm"
+            icon="speedometer"
+            label="Dash"
+            hint="Tap to dash in the facing direction"
+            onPress={() => handleTouchStart('dash-press')}
+            onRelease={() => handleTouchEnd('dash-press')}
+            accent="purple"
+          />
+          <DirectionButton
+            size="sm"
+            icon="flash"
+            label="Attack"
+            hint="Hold to attack while running"
+            onPress={() => handleTouchStart('attack-press')}
+            onRelease={() => handleTouchEnd('attack-press')}
+            accent="orange"
+          />
+        </View>
         <View style={{ height: 12 }} />
         <DirectionButton
           size="lg"
@@ -271,10 +288,44 @@ const TouchControls: React.FC<{
   );
 };
 
+const NativeMovementPad: React.FC<{
+  direction: -1 | 0 | 1;
+  onDirectionChange: (direction: -1 | 0 | 1) => void;
+}> = ({ direction, onDirectionChange }) => {
+  const width = 148;
+  const updateDirection = useCallback((event: GestureResponderEvent) => {
+    const x = event.nativeEvent.locationX;
+    const normalized = Math.max(0, Math.min(1, x / width));
+    onDirectionChange(normalized <= 0.4 ? -1 : normalized >= 0.6 ? 1 : 0);
+  }, [onDirectionChange]);
+
+  return (
+    <Pressable
+      onPressIn={updateDirection}
+      onTouchMove={updateDirection}
+      onPressOut={() => onDirectionChange(0)}
+      onTouchCancel={() => onDirectionChange(0)}
+      accessibilityRole="adjustable"
+      accessibilityLabel="Movement pad"
+      accessibilityHint="Hold and slide left or right to move"
+      accessibilityValue={{ text: direction === -1 ? 'Moving left' : direction === 1 ? 'Moving right' : 'Neutral' }}
+      style={styles.movementPad}
+    >
+      <View pointerEvents="none" style={[styles.movementHalf, direction === -1 && styles.movementHalfActive]}>
+        <Ionicons name="arrow-back" size={26} color="rgba(255,255,255,0.82)" />
+      </View>
+      <View pointerEvents="none" style={styles.movementPadDivider} />
+      <View pointerEvents="none" style={[styles.movementHalf, direction === 1 && styles.movementHalfActive]}>
+        <Ionicons name="arrow-forward" size={26} color="rgba(255,255,255,0.82)" />
+      </View>
+    </Pressable>
+  );
+};
+
 const DirectionButton: React.FC<{
   icon: keyof typeof Ionicons.glyphMap;
   size?: 'sm' | 'lg';
-  accent?: 'blue' | 'orange';
+  accent?: 'blue' | 'orange' | 'purple';
   label: string;
   hint: string;
   onPress: () => void;
@@ -295,6 +346,7 @@ const DirectionButton: React.FC<{
         { width: btnSize, height: btnSize, borderRadius: btnSize / 2 },
         accent === 'blue' && styles.touchBtnBlue,
         accent === 'orange' && styles.touchBtnOrange,
+        accent === 'purple' && styles.touchBtnPurple,
       ]}
     >
       <Ionicons name={icon} size={size === 'lg' ? 24 : 18} color="rgba(255,255,255,0.7)" />
@@ -564,11 +616,40 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  movementPad: {
+    width: 148,
+    height: 68,
+    borderRadius: 34,
+    overflow: 'hidden',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.16)',
+  },
+  movementHalf: {
+    flex: 1,
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  movementHalfActive: {
+    backgroundColor: 'rgba(10,132,255,0.48)',
+  },
+  movementPadDivider: {
+    width: 1,
+    height: 28,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+  },
   rightControls: {
     position: 'absolute',
     bottom: 40,
     right: 24,
     alignItems: 'flex-end',
+  },
+  actionRow: {
+    flexDirection: 'row',
+    gap: 10,
   },
   touchBtn: {
     backgroundColor: 'rgba(255,255,255,0.1)',
@@ -584,6 +665,10 @@ const styles = StyleSheet.create({
   touchBtnOrange: {
     backgroundColor: 'rgba(249,115,22,0.2)',
     borderColor: 'rgba(249,115,22,0.3)',
+  },
+  touchBtnPurple: {
+    backgroundColor: 'rgba(175,82,222,0.22)',
+    borderColor: 'rgba(191,90,242,0.38)',
   },
   hudContainer: {
     position: 'absolute',

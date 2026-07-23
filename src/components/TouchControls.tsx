@@ -5,6 +5,7 @@ import type { TouchControlLayout, TouchControlSize } from '@/game/state/game-sta
 import {
   resolveTouchButtonDimension,
   resolveTouchControlPlacement,
+  resolveTouchDirection,
   type TouchButtonSize,
 } from '@/game/input/touch-controls';
 
@@ -43,6 +44,7 @@ const TouchControls: FC<TouchControlsProps> = ({
   const [attackHeld, setAttackHeld] = useState(false);
   const [dashHeld, setDashHeld] = useState(false);
   const [carryHeld, setCarryHeld] = useState(false);
+  const movementDirectionRef = useRef<-1 | 0 | 1>(0);
 
   const emit = useCallback((type: string, value: boolean) => {
     window.dispatchEvent(new CustomEvent(channel, { detail: { type, value } }));
@@ -54,10 +56,18 @@ const TouchControls: FC<TouchControlsProps> = ({
     try { navigator.vibrate(pattern); } catch { /* Ignore restricted browser failures. */ }
   }, [hapticsEnabled]);
 
-  const startLeft = useCallback(() => { emit('move-left', true); setLeftHeld(true); pulseHaptic(6); }, [emit, pulseHaptic]);
-  const endLeft = useCallback(() => { emit('move-left', false); setLeftHeld(false); }, [emit]);
-  const startRight = useCallback(() => { emit('move-right', true); setRightHeld(true); pulseHaptic(6); }, [emit, pulseHaptic]);
-  const endRight = useCallback(() => { emit('move-right', false); setRightHeld(false); }, [emit]);
+  const setMovementDirection = useCallback((next: -1 | 0 | 1) => {
+    const previous = movementDirectionRef.current;
+    if (previous === next) return;
+    if (previous === -1) emit('move-left', false);
+    if (previous === 1) emit('move-right', false);
+    movementDirectionRef.current = next;
+    setLeftHeld(next === -1);
+    setRightHeld(next === 1);
+    if (next === -1) emit('move-left', true);
+    if (next === 1) emit('move-right', true);
+    if (next !== 0) pulseHaptic(6);
+  }, [emit, pulseHaptic]);
   const startJump = useCallback(() => { emit('jump-press', true); setJumpHeld(true); pulseHaptic(10); }, [emit, pulseHaptic]);
   const endJump = useCallback(() => { emit('jump-press', false); setJumpHeld(false); }, [emit]);
   const startAttack = useCallback(() => { emit('attack-press', true); setAttackHeld(true); pulseHaptic([8, 18, 8]); }, [emit, pulseHaptic]);
@@ -68,6 +78,7 @@ const TouchControls: FC<TouchControlsProps> = ({
   const endCarry = useCallback(() => { emit('carry-press', false); setCarryHeld(false); }, [emit]);
 
   const releaseAll = useCallback(() => {
+    movementDirectionRef.current = 0;
     setLeftHeld(false); setRightHeld(false);
     setJumpHeld(false); setAttackHeld(false); setDashHeld(false); setCarryHeld(false);
     emit('move-left', false); emit('move-right', false);
@@ -127,28 +138,12 @@ const TouchControls: FC<TouchControlsProps> = ({
           opacity: safeOpacity,
         }}
       >
-        <TouchBtn
-          active={leftHeld}
-          onStart={startLeft}
-          onEnd={endLeft}
-          size={compact ? 'md' : 'lg'}
+        <MovementPad
+          direction={leftHeld ? -1 : rightHeld ? 1 : 0}
+          onDirectionChange={setMovementDirection}
           controlSize={controlSize}
           compact={compact}
-          aria-label="Move left"
-        >
-          <ChevronLeft />
-        </TouchBtn>
-        <TouchBtn
-          active={rightHeld}
-          onStart={startRight}
-          onEnd={endRight}
-          size={compact ? 'md' : 'lg'}
-          controlSize={controlSize}
-          compact={compact}
-          aria-label="Move right"
-        >
-          <ChevronRight />
-        </TouchBtn>
+        />
       </div>
 
       {/* Action cluster occupies the opposite side. */}
@@ -222,6 +217,92 @@ const TouchControls: FC<TouchControlsProps> = ({
 };
 
 export default TouchControls;
+
+/* ── Sliding Movement Pad ───────────────────────────────────── */
+
+interface MovementPadProps {
+  direction: -1 | 0 | 1;
+  onDirectionChange: (direction: -1 | 0 | 1) => void;
+  controlSize: TouchControlSize;
+  compact: boolean;
+}
+
+const MovementPad: FC<MovementPadProps> = ({ direction, onDirectionChange, controlSize, compact }) => {
+  const activePointerRef = useRef<number | null>(null);
+  const height = resolveTouchButtonDimension(compact ? 'md' : 'lg', controlSize, compact);
+  const width = Math.round(height * 2.15);
+
+  const updateFromPointer = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    onDirectionChange(resolveTouchDirection(e.clientX - rect.left, rect.width));
+  };
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    activePointerRef.current = e.pointerId;
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    updateFromPointer(e);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (activePointerRef.current !== e.pointerId) return;
+    e.preventDefault();
+    updateFromPointer(e);
+  };
+
+  const releasePointer = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (activePointerRef.current !== e.pointerId) return;
+    activePointerRef.current = null;
+    onDirectionChange(0);
+  };
+
+  return (
+    <button
+      type="button"
+      aria-label={`Movement pad. ${direction === -1 ? 'Moving left' : direction === 1 ? 'Moving right' : 'Neutral'}. Slide left or right`}
+      style={{
+        width,
+        height,
+        padding: 0,
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr',
+        alignItems: 'center',
+        borderRadius: height / 2,
+        overflow: 'hidden',
+        color: 'rgba(235,235,245,0.85)',
+        background: 'rgba(120,120,128,0.22)',
+        border: '1.5px solid rgba(255,255,255,0.12)',
+        backdropFilter: 'blur(12px) saturate(1.3)',
+        WebkitBackdropFilter: 'blur(12px) saturate(1.3)',
+        boxShadow: direction === 0 ? 'none' : '0 0 16px rgba(10,132,255,0.32)',
+        touchAction: 'none',
+        userSelect: 'none',
+        WebkitUserSelect: 'none',
+        WebkitTouchCallout: 'none',
+      }}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={releasePointer}
+      onPointerCancel={releasePointer}
+      onLostPointerCapture={(e) => {
+        if (activePointerRef.current === e.pointerId) {
+          activePointerRef.current = null;
+          onDirectionChange(0);
+        }
+      }}
+      onContextMenu={(e) => e.preventDefault()}
+    >
+      <span style={{ height: '100%', display: 'grid', placeItems: 'center', background: direction === -1 ? 'rgba(10,132,255,0.5)' : 'transparent' }}>
+        <ChevronLeft />
+      </span>
+      <span style={{ height: '100%', display: 'grid', placeItems: 'center', background: direction === 1 ? 'rgba(10,132,255,0.5)' : 'transparent' }}>
+        <ChevronRight />
+      </span>
+    </button>
+  );
+};
 
 /* ── Touch Button ───────────────────────────────────────────── */
 

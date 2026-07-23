@@ -27,3 +27,13 @@ export function resolveTouchControlPlacement(layout: TouchControlLayout): {
     ? { movement: 'right', actions: 'left' }
     : { movement: 'left', actions: 'right' };
 }
+
+/** Map a thumb position on a horizontal movement pad to a digital direction. */
+export function resolveTouchDirection(positionX: number, width: number): -1 | 0 | 1 {
+  if (!Number.isFinite(positionX) || !Number.isFinite(width) || width <= 0) return 0;
+  const normalized = Math.max(0, Math.min(1, positionX / width));
+  const deadZoneHalfWidth = 0.1;
+  if (normalized <= 0.5 - deadZoneHalfWidth) return -1;
+  if (normalized >= 0.5 + deadZoneHalfWidth) return 1;
+  return 0;
+}

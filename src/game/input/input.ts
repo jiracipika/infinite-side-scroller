@@ -23,6 +23,10 @@ export interface InputOptions {
 export class InputManager {
   private keys = new Set<string>();
   private prevKeys = new Set<string>();
+  private keyPressOrder = new Map<string, number>();
+  private inputSequence = 0;
+  private touchLeftOrder = 0;
+  private touchRightOrder = 0;
 
   // Touch virtual button state
   private touchLeft = false;
@@ -69,9 +73,11 @@ export class InputManager {
         const { type, value } = e.detail;
         switch (type) {
           case 'move-left':
+            if (value && !this.touchLeft) this.touchLeftOrder = ++this.inputSequence;
             this.touchLeft = !!value;
             break;
           case 'move-right':
+            if (value && !this.touchRight) this.touchRightOrder = ++this.inputSequence;
             this.touchRight = !!value;
             break;
           case 'jump-press':
@@ -114,6 +120,9 @@ export class InputManager {
 
   private onKeyDown = (e: KeyboardEvent): void => {
     if (!this.acceptsKey(e.code)) return;
+    if (!this.keys.has(e.code)) {
+      this.keyPressOrder.set(e.code, ++this.inputSequence);
+    }
     this.keys.add(e.code);
     if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) {
       e.preventDefault();
@@ -122,6 +131,7 @@ export class InputManager {
 
   private onKeyUp = (e: KeyboardEvent): void => {
     this.keys.delete(e.code);
+    this.keyPressOrder.delete(e.code);
   };
 
   private onVisibilityChange = (): void => {
@@ -131,6 +141,7 @@ export class InputManager {
   private releaseAll = (): void => {
     this.keys.clear();
     this.prevKeys.clear();
+    this.keyPressOrder.clear();
     this.touchLeft = false;
     this.touchRight = false;
     this.touchJump = false;
@@ -162,6 +173,29 @@ export class InputManager {
       return ['KeyA', 'KeyD', 'KeyW', 'KeyE', 'KeyQ', 'KeyF'].includes(code);
     }
     return ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'KeyJ', 'KeyK', 'KeyL', 'ShiftRight'].includes(code);
+  }
+
+  /** Resolve opposite-direction rollover: newest held direction wins. */
+  getHorizontalAxis(): -1 | 0 | 1 {
+    const gamepad = this.getGamepad();
+    let leftOrder = this.touchLeft ? this.touchLeftOrder : -1;
+    let rightOrder = this.touchRight ? this.touchRightOrder : -1;
+
+    for (const code of ['ArrowLeft', 'KeyA']) {
+      if (this.acceptsKey(code) && this.keys.has(code)) {
+        leftOrder = Math.max(leftOrder, this.keyPressOrder.get(code) ?? 0);
+      }
+    }
+    for (const code of ['ArrowRight', 'KeyD']) {
+      if (this.acceptsKey(code) && this.keys.has(code)) {
+        rightOrder = Math.max(rightOrder, this.keyPressOrder.get(code) ?? 0);
+      }
+    }
+
+    if (gamepad.left && !gamepad.right) return -1;
+    if (gamepad.right && !gamepad.left) return 1;
+    if (leftOrder < 0 && rightOrder < 0) return 0;
+    return rightOrder > leftOrder ? 1 : -1;
   }
 
   /** Check if a key or virtual button is currently held down */
@@ -249,11 +283,7 @@ export class InputManager {
 
   /** Build a compact input command for multiplayer sequencing/reconciliation. */
   buildNetInputCommand(seq: number, clientTime: number, dtMs: number): NetInputCommand {
-    const moveX: -1 | 0 | 1 = (this.isDown('ArrowLeft') || this.isDown('KeyA'))
-      ? -1
-      : (this.isDown('ArrowRight') || this.isDown('KeyD'))
-        ? 1
-        : 0;
+    const moveX = this.getHorizontalAxis();
 
     const jumpPressed = this.isDown('Space') || this.isDown('ArrowUp') || this.isDown('KeyW');
     const attackPressed = this.isAttackDown();

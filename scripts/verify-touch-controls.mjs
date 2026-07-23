@@ -49,7 +49,7 @@ for (const marker of ['dash-tester-checklist-v2', 'Recommended play plan', 'Same
   requireMarker(start, 'StartScreen.tsx', marker)
 }
 
-for (const marker of ['onPointerDown', 'setPointerCapture', 'onLostPointerCapture', 'aria-pressed']) {
+for (const marker of ['onPointerDown', 'onPointerMove', 'setPointerCapture', 'onLostPointerCapture', 'aria-pressed']) {
   requireMarker(touchControls, 'TouchControls.tsx', marker)
 }
 

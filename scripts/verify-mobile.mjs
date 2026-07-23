@@ -62,6 +62,9 @@ const mobileGame = fs.existsSync(mobileGamePath) ? fs.readFileSync(mobileGamePat
 assert(mobileGame.includes('heldInputsRef = useRef<Set<string>>(new Set())'), 'mobile controls must track a Set of held inputs for simultaneous move+jump/attack')
 assert(mobileGame.includes('JSON.stringify({ type, value })'), 'mobile WebView input bridge must serialize event detail safely')
 assert(mobileGame.includes('onTouchCancel={onRelease}'), 'mobile controls must release held inputs on touch cancel')
+assert(mobileGame.includes('NativeMovementPad'), 'mobile controls must provide a broad sliding movement pad')
+assert(mobileGame.includes('onTouchMove={updateDirection}'), 'mobile movement pad must allow direction changes without lifting')
+assert(mobileGame.includes("handleTouchStart('dash-press')"), 'mobile action cluster must expose dash alongside jump and attack')
 assert(mobileGame.includes("AppState.addEventListener('change'"), 'mobile controls must observe native app backgrounding')
 assert(mobileGame.includes("nextState !== 'active'"), 'mobile controls must release held inputs whenever the app leaves the active state')
 assert(mobileGame.includes('return releaseAll;'), 'mobile controls must release held inputs when the overlay unmounts')
@@ -79,4 +82,4 @@ if (failures > 0) {
   process.exit(1)
 }
 
-console.log(`Mobile bundle verified: app.json valid (${expo.name} v${expo.version}), entry files present, game.html ${Math.round(gameHtmlSize / 1024)}KB, ${requiredAssets.length} required assets present, simultaneous touch bridge and native run sharing present.`)
+console.log(`Mobile bundle verified: app.json valid (${expo.name} v${expo.version}), entry files present, game.html ${Math.round(gameHtmlSize / 1024)}KB, ${requiredAssets.length} required assets present, sliding multi-touch controls and native run sharing present.`)

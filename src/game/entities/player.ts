@@ -280,8 +280,15 @@ export class Player {
     }
 
     // Horizontal movement
-    const moveLeft = input.isDown("ArrowLeft") || input.isDown("KeyA");
-    const moveRight = input.isDown("ArrowRight") || input.isDown("KeyD");
+    const horizontalAxis = typeof input.getHorizontalAxis === "function"
+      ? input.getHorizontalAxis()
+      : (input.isDown("ArrowLeft") || input.isDown("KeyA"))
+        ? -1
+        : (input.isDown("ArrowRight") || input.isDown("KeyD"))
+          ? 1
+          : 0;
+    const moveLeft = horizontalAxis < 0;
+    const moveRight = horizontalAxis > 0;
     const sprint = input.isDown("ShiftRight");
     const maxSpeed = this.config.speed * (sprint ? 1.6 : 1);
     const accel = maxSpeed * 8;

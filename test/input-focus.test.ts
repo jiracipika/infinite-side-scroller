@@ -41,6 +41,53 @@ afterEach(() => {
 });
 
 describe('InputManager focus safety', () => {
+  it('keeps simultaneous movement and action keys independently held', () => {
+    const input = new InputManager();
+    dispatchWithProperties(testWindow, 'keydown', { code: 'ArrowRight' });
+    dispatchWithProperties(testWindow, 'keydown', { code: 'Space' });
+    dispatchWithProperties(testWindow, 'keydown', { code: 'KeyE' });
+
+    assert.equal(input.getHorizontalAxis(), 1);
+    assert.equal(input.isDown('Space'), true);
+    assert.equal(input.isAttackDown(), true);
+
+    dispatchWithProperties(testWindow, 'keyup', { code: 'Space' });
+    assert.equal(input.getHorizontalAxis(), 1);
+    assert.equal(input.isDown('Space'), false);
+    assert.equal(input.isAttackDown(), true);
+    input.destroy();
+  });
+
+  it('uses the newest direction while opposite keys overlap then falls back', () => {
+    const input = new InputManager();
+    dispatchWithProperties(testWindow, 'keydown', { code: 'KeyA' });
+    assert.equal(input.getHorizontalAxis(), -1);
+
+    dispatchWithProperties(testWindow, 'keydown', { code: 'KeyD' });
+    assert.equal(input.getHorizontalAxis(), 1);
+
+    dispatchWithProperties(testWindow, 'keyup', { code: 'KeyD' });
+    assert.equal(input.getHorizontalAxis(), -1);
+    input.destroy();
+  });
+
+  it('applies the same rollover rule to sliding touch directions', () => {
+    const input = new InputManager();
+    dispatchWithProperties(testWindow, 'game-input', {
+      detail: { type: 'move-left', value: true },
+    });
+    dispatchWithProperties(testWindow, 'game-input', {
+      detail: { type: 'move-right', value: true },
+    });
+    assert.equal(input.getHorizontalAxis(), 1);
+
+    dispatchWithProperties(testWindow, 'game-input', {
+      detail: { type: 'move-right', value: false },
+    });
+    assert.equal(input.getHorizontalAxis(), -1);
+    input.destroy();
+  });
+
   it('releases keyboard and touch controls when the window loses focus', () => {
     const input = new InputManager();
     dispatchWithProperties(testWindow, 'keydown', { code: 'ArrowRight' });

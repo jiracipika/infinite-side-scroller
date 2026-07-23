@@ -8,6 +8,7 @@ import {
 import {
   resolveTouchButtonDimension,
   resolveTouchControlPlacement,
+  resolveTouchDirection,
 } from '@/game/input/touch-controls';
 
 describe('touch control preferences', () => {
@@ -72,5 +73,18 @@ describe('touch control preferences', () => {
     assert.equal(resolveTouchButtonDimension('lg', 'large', false), 77);
     assert.equal(resolveTouchButtonDimension('md', 'large', true), 62);
     assert.equal(resolveTouchButtonDimension('xs', 'large', true), 49);
+  });
+
+  it('maps a sliding thumb position through a forgiving center dead zone', () => {
+    assert.equal(resolveTouchDirection(0, 120), -1);
+    assert.equal(resolveTouchDirection(48, 120), -1);
+    assert.equal(resolveTouchDirection(60, 120), 0);
+    assert.equal(resolveTouchDirection(72, 120), 1);
+    assert.equal(resolveTouchDirection(120, 120), 1);
+  });
+
+  it('returns neutral for invalid movement surfaces', () => {
+    assert.equal(resolveTouchDirection(Number.NaN, 120), 0);
+    assert.equal(resolveTouchDirection(40, 0), 0);
   });
 });
