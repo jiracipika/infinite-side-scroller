@@ -4,6 +4,10 @@ import { useState, useEffect, useRef, type FC } from 'react';
 import { useGameStore } from './GameStore';
 import { getSfxEngine } from '@/game/audio';
 import { resolvePauseKey } from './pause-keys';
+import {
+  getPauseConfirmationCopy,
+  type PauseConfirmationAction,
+} from './pause-confirmation';
 import TouchControlSettings from './TouchControlSettings';
 
 interface Props {
@@ -14,6 +18,51 @@ interface Props {
 
 const PauseMenu: FC<Props> = ({ onResume, onRestart, onQuit }) => {
   const [showSettings, setShowSettings] = useState(false);
+  const [confirmation, setConfirmation] = useState<PauseConfirmationAction | null>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const resumeButtonRef = useRef<HTMLButtonElement>(null);
+  const cancelConfirmationRef = useRef<HTMLButtonElement>(null);
+  const keyboardReadyRef = useRef(false);
+  const lastKeyRef = useRef<string | null>(null);
+
+  // Treat the pause sheet as a real modal: move focus into it, contain keyboard
+  // navigation, and return focus to the control that opened it.
+  useEffect(() => {
+    const previouslyFocused = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+    resumeButtonRef.current?.focus({ preventScroll: true });
+
+    const trapFocus = (event: KeyboardEvent) => {
+      if (event.key !== 'Tab') return;
+      const focusable = Array.from(
+        dialogRef.current?.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ) ?? [],
+      ).filter((element) => element.offsetParent !== null);
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener('keydown', trapFocus);
+    return () => {
+      document.removeEventListener('keydown', trapFocus);
+      previouslyFocused?.focus({ preventScroll: true });
+    };
+  }, []);
+
+  useEffect(() => {
+    if (confirmation) cancelConfirmationRef.current?.focus({ preventScroll: true });
+    else resumeButtonRef.current?.focus({ preventScroll: true });
+  }, [confirmation]);
 
   // Keyboard shortcuts: R = Restart, Q = Main Menu.
   // - Grace period (250ms) so a key held through the pause transition does not
@@ -26,14 +75,12 @@ const PauseMenu: FC<Props> = ({ onResume, onRestart, onQuit }) => {
   //   double-fire the resume action.
   // - Space is never bound: it is the jump key, and a reflexive press should
   //   never silently restart or quit a run from the pause screen.
-  const keyboardReadyRef = useRef(false);
-  const lastKeyRef = useRef<string | null>(null);
   useEffect(() => {
     keyboardReadyRef.current = false;
     const grace = window.setTimeout(() => { keyboardReadyRef.current = true; }, 250);
 
     const onKey = (e: KeyboardEvent) => {
-      if (e.repeat) return;
+      if (e.repeat || confirmation) return;
       const action = resolvePauseKey(
         e.code,
         e.ctrlKey || e.metaKey || e.altKey || e.shiftKey,
@@ -45,8 +92,7 @@ const PauseMenu: FC<Props> = ({ onResume, onRestart, onQuit }) => {
       if (!keyboardReadyRef.current) return;
       lastKeyRef.current = e.code;
       e.preventDefault();
-      if (action === 'restart') onRestart();
-      else onQuit();
+      setConfirmation(action);
     };
 
     window.addEventListener('keydown', onKey);
@@ -54,15 +100,50 @@ const PauseMenu: FC<Props> = ({ onResume, onRestart, onQuit }) => {
       window.clearTimeout(grace);
       window.removeEventListener('keydown', onKey);
     };
-  }, [onRestart, onQuit]);
+  }, [confirmation]);
+
+  // page.tsx owns the global Escape-to-resume shortcut. While a destructive
+  // confirmation is open, consume Escape during capture so it backs out to the
+  // pause menu instead of unexpectedly resuming gameplay.
+  useEffect(() => {
+    if (!confirmation) return;
+    const cancelOnEscape = (event: KeyboardEvent) => {
+      if (event.code !== 'Escape') return;
+      event.preventDefault();
+      event.stopPropagation();
+      lastKeyRef.current = null;
+      setConfirmation(null);
+    };
+    document.addEventListener('keydown', cancelOnEscape, true);
+    return () => document.removeEventListener('keydown', cancelOnEscape, true);
+  }, [confirmation]);
+
+  const confirmCopy = confirmation ? getPauseConfirmationCopy(confirmation) : null;
+  const cancelConfirmation = () => {
+    lastKeyRef.current = null;
+    setConfirmation(null);
+  };
+  const runConfirmedAction = () => {
+    if (confirmation === 'restart') onRestart();
+    if (confirmation === 'quit') onQuit();
+  };
 
   return (
     <div
       className="absolute inset-0 flex items-end sm:items-center justify-center"
       style={{ animation: 'iosFadeIn 0.18s ease' }}
+      ref={dialogRef}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="pause-menu-title"
     >
+      <span id="pause-menu-title" className="sr-only">Game paused</span>
       {/* Frosted overlay */}
-      <div className="absolute inset-0 ios-overlay" onClick={onResume} />
+      <div
+        className="absolute inset-0 ios-overlay"
+        aria-hidden="true"
+        onClick={confirmation ? cancelConfirmation : onResume}
+      />
 
       {/* Sheet */}
       <div
@@ -79,98 +160,140 @@ const PauseMenu: FC<Props> = ({ onResume, onRestart, onQuit }) => {
           animation: 'iosModalIn 0.38s cubic-bezier(0.34,1.56,0.64,1) both',
         }}
       >
-        {/* ── Main action sheet ───────────────────────────── */}
-        <div
-          className="ios-sheet"
-          style={{
-            marginBottom: 10,
-            boxShadow: '0 16px 48px rgba(0,0,0,0.6), 0 0 0 0.5px rgba(255,255,255,0.06)',
-          }}
-        >
-          {/* Sheet title */}
+        {confirmation && confirmCopy ? (
           <div
+            className="ios-sheet"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="pause-confirmation-title"
+            aria-describedby="pause-confirmation-description"
             style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              padding: '16px 16px 12px',
-              borderBottom: '0.5px solid var(--ios-separator)',
-              gap: 4,
+              padding: '24px 18px 14px',
+              textAlign: 'center',
+              boxShadow: '0 20px 64px rgba(0,0,0,0.72), 0 0 0 0.5px rgba(255,255,255,0.08)',
             }}
           >
-            <div style={{ fontSize: 20, lineHeight: 1, marginBottom: 2 }}>⏸</div>
+            <div aria-hidden="true" style={{ fontSize: 30, lineHeight: 1, marginBottom: 12 }}>
+              {confirmation === 'restart' ? '↻' : '⚠'}
+            </div>
+            <h2 id="pause-confirmation-title" className="ios-title2" style={{ marginBottom: 8 }}>
+              {confirmCopy.title}
+            </h2>
             <p
-              style={{
-                fontSize: 12,
-                fontWeight: 700,
-                color: 'var(--ios-label3)',
-                letterSpacing: '0.1em',
-                textTransform: 'uppercase',
-              }}
+              id="pause-confirmation-description"
+              className="ios-footnote"
+              style={{ lineHeight: 1.45, margin: '0 auto 20px', maxWidth: 280 }}
             >
-              Paused
+              {confirmCopy.description}
+            </p>
+            <button
+              ref={cancelConfirmationRef}
+              type="button"
+              className="ios-btn-primary"
+              onClick={cancelConfirmation}
+              style={{ width: '100%', minHeight: 48, fontSize: 16, fontWeight: 700 }}
+            >
+              Keep Playing
+            </button>
+            <button
+              type="button"
+              className="ios-action-row ios-action-row-destructive"
+              onClick={runConfirmedAction}
+              style={{ width: '100%', minHeight: 48, marginTop: 6, fontWeight: 700 }}
+            >
+              {confirmCopy.confirmLabel}
+            </button>
+            <p className="ios-footnote" style={{ marginTop: 8 }}>
+              Press Escape to go back
             </p>
           </div>
+        ) : (
+          <>
+            {/* ── Main action sheet ───────────────────────────── */}
+            <div
+              className="ios-sheet"
+              style={{
+                marginBottom: 10,
+                boxShadow: '0 16px 48px rgba(0,0,0,0.6), 0 0 0 0.5px rgba(255,255,255,0.06)',
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  padding: '16px 16px 12px',
+                  borderBottom: '0.5px solid var(--ios-separator)',
+                  gap: 4,
+                }}
+              >
+                <div aria-hidden="true" style={{ fontSize: 20, lineHeight: 1, marginBottom: 2 }}>⏸</div>
+                <h2
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color: 'var(--ios-label3)',
+                    letterSpacing: '0.1em',
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  Paused
+                </h2>
+              </div>
 
-          {/* Resume — primary bold */}
-          <ActionRow
-            icon={<PlayIcon />}
-            label="Resume"
-            bold
-            onClick={onResume}
-            delay={30}
-          />
+              <ActionRow
+                icon={<PlayIcon />}
+                label="Resume"
+                bold
+                buttonRef={resumeButtonRef}
+                onClick={onResume}
+                delay={30}
+              />
+              <ActionRow
+                icon={<RestartIcon />}
+                label="Restart"
+                kbdHint="R"
+                onClick={() => setConfirmation('restart')}
+                delay={70}
+              />
+              <ActionRow
+                icon={<SettingsIcon />}
+                label={showSettings ? 'Hide Settings' : 'Settings'}
+                muted
+                onClick={() => setShowSettings((s) => !s)}
+                delay={110}
+              />
+              <ActionRow
+                icon={<QuitIcon />}
+                label="Main Menu"
+                destructive
+                kbdHint="Q"
+                onClick={() => setConfirmation('quit')}
+                delay={150}
+              />
+            </div>
 
-          {/* Restart */}
-          <ActionRow
-            icon={<RestartIcon />}
-            label="Restart"
-            kbdHint="R"
-            onClick={onRestart}
-            delay={70}
-          />
+            <div
+              className="ios-sheet"
+              style={{ boxShadow: '0 8px 24px rgba(0,0,0,0.4), 0 0 0 0.5px rgba(255,255,255,0.06)' }}
+            >
+              <button
+                className="ios-action-row ios-action-row-bold"
+                onClick={onResume}
+                style={{ animation: 'rowSlideIn 0.3s ease 0.2s both' }}
+              >
+                Cancel
+              </button>
+            </div>
 
-          {/* Settings toggle */}
-          <ActionRow
-            icon={<SettingsIcon />}
-            label={showSettings ? 'Hide Settings' : 'Settings'}
-            muted
-            onClick={() => setShowSettings((s) => !s)}
-            delay={110}
-          />
-
-          {/* Quit — destructive */}
-          <ActionRow
-            icon={<QuitIcon />}
-            label="Main Menu"
-            destructive
-            kbdHint="Q"
-            onClick={onQuit}
-            delay={150}
-          />
-        </div>
-
-        {/* ── Cancel (iOS pattern) ─────────────────────────── */}
-        <div
-          className="ios-sheet"
-          style={{ boxShadow: '0 8px 24px rgba(0,0,0,0.4), 0 0 0 0.5px rgba(255,255,255,0.06)' }}
-        >
-          <button
-            className="ios-action-row ios-action-row-bold"
-            onClick={onResume}
-            style={{ animation: 'rowSlideIn 0.3s ease 0.2s both' }}
-          >
-            Cancel
-          </button>
-        </div>
-
-        {/* ── Settings expansion ───────────────────────────── */}
-        {showSettings && (
-          <div
-            style={{ marginTop: 10, animation: 'iosSlideDown 0.3s cubic-bezier(0.34,1.56,0.64,1) both' }}
-          >
-            <SettingsPanel />
-          </div>
+            {showSettings && (
+              <div
+                style={{ marginTop: 10, animation: 'iosSlideDown 0.3s cubic-bezier(0.34,1.56,0.64,1) both' }}
+              >
+                <SettingsPanel />
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
@@ -188,12 +311,24 @@ interface ActionRowProps {
   muted?: boolean;
   destructive?: boolean;
   kbdHint?: string;
+  buttonRef?: React.Ref<HTMLButtonElement>;
   onClick: () => void;
   delay: number;
 }
 
-const ActionRow: FC<ActionRowProps> = ({ icon, label, bold, muted, destructive, kbdHint, onClick, delay }) => (
+const ActionRow: FC<ActionRowProps> = ({
+  icon,
+  label,
+  bold,
+  muted,
+  destructive,
+  kbdHint,
+  buttonRef,
+  onClick,
+  delay,
+}) => (
   <button
+    ref={buttonRef}
     className={[
       'ios-action-row',
       bold        ? 'ios-action-row-bold'        : '',
