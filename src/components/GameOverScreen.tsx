@@ -8,6 +8,7 @@ import { type NewRecords } from './GameStore';
 import { resolveGameOverKey } from './game-over-keys';
 import { fireHaptic } from '@/game/input/haptics';
 import { recordRun } from '@/lib/run-history';
+import { shareRunResult, type ShareRunOutcome } from '@/lib/share-run';
 
 interface Props {
   stats: GameStats;
@@ -52,6 +53,8 @@ const useCountUp = (target: number, duration = 750, delay = 0): number => {
 
 const GameOverScreen: FC<Props> = ({ stats, newRecords, hapticsEnabled = true, onRestart, onQuit }) => {
   const submittedRef = useRef(false);
+  const [isSharing, setIsSharing] = useState(false);
+  const [shareStatus, setShareStatus] = useState<ShareRunOutcome | ''>('');
   const isNewHighScore = stats.score >= stats.highScore && stats.score > 0;
 
   const records = newRecords ?? {
@@ -75,6 +78,33 @@ const GameOverScreen: FC<Props> = ({ stats, newRecords, hapticsEnabled = true, o
     e.preventDefault();
     onQuit();
   };
+  const handleShare = async () => {
+    if (isSharing) return;
+    setIsSharing(true);
+    setShareStatus('');
+    try {
+      const outcome = await shareRunResult(stats, navigator, window.location.origin);
+      setShareStatus(outcome);
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!shareStatus || shareStatus === 'cancelled') return;
+    const timeout = window.setTimeout(() => setShareStatus(''), 2400);
+    return () => window.clearTimeout(timeout);
+  }, [shareStatus]);
+
+  const shareLabel = isSharing
+    ? 'Sharing…'
+    : shareStatus === 'copied'
+      ? 'Copied!'
+      : shareStatus === 'shared'
+        ? 'Shared!'
+        : shareStatus === 'unavailable'
+          ? 'Unavailable'
+          : 'Share Run';
 
   // Keyboard shortcuts: Enter = Play Again, Esc = Main Menu.
   // - Grace period (700ms) so a reflexive keypress at the moment of death
@@ -311,19 +341,30 @@ const GameOverScreen: FC<Props> = ({ stats, newRecords, hapticsEnabled = true, o
                 <kbd className="ios-kbd-hint" aria-hidden="true">Enter</kbd>
               </span>
             </button>
-            <button
-              type="button"
-              className="ios-btn-gray"
-              onClick={onQuit}
-              onTouchEnd={handleQuitTouch}
-              onContextMenu={(e) => e.preventDefault()}
-              aria-label="Return to main menu"
-            >
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                Main Menu
-                <kbd className="ios-kbd-hint" aria-hidden="true">Esc</kbd>
-              </span>
-            </button>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <button
+                type="button"
+                className="ios-btn-gray"
+                onClick={() => { void handleShare(); }}
+                disabled={isSharing}
+                aria-label="Share this run result"
+              >
+                <span aria-live="polite">{shareLabel}</span>
+              </button>
+              <button
+                type="button"
+                className="ios-btn-gray"
+                onClick={onQuit}
+                onTouchEnd={handleQuitTouch}
+                onContextMenu={(e) => e.preventDefault()}
+                aria-label="Return to main menu"
+              >
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  Main Menu
+                  <kbd className="ios-kbd-hint" aria-hidden="true">Esc</kbd>
+                </span>
+              </button>
+            </div>
           </div>
         </div>
       </div>

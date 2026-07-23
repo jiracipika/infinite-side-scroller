@@ -36,6 +36,7 @@ assert(fs.existsSync(entryMobile) || fs.existsSync(entryStandard), 'at least one
 const gameHtmlPath = path.join(mobileDir, 'assets/game.html')
 assert(fs.existsSync(gameHtmlPath), 'assets/game.html must exist')
 const gameHtmlSize = fs.statSync(gameHtmlPath).size
+const gameHtml = fs.readFileSync(gameHtmlPath, 'utf8')
 assert(gameHtmlSize > 10000, `game.html must be at least 10KB (got ${gameHtmlSize} bytes)`)
 
 // 4. Required asset files exist
@@ -65,9 +66,17 @@ assert(mobileGame.includes("AppState.addEventListener('change'"), 'mobile contro
 assert(mobileGame.includes("nextState !== 'active'"), 'mobile controls must release held inputs whenever the app leaves the active state')
 assert(mobileGame.includes('return releaseAll;'), 'mobile controls must release held inputs when the overlay unmounts')
 
+// 8. Native game-over sharing must include the same competitive stats as web.
+assert(gameHtml.includes('maxCombo: stats.maxCombo || 0'), 'mobile game bundle must bridge maxCombo to React Native')
+assert(gameHtml.includes('enemiesDefeated: stats.enemiesDefeated || 0'), 'mobile game bundle must bridge enemiesDefeated to React Native')
+assert(mobileGame.includes('Share.share({'), 'mobile game-over overlay must invoke the native share sheet')
+assert(mobileGame.includes('Share this run result'), 'mobile share control must expose an accessibility label')
+assert(mobileGame.includes('label="Best Combo"'), 'mobile game-over overlay must display best combo')
+assert(mobileGame.includes('label="Defeated"'), 'mobile game-over overlay must display defeated enemies')
+
 if (failures > 0) {
   console.error(`${failures} mobile bundle check(s) failed`)
   process.exit(1)
 }
 
-console.log(`Mobile bundle verified: app.json valid (${expo.name} v${expo.version}), entry files present, game.html ${Math.round(gameHtmlSize / 1024)}KB, ${requiredAssets.length} required assets present, bundle script exists, simultaneous touch bridge present.`)
+console.log(`Mobile bundle verified: app.json valid (${expo.name} v${expo.version}), entry files present, game.html ${Math.round(gameHtmlSize / 1024)}KB, ${requiredAssets.length} required assets present, simultaneous touch bridge and native run sharing present.`)

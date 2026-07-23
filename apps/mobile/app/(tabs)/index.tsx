@@ -9,6 +9,7 @@ import {
   Platform,
   AppState,
   SafeAreaView,
+  Share,
 } from 'react-native';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import { Ionicons } from '@expo/vector-icons';
@@ -33,12 +34,14 @@ interface GameStats {
   biome: string;
   fps: number;
   powerUps: string[];
+  maxCombo: number;
+  enemiesDefeated: number;
 }
 
 const DEFAULT_STATS: GameStats = {
   score: 0, coins: 0, distance: 0,
   health: 3, maxHealth: 3, biome: 'Grassland',
-  fps: 60, powerUps: [],
+  fps: 60, powerUps: [], maxCombo: 0, enemiesDefeated: 0,
 };
 
 export default function GameScreen() {
@@ -72,6 +75,8 @@ export default function GameScreen() {
           biome: data.biome,
           fps: data.fps,
           powerUps: data.powerUps || [],
+          maxCombo: data.maxCombo || 0,
+          enemiesDefeated: data.enemiesDefeated || 0,
         });
       } else if (data.type === 'gameover') {
         setGameState('gameover');
@@ -464,6 +469,29 @@ const GameOverOverlay: React.FC<{
   onQuit: () => void;
 }> = ({ stats, highScore, onRestart, onQuit }) => {
   const isNewHigh = stats.score >= highScore && stats.score > 0;
+  const [shareStatus, setShareStatus] = useState('Share Run');
+
+  const handleShare = useCallback(async () => {
+    const message = [
+      'My Dashverse run',
+      `Score ${Math.max(0, Math.floor(stats.score)).toLocaleString('en-US')} · ${Math.max(0, Math.floor(stats.distance)).toLocaleString('en-US')}m`,
+      `${Math.max(0, Math.floor(stats.coins)).toLocaleString('en-US')} coins · x${Math.max(0, Math.floor(stats.maxCombo)).toLocaleString('en-US')} combo · ${Math.max(0, Math.floor(stats.enemiesDefeated)).toLocaleString('en-US')} defeated`,
+      'Can you beat it?',
+    ].join('\n');
+
+    try {
+      const result = await Share.share({ title: 'Dashverse run', message });
+      if (result.action === Share.sharedAction) setShareStatus('Shared!');
+    } catch {
+      setShareStatus('Unavailable');
+    }
+  }, [stats]);
+
+  useEffect(() => {
+    if (shareStatus === 'Share Run') return;
+    const timeout = setTimeout(() => setShareStatus('Share Run'), 2400);
+    return () => clearTimeout(timeout);
+  }, [shareStatus]);
 
   return (
     <LinearGradient colors={['rgba(0,0,0,0.7)', 'rgba(26,26,46,0.9)']} style={styles.overlay}>
@@ -481,15 +509,22 @@ const GameOverOverlay: React.FC<{
           <StatCard label="Best" value={highScore.toLocaleString()} />
           <StatCard label="Distance" value={`${Math.round(stats.distance)}m`} />
           <StatCard label="Coins" value={`${stats.coins}`} />
+          <StatCard label="Best Combo" value={stats.maxCombo > 0 ? `x${stats.maxCombo}` : '—'} />
+          <StatCard label="Defeated" value={`${stats.enemiesDefeated}`} />
         </View>
 
         <TouchableOpacity style={styles.playBtn} onPress={onRestart} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel="Play again">
           <Text style={styles.playBtnText}>Play Again</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.secondaryBtn} onPress={onQuit} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel="Return to main menu">
-          <Text style={styles.secondaryBtnText}>Main Menu</Text>
-        </TouchableOpacity>
+        <View style={styles.gameOverActions}>
+          <TouchableOpacity style={styles.gameOverSecondaryBtn} onPress={() => { void handleShare(); }} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel="Share this run result">
+            <Text style={styles.secondaryBtnText}>{shareStatus}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.gameOverSecondaryBtn} onPress={onQuit} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel="Return to main menu">
+            <Text style={styles.secondaryBtnText}>Main Menu</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </LinearGradient>
   );
@@ -820,6 +855,22 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.6)',
     fontSize: 14,
     fontWeight: '500',
+  },
+  gameOverActions: {
+    width: 280,
+    flexDirection: 'row',
+    gap: 8,
+  },
+  gameOverSecondaryBtn: {
+    flex: 1,
+    minHeight: 48,
+    paddingVertical: 10,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
   },
   quitBtn: {
     width: 280,

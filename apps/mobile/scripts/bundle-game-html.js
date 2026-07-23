@@ -105,7 +105,9 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
       lives: stats.lives,
       biome: stats.biome,
       fps: stats.fps,
-      powerUps: stats.powerUps
+      powerUps: stats.powerUps,
+      maxCombo: stats.maxCombo || 0,
+      enemiesDefeated: stats.enemiesDefeated || 0
     }));
   };
 
