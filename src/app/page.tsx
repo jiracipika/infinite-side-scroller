@@ -14,7 +14,7 @@ import LevelSelectScreen from '@/components/LevelSelectScreen';
 import LevelCompleteScreen from '@/components/LevelCompleteScreen';
 import { shouldAutoPause } from '@/components/auto-pause';
 import type { LevelConfig } from '@/game/data/levels';
-import { ALL_LEVELS } from '@/game/data/levels';
+import { recordLevelResult, findNextLevel } from '@/lib/level-progress';
 import { createMultiplayerRoom, joinMultiplayerRoom, leaveMultiplayerRoom, syncMultiplayerRoom, postRTCOffer, postRTCAnswer, getRTCSignal, clearRTCSignal, postRTCCandidates } from '@/game/multiplayer/client';
 import { RTCTransport, isRTCAvailable, type RTCSyncMessage } from '@/game/multiplayer/rtc';
 import type { NetInputCommand, NetPlayerSnapshot, NetRoomState, NetSyncResponse } from '@/game/multiplayer/types';
@@ -369,30 +369,9 @@ export default function Home() {
         // Directly update state since this is called from the game loop
         setLevelResult(result);
         onLevelCompleteRef.current();
-        // Update localStorage progress
-        try {
-          const stored = localStorage.getItem("iss-level-progress");
-          const progress = stored ? JSON.parse(stored) : {};
-          if (!progress[level.id])
-            progress[level.id] = { stars: 0, bestScore: 0, unlocked: true };
-          const p = progress[level.id];
-          if (result.score >= level.starThresholds.three) p.stars = 3;
-          else if (result.score >= level.starThresholds.two)
-            p.stars = Math.max(p.stars, 2);
-          else if (result.score >= level.starThresholds.one)
-            p.stars = Math.max(p.stars, 1);
-          p.bestScore = Math.max(p.bestScore, result.score);
-          const idx = ALL_LEVELS.findIndex((l) => l.id === level.id);
-          if (idx >= 0 && idx < ALL_LEVELS.length - 1) {
-            const next = ALL_LEVELS[idx + 1];
-            if (next && next.mode === level.mode) {
-              if (!progress[next.id])
-                progress[next.id] = { stars: 0, bestScore: 0, unlocked: false };
-              progress[next.id].unlocked = true;
-            }
-          }
-          localStorage.setItem("iss-level-progress", JSON.stringify(progress));
-        } catch {}
+        // Persist level progress (stars, best score, unlocks) via the
+        // shared module so the LevelSelectScreen always reads the same data.
+        recordLevelResult(level, result.score);
       }
     };
     game.onCarryIntent = (payload) => {
@@ -713,13 +692,10 @@ export default function Home() {
   const handleNextLevel = useCallback(() => {
     const level = currentLevelRef.current;
     if (!level) return;
-    const idx = ALL_LEVELS.findIndex((l) => l.id === level.id);
-    if (idx >= 0 && idx < ALL_LEVELS.length - 1) {
-      const next = ALL_LEVELS[idx + 1];
-      if (next && next.mode === level.mode) {
-        handleStartLevel(next);
-        return;
-      }
+    const next = findNextLevel(level);
+    if (next) {
+      handleStartLevel(next);
+      return;
     }
     // No next level, go back to level select
     goToLevelSelect();

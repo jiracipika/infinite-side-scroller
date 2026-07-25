@@ -4,6 +4,24 @@
 
 export type GameState = 'menu' | 'playing' | 'paused' | 'gameover' | 'levelselect' | 'levelcomplete';
 
+/**
+ * Active timed power-up entry surfaced to the HUD for countdown rendering.
+ * Mirrors the engine's PowerUpTimer but lives in the shared state module so
+ * React components don't need to import from the engine layer.
+ */
+export type PowerUpType =
+  | 'shield'
+  | 'speedBoost'
+  | 'magnet'
+  | 'slingshot'
+  | 'bow'
+  | 'healingAura';
+
+export interface PowerUpTimerEntry {
+  type: PowerUpType;
+  remaining: number;
+}
+
 export type TouchControlLayout = 'standard' | 'mirrored';
 export type TouchControlSize = 'compact' | 'standard' | 'large';
 
@@ -46,6 +64,12 @@ export interface GameStats {
   /** 95th-percentile frame interval (ms) over the profiler's rolling window. */
   frameTime95Ms?: number;
   powerUps: string[];
+  /**
+   * Active timed power-ups with their remaining durations (seconds).
+   * Drives the HUD countdown indicators — an empty array means no active
+   * timed effects.
+   */
+  powerUpTimers?: PowerUpTimerEntry[];
   comboCount?: number;
   comboMultiplier?: number;
   maxCombo?: number;

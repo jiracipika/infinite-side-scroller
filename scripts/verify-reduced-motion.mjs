@@ -46,6 +46,9 @@ requireMarker(camera, 'camera.ts', 'if (this.reducedMotion)');
 // 3. Engine — must forward the toggle onto its camera.
 requireMarker(gameEngine, 'game-engine.ts', 'setReducedMotion(enabled: boolean)');
 requireMarker(gameEngine, 'game-engine.ts', 'this.camera.setReducedMotion(enabled)');
+// Hit-stop must also respect reduced-motion (duration halved).
+requireMarker(gameEngine, 'game-engine.ts', 'this.reducedMotion = enabled');
+requireMarker(gameEngine, 'game-engine.ts', 'this.reducedMotion ? duration * 0.5');
 
 // 4. Page — must apply the resolved preference to the engine and listen for OS changes.
 requireMarker(page, 'page.tsx', "resolveReducedMotion");
@@ -71,6 +74,7 @@ if (errors.length > 0) {
 console.log(
   'Reduced-motion verified: GameSettings.reducedMotion (auto/on/off) + resolveReducedMotion helper, ' +
   'Camera.setReducedMotion/isReducedMotion honored during update, ' +
-  'GameEngine forwards the toggle, page.tsx applies it reactively (incl. OS change listener), ' +
+  'GameEngine forwards the toggle (and halves hit-stop duration), ' +
+  'page.tsx applies it reactively (incl. OS change listener), ' +
   'PauseMenu exposes a segmented control, globals.css has both the @media (prefers-reduced-motion: reduce) guard and the .reduce-motion-forced override.',
 );

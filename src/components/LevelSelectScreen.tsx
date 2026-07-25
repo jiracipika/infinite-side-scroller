@@ -3,12 +3,11 @@
 import { useState, useEffect, useMemo, type FC } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ADVENTURE_LEVELS, TIME_ATTACK_LEVELS, type LevelConfig } from '@/game/data/levels';
-
-interface LevelProgress {
-  stars: number;       // 0-3
-  bestScore: number;
-  unlocked: boolean;
-}
+import {
+  loadProgress,
+  type LevelProgress,
+  type LevelProgressMap,
+} from '@/lib/level-progress';
 
 interface Props {
   onLevelSelect: (level: LevelConfig) => void;
@@ -24,21 +23,7 @@ const BIOME_COLORS: Record<string, { bg: string; accent: string; emoji: string }
   mixed:   { bg: 'rgba(191,90,242,0.08)',  accent: '#BF5AF2', emoji: '🌈' },
 };
 
-const STORAGE_KEY = 'iss-level-progress';
-
-function loadProgress(): Record<number, LevelProgress> {
-  if (typeof window === 'undefined') return {};
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : {};
-  } catch { return {}; }
-}
-
-function saveProgress(data: Record<number, LevelProgress>) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch {}
-}
-
-function ensureDefault(progress: Record<number, LevelProgress>, id: number): LevelProgress {
+function ensureDefault(progress: LevelProgressMap, id: number): LevelProgress {
   if (!progress[id]) {
     progress[id] = { stars: 0, bestScore: 0, unlocked: id === 1 || id === 21 };
   }
@@ -282,5 +267,5 @@ const LevelSelectScreen: FC<Props> = ({ onLevelSelect, onBack, onEndlessPlay }) 
 };
 
 export default LevelSelectScreen;
-export { loadProgress, saveProgress, ensureDefault, STORAGE_KEY, BIOME_COLORS };
+export { BIOME_COLORS };
 export type { LevelProgress };

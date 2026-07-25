@@ -4,6 +4,7 @@ import { type FC, useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import type { LevelConfig } from '@/game/data/levels';
 import { BIOME_COLORS } from './LevelSelectScreen';
+import { calcStars } from '@/lib/level-progress';
 import { resolveLevelCompleteKey } from './level-complete-keys';
 
 interface LevelResult {
@@ -20,13 +21,6 @@ interface Props {
   onNext?: () => void;
   onRetry: () => void;
   onBack: () => void;
-}
-
-function calcStars(level: LevelConfig, score: number): number {
-  if (score >= level.starThresholds.three) return 3;
-  if (score >= level.starThresholds.two) return 2;
-  if (score >= level.starThresholds.one) return 1;
-  return 0;
 }
 
 function formatTime(ms: number): string {
@@ -237,4 +231,3 @@ const LevelCompleteScreen: FC<Props> = ({ level, result, onNext, onRetry, onBack
 };
 
 export default LevelCompleteScreen;
-export { calcStars };

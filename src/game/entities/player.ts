@@ -32,6 +32,23 @@ export const DEFAULT_PLAYER_CONFIG: PlayerConfig = {
 
 export type WeaponType = "orb" | "slingshot" | "bow";
 
+/**
+ * A timed power-up with its remaining duration (seconds).
+ * Used by the HUD to render countdown bars so players can anticipate expiry.
+ */
+export type PowerUpType =
+  | "shield"
+  | "speedBoost"
+  | "magnet"
+  | "slingshot"
+  | "bow"
+  | "healingAura";
+
+export interface PowerUpTimer {
+  type: PowerUpType;
+  remaining: number;
+}
+
 export interface PlayerProjectile {
   x: number;
   y: number;
@@ -559,6 +576,30 @@ export class Player {
 
   get healingAuraActive(): boolean {
     return this.healingAuraTimer > 0;
+  }
+
+  /**
+   * Snapshot of all currently-active timed power-ups with their remaining
+   * durations. Consumed by the engine → HUD pipeline to render countdown
+   * indicators so players can see when effects will expire.
+   *
+   * Entries with 0 remaining time are omitted — only active effects appear.
+   * The snapshot is a plain object (not live) so callers can use it without
+   * worrying about mutation between frames.
+   */
+  getActivePowerUpTimers(): PowerUpTimer[] {
+    const result: PowerUpTimer[] = [];
+    if (this.shieldActive && this.shieldTimer > 0)
+      result.push({ type: "shield", remaining: this.shieldTimer });
+    if (this.speedBoostTimer > 0)
+      result.push({ type: "speedBoost", remaining: this.speedBoostTimer });
+    if (this.magnetActive && this.magnetTimer > 0)
+      result.push({ type: "magnet", remaining: this.magnetTimer });
+    if (this.weaponTimer > 0)
+      result.push({ type: this.weaponType === "bow" ? "bow" : "slingshot", remaining: this.weaponTimer });
+    if (this.healingAuraTimer > 0)
+      result.push({ type: "healingAura", remaining: this.healingAuraTimer });
+    return result;
   }
 
   get magnetRadius(): number {

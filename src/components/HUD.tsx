@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState, useEffect, type FC } from 'react';
-import { type GameStats, type GameSettings } from '@/game/state/game-state';
+import { type GameStats, type GameSettings, type PowerUpTimerEntry } from '@/game/state/game-state';
 import { useGameHaptics } from '@/game/input/haptics';
 import { fpsBucket } from './fps-readout';
 
@@ -154,14 +154,20 @@ const HUD: FC<Props> = ({ stats, settings }) => {
               </div>
             )}
 
-            {/* Power-ups */}
+            {/* Power-ups — with countdown bars for timed effects */}
             {stats.powerUps.length > 0 && (
               <div style={{ display: 'flex', gap: 4, animation: 'fadeIn 0.25s ease both' }}>
-                {stats.powerUps.map((pu, i) => (
-                  <div key={i} className="ios-hud-pill" style={{ fontSize: 14, lineHeight: 1 }}>
-                    {pu}
-                  </div>
-                ))}
+                {stats.powerUps.map((pu, i) => {
+                  // Match the emoji to the timer entry so we can show the bar.
+                  const timerEntry = stats.powerUpTimers?.find(t => POWER_UP_EMOJI[t.type] === pu);
+                  return (
+                    <PowerUpPill
+                      key={`${pu}-${i}`}
+                      emoji={pu}
+                      timer={timerEntry}
+                    />
+                  );
+                })}
               </div>
             )}
           </div>
@@ -345,6 +351,98 @@ const HUD: FC<Props> = ({ stats, settings }) => {
 export default HUD;
 
 /* ── Icon components ─────────────────────────────────────────── */
+
+/**
+ * Emoji display for each timed power-up type. Used by the HUD to match
+ * a powerUpTimers entry to the emoji shown in the powerUps array.
+ * Mirrors the popup labels in the engine's collectible handler.
+ */
+const POWER_UP_EMOJI: Record<string, string> = {
+  shield: '\u{1F6E1}\u{FE0F}',
+  speedBoost: '\u26A1',
+  magnet: '\u{1F9F2}',
+  slingshot: '\u{1F3F9}',
+  bow: '\u{1F3F9}',
+  healingAura: '\u{1F49A}',
+};
+
+/**
+ * Default max duration (seconds) for each power-up — used to compute the
+ * fraction remaining for the countdown bar. If the actual duration exceeds
+ * this (e.g. progression bonuses), the bar stays full until it drops below.
+ */
+const POWER_UP_MAX_DURATION: Record<string, number> = {
+  shield: 8,
+  speedBoost: 5,
+  magnet: 8,
+  slingshot: 10,
+  bow: 10,
+  healingAura: 10,
+};
+
+/**
+ * A power-up pill with an optional countdown bar beneath the emoji.
+ * When `timer` is provided, shows a shrinking bar that turns from green →
+ * yellow → red as the effect approaches expiry. In the final 2 seconds the
+ * pill pulses to draw attention.
+ */
+const PowerUpPill: FC<{
+  emoji: string;
+  timer?: PowerUpTimerEntry;
+}> = ({ emoji, timer }) => {
+  const hasTimer = timer != null && timer.remaining > 0;
+  if (!hasTimer) {
+    return (
+      <div className="ios-hud-pill" style={{ fontSize: 14, lineHeight: 1 }}>
+        {emoji}
+      </div>
+    );
+  }
+
+  const maxDur = POWER_UP_MAX_DURATION[timer.type] ?? 10;
+  const fraction = Math.min(1, timer.remaining / maxDur);
+  const isExpiring = timer.remaining < 2;
+  const barColor =
+    fraction < 0.3 ? 'var(--ios-red)'
+      : fraction < 0.5 ? 'var(--ios-yellow)'
+        : 'var(--ios-green)';
+
+  return (
+    <div
+      className="ios-hud-pill"
+      style={{
+        fontSize: 14,
+        lineHeight: 1,
+        padding: '3px 6px',
+        flexDirection: 'column',
+        gap: 2,
+        animation: isExpiring ? 'comboUrgencyPulse 0.5s ease-in-out infinite alternate' : undefined,
+      }}
+    >
+      <span>{emoji}</span>
+      <div
+        aria-hidden="true"
+        style={{
+          width: 24,
+          height: 2,
+          borderRadius: 1,
+          background: 'rgba(255,255,255,0.12)',
+          overflow: 'hidden',
+        }}
+      >
+        <div
+          style={{
+            height: '100%',
+            width: `${fraction * 100}%`,
+            borderRadius: 1,
+            background: barColor,
+            transition: 'width 0.15s linear',
+          }}
+        />
+      </div>
+    </div>
+  );
+};
 
 const HeartIcon: FC<{ filled: boolean; pulsing: boolean }> = ({ filled, pulsing }) => (
   <svg

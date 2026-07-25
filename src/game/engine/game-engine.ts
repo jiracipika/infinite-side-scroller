@@ -6,7 +6,7 @@
 import { Camera, DEFAULT_CAMERA_CONFIG, type CameraMode } from "./camera";
 import { ChunkManager } from "../world/chunk-manager";
 import { InputManager } from "../input/input";
-import { Player, DEFAULT_PLAYER_CONFIG } from "../entities/player";
+import { Player, DEFAULT_PLAYER_CONFIG, type PowerUpTimer } from "../entities/player";
 import { Enemy } from "../entities/Enemy";
 import { Slime } from "../entities/Slime";
 import { Beetle } from "../entities/Beetle";
@@ -179,6 +179,32 @@ export class GameEngine {
   private _running = false;
   private _state: EngineState = "playing";
 
+  /**
+   * Reduced-motion flag — mirrors camera.reducedMotion. When true,
+   * hit-stop freeze-frames are shortened to 50% duration so the
+   * simulation freeze doesn't disorient motion-sensitive players.
+   */
+  private reducedMotion = false;
+
+  /**
+   * Hit-stop (freeze-frame): when > 0, the simulation update is suspended for
+   * a few centiseconds to add weight to impactful moments — enemy defeats,
+   * heavy hits, boss takedowns, shield breaks. Rendering continues so visual
+   * feedback (particles, screen shake, flash) still plays during the freeze.
+   *
+   * The timer counts down in the fixed-step loop so it is independent of
+   * refresh rate. Reduced-motion shortens (not removes) the freeze because
+   * it is a timing effect, not a motion effect — the viewport stays still.
+   */
+  private hitStopTimer = 0;
+
+  /**
+   * Distance milestone tracker: fires a celebratory popup every 500m to give
+   * players a sense of progression and engagement during long runs. Incremented
+   * in the update loop when the player crosses each threshold.
+   */
+  private lastDistanceMilestone = 0;
+
   worldSeed = 42;
   difficulty = getDifficulty(0);
 
@@ -199,6 +225,7 @@ export class GameEngine {
     lives: number;
     biome: string;
     powerUps: string[];
+    powerUpTimers: PowerUpTimer[];
     fps: number;
     frameTimeMs?: number;
     frameTime95Ms?: number;
@@ -358,11 +385,13 @@ export class GameEngine {
 
   /**
    * Toggle reduced-motion (accessibility) mode on the camera. When enabled,
-   * screen shake is suppressed for users with motion sensitivity. Pair with
-   * the CSS `prefers-reduced-motion` guard via resolveReducedMotion().
+   * screen shake is suppressed and hit-stop freeze-frames are shortened for
+   * users with motion sensitivity. Pair with the CSS `prefers-reduced-motion`
+   * guard via resolveReducedMotion().
    */
   setReducedMotion(enabled: boolean): void {
     this.camera.setReducedMotion(enabled);
+    this.reducedMotion = enabled;
   }
 
   /** Update audio volumes from persisted settings. */
@@ -384,6 +413,26 @@ export class GameEngine {
     this.player.onHeal = () => {
       this.particles.spawnHeal(this.player.centerX, this.player.centerY);
     };
+  }
+
+  /**
+   * Freeze the simulation for `duration` seconds (typically 0.03–0.08).
+   * Called at impactful combat moments to add weight — see awardEnemyDefeat
+   * and the damage handler. Uses Math.max so a longer freeze from a
+   * simultaneous event isn't overwritten by a shorter one.
+   *
+   * When reduced-motion is active, the duration is halved so the freeze
+   * is barely perceptible but still provides a micro-beat of weight.
+   */
+  triggerHitStop(duration: number): void {
+    if (duration <= 0) return;
+    const effective = this.reducedMotion ? duration * 0.5 : duration;
+    this.hitStopTimer = Math.max(this.hitStopTimer, effective);
+  }
+
+  /** Whether the simulation is currently frozen by hit-stop. */
+  isHitStopActive(): boolean {
+    return this.hitStopTimer > 0;
   }
 
   setSeed(seed: number, characterId?: string): void {
@@ -434,6 +483,8 @@ export class GameEngine {
     this.comboCount = 0;
     this.comboTimer = 0;
     this.maxCombo = 0;
+    this.hitStopTimer = 0;
+    this.lastDistanceMilestone = 0;
     this.prepareOpeningFrame();
     // Reset timing to avoid first-frame spike after restart
     this.lastTime = performance.now();
@@ -1145,6 +1196,14 @@ export class GameEngine {
 
       const updateStart = performance.now();
       while (this.accumulated >= FIXED_DT) {
+        // Hit-stop: skip the simulation step but still drain accumulated time
+        // so we don't get a burst of catch-up frames when the freeze ends.
+        // Rendering continues every frame so particles/shake/flash still play.
+        if (this.hitStopTimer > 0) {
+          this.hitStopTimer = Math.max(0, this.hitStopTimer - FIXED_DT);
+          this.accumulated -= FIXED_DT;
+          continue;
+        }
         this.update(FIXED_DT);
         this.accumulated -= FIXED_DT;
       }
@@ -1562,6 +1621,16 @@ export class GameEngine {
     this.particles.spawnEnemyDeath(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2);
     this.sfx.play("enemyDefeat");
 
+    // Hit-stop: brief freeze-frame scaled to enemy weight.
+    // Small enemies (slime, beetle) get a micro-freeze that's felt more than
+    // noticed; bosses get a heavy punch that sells the takedown.
+    const enemyWeight = KILL_SCORES[enemy.type] ?? 100;
+    const hitStopDuration =
+      enemyWeight >= 500 ? 0.08 : // boss/ufo
+      enemyWeight >= 200 ? 0.05 : // skeleton/jumper/alien
+      0.03;                       // common enemies
+    this.triggerHitStop(hitStopDuration);
+
     // Combo tier milestone — celebrate when the multiplier increases.
     if (multiplier > prevMultiplier && multiplier >= 2) {
       this.particles.spawnScorePopup(
@@ -1770,6 +1839,25 @@ export class GameEngine {
       this.player.score += this.player.distance - prevDistance;
     }
 
+    // Distance milestone notifications — every 500m, fire a celebratory popup
+    // and a short sfx cue. Gives players a sense of progression and a dopamine
+    // hit during long runs.
+    const MILESTONE_INTERVAL = 500;
+    const currentMilestone = Math.floor(this.player.distance / MILESTONE_INTERVAL);
+    if (currentMilestone > this.lastDistanceMilestone) {
+      const milestoneReached = currentMilestone * MILESTONE_INTERVAL;
+      this.lastDistanceMilestone = currentMilestone;
+      if (milestoneReached >= MILESTONE_INTERVAL) {
+        this.particles.spawnScorePopup(
+          this.player.centerX,
+          this.player.y - 36,
+          `${milestoneReached}m!`,
+          milestoneReached >= 5000 ? "#FFD60A" : "#5AC8FA",
+        );
+        this.sfx.play("coin");
+      }
+    }
+
     this.ghostSampleTimer += dt;
     if (this.ghostSampleTimer >= 0.12) {
       this.ghostSampleTimer = 0;
@@ -1898,6 +1986,9 @@ export class GameEngine {
             "#67e8f9",
           );
           this.sfx.play("shieldBreak");
+          // Hit-stop on shield break — the shield absorbing a hit is a
+          // significant combat beat that deserves a freeze-frame punch.
+          this.triggerHitStop(0.07);
         } else {
           if (this.player.takeDamage(enemy.effectiveDamage)) {
             const kb = (this.player.centerX < enemy.x ? -200 : 200) * this.player.knockbackScale;
@@ -1912,6 +2003,9 @@ export class GameEngine {
               "#ef4444",
             );
             this.sfx.play("damage");
+            // Hit-stop on taking damage — sells the impact and gives the
+            // player a split-second to reorient after a hit.
+            this.triggerHitStop(0.06);
             this.separatePlayerFromEnemy(enemy);
           } else {
             this.separatePlayerFromEnemy(enemy);
@@ -2234,6 +2328,7 @@ export class GameEngine {
       lives: this.player.lives,
       biome: biome.name,
       powerUps,
+      powerUpTimers: this.player.getActivePowerUpTimers(),
       fps: profilerMetrics.fps,
       frameTimeMs: profilerMetrics.frameTime,
       frameTime95Ms: profilerMetrics.frameTime95th,
@@ -2451,6 +2546,15 @@ export class GameEngine {
     const tint = getDayTint(this.gameTime);
     if (tint.a > 0.0005) {
       ctx.fillStyle = rgbaToString(tint);
+      ctx.fillRect(0, 0, width, height);
+    }
+
+    // Hit-stop accent: a faint warm flash that intensifies the freeze-frame.
+    // Applied after the day/night tint so it reads as a combat beat, not
+    // environmental. Suppressed in reduced-motion (visual + timing both
+    // softened for consistency with the accessibility contract).
+    if (this.hitStopTimer > 0 && !this.reducedMotion) {
+      ctx.fillStyle = "rgba(255, 240, 200, 0.06)";
       ctx.fillRect(0, 0, width, height);
     }
 
