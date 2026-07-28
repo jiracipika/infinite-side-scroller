@@ -55,11 +55,14 @@ const GameOverScreen: FC<Props> = ({ stats, newRecords, hapticsEnabled = true, o
   const submittedRef = useRef(false);
   const [isSharing, setIsSharing] = useState(false);
   const [shareStatus, setShareStatus] = useState<ShareRunOutcome | ''>('');
-  const isNewHighScore = stats.score >= stats.highScore && stats.score > 0;
 
   const records = newRecords ?? {
     score: false, distance: false, coins: false, combo: false, kills: false,
   };
+  // Use the authoritative record flag from the store (computed against the
+  // PREVIOUS high score before update) rather than re-deriving with >= which
+  // would falsely report "New High Score!" when matching but not beating it.
+  const isNewHighScore = records.score;
   const recordCount = (records.score ? 1 : 0) + (records.distance ? 1 : 0) +
     (records.coins ? 1 : 0) + (records.combo ? 1 : 0) + (records.kills ? 1 : 0);
   const showRecordBanner = recordCount >= 2;

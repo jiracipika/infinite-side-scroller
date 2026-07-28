@@ -109,12 +109,17 @@ const LevelCompleteScreen: FC<Props> = ({ level, result, onNext, onRetry, onBack
   }, [canAdvance, onNext, onRetry, onBack]);
 
   return (
-    <div style={{
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="level-complete-title"
+      style={{
       width: '100%', maxWidth: 420, margin: '0 auto', padding: '32px 20px',
       color: '#fff', fontFamily: '-apple-system, system-ui, sans-serif',
       textAlign: 'center', minHeight: '100vh',
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
     }}>
+      <h1 id="level-complete-title" className="sr-only">Level Complete</h1>
       {/* Title */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
@@ -186,6 +191,7 @@ const LevelCompleteScreen: FC<Props> = ({ level, result, onNext, onRetry, onBack
           <motion.button
             onClick={onBack}
             whileTap={{ scale: 0.95 }}
+            aria-label="Back to level select"
             style={{
               flex: 1, padding: 14, borderRadius: 12,
               background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
@@ -199,6 +205,7 @@ const LevelCompleteScreen: FC<Props> = ({ level, result, onNext, onRetry, onBack
           <motion.button
             onClick={onRetry}
             whileTap={{ scale: 0.95 }}
+            aria-label="Retry this level"
             style={{
               flex: 1, padding: 14, borderRadius: 12,
               background: biome.accent, border: 'none',
@@ -213,6 +220,7 @@ const LevelCompleteScreen: FC<Props> = ({ level, result, onNext, onRetry, onBack
             <motion.button
               onClick={onNext}
               whileTap={{ scale: 0.95 }}
+              aria-label="Play next level"
               style={{
                 flex: 1, padding: 14, borderRadius: 12,
                 background: 'linear-gradient(135deg, #30D158, #0A84FF)', border: 'none',

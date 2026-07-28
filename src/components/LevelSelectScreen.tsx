@@ -44,6 +44,7 @@ const LevelCard: FC<{
     <motion.button
       onClick={locked ? undefined : onClick}
       disabled={locked}
+      aria-label={`${level.name}${locked ? ', locked' : `, ${prog.stars} of 3 stars`}`}
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.03, duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
@@ -185,6 +186,7 @@ const LevelSelectScreen: FC<Props> = ({ onLevelSelect, onBack, onEndlessPlay }) 
         <motion.button
           onClick={onBack}
           whileTap={{ scale: 0.9 }}
+          aria-label="Back to main menu"
           style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', fontSize: 18 }}
         >
           ←
@@ -196,7 +198,7 @@ const LevelSelectScreen: FC<Props> = ({ onLevelSelect, onBack, onEndlessPlay }) 
       </div>
 
       {/* Mode tabs */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 20, background: 'rgba(13,16,26,0.92)', borderRadius: 12, padding: 4 }}>
+      <div role="tablist" aria-label="Game modes" style={{ display: 'flex', gap: 4, marginBottom: 20, background: 'rgba(13,16,26,0.92)', borderRadius: 12, padding: 4 }}>
         {tabs.map(t => {
           const active = tab === t.id;
           return (
@@ -204,6 +206,9 @@ const LevelSelectScreen: FC<Props> = ({ onLevelSelect, onBack, onEndlessPlay }) 
               key={t.id}
               onClick={() => setTab(t.id)}
               whileTap={{ scale: 0.95 }}
+              role="tab"
+              aria-selected={active}
+              aria-label={`${t.label} levels`}
               style={{
                 flex: 1, padding: '10px 8px', borderRadius: 10,
                 background: active ? 'rgba(255,255,255,0.1)' : 'transparent',

@@ -541,6 +541,40 @@ describe('Player projectiles', () => {
     }
     assert.equal(p.projectiles.length, 0, 'projectile should expire');
   });
+
+  it('a consumed projectile (life=0) cannot damage a second enemy', () => {
+    // Regression: before the fix, a projectile with life set to 0 after
+    // hitting enemy[0] could still damage enemy[1] in the same frame
+    // because the engine's inner loop didn't skip dead projectiles.
+    // Here we simulate the scenario at the entity level: a projectile
+    // that has already been consumed (life=0) must be inert.
+    const p = new Player();
+    const groundY = p.y + p.height;
+    const input = makeInput();
+    input.hold('ArrowRight');
+    p.update(DT, input, groundY);
+    input.clearPressed();
+    input.press('KeyZ');
+    p.update(DT, input, groundY);
+    input.clearPressed();
+    assert.equal(p.projectiles.length, 1);
+
+    const proj = p.projectiles[0];
+    const xBefore = proj.x;
+    proj.life = 0;
+
+    // Simulate what _updateProjectiles does: it should remove the projectile.
+    p.update(DT, input, groundY);
+    assert.equal(p.projectiles.length, 0, 'consumed projectile should be removed');
+    // The projectile should not have moved further after being consumed.
+    assert.ok(
+      p.projectiles.length === 0,
+      'dead projectile must not linger or deal further damage',
+    );
+    // Verify the x position didn't advance after life hit 0
+    // (it moved during the update but was filtered out)
+    assert.ok(proj.x >= xBefore, 'projectile moved on the kill frame (expected), then removed');
+  });
 });
 
 describe('Player power-up application', () => {

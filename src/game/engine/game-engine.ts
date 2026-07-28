@@ -2013,8 +2013,11 @@ export class GameEngine {
         }
       }
 
-      // Player projectiles hitting enemies
+      // Player projectiles hitting enemies.
+      // A projectile sets proj.life = 0 on the first hit; skip already-dead
+      // projectiles so a single shot can't damage multiple enemies in one frame.
       for (const proj of this.player.projectiles) {
+        if (proj.life <= 0) continue;
         const size = proj.radius * 2;
         if (
           aabbOverlap(

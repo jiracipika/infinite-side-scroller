@@ -1,2 +1,2 @@
-export { InputManager } from './InputManager';
-export type { InputState } from './InputManager';
+export { InputManager } from './input';
+export type { InputOptions, KeyState } from './input';

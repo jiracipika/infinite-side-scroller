@@ -358,12 +358,12 @@ export default HUD;
  * Mirrors the popup labels in the engine's collectible handler.
  */
 const POWER_UP_EMOJI: Record<string, string> = {
-  shield: '\u{1F6E1}\u{FE0F}',
-  speedBoost: '\u26A1',
-  magnet: '\u{1F9F2}',
-  slingshot: '\u{1F3F9}',
-  bow: '\u{1F3F9}',
-  healingAura: '\u{1F49A}',
+  shield: '\u{1F6E1}\u{FE0F}',  // 🛡️
+  speedBoost: '\u26A1',          // ⚡
+  magnet: '\u{1F9F2}',           // 🧲
+  slingshot: '\u{1F3AF}',        // 🎯 — must match the emoji the engine pushes
+  bow: '\u{1F3F9}',              // 🏹
+  healingAura: '\u{1F49A}',      // 💚
 };
 
 /**
