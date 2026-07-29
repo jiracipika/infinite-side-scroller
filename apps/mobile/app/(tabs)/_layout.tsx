@@ -51,12 +51,13 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   tabBar: {
-    backgroundColor: 'rgba(10, 10, 16, 0.92)',
+    // Keep navigation in normal layout flow so it never covers a primary CTA.
+    // The opaque system surface also avoids Android's white translucency fallback.
+    backgroundColor: '#101014',
     borderTopColor: 'rgba(255, 255, 255, 0.08)',
     borderTopWidth: 1,
     paddingBottom: Platform.OS === 'ios' ? 24 : 10,
     height: Platform.OS === 'ios' ? 84 : 62,
-    position: 'absolute',
     elevation: 0,
     shadowColor: '#0A84FF',
     shadowOpacity: 0.12,

@@ -6,13 +6,15 @@ import {
   Pressable,
   Text,
   Dimensions,
-  Platform,
+  useWindowDimensions,
   AppState,
   SafeAreaView,
   Share,
   type GestureResponderEvent,
 } from 'react-native';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
+import { Tabs } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -125,37 +127,44 @@ export default function GameScreen() {
     callEngine(`setSeed(42)`);
   }, [callEngine]);
 
-  // WebView injected JS for reduced particles
-  const injectedJS = `
-    // Override ParticleSystem constructor to set reduced particles
-    const origProto = ParticleSystem.prototype;
-    const origConstructor = this.ParticleSystem;
-    true;
-  `;
-
   return (
     <View style={styles.container}>
-      {/* Game WebView */}
-      <View style={styles.webviewContainer}>
-        <WebView
-          ref={webViewRef}
-          source={GAME_HTML}
-          style={styles.webview}
-          onMessage={handleMessage}
-          originWhitelist={['*']}
-          allowFileAccess
-          domStorageEnabled
-          javaScriptEnabled
-          scalesPageToFit={false}
-          scrollEnabled={false}
-          bounces={false}
-          showsVerticalScrollIndicator={false}
-          showsHorizontalScrollIndicator={false}
-          nestedScrollEnabled={false}
-          onError={(e) => console.warn('WebView error:', e.nativeEvent)}
-          setSupportMultipleWindows={false}
+      <StatusBar style="light" hidden={gameState === 'playing'} />
+      {gameState === 'playing' && (
+        <Tabs.Screen
+          options={{
+            // A side-scroller needs every available pixel during an active run.
+            tabBarStyle: { display: 'none' },
+          }}
         />
-      </View>
+      )}
+      {/*
+        Android WebView is a native surface and can be composited above sibling
+        React Native views. Mount it only after Play is pressed so the native
+        menu is never hidden behind the WebView's initial white document.
+      */}
+      {gameState !== 'menu' && (
+        <View style={styles.webviewContainer}>
+          <WebView
+            ref={webViewRef}
+            source={GAME_HTML}
+            style={styles.webview}
+            onMessage={handleMessage}
+            originWhitelist={['*']}
+            allowFileAccess
+            domStorageEnabled
+            javaScriptEnabled
+            scalesPageToFit={false}
+            scrollEnabled={false}
+            bounces={false}
+            showsVerticalScrollIndicator={false}
+            showsHorizontalScrollIndicator={false}
+            nestedScrollEnabled={false}
+            onError={(e) => console.warn('WebView error:', e.nativeEvent)}
+            setSupportMultipleWindows={false}
+          />
+        </View>
+      )}
 
       {/* HUD overlay during gameplay */}
       {gameState === 'playing' && <HUD stats={stats} onPause={handlePause} />}
@@ -422,12 +431,16 @@ const HUD: React.FC<{ stats: GameStats; onPause: () => void }> = ({ stats, onPau
 
 // ─── Menu Overlay ──────────────────────────────────────────────────
 
-const MenuOverlay: React.FC<{ onPlay: (seed?: number) => void; highScore: number }> = ({ onPlay, highScore }) => (
+const MenuOverlay: React.FC<{ onPlay: (seed?: number) => void; highScore: number }> = ({ onPlay, highScore }) => {
+  const { width, height } = useWindowDimensions();
+  const isLandscape = width > height;
+
+  return (
   <LinearGradient colors={['rgba(0,0,0,0.94)', 'rgba(8,12,22,0.97)', 'rgba(16,20,34,0.99)']} style={styles.overlay}>
     <View style={styles.ambientGlowA} />
     <View style={styles.ambientGlowB} />
     <View style={styles.ambientGlowC} />
-    <View style={styles.menuContent}>
+    <View style={[styles.menuContent, isLandscape && styles.menuContentLandscape]}>
       <View style={styles.appMark}>
         <Text style={styles.appMarkText}>∞</Text>
       </View>
@@ -485,7 +498,8 @@ const MenuOverlay: React.FC<{ onPlay: (seed?: number) => void; highScore: number
       </Text>
     </View>
   </LinearGradient>
-);
+  );
+};
 
 // ─── Pause Overlay ─────────────────────────────────────────────────
 
@@ -758,6 +772,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     width: '100%',
     maxWidth: 430,
+  },
+  // The same portrait-first composition stays readable in a short landscape
+  // viewport while the game itself expands to the full horizontal canvas.
+  menuContentLandscape: {
+    maxWidth: 740,
+    transform: [{ scale: 0.66 }],
   },
   appMark: {
     width: 80,
