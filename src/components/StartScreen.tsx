@@ -4,6 +4,7 @@ import {
   useState,
   useEffect,
   useMemo,
+  useRef,
   type CSSProperties,
   type FC,
   type ReactNode,
@@ -118,6 +119,7 @@ const StartScreen: FC<Props> = ({
   const [achieveCount, setAchieveCount] = useState(0);
   const [mounted, setMounted] = useState(false);
   const [selectedChar, setSelectedChar] = useState("knight");
+  const parallaxRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setAchieveCount(loadUnlockedAchievements().length);
@@ -126,6 +128,34 @@ const StartScreen: FC<Props> = ({
   useEffect(() => {
     setSelectedChar(loadSelectedCharacter());
   }, []);
+
+  // Mouse-tracking parallax for dramatic depth
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mql = window.matchMedia("(prefers-reduced-motion: reduce)");
+    if (mql.matches) return;
+    if (window.matchMedia("(hover: none)").matches) return;
+    const shell = parallaxRef.current;
+    if (!shell) return;
+    let raf = 0;
+    const onMove = (e: MouseEvent) => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        const rect = shell.getBoundingClientRect();
+        const x = (e.clientX - rect.left) / rect.width;
+        const y = (e.clientY - rect.top) / rect.height;
+        shell.style.setProperty("--px", `${x}`);
+        shell.style.setProperty("--py", `${y}`);
+        shell.style.setProperty("--mx", `${(x * 100).toFixed(1)}%`);
+        shell.style.setProperty("--my", `${(y * 100).toFixed(1)}%`);
+      });
+    };
+    shell.addEventListener("mousemove", onMove);
+    return () => {
+      shell.removeEventListener("mousemove", onMove);
+      cancelAnimationFrame(raf);
+    };
+  }, [mounted]);
 
   useEffect(() => {
     const storedName = loadLeaderboardName();
@@ -339,6 +369,7 @@ const StartScreen: FC<Props> = ({
 
   return (
     <div
+      ref={parallaxRef}
       className="absolute inset-0 dash-menu-shell"
       style={{
         opacity: mounted ? 1 : 0,
@@ -354,6 +385,7 @@ const StartScreen: FC<Props> = ({
       <StarField />
       <div className="dash-grid-glow dash-grid-glow-a" />
       <div className="dash-grid-glow dash-grid-glow-b" />
+      <div className="dash-grid-glow dash-grid-glow-c" />
 
       <main className="dash-menu-stage dash-menu-stage-v2">
         <section className="dash-command-panel dash-hero-v2">
