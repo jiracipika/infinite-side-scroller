@@ -423,9 +423,10 @@ const HUD: React.FC<{ stats: GameStats; onPause: () => void }> = ({ stats, onPau
 // ─── Menu Overlay ──────────────────────────────────────────────────
 
 const MenuOverlay: React.FC<{ onPlay: (seed?: number) => void; highScore: number }> = ({ onPlay, highScore }) => (
-  <LinearGradient colors={['rgba(0,0,0,0.92)', 'rgba(8,12,22,0.96)', 'rgba(16,20,34,0.98)']} style={styles.overlay}>
+  <LinearGradient colors={['rgba(0,0,0,0.94)', 'rgba(8,12,22,0.97)', 'rgba(16,20,34,0.99)']} style={styles.overlay}>
     <View style={styles.ambientGlowA} />
     <View style={styles.ambientGlowB} />
+    <View style={styles.ambientGlowC} />
     <View style={styles.menuContent}>
       <View style={styles.appMark}>
         <Text style={styles.appMarkText}>∞</Text>
@@ -731,7 +732,7 @@ const styles = StyleSheet.create({
     borderRadius: SCREEN_W,
     top: -SCREEN_W * 0.32,
     right: -SCREEN_W * 0.28,
-    backgroundColor: 'rgba(10,132,255,0.18)',
+    backgroundColor: 'rgba(10,132,255,0.22)',
   },
   ambientGlowB: {
     position: 'absolute',
@@ -740,7 +741,16 @@ const styles = StyleSheet.create({
     borderRadius: SCREEN_W,
     bottom: -SCREEN_W * 0.22,
     left: -SCREEN_W * 0.24,
-    backgroundColor: 'rgba(191,90,242,0.14)',
+    backgroundColor: 'rgba(191,90,242,0.16)',
+  },
+  ambientGlowC: {
+    position: 'absolute',
+    width: SCREEN_W * 0.5,
+    height: SCREEN_W * 0.5,
+    borderRadius: SCREEN_W,
+    top: '35%',
+    left: -SCREEN_W * 0.12,
+    backgroundColor: 'rgba(255,55,95,0.08)',
   },
   menuContent: {
     alignItems: 'center',
@@ -750,25 +760,31 @@ const styles = StyleSheet.create({
     maxWidth: 430,
   },
   appMark: {
-    width: 72,
-    height: 72,
-    borderRadius: 18,
+    width: 80,
+    height: 80,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.14)',
+    backgroundColor: 'rgba(10, 132, 255, 0.12)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(10, 132, 255, 0.28)',
+    shadowColor: '#0A84FF',
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 8,
   },
   appMarkText: {
-    color: '#fff',
-    fontSize: 42,
+    color: '#0A84FF',
+    fontSize: 46,
     fontWeight: '800',
   },
   title: {
     color: '#fff',
-    fontSize: 48,
-    fontWeight: '700',
-    letterSpacing: -1,
+    fontSize: 52,
+    fontWeight: '800',
+    letterSpacing: -1.2,
+    textAlign: 'center',
   },
   subtitle: {
     color: 'rgba(235,235,245,0.45)',

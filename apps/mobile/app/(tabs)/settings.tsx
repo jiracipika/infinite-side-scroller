@@ -25,7 +25,7 @@ export default function SettingsScreen() {
   if (!allLoaded) {
     return (
       <SafeAreaView style={[styles.container, styles.loading]} edges={['top']}>
-        <ActivityIndicator size="large" color="#4488cc" />
+        <ActivityIndicator size="large" color="#0A84FF" />
       </SafeAreaView>
     );
   }
@@ -46,8 +46,8 @@ export default function SettingsScreen() {
             step={0.05}
             value={masterVolume}
             onValueChange={setMasterVolume}
-            minimumTrackTintColor="#4488cc"
-            maximumTrackTintColor="rgba(255,255,255,0.14)"
+            minimumTrackTintColor="#0A84FF"
+            maximumTrackTintColor="rgba(255,255,255,0.12)"
             thumbTintColor="#fff"
             accessibilityLabel="Master volume"
             accessibilityHint="Adjusts the overall game volume"
@@ -63,7 +63,7 @@ export default function SettingsScreen() {
             step={0.05}
             value={sfxVolume}
             onValueChange={setSfxVolume}
-            minimumTrackTintColor="#4488cc"
+            minimumTrackTintColor="#0A84FF"
             maximumTrackTintColor="rgba(255,255,255,0.14)"
             thumbTintColor="#fff"
             accessibilityLabel="Sound effects volume"
@@ -80,7 +80,7 @@ export default function SettingsScreen() {
             step={0.05}
             value={musicVolume}
             onValueChange={setMusicVolume}
-            minimumTrackTintColor="#4488cc"
+            minimumTrackTintColor="#0A84FF"
             maximumTrackTintColor="rgba(255,255,255,0.14)"
             thumbTintColor="#fff"
             accessibilityLabel="Music volume"
@@ -93,7 +93,7 @@ export default function SettingsScreen() {
           <Switch
             value={showFPS}
             onValueChange={setShowFPS}
-            trackColor={{ false: 'rgba(255,255,255,0.18)', true: '#4488cc' }}
+            trackColor={{ false: 'rgba(255,255,255,0.18)', true: '#0A84FF' }}
             thumbColor="#fff"
             accessibilityLabel="Show frames per second"
             accessibilityHint="Toggles a performance counter during runs"
@@ -104,7 +104,7 @@ export default function SettingsScreen() {
           <Switch
             value={reducedParticles}
             onValueChange={setReducedParticles}
-            trackColor={{ false: 'rgba(255,255,255,0.18)', true: '#4488cc' }}
+            trackColor={{ false: 'rgba(255,255,255,0.18)', true: '#0A84FF' }}
             thumbColor="#fff"
             accessibilityLabel="Reduced particles"
             accessibilityHint="Lowers decorative effects for smoother and calmer play"
@@ -162,7 +162,7 @@ const SettingRow: React.FC<{ label: string; value: string; children: React.React
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f0f1a',
+    backgroundColor: '#000',
   },
   loading: {
     alignItems: 'center',
@@ -175,16 +175,17 @@ const styles = StyleSheet.create({
   },
   title: {
     color: '#fff',
-    fontSize: 28,
-    lineHeight: 34,
+    fontSize: 32,
+    lineHeight: 38,
     fontWeight: '700',
+    letterSpacing: -0.5,
     marginBottom: 8,
   },
   subtitle: {
-    color: 'rgba(255,255,255,0.6)',
+    color: 'rgba(255,255,255,0.5)',
     fontSize: 15,
     lineHeight: 21,
-    marginBottom: 24,
+    marginBottom: 28,
   },
   settingRow: {
     minHeight: 64,

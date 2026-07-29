@@ -129,7 +129,7 @@ const LeaderboardEntry: React.FC<ScoreEntry> = ({ rank, name, score, coins, high
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f0f1a',
+    backgroundColor: '#000',
   },
   header: {
     paddingHorizontal: 24,
@@ -138,9 +138,10 @@ const styles = StyleSheet.create({
   },
   title: {
     color: '#fff',
-    fontSize: 28,
-    lineHeight: 34,
+    fontSize: 32,
+    lineHeight: 38,
     fontWeight: '700',
+    letterSpacing: -0.5,
     marginBottom: 8,
   },
   subtitle: {
@@ -165,7 +166,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   tabButtonActive: {
-    backgroundColor: 'rgba(68, 136, 204, 0.24)',
+    backgroundColor: 'rgba(10, 132, 255, 0.24)',
   },
   tabButtonText: {
     color: 'rgba(255,255,255,0.6)',
@@ -233,9 +234,9 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   entryRowHighlight: {
-    backgroundColor: 'rgba(68, 136, 204, 0.14)',
+    backgroundColor: 'rgba(10, 132, 255, 0.14)',
     borderWidth: 1,
-    borderColor: 'rgba(68, 136, 204, 0.32)',
+    borderColor: 'rgba(10, 132, 255, 0.32)',
   },
   entryRank: {
     fontSize: 14,
