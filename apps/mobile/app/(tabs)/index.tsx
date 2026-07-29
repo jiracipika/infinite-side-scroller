@@ -54,6 +54,14 @@ export default function GameScreen() {
   const [highScore, setHighScore] = useState(0);
   const [showMenu, setShowMenu] = useState(true);
   const [webViewKey, setWebViewKey] = useState(0);
+  const [webViewReady, setWebViewReady] = useState(false);
+  const [runRequestId, setRunRequestId] = useState(0);
+  const pendingRunRef = useRef<number | null>(null);
+  const gameStateRef = useRef<GameState>('menu');
+
+  useEffect(() => {
+    gameStateRef.current = gameState;
+  }, [gameState]);
 
   const sendInput = useCallback((type: string, value: boolean) => {
     const detail = JSON.stringify({ type, value });
@@ -69,7 +77,9 @@ export default function GameScreen() {
   const handleMessage = useCallback((e: WebViewMessageEvent) => {
     try {
       const data = JSON.parse(e.nativeEvent.data);
-      if (data.type === 'stats') {
+      if (data.type === 'ready') {
+        setWebViewReady(true);
+      } else if (data.type === 'stats') {
         setStats({
           score: data.score,
           coins: data.coins,
@@ -93,21 +103,46 @@ export default function GameScreen() {
     // A terminated Chromium renderer cannot recover its current document. Return
     // to the native menu and give the next Play action a fresh local WebView.
     console.warn('Dashverse game renderer terminated; remounting on next run.');
+    pendingRunRef.current = null;
+    setWebViewReady(false);
     setWebViewKey(previous => previous + 1);
     setGameState('menu');
     setShowMenu(true);
   }, []);
 
-  const handlePlay = useCallback((seed?: number) => {
-    const s = seed ?? Math.floor(Math.random() * 999999);
+  const queueRun = useCallback((seed: number) => {
+    pendingRunRef.current = seed;
+    setWebViewReady(false);
+    setRunRequestId(previous => previous + 1);
     setGameState('playing');
     setShowMenu(false);
-    // Small delay to ensure WebView is ready
-    setTimeout(() => {
-      callEngine(`setSeed(${s})`);
-      callEngine('resume');
-    }, 100);
+  }, []);
+
+  useEffect(() => {
+    const seed = pendingRunRef.current;
+    if (!webViewReady || seed === null) return;
+
+    pendingRunRef.current = null;
+    callEngine(`setSeed(${seed})`);
+    callEngine('resume');
+  }, [callEngine, runRequestId, webViewReady]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', nextState => {
+      if (nextState !== 'active' && gameStateRef.current === 'playing') {
+        // Do not auto-resume after calls/app switching: the player explicitly
+        // chooses when to continue a paused mobile run.
+        gameStateRef.current = 'paused';
+        setGameState('paused');
+        callEngine('pause');
+      }
+    });
+    return () => subscription.remove();
   }, [callEngine]);
+
+  const handlePlay = useCallback((seed?: number) => {
+    queueRun(seed ?? Math.floor(Math.random() * 999999));
+  }, [queueRun]);
 
   const handlePause = useCallback(() => {
     if (gameState === 'playing') {
@@ -122,20 +157,14 @@ export default function GameScreen() {
   }, [callEngine]);
 
   const handleRestart = useCallback(() => {
-    const seed = Math.floor(Math.random() * 999999);
-    setGameState('playing');
-    setShowMenu(false);
-    setTimeout(() => {
-      callEngine(`setSeed(${seed})`);
-      callEngine('resume');
-    }, 100);
-  }, [callEngine]);
+    queueRun(Math.floor(Math.random() * 999999));
+  }, [queueRun]);
 
   const handleQuit = useCallback(() => {
+    pendingRunRef.current = null;
     setGameState('menu');
     setShowMenu(true);
-    callEngine(`setSeed(42)`);
-  }, [callEngine]);
+  }, []);
 
   return (
     <View style={styles.container}>
@@ -160,6 +189,7 @@ export default function GameScreen() {
             ref={webViewRef}
             source={GAME_HTML}
             style={styles.webview}
+            onLoadStart={() => setWebViewReady(false)}
             onMessage={handleMessage}
             originWhitelist={['*']}
             allowFileAccess

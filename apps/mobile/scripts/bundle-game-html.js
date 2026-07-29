@@ -133,6 +133,12 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
     setCharacter: function(id) { engine.setSeed(engine.worldSeed, id); },
   };
 
+  // Announce readiness only after the native command bridge exists. The React
+  // Native shell queues the selected run until this acknowledgement arrives.
+  window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({
+    type: 'ready'
+  }));
+
 })();
 </script>
 </body>
