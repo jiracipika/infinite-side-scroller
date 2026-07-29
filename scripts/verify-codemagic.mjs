@@ -96,8 +96,9 @@ const workflows = {
 
 for (const [name, block] of Object.entries(workflows)) {
   if (!block) continue
-  requireInBlock(block, name, 'node: 20')
-  requireInBlock(block, name, 'npm ci || npm install')
+  requireInBlock(block, name, 'node: 22')
+  requireInBlock(block, name, 'npm ci')
+  assert(!block.includes('npm ci || npm install'), `${name} must not hide deterministic-install failures behind npm install`)
   requireInBlock(block, name, 'node apps/mobile/scripts/bundle-game-html.js')
   requireInBlock(block, name, 'npx expo prebuild')
   requireInBlock(block, name, 'artifacts:')
@@ -133,6 +134,11 @@ const debugBlock = workflows['android-debug']
 if (debugBlock) {
   requireInBlock(debugBlock, 'android-debug', 'assembleRelease')
   requireInBlock(debugBlock, 'android-debug', 'outputs/apk/release/*.apk')
+  requireInBlock(debugBlock, 'android-debug', 'triggering:')
+  requireInBlock(debugBlock, 'android-debug', '- push')
+  requireInBlock(debugBlock, 'android-debug', 'pattern: main')
+  requireInBlock(debugBlock, 'android-debug', 'include: true')
+  requireInBlock(debugBlock, 'android-debug', 'cancel_previous_builds: true')
 }
 
 if (failures.length > 0) {

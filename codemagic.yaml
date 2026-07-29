@@ -6,17 +6,26 @@ workflows:
     name: Android Installable Test APK
     max_build_duration: 45
     environment:
-      node: 20
+      node: 22
       vars:
         EXPO_PUBLIC: "true"
+    # Automatic APK evidence for every main-branch change. Release workflows
+    # remain manual in Codemagic so credentials and store releases are explicit.
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+      cancel_previous_builds: true
     scripts:
       - name: Install root dependencies
         script: |
-          npm ci || npm install
+          npm ci
       - name: Install mobile dependencies
         script: |
           cd apps/mobile
-          npm ci || npm install
+          npm ci
       - name: Bundle game engine into mobile WebView asset
         script: |
           node apps/mobile/scripts/bundle-game-html.js
@@ -36,7 +45,7 @@ workflows:
     name: Android Release AAB
     max_build_duration: 60
     environment:
-      node: 20
+      node: 22
       groups:
         - android_keystore_credentials
       vars:
@@ -44,11 +53,11 @@ workflows:
     scripts:
       - name: Install root dependencies
         script: |
-          npm ci || npm install
+          npm ci
       - name: Install mobile dependencies
         script: |
           cd apps/mobile
-          npm ci || npm install
+          npm ci
       - name: Bundle game engine into mobile WebView asset
         script: |
           node apps/mobile/scripts/bundle-game-html.js
@@ -77,7 +86,7 @@ workflows:
     name: iOS Release IPA
     max_build_duration: 60
     environment:
-      node: 20
+      node: 22
       xcode: latest
       ios_signing:
         distribution_type: app_store
@@ -87,11 +96,11 @@ workflows:
     scripts:
       - name: Install root dependencies
         script: |
-          npm ci || npm install
+          npm ci
       - name: Install mobile dependencies
         script: |
           cd apps/mobile
-          npm ci || npm install
+          npm ci
       - name: Bundle game engine into mobile WebView asset
         script: |
           node apps/mobile/scripts/bundle-game-html.js
@@ -117,7 +126,7 @@ workflows:
     name: Release Android + iOS
     max_build_duration: 90
     environment:
-      node: 20
+      node: 22
       xcode: latest
       groups:
         - android_keystore_credentials
@@ -129,11 +138,11 @@ workflows:
     scripts:
       - name: Install root dependencies
         script: |
-          npm ci || npm install
+          npm ci
       - name: Install mobile dependencies
         script: |
           cd apps/mobile
-          npm ci || npm install
+          npm ci
       - name: Bundle game engine into mobile WebView asset
         script: |
           node apps/mobile/scripts/bundle-game-html.js
