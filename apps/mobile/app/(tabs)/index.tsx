@@ -53,6 +53,7 @@ export default function GameScreen() {
   const [stats, setStats] = useState<GameStats>(DEFAULT_STATS);
   const [highScore, setHighScore] = useState(0);
   const [showMenu, setShowMenu] = useState(true);
+  const [webViewKey, setWebViewKey] = useState(0);
 
   const sendInput = useCallback((type: string, value: boolean) => {
     const detail = JSON.stringify({ type, value });
@@ -87,6 +88,15 @@ export default function GameScreen() {
       }
     } catch {}
   }, [stats.score]);
+
+  const handleRenderProcessGone = useCallback(() => {
+    // A terminated Chromium renderer cannot recover its current document. Return
+    // to the native menu and give the next Play action a fresh local WebView.
+    console.warn('Dashverse game renderer terminated; remounting on next run.');
+    setWebViewKey(previous => previous + 1);
+    setGameState('menu');
+    setShowMenu(true);
+  }, []);
 
   const handlePlay = useCallback((seed?: number) => {
     const s = seed ?? Math.floor(Math.random() * 999999);
@@ -146,6 +156,7 @@ export default function GameScreen() {
       {gameState !== 'menu' && (
         <View style={styles.webviewContainer}>
           <WebView
+            key={webViewKey}
             ref={webViewRef}
             source={GAME_HTML}
             style={styles.webview}
@@ -161,6 +172,7 @@ export default function GameScreen() {
             showsHorizontalScrollIndicator={false}
             nestedScrollEnabled={false}
             onError={(e) => console.warn('WebView error:', e.nativeEvent)}
+            onRenderProcessGone={handleRenderProcessGone}
             setSupportMultipleWindows={false}
           />
         </View>
