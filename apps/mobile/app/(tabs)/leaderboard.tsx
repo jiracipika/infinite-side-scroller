@@ -1,130 +1,57 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
-type ScoreEntry = {
-  rank: number;
-  name: string;
-  score: string;
-  coins: string;
-  highlight?: boolean;
-};
+import { useFocusEffect } from '@react-navigation/native';
+import { EMPTY_PLAYER_BEST, loadPlayerBest, type PlayerBest } from '../../lib/player-best';
 
 export default function LeaderboardScreen() {
-  const [selectedTab, setSelectedTab] = React.useState<'global' | 'local'>('global');
+  const [best, setBest] = React.useState<PlayerBest>(EMPTY_PLAYER_BEST);
 
-  const globalScores: ScoreEntry[] = [
-    { rank: 1, name: 'SpeedRunner99', score: '125,430', coins: '342' },
-    { rank: 2, name: 'PlatformMaster', score: '98,750', coins: '289' },
-    { rank: 3, name: 'JumpKing', score: '87,200', coins: '265' },
-    { rank: 4, name: 'SkyExplorer', score: '76,890', coins: '234' },
-    { rank: 5, name: 'CoinCollector', score: '72,340', coins: '387' },
-    { rank: 6, name: 'EndlessWalker', score: '68,920', coins: '198' },
-    { rank: 7, name: 'BossHunter', score: '65,100', coins: '212' },
-    { rank: 8, name: 'NightRunner', score: '61,870', coins: '176' },
-    { rank: 9, name: 'DesertWanderer', score: '58,430', coins: '165' },
-    { rank: 10, name: 'ForestGhost', score: '55,120', coins: '143' },
-  ];
-
-  const localScores: ScoreEntry[] = [
-    { rank: 1, name: 'You', score: '45,670', coins: '156', highlight: true },
-    { rank: 2, name: 'Yesterday', score: '32,140', coins: '98' },
-    { rank: 3, name: 'BestRun', score: '28,950', coins: '87' },
-    { rank: 4, name: 'QuickRun', score: '21,340', coins: '62' },
-    { rank: 5, name: 'TestRun', score: '15,670', coins: '45' },
-  ];
-
-  const scores = selectedTab === 'global' ? globalScores : localScores;
+  useFocusEffect(React.useCallback(() => {
+    let active = true;
+    void loadPlayerBest().then(value => {
+      if (active) setBest(value);
+    });
+    return () => { active = false; };
+  }, []));
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.title} accessibilityRole="header">Leaderboard</Text>
-        <Text style={styles.subtitle}>Compare score, distance, and coin runs without leaving the game.</Text>
+        <Text style={styles.title} accessibilityRole="header">Your Best</Text>
+        <Text style={styles.subtitle}>Your strongest local run, saved securely on this device.</Text>
       </View>
 
-      <View style={styles.tabSwitcher} accessibilityRole="tablist">
-        <TouchableOpacity
-          style={[styles.tabButton, selectedTab === 'global' && styles.tabButtonActive]}
-          onPress={() => setSelectedTab('global')}
-          accessibilityRole="tab"
-          accessibilityLabel="Global leaderboard"
-          accessibilityState={{ selected: selectedTab === 'global' }}
-        >
-          <Text style={[styles.tabButtonText, selectedTab === 'global' && styles.tabButtonTextActive]}>
-            Global
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tabButton, selectedTab === 'local' && styles.tabButtonActive]}
-          onPress={() => setSelectedTab('local')}
-          accessibilityRole="tab"
-          accessibilityLabel="Your best runs"
-          accessibilityState={{ selected: selectedTab === 'local' }}
-        >
-          <Text style={[styles.tabButtonText, selectedTab === 'local' && styles.tabButtonTextActive]}>
-            Your Best
-          </Text>
-        </TouchableOpacity>
+      <View style={styles.comingSoonCard} accessible accessibilityLabel="Online leaderboard coming soon">
+        <Text style={styles.comingSoonEyebrow}>ONLINE LEADERBOARD</Text>
+        <Text style={styles.comingSoonTitle}>Coming soon</Text>
+        <Text style={styles.comingSoonBody}>Until then, beat the only score that matters: yours.</Text>
       </View>
 
       <ScrollView style={styles.listContainer} contentContainerStyle={styles.listContent}>
-        <View style={styles.headerRow} accessible accessibilityLabel="Leaderboard columns: rank, player, score, coins">
-          <Text style={styles.headerRank}>#</Text>
-          <Text style={styles.headerName}>Player</Text>
-          <Text style={styles.headerScore}>Score</Text>
-          <Text style={styles.headerCoins}>Coins</Text>
+        <View style={styles.bestHero}>
+          <Text style={styles.bestHeroLabel}>PERSONAL BEST SCORE</Text>
+          <Text style={styles.bestHeroValue}>{best.score.toLocaleString()}</Text>
+          <Text style={styles.bestHeroHint}>{best.score > 0 ? 'A new run is waiting to top it.' : 'Start your first run to set the bar.'}</Text>
         </View>
 
-        {scores.map((entry) => (
-          <LeaderboardEntry
-            key={entry.rank}
-            rank={entry.rank}
-            name={entry.name}
-            score={entry.score}
-            coins={entry.coins}
-            highlight={entry.highlight}
-          />
-        ))}
-
-        {selectedTab === 'global' && (
-          <Text style={styles.footerNote}>
-            Global leaderboard coming soon. Local runs still count toward your best score.
-          </Text>
-        )}
+        <View style={styles.statGrid}>
+          <BestStat label="Distance" value={`${best.distance.toLocaleString()} m`} />
+          <BestStat label="Coins" value={best.coins.toLocaleString()} />
+          <BestStat label="Best Combo" value={best.maxCombo > 0 ? `x${best.maxCombo}` : '—'} />
+          <BestStat label="Defeated" value={best.enemiesDefeated.toLocaleString()} />
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-const LeaderboardEntry: React.FC<ScoreEntry> = ({ rank, name, score, coins, highlight }) => {
-  const getRankColor = () => {
-    if (rank === 1) return '#fbbf24';
-    if (rank === 2) return '#d1d5db';
-    if (rank === 3) return '#d97706';
-    return 'rgba(255,255,255,0.52)';
-  };
-
-  const getRankIcon = () => {
-    if (rank === 1) return '1st';
-    if (rank === 2) return '2nd';
-    if (rank === 3) return '3rd';
-    return `${rank}`;
-  };
-
-  return (
-    <View
-      style={[styles.entryRow, highlight && styles.entryRowHighlight]}
-      accessible
-      accessibilityLabel={`${rank}. ${name}. Score ${score}. ${coins} coins${highlight ? '. Your highlighted run.' : ''}`}
-    >
-      <Text style={[styles.entryRank, { color: getRankColor() }]}>{getRankIcon()}</Text>
-      <Text style={[styles.entryName, highlight && styles.entryNameHighlight]}>{name}</Text>
-      <Text style={[styles.entryScore, highlight && styles.entryScoreHighlight]}>{score}</Text>
-      <Text style={styles.entryCoins}>{coins} coins</Text>
-    </View>
-  );
-};
+const BestStat: React.FC<{ label: string; value: string }> = ({ label, value }) => (
+  <View style={styles.statCard} accessible accessibilityLabel={`${label}: ${value}`}>
+    <Text style={styles.statLabel}>{label}</Text>
+    <Text style={styles.statValue}>{value}</Text>
+  </View>
+);
 
 const styles = StyleSheet.create({
   container: {
@@ -149,36 +76,33 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 21,
   },
-  tabSwitcher: {
-    flexDirection: 'row',
+  comingSoonCard: {
     marginHorizontal: 24,
     marginBottom: 20,
+    padding: 20,
+    borderRadius: 18,
     backgroundColor: '#141a27',
     borderWidth: 1,
     borderColor: '#273247',
-    borderRadius: 14,
-    padding: 4,
   },
-  tabButton: {
-    flex: 1,
-    minHeight: 48,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 10,
-  },
-  tabButtonActive: {
-    backgroundColor: '#123d74',
-  },
-  tabButtonText: {
-    color: 'rgba(255,255,255,0.6)',
-    fontSize: 14,
-    lineHeight: 18,
-    fontWeight: '600',
-  },
-  tabButtonTextActive: {
-    color: '#8ec5ff',
+  comingSoonEyebrow: {
+    color: '#79b8ff',
+    fontSize: 11,
     fontWeight: '800',
+    letterSpacing: 1.1,
+    marginBottom: 7,
+  },
+  comingSoonTitle: {
+    color: '#ffffff',
+    fontSize: 24,
+    lineHeight: 30,
+    fontWeight: '800',
+    marginBottom: 6,
+  },
+  comingSoonBody: {
+    color: '#a8b4c8',
+    fontSize: 15,
+    lineHeight: 21,
   },
   listContainer: {
     flex: 1,
@@ -187,101 +111,62 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingBottom: 100,
   },
-  headerRow: {
-    minHeight: 44,
-    flexDirection: 'row',
+  bestHero: {
     alignItems: 'center',
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
-    marginBottom: 8,
-  },
-  headerRank: {
-    color: 'rgba(255,255,255,0.48)',
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    width: 44,
-  },
-  headerName: {
-    color: 'rgba(255,255,255,0.48)',
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    flex: 1,
-  },
-  headerScore: {
-    color: 'rgba(255,255,255,0.48)',
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    width: 72,
-    textAlign: 'right',
-  },
-  headerCoins: {
-    color: 'rgba(255,255,255,0.48)',
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    width: 82,
-    textAlign: 'right',
-  },
-  entryRow: {
-    minHeight: 48,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    marginBottom: 6,
-  },
-  entryRowHighlight: {
+    paddingVertical: 28,
+    paddingHorizontal: 20,
+    borderRadius: 20,
     backgroundColor: '#102e58',
     borderWidth: 1,
-    borderColor: 'rgba(10, 132, 255, 0.32)',
+    borderColor: '#2d6fbd',
+    marginBottom: 16,
   },
-  entryRank: {
-    fontSize: 14,
-    lineHeight: 18,
+  bestHeroLabel: {
+    color: '#9cc7ff',
+    fontSize: 11,
     fontWeight: '800',
-    width: 44,
-    textAlign: 'center',
+    letterSpacing: 1.1,
+    marginBottom: 8,
   },
-  entryName: {
-    color: 'rgba(255,255,255,0.78)',
-    fontSize: 15,
+  bestHeroValue: {
+    color: '#ffffff',
+    fontSize: 46,
+    lineHeight: 54,
+    fontWeight: '900',
+    letterSpacing: -1,
+  },
+  bestHeroHint: {
+    color: '#c2d8f5',
+    fontSize: 14,
     lineHeight: 20,
-    fontWeight: '600',
-    flex: 1,
-  },
-  entryNameHighlight: {
-    color: '#fff',
-    fontWeight: '800',
-  },
-  entryScore: {
-    color: 'rgba(255,255,255,0.64)',
-    fontSize: 14,
-    lineHeight: 18,
-    fontWeight: '700',
-    width: 72,
-    textAlign: 'right',
-  },
-  entryScoreHighlight: {
-    color: '#8ec5ff',
-  },
-  entryCoins: {
-    color: 'rgba(250, 204, 21, 0.72)',
-    fontSize: 13,
-    lineHeight: 18,
-    width: 82,
-    textAlign: 'right',
-  },
-  footerNote: {
-    color: 'rgba(255,255,255,0.42)',
-    fontSize: 13,
-    lineHeight: 19,
     textAlign: 'center',
-    marginTop: 18,
-    fontStyle: 'italic',
+    marginTop: 8,
+  },
+  statGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginHorizontal: -5,
+  },
+  statCard: {
+    width: '47%',
+    padding: 16,
+    backgroundColor: '#141a27',
+    borderColor: '#273247',
+    borderWidth: 1,
+    borderRadius: 16,
+    marginBottom: 10,
+    marginHorizontal: 5,
+  },
+  statLabel: {
+    color: '#9ba8bb',
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: 7,
+  },
+  statValue: {
+    color: '#f5f7ff',
+    fontSize: 20,
+    lineHeight: 26,
+    fontWeight: '800',
   },
 });

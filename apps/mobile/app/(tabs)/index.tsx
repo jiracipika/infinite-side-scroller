@@ -17,6 +17,7 @@ import { Tabs } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { loadPlayerBest, savePlayerBest } from '../../lib/player-best';
 
 const GAME_HTML = require('../../assets/game.html');
 
@@ -63,6 +64,14 @@ export default function GameScreen() {
     gameStateRef.current = gameState;
   }, [gameState]);
 
+  useEffect(() => {
+    let mounted = true;
+    void loadPlayerBest().then(best => {
+      if (mounted) setHighScore(best.score);
+    });
+    return () => { mounted = false; };
+  }, []);
+
   const sendInput = useCallback((type: string, value: boolean) => {
     const detail = JSON.stringify({ type, value });
     webViewRef.current?.injectJavaScript(
@@ -93,8 +102,19 @@ export default function GameScreen() {
           enemiesDefeated: data.enemiesDefeated || 0,
         });
       } else if (data.type === 'gameover') {
+        const score = Math.max(0, Math.floor(data.score || stats.score));
         setGameState('gameover');
-        setHighScore(prev => Math.max(prev, data.score || stats.score));
+        setHighScore(prev => {
+          if (score <= prev) return prev;
+          void savePlayerBest({
+            score,
+            distance: data.distance || stats.distance,
+            coins: data.coins || stats.coins,
+            maxCombo: data.maxCombo || stats.maxCombo,
+            enemiesDefeated: data.enemiesDefeated || stats.enemiesDefeated,
+          });
+          return score;
+        });
       }
     } catch {}
   }, [stats.score]);
