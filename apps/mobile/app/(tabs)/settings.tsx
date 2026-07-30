@@ -162,7 +162,7 @@ const SettingRow: React.FC<{ label: string; value: string; children: React.React
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: '#090b12',
   },
   loading: {
     alignItems: 'center',
@@ -192,9 +192,9 @@ const styles = StyleSheet.create({
     marginBottom: 18,
     borderRadius: 16,
     padding: 14,
-    backgroundColor: 'rgba(255,255,255,0.045)',
+    backgroundColor: '#141a27',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: '#273247',
   },
   settingHeader: {
     flexDirection: 'row',
