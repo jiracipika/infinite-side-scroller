@@ -3,14 +3,19 @@ import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { EMPTY_PLAYER_BEST, loadPlayerBest, type PlayerBest } from '../../lib/player-best';
+import { loadRunHistory, formatRunDate, type RunEntry } from '../../lib/run-history';
 
 export default function LeaderboardScreen() {
   const [best, setBest] = React.useState<PlayerBest>(EMPTY_PLAYER_BEST);
+  const [history, setHistory] = React.useState<RunEntry[]>([]);
 
   useFocusEffect(React.useCallback(() => {
     let active = true;
     void loadPlayerBest().then(value => {
       if (active) setBest(value);
+    });
+    void loadRunHistory().then(runs => {
+      if (active) setHistory(runs);
     });
     return () => { active = false; };
   }, []));
@@ -41,6 +46,27 @@ export default function LeaderboardScreen() {
           <BestStat label="Best Combo" value={best.maxCombo > 0 ? `x${best.maxCombo}` : '—'} />
           <BestStat label="Defeated" value={best.enemiesDefeated.toLocaleString()} />
         </View>
+
+        {/* Recent Runs */}
+        {history.length > 0 && (
+          <View style={styles.recentSection}>
+            <Text style={styles.recentTitle}>Recent Runs</Text>
+            {history.map((run, i) => (
+              <View key={run.timestamp + '-' + i} style={styles.runRow}>
+                <View style={styles.runRowLeft}>
+                  <Text style={styles.runRank}>#{i + 1}</Text>
+                  <View>
+                    <Text style={styles.runScore}>{run.score.toLocaleString()}</Text>
+                    <Text style={styles.runDetails}>
+                      {Math.round(run.distance).toLocaleString()}m · {run.coins} coins · x{run.maxCombo} combo
+                    </Text>
+                  </View>
+                </View>
+                <Text style={styles.runDate}>{formatRunDate(run.timestamp)}</Text>
+              </View>
+            ))}
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -168,5 +194,53 @@ const styles = StyleSheet.create({
     fontSize: 20,
     lineHeight: 26,
     fontWeight: '800',
+  },
+  recentSection: {
+    marginTop: 12,
+  },
+  recentTitle: {
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    marginBottom: 10,
+  },
+  runRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    backgroundColor: '#141a27',
+    borderWidth: 1,
+    borderColor: '#273247',
+    marginBottom: 8,
+  },
+  runRowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  runRank: {
+    color: 'rgba(255,255,255,0.3)',
+    fontSize: 13,
+    fontWeight: '700',
+    minWidth: 24,
+  },
+  runScore: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  runDetails: {
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  runDate: {
+    color: 'rgba(255,255,255,0.35)',
+    fontSize: 12,
   },
 });

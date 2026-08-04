@@ -18,6 +18,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { loadPlayerBest, savePlayerBest } from '../../lib/player-best';
+import { appendRunHistory } from '../../lib/run-history';
 
 const GAME_HTML = require('../../assets/game.html');
 
@@ -103,16 +104,18 @@ export default function GameScreen() {
         });
       } else if (data.type === 'gameover') {
         const score = Math.max(0, Math.floor(data.score || stats.score));
+        const runStats = {
+          score,
+          distance: data.distance || stats.distance,
+          coins: data.coins || stats.coins,
+          maxCombo: data.maxCombo || stats.maxCombo,
+          enemiesDefeated: data.enemiesDefeated || stats.enemiesDefeated,
+        };
         setGameState('gameover');
+        void appendRunHistory(runStats);
         setHighScore(prev => {
           if (score <= prev) return prev;
-          void savePlayerBest({
-            score,
-            distance: data.distance || stats.distance,
-            coins: data.coins || stats.coins,
-            maxCombo: data.maxCombo || stats.maxCombo,
-            enemiesDefeated: data.enemiesDefeated || stats.enemiesDefeated,
-          });
+          void savePlayerBest(runStats);
           return score;
         });
       }
