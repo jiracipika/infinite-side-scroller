@@ -19,8 +19,10 @@ export default function SettingsScreen() {
   const [musicVolume, setMusicVolume, loadedMusic] = usePersistedSetting('musicVolume', 0.6);
   const [showFPS, setShowFPS, loadedFps] = usePersistedSetting('showFPS', false);
   const [reducedParticles, setReducedParticles, loadedParticles] = usePersistedSetting('reducedParticles', true);
+  const [hapticsEnabled, setHapticsEnabled, loadedHaptics] = usePersistedSetting('hapticsEnabled', true);
+  const [largeControls, setLargeControls, loadedLarge] = usePersistedSetting('largeControls', false);
 
-  const allLoaded = loadedMaster && loadedSfx && loadedMusic && loadedFps && loadedParticles;
+  const allLoaded = loadedMaster && loadedSfx && loadedMusic && loadedFps && loadedParticles && loadedHaptics && loadedLarge;
 
   if (!allLoaded) {
     return (
@@ -111,6 +113,28 @@ export default function SettingsScreen() {
           />
         </SettingRow>
 
+        <SettingRow label="Haptics" value={hapticsEnabled ? 'On' : 'Off'}>
+          <Switch
+            value={hapticsEnabled}
+            onValueChange={setHapticsEnabled}
+            trackColor={{ false: 'rgba(255,255,255,0.18)', true: '#0A84FF' }}
+            thumbColor="#fff"
+            accessibilityLabel="Haptic feedback"
+            accessibilityHint="Toggles vibration feedback during gameplay"
+          />
+        </SettingRow>
+
+        <SettingRow label="Large Touch Controls" value={largeControls ? 'On' : 'Off'}>
+          <Switch
+            value={largeControls}
+            onValueChange={setLargeControls}
+            trackColor={{ false: 'rgba(255,255,255,0.18)', true: '#0A84FF' }}
+            thumbColor="#fff"
+            accessibilityLabel="Large touch controls"
+            accessibilityHint="Increases on-screen button sizes for easier tapping"
+          />
+        </SettingRow>
+
         <TouchableOpacity
           style={styles.resetBtn}
           activeOpacity={0.8}
@@ -132,6 +156,8 @@ export default function SettingsScreen() {
                     setMusicVolume(0.6);
                     setShowFPS(false);
                     setReducedParticles(true);
+                    setHapticsEnabled(true);
+                    setLargeControls(false);
                   },
                 },
               ],
