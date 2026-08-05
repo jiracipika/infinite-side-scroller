@@ -77,6 +77,24 @@ assert(mobileGame.includes('Share this run result'), 'mobile share control must 
 assert(mobileGame.includes('label="Best Combo"'), 'mobile game-over overlay must display best combo')
 assert(mobileGame.includes('label="Defeated"'), 'mobile game-over overlay must display defeated enemies')
 
+// 9. Settings bridge — persisted preferences must reach the running engine.
+assert(gameHtml.includes('setAudioVolumes'), 'mobile game bundle must expose setAudioVolumes on the engine bridge')
+assert(gameHtml.includes('setUserReducedParticles'), 'mobile game bundle must expose setUserReducedParticles on the engine bridge')
+assert(gameHtml.includes('resumeAudio'), 'mobile game bundle must expose resumeAudio on the engine bridge')
+assert(mobileGame.includes('loadGameSettings'), 'mobile game screen must load persisted game settings on mount')
+assert(mobileGame.includes('settingsRef'), 'mobile game screen must hold settings in a ref for the WebView bridge')
+assert(mobileGame.includes('setAudioVolumes('), 'mobile game screen must push audio volumes to the engine')
+assert(mobileGame.includes('setUserReducedParticles('), 'mobile game screen must push reduced-particles preference to the engine')
+assert(mobileGame.includes("useFocusEffect"), 'mobile game screen must refresh settings on tab focus')
+
+// 10. Game-over must carry final stats (not rely on a stale HUD snapshot).
+assert(gameHtml.includes("type: 'gameover'") && gameHtml.includes('finalStats'), 'mobile game bundle must pass final stats through the gameover message')
+assert(mobileGame.includes('data.distance || stats.distance'), 'mobile gameover handler must prefer engine final stats over stale snapshot')
+
+// 11. Large-controls and showFPS settings must be wired to the UI.
+assert(mobileGame.includes('largeControls={largeControls}'), 'mobile touch controls must receive the largeControls setting')
+assert(mobileGame.includes('showFPS={showFPS}'), 'mobile HUD must receive the showFPS setting')
+
 if (failures > 0) {
   console.error(`${failures} mobile bundle check(s) failed`)
   process.exit(1)

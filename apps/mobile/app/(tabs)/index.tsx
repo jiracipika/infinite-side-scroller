@@ -14,11 +14,13 @@ import {
 } from 'react-native';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import { Tabs } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { loadPlayerBest, savePlayerBest } from '../../lib/player-best';
 import { appendRunHistory } from '../../lib/run-history';
+import { loadGameSettings, DEFAULT_GAME_SETTINGS, type GameSettings } from '../../lib/game-settings';
 
 const GAME_HTML = require('../../assets/game.html');
 
@@ -58,8 +60,12 @@ export default function GameScreen() {
   const [webViewKey, setWebViewKey] = useState(0);
   const [webViewReady, setWebViewReady] = useState(false);
   const [runRequestId, setRunRequestId] = useState(0);
+  const [largeControls, setLargeControls] = useState(DEFAULT_GAME_SETTINGS.largeControls);
+  const [hapticsEnabled, setHapticsEnabled] = useState(DEFAULT_GAME_SETTINGS.hapticsEnabled);
+  const [showFPS, setShowFPS] = useState(DEFAULT_GAME_SETTINGS.showFPS);
   const pendingRunRef = useRef<number | null>(null);
   const gameStateRef = useRef<GameState>('menu');
+  const settingsRef = useRef<GameSettings>(DEFAULT_GAME_SETTINGS);
 
   useEffect(() => {
     gameStateRef.current = gameState;
@@ -72,6 +78,42 @@ export default function GameScreen() {
     });
     return () => { mounted = false; };
   }, []);
+
+  // Load persisted settings on mount and whenever the game tab gains focus
+  // (so changes made in the Settings tab are picked up on return).
+  const refreshSettings = useCallback(() => {
+    let mounted = true;
+    void loadGameSettings().then(settings => {
+      if (!mounted) return;
+      settingsRef.current = settings;
+      setLargeControls(settings.largeControls);
+      setHapticsEnabled(settings.hapticsEnabled);
+      setShowFPS(settings.showFPS);
+      // Push audio/particle preferences into the engine if the WebView is alive.
+      if (webViewRef.current) {
+        webViewRef.current.injectJavaScript(
+          `try { window.__gameControls.setAudioVolumes(${settings.masterVolume}, ${settings.sfxVolume}); } catch(e){} true;`
+        );
+        webViewRef.current.injectJavaScript(
+          `try { window.__gameControls.setUserReducedParticles(${settings.reducedParticles}); } catch(e){} true;`
+        );
+      }
+    });
+    return () => { mounted = false; };
+  }, []);
+
+  useEffect(() => {
+    const cleanup = refreshSettings();
+    return cleanup;
+  }, [refreshSettings]);
+
+  // Re-read settings whenever the Game tab regains focus, so changes made in
+  // the Settings tab are reflected immediately on return.
+  useFocusEffect(
+    React.useCallback(() => {
+      refreshSettings();
+    }, [refreshSettings])
+  );
 
   const sendInput = useCallback((type: string, value: boolean) => {
     const detail = JSON.stringify({ type, value });
@@ -146,6 +188,12 @@ export default function GameScreen() {
     if (!webViewReady || seed === null) return;
 
     pendingRunRef.current = null;
+    // Apply persisted settings before starting the run so the first frame
+    // respects audio volumes and particle preferences.
+    const s = settingsRef.current;
+    webViewRef.current?.injectJavaScript(
+      `try { window.__gameControls.setAudioVolumes(${s.masterVolume}, ${s.sfxVolume}); window.__gameControls.setUserReducedParticles(${s.reducedParticles}); window.__gameControls.resumeAudio(); } catch(e){} true;`
+    );
     callEngine(`setSeed(${seed})`);
     callEngine('resume');
   }, [callEngine, runRequestId, webViewReady]);
@@ -192,10 +240,11 @@ export default function GameScreen() {
   return (
     <View style={styles.container}>
       <StatusBar style="light" hidden={gameState === 'playing'} />
-      {gameState === 'playing' && (
+      {gameState !== 'menu' && (
         <Tabs.Screen
           options={{
-            // A side-scroller needs every available pixel during an active run.
+            // A side-scroller needs every available pixel during an active run
+            // and its pause/game-over overlays.
             tabBarStyle: { display: 'none' },
           }}
         />
@@ -232,11 +281,11 @@ export default function GameScreen() {
       )}
 
       {/* HUD overlay during gameplay */}
-      {gameState === 'playing' && <HUD stats={stats} onPause={handlePause} />}
+      {gameState === 'playing' && <HUD stats={stats} onPause={handlePause} showFPS={showFPS} />}
 
       {/* Touch controls during gameplay */}
       {gameState === 'playing' && (
-        <TouchControls sendInput={sendInput} />
+        <TouchControls sendInput={sendInput} largeControls={largeControls} />
       )}
 
       {/* Menu overlays */}
@@ -264,7 +313,8 @@ export default function GameScreen() {
 
 const TouchControls: React.FC<{
   sendInput: (type: string, value: boolean) => void;
-}> = ({ sendInput }) => {
+  largeControls?: boolean;
+}> = ({ sendInput, largeControls = false }) => {
   const heldInputsRef = useRef<Set<string>>(new Set());
   const [movementDirection, setMovementDirectionState] = useState<-1 | 0 | 1>(0);
 
@@ -329,7 +379,7 @@ const TouchControls: React.FC<{
       <View style={styles.rightControls}>
         <View style={styles.actionRow}>
           <DirectionButton
-            size="sm"
+            size={largeControls ? 'lg' : 'sm'}
             icon="speedometer"
             label="Dash"
             hint="Tap to dash in the facing direction"
@@ -338,7 +388,7 @@ const TouchControls: React.FC<{
             accent="purple"
           />
           <DirectionButton
-            size="sm"
+            size={largeControls ? 'lg' : 'sm'}
             icon="flash"
             label="Attack"
             hint="Hold to attack while running"
@@ -430,7 +480,7 @@ const DirectionButton: React.FC<{
 
 // ─── HUD ───────────────────────────────────────────────────────────
 
-const HUD: React.FC<{ stats: GameStats; onPause: () => void }> = ({ stats, onPause }) => {
+const HUD: React.FC<{ stats: GameStats; onPause: () => void; showFPS?: boolean }> = ({ stats, onPause, showFPS = false }) => {
   const hearts = Array.from({ length: stats.maxHealth }).map((_, i) => i);
 
   return (
@@ -476,6 +526,11 @@ const HUD: React.FC<{ stats: GameStats; onPause: () => void }> = ({ stats, onPau
 
         {/* Right: Biome + Pause */}
         <View style={styles.hudRight}>
+          {showFPS && (
+            <View style={styles.hudBadge} accessible accessibilityLabel={`${Math.round(stats.fps)} FPS`}>
+              <Text style={styles.fpsText}>{Math.round(stats.fps)} FPS</Text>
+            </View>
+          )}
           <View style={styles.hudBadge}>
             <Text style={styles.biomeText}>{stats.biome}</Text>
           </View>
@@ -793,6 +848,7 @@ const styles = StyleSheet.create({
   },
   distanceText: { color: 'rgba(255,255,255,0.25)', fontSize: 11, marginTop: 2 },
   biomeText: { color: 'rgba(255,255,255,0.4)', fontSize: 11, fontWeight: '500' },
+  fpsText: { color: 'rgba(48,209,88,0.8)', fontSize: 11, fontWeight: '600' },
   pauseBtn: {
     width: 48, height: 48, borderRadius: 24,
     backgroundColor: 'rgba(0,0,0,0.4)',

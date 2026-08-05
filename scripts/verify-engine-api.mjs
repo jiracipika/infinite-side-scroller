@@ -22,6 +22,11 @@ const requiredMethods = [
   'killEnemiesById',
   'grantLocalPlayerLife',
   'setInterpolationDelay',
+  // Settings bridge — consumed by the mobile WebView shell.
+  'setAudioVolumes',
+  'setUserReducedParticles',
+  'setReducedMotion',
+  'resumeAudio',
 ]
 
 for (const method of requiredMethods) {

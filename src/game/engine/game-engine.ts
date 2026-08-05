@@ -187,6 +187,13 @@ export class GameEngine {
   private reducedMotion = false;
 
   /**
+   * User-level particle override from the settings screen. When true, the
+   * adaptive quality system is bypassed and the particle system stays in
+   * reduced mode regardless of FPS. Set from persisted player settings.
+   */
+  private userReducedParticles = false;
+
+  /**
    * Hit-stop (freeze-frame): when > 0, the simulation update is suspended for
    * a few centiseconds to add weight to impactful moments — enemy defeats,
    * heavy hits, boss takedowns, shield breaks. Rendering continues so visual
@@ -208,7 +215,13 @@ export class GameEngine {
   worldSeed = 42;
   difficulty = getDifficulty(0);
 
-  onGameOver?: () => void;
+  onGameOver?: (finalStats: {
+    score: number;
+    coins: number;
+    distance: number;
+    maxCombo: number;
+    enemiesDefeated: number;
+  }) => void;
   onLevelComplete?: (result: {
     score: number;
     coins: number;
@@ -397,6 +410,17 @@ export class GameEngine {
   /** Update audio volumes from persisted settings. */
   setAudioVolumes(master: number, sfx: number): void {
     this.sfx.setVolumes(master, sfx);
+  }
+
+  /**
+   * Apply a user-level reduced-particles override. When enabled, particles
+   * stay reduced regardless of the adaptive quality system, giving players
+   * with low-end devices or motion sensitivity a predictable visual load.
+   */
+  setUserReducedParticles(enabled: boolean): void {
+    this.userReducedParticles = enabled;
+    // Apply immediately so the change takes effect on the next frame.
+    this.particles.setReducedParticles(enabled);
   }
 
   /** Resume the AudioContext (must be called from a user gesture). */
@@ -1228,6 +1252,16 @@ export class GameEngine {
 
     if (this.qualityChangeTimer >= this.qualityChangeCooldown) {
       this.qualityChangeTimer = 0;
+
+      // When the user explicitly requests reduced particles from settings,
+      // bypass adaptive quality and keep particles reduced at all FPS levels.
+      if (this.userReducedParticles) {
+        if (this.currentQualityLevel !== "low") {
+          this.currentQualityLevel = "low";
+        }
+        this.particles.setReducedParticles(true);
+        return;
+      }
 
       if (metrics.fps < 30 && this.currentQualityLevel !== "low") {
         // Drop quality
@@ -2300,7 +2334,13 @@ export class GameEngine {
       this._state = "gameover";
       this.camera.shake(8, 0.5);
       this.sfx.play("gameOver");
-      this.onGameOver?.();
+      this.onGameOver?.({
+        score: Math.max(0, Math.floor(this.player.score)),
+        coins: Math.max(0, Math.floor(this.player.coins)),
+        distance: Math.max(0, Math.floor(this.player.distance)),
+        maxCombo: Math.max(0, Math.floor(this.maxCombo)),
+        enemiesDefeated: Math.max(0, Math.floor(this.enemiesDefeated)),
+      });
     }
 
     // Power-ups for HUD

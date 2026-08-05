@@ -1,9 +1,9 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { EMPTY_PLAYER_BEST, loadPlayerBest, type PlayerBest } from '../../lib/player-best';
-import { loadRunHistory, formatRunDate, type RunEntry } from '../../lib/run-history';
+import { loadRunHistory, clearRunHistory, formatRunDate, type RunEntry } from '../../lib/run-history';
 
 export default function LeaderboardScreen() {
   const [best, setBest] = React.useState<PlayerBest>(EMPTY_PLAYER_BEST);
@@ -50,7 +50,33 @@ export default function LeaderboardScreen() {
         {/* Recent Runs */}
         {history.length > 0 && (
           <View style={styles.recentSection}>
-            <Text style={styles.recentTitle}>Recent Runs</Text>
+            <View style={styles.recentHeader}>
+              <Text style={styles.recentTitle}>Recent Runs</Text>
+              <TouchableOpacity
+                onPress={() =>
+                  Alert.alert(
+                    'Clear Run History',
+                    'Remove all recent runs from this device? Your personal best is kept.',
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      {
+                        text: 'Clear',
+                        style: 'destructive',
+                        onPress: async () => {
+                          await clearRunHistory();
+                          setHistory([]);
+                        },
+                      },
+                    ],
+                  )
+                }
+                accessibilityRole="button"
+                accessibilityLabel="Clear run history"
+                accessibilityHint="Removes all recent runs from this device"
+              >
+                <Text style={styles.clearBtnText}>Clear</Text>
+              </TouchableOpacity>
+            </View>
             {history.map((run, i) => (
               <View key={run.timestamp + '-' + i} style={styles.runRow}>
                 <View style={styles.runRowLeft}>
@@ -198,13 +224,23 @@ const styles = StyleSheet.create({
   recentSection: {
     marginTop: 12,
   },
+  recentHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
   recentTitle: {
     color: 'rgba(255,255,255,0.5)',
     fontSize: 13,
     fontWeight: '700',
     letterSpacing: 1,
     textTransform: 'uppercase',
-    marginBottom: 10,
+  },
+  clearBtnText: {
+    color: 'rgba(248,113,113,0.7)',
+    fontSize: 13,
+    fontWeight: '600',
   },
   runRow: {
     flexDirection: 'row',

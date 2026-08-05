@@ -111,9 +111,14 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
     }));
   };
 
-  engine.onGameOver = function() {
+  engine.onGameOver = function(finalStats) {
     window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({
-      type: 'gameover'
+      type: 'gameover',
+      score: typeof finalStats === 'object' && finalStats ? Math.max(0, Math.floor(finalStats.score || 0)) : 0,
+      distance: typeof finalStats === 'object' && finalStats ? Math.max(0, Math.floor(finalStats.distance || 0)) : 0,
+      coins: typeof finalStats === 'object' && finalStats ? Math.max(0, Math.floor(finalStats.coins || 0)) : 0,
+      maxCombo: typeof finalStats === 'object' && finalStats ? Math.max(0, Math.floor(finalStats.maxCombo || 0)) : 0,
+      enemiesDefeated: typeof finalStats === 'object' && finalStats ? Math.max(0, Math.floor(finalStats.enemiesDefeated || 0)) : 0,
     }));
   };
 
@@ -129,8 +134,20 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
     setLevel: function(config) { engine.setLevel(config); },
     pause: function() { engine.pause(); },
     resume: function() { engine.resume(); },
+    resumeAudio: function() { engine.resumeAudio(); },
     getState: function() { return engine.state; },
     setCharacter: function(id) { engine.setSeed(engine.worldSeed, id); },
+    // Settings bridge — lets the React Native shell apply persisted player
+    // preferences to the running engine without a full remount.
+    setAudioVolumes: function(master, sfx) {
+      try { engine.setAudioVolumes(master, sfx); } catch(e) {}
+    },
+    setReducedMotion: function(enabled) {
+      try { engine.setReducedMotion(enabled); } catch(e) {}
+    },
+    setUserReducedParticles: function(enabled) {
+      try { engine.setUserReducedParticles(enabled); } catch(e) {}
+    },
   };
 
   // Announce readiness only after the native command bridge exists. The React
