@@ -67,13 +67,23 @@ const START_SAFE_ZONE_END = 760;
 const MAX_CANVAS_DPR = 2;
 const MOBILE_CANVAS_DPR = 1.5;
 const MOBILE_CANVAS_AREA = 900 * 520;
+// Large desktop canvases (e.g. Retina MacBook Air at 1280x720+) have enough
+// pixel area that rendering at DPR 2 doubles fill-rate for a barely-perceptible
+// sharpness gain. Cap those at 1.5 — 44% fewer pixels, near-identical visuals.
+const DESKTOP_LARGE_AREA = 1200 * 700;
+const DESKTOP_LARGE_DPR = 1.5;
 
 function getCanvasRenderDpr(rawDpr: number, width: number, height: number): number {
   const safeDpr = Number.isFinite(rawDpr) && rawDpr > 0 ? rawDpr : 1;
+  const area = width * height;
   const cappedDpr = Math.min(safeDpr, MAX_CANVAS_DPR);
-  return width * height <= MOBILE_CANVAS_AREA
-    ? Math.min(cappedDpr, MOBILE_CANVAS_DPR)
-    : cappedDpr;
+  if (area <= MOBILE_CANVAS_AREA) {
+    return Math.min(cappedDpr, MOBILE_CANVAS_DPR);
+  }
+  if (area >= DESKTOP_LARGE_AREA) {
+    return Math.min(cappedDpr, DESKTOP_LARGE_DPR);
+  }
+  return cappedDpr;
 }
 
 export type EngineState = "playing" | "paused" | "gameover";
@@ -108,6 +118,8 @@ interface PlayerProjectileSnapshot {
   radius: number;
   color: string;
   glowColor: string;
+  pierce?: number;
+  isMagicBolt?: boolean;
 }
 
 interface GhostPoint {
@@ -170,6 +182,22 @@ export class GameEngine {
   private currentQualityLevel = "high"; // 'high', 'medium', 'low'
   private qualityChangeTimer = 0;
   private qualityChangeCooldown = 2.0; // seconds between quality changes
+
+  /**
+   * Performance DPR — starts conservative (1.25) and only rises to the full
+   * device DPR after sustained good performance (FPS > 55 for 5+ seconds).
+   * This lets low-end machines boot fast and earn visual quality, instead of
+   * launching straight to DPR 2 and dropping frames before the adaptive
+   * system has a chance to measure anything.
+   */
+  private performanceDprScale = 0.625; // multiplies the base DPR (0.625 * 2 = 1.25)
+  private highFpsAccumulator = 0; // seconds of sustained high FPS
+  private performanceDprBoosted = false; // set true once we unlock full DPR
+  /** Target DPR computed at resize time — performance DPR scaling is applied on top. */
+  private currentRenderDpr = 1;
+  /** CSS-space dimensions of the canvas from the last resize. */
+  private currentRenderWidth = 0;
+  private currentRenderHeight = 0;
 
   private animationId: number | null = null;
   private resizeObserver: ResizeObserver | null = null;
@@ -313,6 +341,12 @@ export class GameEngine {
   private comboTimer = 0;
   private maxCombo = 0;
   private readonly COMBO_DECAY_SECONDS = 3.0;
+
+  // Melee swing tracking — records which enemies have already been hit by the
+  // current swing so the hitbox doesn't multi-tick across frames. Cleared
+  // whenever a new swing begins (detected by meleeActive going false→true).
+  private meleeAlreadyHitIds = new Set<string>();
+  private meleeWasActive = false;
 
   constructor(
     canvas: HTMLCanvasElement,
@@ -514,6 +548,10 @@ export class GameEngine {
     this.maxCombo = 0;
     this.hitStopTimer = 0;
     this.lastDistanceMilestone = 0;
+    // Reset performance DPR so a new run re-evaluates the device rather than
+    // inheriting a stale boosted state from a prior session.
+    this.performanceDprBoosted = false;
+    this.highFpsAccumulator = 0;
     this.prepareOpeningFrame();
     // Reset timing to avoid first-frame spike after restart
     this.lastTime = performance.now();
@@ -775,6 +813,8 @@ export class GameEngine {
       radius: p.radius,
       color: p.color,
       glowColor: p.glowColor,
+      pierce: p.pierce,
+      isMagicBolt: p.isMagicBolt,
     }));
   }
 
@@ -1143,7 +1183,25 @@ export class GameEngine {
     );
     const width = Math.max(1, hostWidth);
     const height = Math.max(1, hostHeight);
-    const dpr = getCanvasRenderDpr(rawDpr, width, height);
+    let dpr = getCanvasRenderDpr(rawDpr, width, height);
+
+    // Performance DPR scaling: start conservative (62.5% of target → 1.25 on
+    // a DPR-2 Retina display) and only unlock full DPR after the machine
+    // proves it can hold 55+ FPS for 5 seconds. This is the single biggest
+    // lever for low-end devices that otherwise render at full resolution on
+    // frame 1 and stall before adaptive quality kicks in.
+    if (!this.performanceDprBoosted) {
+      dpr = Math.max(1, dpr * this.performanceDprScale);
+    }
+    // When adaptive quality drops to "low", force DPR 1.0 so the renderer
+    // sheds as much fill-rate as possible while we recover FPS.
+    if (this.currentQualityLevel === "low") {
+      dpr = 1;
+    }
+    this.currentRenderDpr = dpr;
+    this.currentRenderWidth = width;
+    this.currentRenderHeight = height;
+
     const pixelWidth = Math.max(1, Math.floor(width * dpr));
     const pixelHeight = Math.max(1, Math.floor(height * dpr));
 
@@ -1248,12 +1306,30 @@ export class GameEngine {
     this.animationId = requestAnimationFrame(this.loop);
   };
 
-  /** Adaptive quality: adjust particle count based on FPS */
+  /** Adaptive quality: adjust particle count and DPR based on FPS */
   private updateAdaptiveQuality(): void {
     if (!this.adaptiveQualityEnabled) return;
 
     const metrics = this.profiler.getMetrics();
     this.qualityChangeTimer += Math.min(metrics.frameTime / 1000, MAX_ACCUMULATED);
+
+    // ── Performance DPR ramp-up ────────────────────────────────────
+    // Track sustained high FPS. Once we accumulate 5+ seconds of 55+ FPS,
+    // unlock the full target DPR so the machine earns its native sharpness.
+    if (!this.performanceDprBoosted) {
+      if (metrics.fps >= 55) {
+        this.highFpsAccumulator += metrics.frameTime / 1000;
+        if (this.highFpsAccumulator >= 5.0) {
+          this.performanceDprBoosted = true;
+          // Re-apply the full DPR on the next resize.
+          this.scheduleResize();
+        }
+      } else {
+        // Reset the accumulator on any sub-55FPS frame so the 5s window is
+        // truly consecutive.
+        this.highFpsAccumulator = 0;
+      }
+    }
 
     if (this.qualityChangeTimer >= this.qualityChangeCooldown) {
       this.qualityChangeTimer = 0;
@@ -1269,13 +1345,15 @@ export class GameEngine {
       }
 
       if (metrics.fps < 30 && this.currentQualityLevel !== "low") {
-        // Drop quality
+        // Drop quality — also clamp DPR to 1.0 to shed fill-rate.
         this.currentQualityLevel = "low";
         this.particles.setReducedParticles(true);
+        this.handleResize();
       } else if (metrics.fps > 50 && this.currentQualityLevel !== "high") {
-        // Increase quality
+        // Increase quality — restore DPR if we have earned it.
         this.currentQualityLevel = "high";
         this.particles.setReducedParticles(false);
+        this.handleResize();
       } else if (
         metrics.fps >= 35 &&
         metrics.fps < 50 &&
@@ -1284,6 +1362,7 @@ export class GameEngine {
         // Medium quality
         this.currentQualityLevel = "medium";
         this.particles.setReducedParticles(false);
+        this.handleResize();
       }
     }
   }
@@ -1844,6 +1923,13 @@ export class GameEngine {
       }
     }
 
+    // Detect a new melee swing (false→true transition) and clear the
+    // already-hit set so each enemy can be struck by the fresh swing.
+    if (this.player.meleeActive && !this.meleeWasActive) {
+      this.meleeAlreadyHitIds.clear();
+    }
+    this.meleeWasActive = this.player.meleeActive;
+
     // Wall collision
     if (!carriedByRemote && wallSide) {
       const wallX =
@@ -2055,6 +2141,8 @@ export class GameEngine {
       // Player projectiles hitting enemies.
       // A projectile sets proj.life = 0 on the first hit; skip already-dead
       // projectiles so a single shot can't damage multiple enemies in one frame.
+      // Magic bolts (pierce > 0) survive the first hit and decrement pierce
+      // instead of being destroyed.
       for (const proj of this.player.projectiles) {
         if (proj.life <= 0) continue;
         const size = proj.radius * 2;
@@ -2070,8 +2158,38 @@ export class GameEngine {
           )
         ) {
           enemy.takeDamage(proj.damage);
-          proj.life = 0;
+          if (proj.pierce && proj.pierce > 0) {
+            proj.pierce -= 1;
+            if (proj.pierce <= 0) proj.life = 0;
+          } else {
+            proj.life = 0;
+          }
           if (!enemy.alive) this.awardEnemyDefeat(enemy);
+        }
+      }
+
+      // Melee hitbox — if the player has an active swing, enemies overlapping
+      // the arc take melee damage. Each enemy can only be hit once per swing
+      // (tracked via meleeAlreadyHitIds) so the hitbox doesn't multi-tick.
+      const meleeBox = this.player.getMeleeHitbox();
+      if (meleeBox && aabbOverlap(meleeBox, enemy.getBounds()) && enemy.alive) {
+        const enemyId = enemy.netId;
+        if (!this.meleeAlreadyHitIds.has(enemyId)) {
+          this.meleeAlreadyHitIds.add(enemyId);
+          enemy.takeDamage(this.player.meleeDamage);
+          if (!enemy.alive) {
+            this.awardEnemyDefeat(enemy);
+          } else {
+            // Knockback away from the player on a melee hit.
+            const kbDir = this.player.meleeDirection;
+            enemy.vx += kbDir * 180;
+            enemy.vy = Math.min(enemy.vy, -120);
+          }
+          // Visual + audio feedback for the melee connect.
+          this.particles.spawnHitFlash(
+            enemy.x + enemy.width / 2,
+            enemy.y + enemy.height / 2,
+          );
         }
       }
 
@@ -2464,6 +2582,21 @@ export class GameEngine {
     for (const p of this.player.projectiles) {
       const sx = p.x - this.camera.renderX;
       const sy = p.y - this.camera.renderY;
+
+      // Magic bolt trail — draw fading afterglow positions behind the bolt.
+      if (p.isMagicBolt && p.trail && p.trail.length > 1) {
+        for (let i = p.trail.length - 1; i >= 1; i--) {
+          const t = p.trail[i];
+          const alpha = (1 - i / p.trail.length) * 0.4;
+          const tx = t.x - this.camera.renderX;
+          const ty = t.y - this.camera.renderY;
+          ctx.fillStyle = `rgba(168, 85, 247, ${alpha})`;
+          ctx.beginPath();
+          ctx.arc(tx, ty, p.radius * (1 - i / p.trail.length * 0.5), 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
       ctx.fillStyle = p.color;
       ctx.beginPath();
       ctx.arc(sx, sy, p.radius, 0, Math.PI * 2);
@@ -2473,6 +2606,14 @@ export class GameEngine {
       ctx.beginPath();
       ctx.arc(sx, sy, p.radius + 3, 0, Math.PI * 2);
       ctx.fill();
+
+      // Magic bolt inner core — bright purple-white center.
+      if (p.isMagicBolt) {
+        ctx.fillStyle = "rgba(240, 220, 255, 0.8)";
+        ctx.beginPath();
+        ctx.arc(sx, sy, p.radius * 0.45, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
 
     if (this.multiplayerEnabled && this.remoteProjectiles.length > 0) {
@@ -2567,6 +2708,13 @@ export class GameEngine {
       ctx.fillRect(sx, sy, this.player.width, this.player.height);
     }
 
+    // Melee swing arc — drawn as a white/cyan semi-transparent arc in front
+    // of the player during the active swing window. The arc sweeps based on
+    // swing progress so it reads as a slashing motion rather than a static box.
+    if (this.player.meleeActive) {
+      this.drawMeleeArc(ctx);
+    }
+
     if (
       this.multiplayerEnabled &&
       this.remotePlayer &&
@@ -2611,5 +2759,70 @@ export class GameEngine {
       ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
       ctx.fillRect(0, 0, width, height);
     }
+  }
+
+  /**
+   * Draw the melee swing arc — a white/cyan semi-transparent arc that sweeps
+   * in front of the player based on swing progress (0..1). The arc is drawn
+   * in screen space offset by the camera. Character-specific tint:
+   *   knight  → steel white
+   *   ninja   → green-tinged
+   *   tank    → amber heavy slash
+   *   cyborg  → cyan energy blade
+   */
+  private drawMeleeArc(ctx: CanvasRenderingContext2D): void {
+    const progress = this.player.meleeProgress; // 0..1
+    if (progress <= 0 || progress >= 1) return;
+
+    const dir = this.player.meleeDirection;
+    const px = this.player.x - this.camera.renderX + this.player.width / 2;
+    const py = this.player.y - this.camera.renderY + this.player.height / 2;
+
+    // Character-specific slash tint.
+    let tint = "rgba(255, 255, 255, 0.55)";
+    let glow = "rgba(186, 230, 253, 0.35)";
+    const charId = this.player.characterId;
+    if (charId === "ninja") {
+      tint = "rgba(134, 239, 172, 0.5)";
+      glow = "rgba(74, 222, 128, 0.3)";
+    } else if (charId === "tank") {
+      tint = "rgba(252, 211, 77, 0.55)";
+      glow = "rgba(245, 158, 11, 0.35)";
+    } else if (charId === "cyborg") {
+      tint = "rgba(103, 232, 249, 0.55)";
+      glow = "rgba(34, 211, 238, 0.35)";
+    }
+
+    const radius = 40;
+    // The arc sweeps from -50° to +50° relative to the facing direction,
+    // and the visible portion follows the progress so it looks like a slash.
+    const sweepSpan = Math.PI * 0.62; // ~112°
+    const startAngle = dir > 0 ? -sweepSpan / 2 : Math.PI + sweepSpan / 2;
+    const currentAngle = startAngle + dir * sweepSpan * progress;
+
+    ctx.save();
+    // Outer glow arc — wider, lower opacity.
+    ctx.strokeStyle = glow;
+    ctx.lineWidth = 14;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.arc(px, py, radius + 6, startAngle, currentAngle, dir < 0);
+    ctx.stroke();
+
+    // Main slash arc — bright, thinner.
+    ctx.strokeStyle = tint;
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.arc(px, py, radius, startAngle, currentAngle, dir < 0);
+    ctx.stroke();
+
+    // Leading edge spark — a small bright dot at the tip of the slash.
+    const tipX = px + Math.cos(currentAngle) * (radius + 4);
+    const tipY = py + Math.sin(currentAngle) * (radius + 4);
+    ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+    ctx.beginPath();
+    ctx.arc(tipX, tipY, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
   }
 }

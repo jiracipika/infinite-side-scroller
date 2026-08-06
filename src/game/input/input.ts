@@ -39,6 +39,8 @@ export class InputManager {
   private touchDashPressed = false;
   private touchCarry = false;
   private touchCarryPressed = false;
+  private touchMelee = false;
+  private touchMeleePressed = false;
 
   private handleGameInput: ((e: CustomEvent) => void) | null = null;
   private readonly inputChannel: string;
@@ -112,6 +114,14 @@ export class InputManager {
               this.touchCarry = false;
             }
             break;
+          case 'melee-press':
+            if (value) {
+              if (!this.touchMelee) this.touchMeleePressed = true;
+              this.touchMelee = true;
+            } else {
+              this.touchMelee = false;
+            }
+            break;
         }
       };
       window.addEventListener(this.inputChannel, this.handleGameInput as EventListener);
@@ -152,6 +162,8 @@ export class InputManager {
     this.touchDashPressed = false;
     this.touchCarry = false;
     this.touchCarryPressed = false;
+    this.touchMelee = false;
+    this.touchMeleePressed = false;
     this.gamepad = { ...EMPTY_GAMEPAD_INPUT };
     this.prevGamepad = { ...EMPTY_GAMEPAD_INPUT };
   };
@@ -168,6 +180,8 @@ export class InputManager {
   }
 
   private acceptsKey(code: string): boolean {
+    // Melee keys are always accepted regardless of keyboard scheme.
+    if (code === 'KeyC' || code === 'KeyN') return true;
     if (this.keyboardScheme === 'all') return true;
     if (this.keyboardScheme === 'wasd') {
       return ['KeyA', 'KeyD', 'KeyW', 'KeyE', 'KeyQ', 'KeyF'].includes(code);
@@ -208,6 +222,7 @@ export class InputManager {
     if (code === 'Space' || code === 'ArrowUp' || code === 'KeyW') return this.touchJump || gamepad.jump;
     if (code === 'KeyE' || code === 'KeyJ' || code === 'KeyZ') return this.touchAttack || gamepad.attack;
     if (code === 'KeyX' || code === 'ShiftLeft') return this.touchDash || gamepad.dash;
+    if (code === 'KeyC') return this.touchMelee || gamepad.melee;
     if (code === 'KeyF') return this.touchCarry || gamepad.carry;
     return false;
   }
@@ -225,6 +240,14 @@ export class InputManager {
     }
     if (code === 'KeyZ' && this.acceptsKey('KeyJ') && this.keys.has('KeyJ') && !this.prevKeys.has('KeyJ')) {
       return true;
+    }
+    // Melee attack — KeyC is the primary melee key. KeyJ is an alternate when
+    // the scheme is 'arrows' (where KeyJ already maps to attack). KeyN is a
+    // secondary alternate for layouts that prefer it.
+    if (code === 'KeyC') {
+      if (this.acceptsKey('KeyC') && this.keys.has('KeyC') && !this.prevKeys.has('KeyC')) return true;
+      if (this.acceptsKey('KeyN') && this.keys.has('KeyN') && !this.prevKeys.has('KeyN')) return true;
+      if (this.touchMeleePressed || (gamepad.melee && !this.prevGamepad.melee)) return true;
     }
     if (code === 'KeyF') {
       if (this.acceptsKey('ArrowDown') && this.keys.has('ArrowDown') && !this.prevKeys.has('ArrowDown')) return true;
@@ -264,6 +287,7 @@ export class InputManager {
     this.touchAttackPressed = false;
     this.touchDashPressed = false;
     this.touchCarryPressed = false;
+    this.touchMeleePressed = false;
   }
 
   /** Clean up event listeners */

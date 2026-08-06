@@ -22,6 +22,15 @@ import { loadPlayerBest, savePlayerBest } from '../../lib/player-best';
 import { appendRunHistory } from '../../lib/run-history';
 import { loadGameSettings, DEFAULT_GAME_SETTINGS, type GameSettings } from '../../lib/game-settings';
 import { useMobileHaptics } from '../../hooks/useMobileHaptics';
+import { FadeTransition } from '../../components/FadeTransition';
+import { LoadingSpinner, LoadingProgressBar } from '../../components/LoadingSpinner';
+import {
+  ParticleBurst,
+  ScreenShake,
+  useParticleBurst,
+  useScreenShake,
+} from '../../components/ParticleBurst';
+import { AnimatedScore, AnimatedHeart, AnimatedHealthBar, StaggeredEntry } from '../../components/AnimatedUI';
 
 const GAME_HTML = require('../../assets/game.html');
 
@@ -74,6 +83,32 @@ export default function GameScreen() {
   // without listing `stats` in its dependency array (which would recreate the
   // callback on every stats frame and cause excessive re-renders).
   const statsRef = useRef<GameStats>(DEFAULT_STATS);
+  // Track previous stat values to detect damage/coin milestones for particles.
+  const prevStatsRef = useRef<GameStats>(DEFAULT_STATS);
+
+  // Particle bursts and screen shake for key gameplay events.
+  const [damageBurstKey, triggerDamageBurst] = useParticleBurst();
+  const [shakeKey, triggerShake] = useScreenShake();
+  const [coinBurstKey, triggerCoinBurst] = useParticleBurst();
+
+  // Watch the stats stream for events that should fire visual effects.
+  useEffect(() => {
+    if (gameState !== 'playing') {
+      prevStatsRef.current = stats;
+      return;
+    }
+    const prev = prevStatsRef.current;
+    // Damage taken — screen shake + red particle burst.
+    if (stats.health < prev.health) {
+      triggerShake();
+      triggerDamageBurst();
+    }
+    // Coin collected — gold particle burst.
+    if (stats.coins > prev.coins) {
+      triggerCoinBurst();
+    }
+    prevStatsRef.current = stats;
+  }, [stats, gameState, triggerShake, triggerDamageBurst, triggerCoinBurst]);
 
   useEffect(() => {
     gameStateRef.current = gameState;
@@ -253,6 +288,7 @@ export default function GameScreen() {
   }, []);
 
   return (
+    <ScreenShake shakeKey={shakeKey} intensity={6} duration={350}>
     <View style={styles.container}>
       <StatusBar style="light" hidden={gameState === 'playing'} />
       {gameState !== 'menu' && (
@@ -292,8 +328,44 @@ export default function GameScreen() {
             onRenderProcessGone={handleRenderProcessGone}
             setSupportMultipleWindows={false}
           />
+          {/* WebView loading animation — shown while the game HTML loads. */}
+          {!webViewReady && (
+            <View style={styles.loadingOverlay} pointerEvents="none">
+              <LoadingSpinner label="Loading" size={48} color="#0A84FF" />
+              <View style={{ marginTop: 20 }}>
+                <LoadingProgressBar width={160} height={3} color="#0A84FF" />
+              </View>
+            </View>
+          )}
         </View>
       )}
+
+      {/* Damage particle burst — centered on screen */}
+      <ParticleBurst
+        burstKey={damageBurstKey}
+        config={{
+          count: 10,
+          colors: ['#f87171', '#ef4444', '#fca5a5', '#rgba(248,113,113,0.5)'],
+          minRadius: 20,
+          maxRadius: 60,
+          minSize: 3,
+          maxSize: 8,
+          duration: 500,
+        }}
+      />
+      {/* Coin particle burst — gold sparkle */}
+      <ParticleBurst
+        burstKey={coinBurstKey}
+        config={{
+          count: 8,
+          colors: ['#facc15', '#fde68a', '#fbbf24', '#fef08a'],
+          minRadius: 24,
+          maxRadius: 70,
+          minSize: 3,
+          maxSize: 7,
+          duration: 550,
+        }}
+      />
 
       {/* HUD overlay during gameplay */}
       {gameState === 'playing' && <HUD stats={stats} onPause={handlePause} showFPS={showFPS} />}
@@ -305,22 +377,46 @@ export default function GameScreen() {
 
       {/* Menu overlays */}
       {showMenu && gameState === 'menu' && (
-        <MenuOverlay onPlay={handlePlay} highScore={highScore} />
+        <FadeTransition
+          visible={true}
+          slideDirection="up"
+          slideDistance={30}
+          duration={400}
+          gradientColors={['rgba(0,0,0,0.94)', 'rgba(8,12,22,0.97)', 'rgba(16,20,34,0.99)']}
+        >
+          <MenuOverlay onPlay={handlePlay} highScore={highScore} />
+        </FadeTransition>
       )}
 
       {gameState === 'paused' && (
-        <PauseOverlay onResume={handleResume} onRestart={handleRestart} onQuit={handleQuit} />
+        <FadeTransition
+          visible={true}
+          slideDirection="none"
+          duration={250}
+          gradientColors={['rgba(0,0,0,0.5)', 'rgba(26,26,46,0.8)']}
+        >
+          <PauseOverlay onResume={handleResume} onRestart={handleRestart} onQuit={handleQuit} />
+        </FadeTransition>
       )}
 
       {gameState === 'gameover' && (
-        <GameOverOverlay
-          stats={stats}
-          highScore={highScore}
-          onRestart={handleRestart}
-          onQuit={handleQuit}
-        />
+        <FadeTransition
+          visible={true}
+          slideDirection="up"
+          slideDistance={40}
+          duration={350}
+          gradientColors={['rgba(0,0,0,0.7)', 'rgba(26,26,46,0.9)']}
+        >
+          <GameOverOverlay
+            stats={stats}
+            highScore={highScore}
+            onRestart={handleRestart}
+            onQuit={handleQuit}
+          />
+        </FadeTransition>
       )}
     </View>
+    </ScreenShake>
   );
 }
 
@@ -501,24 +597,31 @@ const HUD: React.FC<{ stats: GameStats; onPause: () => void; showFPS?: boolean }
   return (
     <SafeAreaView style={styles.hudContainer} pointerEvents="box-none">
       <View style={styles.hudRow} pointerEvents="box-none">
-        {/* Left: Hearts + Coins */}
+        {/* Left: Health bar + Coins */}
         <View style={styles.hudLeft}>
           <View
-            style={styles.hudBadge}
             accessible
             accessibilityLabel={`Health ${stats.health} of ${stats.maxHealth}`}
           >
-            {hearts.map(i => (
-              <Text
-                key={i}
-                style={[
-                  styles.heart,
-                  i < stats.health ? styles.heartFull : styles.heartEmpty,
-                ]}
-              >
-                ♥
-              </Text>
-            ))}
+            {/* Animated health bar with smooth fill transitions */}
+            <AnimatedHealthBar
+              health={stats.health}
+              maxHealth={stats.maxHealth}
+              width={90}
+              height={6}
+            />
+            {/* Heart icons with pulse on damage */}
+            <View style={styles.heartsRow}>
+              {hearts.map(i => (
+                <AnimatedHeart
+                  key={i}
+                  filled={i < stats.health}
+                  size={14}
+                  color="#f87171"
+                  emptyColor="rgba(255,255,255,0.15)"
+                />
+              ))}
+            </View>
           </View>
           <View style={styles.hudBadge} accessible accessibilityLabel={`${stats.coins} coins`}>
             <Text style={styles.coinDot}>●</Text>
@@ -533,9 +636,13 @@ const HUD: React.FC<{ stats: GameStats; onPause: () => void; showFPS?: boolean }
           )}
         </View>
 
-        {/* Center: Score */}
+        {/* Center: Score (animated counter) */}
         <View style={styles.hudCenter}>
-          <Text style={styles.scoreText}>{stats.score.toLocaleString()}</Text>
+          <AnimatedScore
+            value={stats.score}
+            duration={350}
+            textStyle={styles.scoreText}
+          />
           <Text style={styles.distanceText}>{Math.round(stats.distance)}m</Text>
         </View>
 
@@ -754,6 +861,13 @@ const styles = StyleSheet.create({
   webview: {
     flex: 1,
     backgroundColor: '#000',
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(6, 8, 20, 0.95)',
+    zIndex: 5,
   },
   touchOverlay: {
     ...StyleSheet.absoluteFillObject,

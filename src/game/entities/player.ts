@@ -30,7 +30,7 @@ export const DEFAULT_PLAYER_CONFIG: PlayerConfig = {
   height: 32,
 };
 
-export type WeaponType = "orb" | "slingshot" | "bow";
+export type WeaponType = "orb" | "slingshot" | "bow" | "magicBolt";
 
 /**
  * A timed power-up with its remaining duration (seconds).
@@ -58,6 +58,16 @@ export interface PlayerProjectile {
   radius: number;
   color: string;
   glowColor: string;
+  /**
+   * Magic bolts pierce: they survive the first enemy hit instead of being
+   * destroyed. The engine decrements this on each enemy hit; when it reaches
+   * 0 the projectile is removed like a normal one.
+   */
+  pierce?: number;
+  /** Trail positions for the magic bolt visual — last N positions, newest first. */
+  trail?: Array<{ x: number; y: number }>;
+  /** Marks the projectile as a magic bolt so the renderer can draw its trail. */
+  isMagicBolt?: boolean;
 }
 
 export class Player {
@@ -90,6 +100,23 @@ export class Player {
   private readonly DASH_DURATION = 0.15;
   private readonly DASH_SPEED = 600;
   private readonly DASH_COOLDOWN = 0.8;
+
+  // Melee attack — sword / blade swing arc for knight, ninja, tank, cyborg.
+  // The swing spawns a hitbox in front of the player for a brief window and
+  // is rendered as a white/cyan semi-transparent arc by the engine.
+  meleeActive = false;
+  meleeTimer = 0;          // remaining active-hitbox time
+  meleeCooldown = 0;       // cooldown remaining before next swing
+  meleeDirection = 1;      // 1 = facing right, -1 = facing left
+  private meleeMaxDuration = 0.2;
+  private meleeMaxRange = 48;
+  private meleeDamageValue = 2;
+  private meleeMaxCooldown = 0.4;
+  private meleeEnabled = false;
+
+  // Magic bolt — Mage's enhanced projectile. When true, the default orb shot
+  // is replaced by a piercing purple bolt with a trail and double damage.
+  private hasMagicBolt = false;
 
   // Shield power-up
   shieldActive = false;
@@ -175,6 +202,19 @@ export class Player {
     this.autoReviveUsed = false;
     this.coinFractionRemainder = 0;
     this.setDoubleJump(this.hasInnateDoubleJump());
+
+    // Melee combat — knight, ninja, tank, cyborg carry blades.
+    this.meleeEnabled = !!char.hasMelee;
+    this.meleeMaxCooldown = char.meleeCooldown ?? 0.4;
+    this.meleeDamageValue = char.meleeDamage ?? 2;
+    this.meleeMaxRange = char.meleeRange ?? 48;
+    this.meleeMaxDuration = char.meleeDuration ?? 0.2;
+    this.meleeActive = false;
+    this.meleeTimer = 0;
+    this.meleeCooldown = 0;
+
+    // Magic bolt — Mage's signature enhanced projectile.
+    this.hasMagicBolt = !!char.hasMagicBolt;
   }
 
   applyProgressionBonuses(bonuses: PlayerProgressionBonuses): void {
@@ -216,6 +256,19 @@ export class Player {
       }
     }
     if (this.dashCooldown > 0) this.dashCooldown -= dt;
+    // Melee cooldown tick
+    if (this.meleeCooldown > 0) {
+      this.meleeCooldown -= dt;
+      if (this.meleeCooldown < 0) this.meleeCooldown = 0;
+    }
+    // Melee active-hitbox timer
+    if (this.meleeTimer > 0) {
+      this.meleeTimer -= dt;
+      if (this.meleeTimer <= 0) {
+        this.meleeTimer = 0;
+        this.meleeActive = false;
+      }
+    }
     if (this.shieldTimer > 0) {
       this.shieldTimer -= dt;
       if (this.shieldTimer <= 0) this.shieldActive = false;
@@ -296,6 +349,19 @@ export class Player {
       return;
     }
 
+    // Melee attack (KeyC / KeyJ) — spawns a hitbox arc for melee-enabled
+    // characters. The actual enemy collision is resolved by the engine each
+    // frame while meleeActive is true; here we only arm the swing.
+    if (this.meleeEnabled) {
+      const wantMelee = input.isPressed("KeyC") || input.isPressed("KeyJ");
+      if (wantMelee && this.meleeCooldown <= 0 && !this.meleeActive) {
+        this.meleeActive = true;
+        this.meleeTimer = this.meleeMaxDuration;
+        this.meleeCooldown = this.meleeMaxCooldown;
+        this.meleeDirection = this.facingRight ? 1 : -1;
+      }
+    }
+
     // Horizontal movement
     const horizontalAxis = typeof input.getHorizontalAxis === "function"
       ? input.getHorizontalAxis()
@@ -335,6 +401,8 @@ export class Player {
         radius: shot.radius,
         color: shot.color,
         glowColor: shot.glowColor,
+        pierce: shot.pierce,
+        isMagicBolt: shot.isMagicBolt,
       });
       this.shootCooldown = shot.cooldown;
     }
@@ -451,6 +519,14 @@ export class Player {
     this.projectiles = this.projectiles.filter((p) => {
       p.x += p.vx * dt;
       p.life -= dt;
+      // Magic bolts push their current position onto the trail for the
+      // renderer's afterglow effect. Keep the last 8 positions so the trail
+      // is visible but bounded.
+      if (p.isMagicBolt) {
+        if (!p.trail) p.trail = [];
+        p.trail.unshift({ x: p.x, y: p.y });
+        if (p.trail.length > 8) p.trail.length = 8;
+      }
       return p.life > 0;
     });
   }
@@ -579,6 +655,39 @@ export class Player {
   }
 
   /**
+   * Melee hitbox: a rectangle in front of the player for the duration of the
+   * swing. Returns null when no swing is active.
+   */
+  getMeleeHitbox(): { x: number; y: number; width: number; height: number } | null {
+    if (!this.meleeActive) return null;
+    const range = this.meleeMaxRange;
+    const dir = this.meleeDirection;
+    // The hitbox spans the player's height vertically (slightly taller for
+    // forgiveness) and extends `range` pixels in the facing direction.
+    const padding = 4;
+    return {
+      x: dir > 0 ? this.x + this.width - padding : this.x - range + padding,
+      y: this.y - 4,
+      width: range + padding * 2,
+      height: this.height + 8,
+    };
+  }
+
+  get meleeDamage(): number {
+    return this.meleeDamageValue;
+  }
+
+  get hasMeleeWeapon(): boolean {
+    return this.meleeEnabled;
+  }
+
+  /** Normalized swing progress 0..1 for rendering the arc animation. */
+  get meleeProgress(): number {
+    if (this.meleeMaxDuration <= 0 || !this.meleeActive) return 0;
+    return 1 - this.meleeTimer / this.meleeMaxDuration;
+  }
+
+  /**
    * Snapshot of all currently-active timed power-ups with their remaining
    * durations. Consumed by the engine → HUD pipeline to render countdown
    * indicators so players can see when effects will expire.
@@ -673,7 +782,9 @@ export class Player {
   }
 
   private getBaseWeaponForCharacter(): WeaponType {
-    return this.characterId === "ranger" ? "bow" : "orb";
+    if (this.characterId === "ranger") return "bow";
+    if (this.hasMagicBolt) return "magicBolt";
+    return "orb";
   }
 
   private getShotProfile(): {
@@ -684,7 +795,24 @@ export class Player {
     radius: number;
     color: string;
     glowColor: string;
+    pierce: number;
+    isMagicBolt: boolean;
   } {
+    if (this.weaponType === "magicBolt") {
+      return {
+        speed: 460 * this.progressionBonuses.projectileSpeedMultiplier,
+        life: 1.8,
+        damage: 2 + this.progressionBonuses.projectileDamageBonus,
+        cooldown: 0.34,
+        radius: 6,
+        color: "#a855f7",
+        glowColor: "rgba(168,85,247,0.55)",
+        // Pierce through the first enemy hit before being consumed.
+        pierce: 1,
+        isMagicBolt: true,
+      };
+    }
+
     if (this.weaponType === "slingshot") {
       return {
         speed: 540 * this.progressionBonuses.projectileSpeedMultiplier,
@@ -694,6 +822,8 @@ export class Player {
         radius: 3,
         color: "#f59e0b",
         glowColor: "rgba(251,191,36,0.45)",
+        pierce: 0,
+        isMagicBolt: false,
       };
     }
 
@@ -712,6 +842,8 @@ export class Player {
         glowColor: rangerBonus
           ? "rgba(250,204,21,0.45)"
           : "rgba(245,158,11,0.38)",
+        pierce: 0,
+        isMagicBolt: false,
       };
     }
 
@@ -723,6 +855,8 @@ export class Player {
       radius: 4,
       color: "#60a5fa",
       glowColor: "rgba(147,197,253,0.5)",
+      pierce: 0,
+      isMagicBolt: false,
     };
   }
 }

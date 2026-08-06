@@ -19,6 +19,26 @@ export interface CharacterDef {
   ability: string;
   /** 0 = full knockback, 1 = immune. Cyborg's signature trait. */
   knockbackResistance?: number;
+  /**
+   * Whether this character has a melee weapon (sword / blade). When true,
+   * KeyC / KeyJ triggers a close-range slash arc in front of the player.
+   * Knight, ninja, tank, and cyborg carry blades; mage, ranger, spirit, and
+   * healer rely on ranged attacks only.
+   */
+  hasMelee?: boolean;
+  /**
+   * Melee tuning — character-specific swing cadence. If hasMelee is false,
+   * these are ignored.
+   */
+  meleeCooldown?: number;   // seconds between swings (default 0.4)
+  meleeDamage?: number;     // damage per hit (default 2)
+  meleeRange?: number;      // reach in pixels in front of the player (default 46)
+  meleeDuration?: number;   // how long the hitbox arc is active (default 0.2)
+  /**
+   * Magic-bolt flag for the Mage. When true, the ranged orb is upgraded to a
+   * piercing magic bolt with a trail effect, larger radius, and double damage.
+   */
+  hasMagicBolt?: boolean;
 }
 
 export const CHARACTERS: CharacterDef[] = [
@@ -37,6 +57,11 @@ export const CHARACTERS: CharacterDef[] = [
     maxHealth: 3,
     width: 24,
     height: 32,
+    hasMelee: true,
+    meleeCooldown: 0.4,
+    meleeDamage: 2,
+    meleeRange: 48,
+    meleeDuration: 0.2,
   },
   {
     id: 'ninja',
@@ -53,6 +78,11 @@ export const CHARACTERS: CharacterDef[] = [
     maxHealth: 2,
     width: 20,
     height: 30,
+    hasMelee: true,
+    meleeCooldown: 0.28,
+    meleeDamage: 1,
+    meleeRange: 40,
+    meleeDuration: 0.15,
   },
   {
     id: 'tank',
@@ -69,6 +99,11 @@ export const CHARACTERS: CharacterDef[] = [
     maxHealth: 5,
     width: 28,
     height: 36,
+    hasMelee: true,
+    meleeCooldown: 0.55,
+    meleeDamage: 3,
+    meleeRange: 52,
+    meleeDuration: 0.26,
   },
   {
     id: 'mage',
@@ -84,6 +119,7 @@ export const CHARACTERS: CharacterDef[] = [
     maxHealth: 2,
     width: 22,
     height: 34,
+    hasMagicBolt: true,
   },
   {
     id: 'ranger',
@@ -115,6 +151,11 @@ export const CHARACTERS: CharacterDef[] = [
     width: 24,
     height: 33,
     knockbackResistance: 0.5,
+    hasMelee: true,
+    meleeCooldown: 0.38,
+    meleeDamage: 2,
+    meleeRange: 46,
+    meleeDuration: 0.2,
   },
   {
     id: 'spirit',

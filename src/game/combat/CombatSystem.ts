@@ -106,6 +106,18 @@ export class CombatSystem {
   private checkEnemyCollision(player: Player, enemy: Enemy) {
     if (!this.rectsOverlap(player.getBounds(), enemy.getBounds())) return;
 
+    // Melee hitbox check — if the player has an active melee swing, enemies
+    // overlapping the arc take damage instead of the player.
+    const meleeBox = player.getMeleeHitbox();
+    if (meleeBox && this.rectsOverlap(meleeBox, enemy.getBounds())) {
+      enemy.takeDamage(player.meleeDamage);
+      if (!enemy.alive) {
+        this.score.enemiesDefeated++;
+        player.score += 50;
+      }
+      return;
+    }
+
     if (enemy.stompable && player.isStomping()) {
       // Stomp from above
       player.stompBounce();
