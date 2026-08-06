@@ -107,6 +107,7 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
       fps: stats.fps,
       powerUps: stats.powerUps,
       maxCombo: stats.maxCombo || 0,
+      comboCount: stats.comboCount || 0,
       enemiesDefeated: stats.enemiesDefeated || 0
     }));
   };

@@ -480,7 +480,12 @@ export class GameEngine {
     this.difficulty = getDifficulty(0);
     this.wasOnGround = true;
     this.currentQualityLevel = "high";
-    this.particles.setReducedParticles(false);
+    // Preserve the user's reduced-particles preference across resets rather
+    // than unconditionally clearing it. Previously this was hard-coded to
+    // false, which silently dropped the persisted settings-screen value on
+    // every restart and re-seed — the mobile bridge pushes the setting before
+    // setSeed, but setSeed would immediately override it.
+    this.particles.setReducedParticles(this.userReducedParticles);
     this.gameTime = 0;
     this.levelTimeRemaining = this.levelConfig?.timeLimit ?? 0;
     this.levelCompleted = false;

@@ -21,6 +21,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { loadPlayerBest, savePlayerBest } from '../../lib/player-best';
 import { appendRunHistory } from '../../lib/run-history';
 import { loadGameSettings, DEFAULT_GAME_SETTINGS, type GameSettings } from '../../lib/game-settings';
+import { useMobileHaptics } from '../../hooks/useMobileHaptics';
 
 const GAME_HTML = require('../../assets/game.html');
 
@@ -38,6 +39,8 @@ interface GameStats {
   distance: number;
   health: number;
   maxHealth: number;
+  lives: number;
+  comboCount: number;
   biome: string;
   fps: number;
   powerUps: string[];
@@ -47,7 +50,8 @@ interface GameStats {
 
 const DEFAULT_STATS: GameStats = {
   score: 0, coins: 0, distance: 0,
-  health: 3, maxHealth: 3, biome: 'Grassland',
+  health: 3, maxHealth: 3, lives: 3, comboCount: 0,
+  biome: 'Grassland',
   fps: 60, powerUps: [], maxCombo: 0, enemiesDefeated: 0,
 };
 
@@ -66,10 +70,19 @@ export default function GameScreen() {
   const pendingRunRef = useRef<number | null>(null);
   const gameStateRef = useRef<GameState>('menu');
   const settingsRef = useRef<GameSettings>(DEFAULT_GAME_SETTINGS);
+  // Holds the latest stats so the message handler can read current values
+  // without listing `stats` in its dependency array (which would recreate the
+  // callback on every stats frame and cause excessive re-renders).
+  const statsRef = useRef<GameStats>(DEFAULT_STATS);
 
   useEffect(() => {
     gameStateRef.current = gameState;
   }, [gameState]);
+
+  // Gameplay haptics — watches the stats stream from the WebView bridge and
+  // fires native vibration patterns on damage, coins, combo milestones, etc.
+  // Only active during gameplay and when the persisted setting is enabled.
+  useMobileHaptics(stats, hapticsEnabled && gameState === 'playing');
 
   useEffect(() => {
     let mounted = true;
@@ -138,6 +151,8 @@ export default function GameScreen() {
           distance: data.distance,
           health: data.health,
           maxHealth: data.maxHealth,
+          lives: typeof data.lives === 'number' ? data.lives : 3,
+          comboCount: typeof data.comboCount === 'number' ? data.comboCount : 0,
           biome: data.biome,
           fps: data.fps,
           powerUps: data.powerUps || [],
