@@ -51,18 +51,20 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   tabBar: {
-    // Keep navigation in normal layout flow so it never covers a primary CTA.
-    // The opaque system surface also avoids Android's white translucency fallback.
-    backgroundColor: '#101014',
-    borderTopColor: 'rgba(255, 255, 255, 0.08)',
-    borderTopWidth: 1,
+    position: 'absolute',
+    // Glassmorphic blur effect simulated with rgba on dark base.
+    // Semi-transparent so content scrolls subtly underneath.
+    backgroundColor: 'rgba(16,16,20,0.82)',
+    borderTopColor: 'rgba(255,255,255,0.12)',
+    borderTopWidth: 0.5,
     paddingBottom: Platform.OS === 'ios' ? 24 : 10,
     height: Platform.OS === 'ios' ? 84 : 62,
     elevation: 0,
+    // Subtle blue accent glow that bleeds upward from the bar.
     shadowColor: '#0A84FF',
-    shadowOpacity: 0.12,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: -6 },
   },
   tabBarItem: {
     minHeight: 48,

@@ -1,9 +1,102 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, ScrollView, Alert, Animated, Pressable, Platform, Vibration } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from '@react-navigation/native';
 import { EMPTY_PLAYER_BEST, loadPlayerBest, type PlayerBest } from '../../lib/player-best';
 import { loadRunHistory, clearRunHistory, formatRunDate, type RunEntry } from '../../lib/run-history';
+import { useReducedMotion, motionSpring } from '../../hooks/useReducedMotion';
+
+// ─── Selection haptic helper ────────────────────────────────────────
+function selectionHaptic(): void {
+  Vibration.vibrate(8);
+}
+
+// ─── PressableScale — press feedback component ──────────────────────
+const PressableScale: React.FC<{
+  onPress?: () => void;
+  children: React.ReactNode;
+  style?: object;
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
+  accessibilityRole?: 'button';
+}> = ({ onPress, children, style, accessibilityLabel, accessibilityHint, accessibilityRole }) => {
+  const reduced = useReducedMotion();
+  const scale = useRef(new Animated.Value(1)).current;
+
+  const onPressIn = () => {
+    if (reduced) return;
+    Animated.spring(scale, {
+      toValue: 0.97,
+      damping: 30,
+      stiffness: 600,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const onPressOut = () => {
+    if (reduced) return;
+    Animated.spring(scale, {
+      toValue: 1,
+      damping: 20,
+      stiffness: 300,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  return (
+    <Pressable
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      onPress={onPress}
+      accessibilityRole={accessibilityRole}
+      accessibilityLabel={accessibilityLabel}
+      accessibilityHint={accessibilityHint}
+    >
+      <Animated.View style={[{ transform: [{ scale }] }, style]}>
+        {children}
+      </Animated.View>
+    </Pressable>
+  );
+};
+
+// ─── SpringCard — spring-in on mount ────────────────────────────────
+const SpringCard: React.FC<{
+  children: React.ReactNode;
+  style?: object;
+  delay?: number;
+}> = ({ children, style, delay = 0 }) => {
+  const reduced = useReducedMotion();
+  const translateY = useRef(new Animated.Value(reduced ? 0 : 12)).current;
+  const opacity = useRef(new Animated.Value(reduced ? 1 : 0.8)).current;
+
+  useEffect(() => {
+    if (reduced) return;
+    const timer = setTimeout(() => {
+      Animated.parallel([
+        Animated.spring(translateY, {
+          toValue: 0,
+          ...motionSpring(reduced),
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacity, {
+          toValue: 1,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }, delay);
+    return () => clearTimeout(timer);
+  }, [delay, reduced, translateY, opacity]);
+
+  return (
+    <Animated.View style={{ transform: [{ translateY }], opacity }}>
+      <View style={style}>
+        {children}
+      </View>
+    </Animated.View>
+  );
+};
 
 export default function LeaderboardScreen() {
   const [best, setBest] = React.useState<PlayerBest>(EMPTY_PLAYER_BEST);
@@ -27,71 +120,95 @@ export default function LeaderboardScreen() {
         <Text style={styles.subtitle}>Your strongest local run, saved securely on this device.</Text>
       </View>
 
-      <View style={styles.comingSoonCard} accessible accessibilityLabel="Online leaderboard coming soon">
-        <Text style={styles.comingSoonEyebrow}>ONLINE LEADERBOARD</Text>
-        <Text style={styles.comingSoonTitle}>Coming soon</Text>
-        <Text style={styles.comingSoonBody}>Until then, beat the only score that matters: yours.</Text>
-      </View>
-
-      <ScrollView style={styles.listContainer} contentContainerStyle={styles.listContent}>
-        <View style={styles.bestHero}>
-          <Text style={styles.bestHeroLabel}>PERSONAL BEST SCORE</Text>
-          <Text style={styles.bestHeroValue}>{best.score.toLocaleString()}</Text>
-          <Text style={styles.bestHeroHint}>{best.score > 0 ? 'A new run is waiting to top it.' : 'Start your first run to set the bar.'}</Text>
-        </View>
-
-        <View style={styles.statGrid}>
-          <BestStat label="Distance" value={`${best.distance.toLocaleString()} m`} />
-          <BestStat label="Coins" value={best.coins.toLocaleString()} />
-          <BestStat label="Best Combo" value={best.maxCombo > 0 ? `x${best.maxCombo}` : '—'} />
-          <BestStat label="Defeated" value={best.enemiesDefeated.toLocaleString()} />
-        </View>
-
-        {/* Recent Runs */}
-        {history.length > 0 && (
-          <View style={styles.recentSection}>
-            <View style={styles.recentHeader}>
-              <Text style={styles.recentTitle}>Recent Runs</Text>
-              <TouchableOpacity
-                onPress={() =>
-                  Alert.alert(
-                    'Clear Run History',
-                    'Remove all recent runs from this device? Your personal best is kept.',
-                    [
-                      { text: 'Cancel', style: 'cancel' },
-                      {
-                        text: 'Clear',
-                        style: 'destructive',
-                        onPress: async () => {
-                          await clearRunHistory();
-                          setHistory([]);
-                        },
-                      },
-                    ],
-                  )
-                }
-                accessibilityRole="button"
-                accessibilityLabel="Clear run history"
-                accessibilityHint="Removes all recent runs from this device"
-              >
-                <Text style={styles.clearBtnText}>Clear</Text>
-              </TouchableOpacity>
-            </View>
-            {history.map((run, i) => (
-              <View key={run.timestamp + '-' + i} style={styles.runRow}>
-                <View style={styles.runRowLeft}>
-                  <Text style={styles.runRank}>#{i + 1}</Text>
-                  <View>
-                    <Text style={styles.runScore}>{run.score.toLocaleString()}</Text>
-                    <Text style={styles.runDetails}>
-                      {Math.round(run.distance).toLocaleString()}m · {run.coins} coins · x{run.maxCombo} combo
-                    </Text>
-                  </View>
-                </View>
-                <Text style={styles.runDate}>{formatRunDate(run.timestamp)}</Text>
-              </View>
-            ))}
+      <ScrollView style={styles.listContainer} contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
+        {/* ─── Coming Soon Card ─── */}
+        <SpringCard delay={0}>
+          <View style={styles.comingSoonCard} accessible accessibilityLabel="Online leaderboard coming soon">
+            <Text style={styles.comingSoonEyebrow}>ONLINE LEADERBOARD</Text>
+            <Text style={styles.comingSoonTitle}>Coming soon</Text>
+            <Text style={styles.comingSoonBody}>Until then, beat the only score that matters: yours.</Text>
           </View>
+        </SpringCard>
+
+        {/* ─── Hero Card — Personal Best with gradient accent ─── */}
+        <SpringCard delay={60}>
+          <View style={styles.bestHeroOuter}>
+            <LinearGradient
+              colors={['#0A84FF', 'rgba(10,132,255,0.55)', 'rgba(10,132,255,0.15)']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.bestHeroGradient}
+            >
+              {/* Inner glass card */}
+              <View style={styles.bestHeroInner}>
+                <Text style={styles.bestHeroLabel}>PERSONAL BEST SCORE</Text>
+                <Text style={styles.bestHeroValue}>{best.score.toLocaleString()}</Text>
+                <Text style={styles.bestHeroHint}>{best.score > 0 ? 'A new run is waiting to top it.' : 'Start your first run to set the bar.'}</Text>
+              </View>
+            </LinearGradient>
+          </View>
+        </SpringCard>
+
+        {/* ─── Stat Grid ─── */}
+        <SpringCard delay={120}>
+          <View style={styles.statGrid}>
+            <BestStat label="Distance" value={`${best.distance.toLocaleString()} m`} />
+            <BestStat label="Coins" value={best.coins.toLocaleString()} />
+            <BestStat label="Best Combo" value={best.maxCombo > 0 ? `x${best.maxCombo}` : '—'} />
+            <BestStat label="Defeated" value={best.enemiesDefeated.toLocaleString()} />
+          </View>
+        </SpringCard>
+
+        {/* ─── Recent Runs ─── */}
+        {history.length > 0 && (
+          <SpringCard delay={180}>
+            <View style={styles.recentSection}>
+              <View style={styles.recentHeader}>
+                <Text style={styles.recentTitle}>Recent Runs</Text>
+                <PressableScale
+                  onPress={() => {
+                    selectionHaptic();
+                    Alert.alert(
+                      'Clear Run History',
+                      'Remove all recent runs from this device? Your personal best is kept.',
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        {
+                          text: 'Clear',
+                          style: 'destructive',
+                          onPress: async () => {
+                            await clearRunHistory();
+                            setHistory([]);
+                          },
+                        },
+                      ],
+                    );
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Clear run history"
+                  accessibilityHint="Removes all recent runs from this device"
+                >
+                  <Text style={styles.clearBtnText}>Clear</Text>
+                </PressableScale>
+              </View>
+              {history.map((run, i) => (
+                <View key={run.timestamp + '-' + i} style={styles.runRow}>
+                  <View style={styles.runRowLeft}>
+                    <View style={styles.runRankBadge}>
+                      <Text style={styles.runRank}>{i + 1}</Text>
+                    </View>
+                    <View>
+                      <Text style={styles.runScore}>{run.score.toLocaleString()}</Text>
+                      <Text style={styles.runDetails}>
+                        {Math.round(run.distance).toLocaleString()}m · {run.coins} coins · x{run.maxCombo} combo
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={styles.runDate}>{formatRunDate(run.timestamp)}</Text>
+                </View>
+              ))}
+            </View>
+          </SpringCard>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -108,34 +225,45 @@ const BestStat: React.FC<{ label: string; value: string }> = ({ label, value }) 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#090b12',
+    backgroundColor: '#101014',
   },
   header: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     paddingTop: 16,
-    paddingBottom: 18,
+    paddingBottom: 12,
   },
   title: {
     color: '#fff',
-    fontSize: 32,
-    lineHeight: 38,
-    fontWeight: '700',
+    fontSize: 34,
+    lineHeight: 40,
+    fontWeight: '800',
     letterSpacing: -0.5,
     marginBottom: 8,
   },
   subtitle: {
-    color: 'rgba(255,255,255,0.6)',
+    color: 'rgba(255,255,255,0.55)',
     fontSize: 15,
     lineHeight: 21,
   },
+  listContainer: {
+    flex: 1,
+  },
+  listContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 100,
+  },
+  // ─── Coming Soon Glass Card ───
   comingSoonCard: {
-    marginHorizontal: 24,
-    marginBottom: 20,
+    marginBottom: 16,
     padding: 20,
     borderRadius: 18,
-    backgroundColor: '#141a27',
+    backgroundColor: 'rgba(28,28,30,0.6)',
     borderWidth: 1,
-    borderColor: '#273247',
+    borderColor: 'rgba(255,255,255,0.08)',
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
   },
   comingSoonEyebrow: {
     color: '#79b8ff',
@@ -152,26 +280,26 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   comingSoonBody: {
-    color: '#a8b4c8',
+    color: 'rgba(255,255,255,0.55)',
     fontSize: 15,
     lineHeight: 21,
   },
-  listContainer: {
-    flex: 1,
-  },
-  listContent: {
-    paddingHorizontal: 24,
-    paddingBottom: 100,
-  },
-  bestHero: {
-    alignItems: 'center',
-    paddingVertical: 28,
-    paddingHorizontal: 20,
-    borderRadius: 20,
-    backgroundColor: '#102e58',
-    borderWidth: 1,
-    borderColor: '#2d6fbd',
+  // ─── Hero Card ───
+  bestHeroOuter: {
+    borderRadius: 22,
+    overflow: 'hidden',
     marginBottom: 16,
+  },
+  bestHeroGradient: {
+    borderRadius: 22,
+    padding: 1.5,
+  },
+  bestHeroInner: {
+    borderRadius: 20,
+    alignItems: 'center',
+    paddingVertical: 30,
+    paddingHorizontal: 20,
+    backgroundColor: 'rgba(10,20,40,0.85)',
   },
   bestHeroLabel: {
     color: '#9cc7ff',
@@ -182,47 +310,55 @@ const styles = StyleSheet.create({
   },
   bestHeroValue: {
     color: '#ffffff',
-    fontSize: 46,
-    lineHeight: 54,
+    fontSize: 48,
+    lineHeight: 56,
     fontWeight: '900',
-    letterSpacing: -1,
+    letterSpacing: -1.2,
+    textShadowColor: 'rgba(10,132,255,0.5)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 12,
   },
   bestHeroHint: {
-    color: '#c2d8f5',
+    color: 'rgba(255,255,255,0.6)',
     fontSize: 14,
     lineHeight: 20,
     textAlign: 'center',
-    marginTop: 8,
+    marginTop: 10,
   },
+  // ─── Stat Grid ───
   statGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     marginHorizontal: -5,
+    marginBottom: 4,
   },
   statCard: {
     width: '47%',
     padding: 16,
-    backgroundColor: '#141a27',
-    borderColor: '#273247',
+    backgroundColor: 'rgba(28,28,30,0.6)',
+    borderColor: 'rgba(255,255,255,0.08)',
     borderWidth: 1,
     borderRadius: 16,
     marginBottom: 10,
     marginHorizontal: 5,
   },
   statLabel: {
-    color: '#9ba8bb',
+    color: 'rgba(255,255,255,0.5)',
     fontSize: 12,
     fontWeight: '700',
     marginBottom: 7,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
   },
   statValue: {
     color: '#f5f7ff',
-    fontSize: 20,
-    lineHeight: 26,
+    fontSize: 22,
+    lineHeight: 28,
     fontWeight: '800',
   },
+  // ─── Recent Runs ───
   recentSection: {
-    marginTop: 12,
+    marginTop: 8,
   },
   recentHeader: {
     flexDirection: 'row',
@@ -238,32 +374,47 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   clearBtnText: {
-    color: 'rgba(248,113,113,0.7)',
-    fontSize: 13,
+    color: 'rgba(248,113,113,0.75)',
+    fontSize: 14,
     fontWeight: '600',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    minHeight: 44,
+    textAlignVertical: 'center',
   },
   runRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    minHeight: 56,
     paddingVertical: 12,
     paddingHorizontal: 14,
     borderRadius: 14,
-    backgroundColor: '#141a27',
+    backgroundColor: 'rgba(28,28,30,0.6)',
     borderWidth: 1,
-    borderColor: '#273247',
+    borderColor: 'rgba(255,255,255,0.06)',
     marginBottom: 8,
   },
   runRowLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    flex: 1,
+  },
+  runRankBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(10,132,255,0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(10,132,255,0.2)',
   },
   runRank: {
-    color: 'rgba(255,255,255,0.3)',
+    color: 'rgba(10,132,255,0.9)',
     fontSize: 13,
-    fontWeight: '700',
-    minWidth: 24,
+    fontWeight: '800',
   },
   runScore: {
     color: '#fff',

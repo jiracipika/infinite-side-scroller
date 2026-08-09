@@ -10,6 +10,8 @@ import {
   AppState,
   SafeAreaView,
   Share,
+  Animated,
+  Vibration,
   type GestureResponderEvent,
 } from 'react-native';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
@@ -33,6 +35,55 @@ import {
 import { AnimatedScore, AnimatedHeart, AnimatedHealthBar, StaggeredEntry } from '../../components/AnimatedUI';
 
 const GAME_HTML = require('../../assets/game.html');
+
+// ─── Press feedback + haptic helper ─────────────────────────────────
+function selectionHaptic(): void {
+  Vibration.vibrate(8);
+}
+
+const PressableScale: React.FC<{
+  onPress?: () => void;
+  children: React.ReactNode;
+  style?: object;
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
+  accessibilityRole?: 'button';
+}> = ({ onPress, children, style, accessibilityLabel, accessibilityHint, accessibilityRole }) => {
+  const scale = useRef(new Animated.Value(1)).current;
+
+  const onPressIn = () => {
+    Animated.spring(scale, {
+      toValue: 0.97,
+      damping: 30,
+      stiffness: 600,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const onPressOut = () => {
+    Animated.spring(scale, {
+      toValue: 1,
+      damping: 20,
+      stiffness: 300,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  return (
+    <Pressable
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      onPress={() => { selectionHaptic(); onPress?.(); }}
+      accessibilityRole={accessibilityRole}
+      accessibilityLabel={accessibilityLabel}
+      accessibilityHint={accessibilityHint}
+    >
+      <Animated.View style={[{ transform: [{ scale }] }, style]}>
+        {children}
+      </Animated.View>
+    </Pressable>
+  );
+};
 
 const MENU_STEPS = [
   { title: 'Warm up', detail: 'Start endless and learn the rhythm.' },
@@ -656,18 +707,36 @@ const HUD: React.FC<{ stats: GameStats; onPause: () => void; showFPS?: boolean }
           <View style={styles.hudBadge}>
             <Text style={styles.biomeText}>{stats.biome}</Text>
           </View>
-          <TouchableOpacity
-            onPress={onPause}
-            style={styles.pauseBtn}
-            accessibilityRole="button"
-            accessibilityLabel="Pause game"
-            accessibilityHint="Pauses the current run"
-          >
-            <Ionicons name="pause" size={16} color="rgba(255,255,255,0.7)" />
-          </TouchableOpacity>
+          <PauseButton onPress={onPause} />
         </View>
       </View>
     </SafeAreaView>
+  );
+};
+
+// ─── Pause Button (with press feedback + haptics) ───────────────────
+
+const PauseButton: React.FC<{ onPress: () => void }> = ({ onPress }) => {
+  const scale = useRef(new Animated.Value(1)).current;
+  return (
+    <Pressable
+      onPressIn={() => {
+        Animated.spring(scale, { toValue: 0.9, damping: 30, stiffness: 600, useNativeDriver: true }).start();
+        Vibration.vibrate(8);
+      }}
+      onPressOut={() => {
+        Animated.spring(scale, { toValue: 1, damping: 20, stiffness: 300, useNativeDriver: true }).start();
+      }}
+      onPress={onPress}
+      style={styles.pauseBtn}
+      accessibilityRole="button"
+      accessibilityLabel="Pause game"
+      accessibilityHint="Pauses the current run"
+    >
+      <Animated.View style={{ transform: [{ scale }] }}>
+        <Ionicons name="pause" size={16} color="rgba(255,255,255,0.7)" />
+      </Animated.View>
+    </Pressable>
   );
 };
 
@@ -721,10 +790,9 @@ const MenuOverlay: React.FC<{ onPlay: (seed?: number) => void; highScore: number
         </View>
       </View>
 
-      <TouchableOpacity
+      <PressableScale
         style={styles.playBtn}
         onPress={() => onPlay()}
-        activeOpacity={0.82}
         accessibilityRole="button"
         accessibilityLabel="Play Endless"
         accessibilityHint="Start a new endless run"
@@ -733,7 +801,7 @@ const MenuOverlay: React.FC<{ onPlay: (seed?: number) => void; highScore: number
           <Text style={styles.playBtnText}>Play Endless</Text>
           <Text style={styles.playBtnSubtext}>Jump straight into a run</Text>
         </LinearGradient>
-      </TouchableOpacity>
+      </PressableScale>
 
       <Text style={styles.controlsHint}>
         Touch controls stay low: move left, jump/attack right.
@@ -754,17 +822,17 @@ const PauseOverlay: React.FC<{
     <View style={styles.menuContent}>
       <Text style={styles.overlayTitle}>Paused</Text>
 
-      <TouchableOpacity style={styles.playBtn} onPress={onResume} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel="Resume run">
+      <PressableScale style={styles.playBtn} onPress={onResume} accessibilityRole="button" accessibilityLabel="Resume run">
         <Text style={styles.playBtnText}>Resume</Text>
-      </TouchableOpacity>
+      </PressableScale>
 
-      <TouchableOpacity style={styles.secondaryBtn} onPress={onRestart} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel="Restart run">
+      <PressableScale style={styles.secondaryBtn} onPress={onRestart} accessibilityRole="button" accessibilityLabel="Restart run">
         <Text style={styles.secondaryBtnText}>Restart</Text>
-      </TouchableOpacity>
+      </PressableScale>
 
-      <TouchableOpacity style={styles.quitBtn} onPress={onQuit} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel="Quit to menu">
+      <PressableScale style={styles.quitBtn} onPress={onQuit} accessibilityRole="button" accessibilityLabel="Quit to menu">
         <Text style={styles.quitBtnText}>Quit to Menu</Text>
-      </TouchableOpacity>
+      </PressableScale>
     </View>
   </LinearGradient>
 );
@@ -822,17 +890,17 @@ const GameOverOverlay: React.FC<{
           <StatCard label="Defeated" value={`${stats.enemiesDefeated}`} />
         </View>
 
-        <TouchableOpacity style={styles.playBtn} onPress={onRestart} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel="Play again">
+        <PressableScale style={styles.playBtn} onPress={onRestart} accessibilityRole="button" accessibilityLabel="Play again">
           <Text style={styles.playBtnText}>Play Again</Text>
-        </TouchableOpacity>
+        </PressableScale>
 
         <View style={styles.gameOverActions}>
-          <TouchableOpacity style={styles.gameOverSecondaryBtn} onPress={() => { void handleShare(); }} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel="Share this run result">
+          <PressableScale style={styles.gameOverSecondaryBtn} onPress={() => { void handleShare(); }} accessibilityRole="button" accessibilityLabel="Share this run result">
             <Text style={styles.secondaryBtnText}>{shareStatus}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.gameOverSecondaryBtn} onPress={onQuit} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel="Return to main menu">
+          </PressableScale>
+          <PressableScale style={styles.gameOverSecondaryBtn} onPress={onQuit} accessibilityRole="button" accessibilityLabel="Return to main menu">
             <Text style={styles.secondaryBtnText}>Main Menu</Text>
-          </TouchableOpacity>
+          </PressableScale>
         </View>
       </View>
     </LinearGradient>
@@ -963,6 +1031,7 @@ const styles = StyleSheet.create({
   heart: { fontSize: 14, lineHeight: 16 },
   heartFull: { color: '#f87171' },
   heartEmpty: { color: 'rgba(255,255,255,0.15)' },
+  heartsRow: { flexDirection: 'row', gap: 2, marginTop: 4 },
   coinDot: { fontSize: 10, color: '#facc15' },
   coinCount: { fontSize: 12, color: 'rgba(255,255,255,0.7)', fontWeight: '500' },
   powerUps: { flexDirection: 'row', gap: 4 },
