@@ -36,12 +36,34 @@ function key(slotId: SaveSlotId): string {
   return slotId;
 }
 
-export function loadGhostRun(slotId: SaveSlotId): GhostRun | null {
+/**
+ * Returns this slot's personal-best path only when it was recorded against the
+ * requested world seed. Replaying a path from a different procedural world
+ * makes the ghost appear to run through platforms and hazards that do not
+ * exist in the current run.
+ */
+export function loadGhostRun(slotId: SaveSlotId, seed: number): GhostRun | null {
   const all = loadAll();
   const run = all[key(slotId)];
   if (!run) return null;
+  if (!Number.isFinite(seed) || !Number.isFinite(run.seed) || run.seed !== seed) return null;
   if (!Array.isArray(run.points) || run.points.length === 0) return null;
-  return run;
+
+  const points = run.points
+    .filter((point) =>
+      point &&
+      Number.isFinite(point.distance) &&
+      Number.isFinite(point.x) &&
+      Number.isFinite(point.y),
+    )
+    .slice(0, 8000)
+    .map((point) => ({
+      distance: Number(point.distance),
+      x: Number(point.x),
+      y: Number(point.y),
+    }));
+
+  return points.length > 0 ? { ...run, points } : null;
 }
 
 export function upsertGhostRun(input: GhostRun): void {

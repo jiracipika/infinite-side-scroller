@@ -539,7 +539,7 @@ export default function Home() {
       // Clear level state when playing endless/standard mode.
       setCurrentLevel(null);
       currentLevelRef.current = null;
-      const slotGhost = loadGhostRun(targetSlotId);
+      const slotGhost = loadGhostRun(targetSlotId, s);
       gameRef.current?.setGhostPath(slotGhost?.points ?? []);
       void issueRunToken({
         playerName: loadLeaderboardName(),
@@ -584,7 +584,7 @@ export default function Home() {
     gameRef.current?.setSeed(seed, charId);
     setCurrentLevel(null);
     currentLevelRef.current = null;
-    const slotGhost = loadGhostRun(slotId);
+    const slotGhost = loadGhostRun(slotId, seed);
     gameRef.current?.setGhostPath(slotGhost?.points ?? []);
     void issueRunToken({
       playerName: loadLeaderboardName(),
@@ -913,7 +913,7 @@ export default function Home() {
     }
     applyProgressionFromSlot(loadActiveSaveSlotId());
     gameRef.current?.setSeed(nextSeed, loadSelectedCharacter());
-    const slotGhost = loadGhostRun(loadActiveSaveSlotId());
+    const slotGhost = loadGhostRun(loadActiveSaveSlotId(), nextSeed);
     gameRef.current?.setGhostPath(slotGhost?.points ?? []);
     gameRef.current?.setMultiplayerEnabled(
       !!activeSession,
