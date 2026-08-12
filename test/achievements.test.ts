@@ -153,6 +153,21 @@ describe('loadUnlockedAchievements / saveUnlockedAchievements', () => {
     MEMORY['iss-achievements'] = '{broken';
     assert.deepEqual(loadUnlockedAchievements(), []);
   });
+
+  it('rejects non-arrays, unknown ids, non-strings, and duplicates', () => {
+    MEMORY['iss-achievements'] = JSON.stringify({ 0: 'first-flight' });
+    assert.deepEqual(loadUnlockedAchievements(), []);
+
+    MEMORY['iss-achievements'] = JSON.stringify([
+      'first-flight', 'removed-achievement', 42, 'first-flight', 'centurion',
+    ]);
+    assert.deepEqual(loadUnlockedAchievements(), ['first-flight', 'centurion']);
+  });
+
+  it('only persists valid, unique achievement ids', () => {
+    saveUnlockedAchievements(['centurion', 'unknown', 'centurion']);
+    assert.deepEqual(JSON.parse(MEMORY['iss-achievements']), ['centurion']);
+  });
 });
 
 describe('loadLifetimeStats / saveLifetimeStats', () => {
@@ -185,6 +200,48 @@ describe('loadLifetimeStats / saveLifetimeStats', () => {
     assert.equal(loaded.bestCombo, 0);
     assert.equal(loaded.bestKills, 0);
     assert.equal(loaded.totalKills, 0);
+  });
+
+  it('preserves valid fields while rejecting poisoned persisted values', () => {
+    MEMORY['iss-lifetime-stats'] = JSON.stringify({
+      totalGames: '99',
+      highScore: 800,
+      totalDistance: -50,
+      totalCoins: null,
+      bestDistance: 123.5,
+      bestCoins: { value: 30 },
+      bestCombo: 'Infinity',
+      bestKills: 7,
+      totalKills: 'NaN',
+      unexpected: 1_000_000,
+    });
+
+    assert.deepEqual(loadLifetimeStats(), stats({
+      highScore: 800,
+      bestDistance: 123.5,
+      bestKills: 7,
+    }));
+  });
+
+  it('returns emptyStats for arrays and primitive JSON values', () => {
+    for (const value of [[], 42, 'bad', true]) {
+      MEMORY['iss-lifetime-stats'] = JSON.stringify(value);
+      assert.deepEqual(loadLifetimeStats(), emptyStats());
+    }
+  });
+
+  it('sanitizes non-finite and negative values before saving', () => {
+    const poisoned = {
+      ...stats({ totalGames: 4, highScore: 200 }),
+      totalCoins: -1,
+      totalDistance: Number.POSITIVE_INFINITY,
+    } as AchievementStats;
+    saveLifetimeStats(poisoned);
+
+    assert.deepEqual(JSON.parse(MEMORY['iss-lifetime-stats']), stats({
+      totalGames: 4,
+      highScore: 200,
+    }));
   });
 });
 

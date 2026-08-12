@@ -95,32 +95,58 @@ export default ACHIEVEMENTS;
 const STORAGE_KEY = 'iss-achievements';
 const STATS_KEY = 'iss-lifetime-stats';
 
+const ACHIEVEMENT_IDS = new Set(ACHIEVEMENTS.map((achievement) => achievement.id));
+const STAT_KEYS = Object.keys(emptyStats()) as (keyof AchievementStats)[];
+
+/**
+ * Treat localStorage as untrusted input. A malformed or manually edited value
+ * must never turn later additions into string concatenation or poison lifetime
+ * records with NaN/Infinity. Keeping valid fields also lets partially damaged
+ * and older saves recover instead of discarding all progress.
+ */
+function normalizeStats(value: unknown): AchievementStats {
+  const normalized = emptyStats();
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return normalized;
+
+  const record = value as Record<string, unknown>;
+  for (const key of STAT_KEYS) {
+    const candidate = record[key];
+    if (typeof candidate === 'number' && Number.isFinite(candidate) && candidate >= 0) {
+      normalized[key] = candidate;
+    }
+  }
+  return normalized;
+}
+
+function normalizeAchievementIds(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value.filter(
+    (id): id is string => typeof id === 'string' && ACHIEVEMENT_IDS.has(id),
+  ))];
+}
+
 export function loadUnlockedAchievements(): string[] {
   if (typeof window === 'undefined') return [];
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    return normalizeAchievementIds(JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'));
   } catch { return []; }
 }
 
 export function saveUnlockedAchievements(ids: string[]) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(ids)); } catch {}
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(normalizeAchievementIds(ids))); } catch {}
 }
 
 export function loadLifetimeStats(): AchievementStats {
   if (typeof window === 'undefined') return emptyStats();
   try {
-    const parsed = JSON.parse(localStorage.getItem(STATS_KEY) || 'null');
-    if (!parsed) return emptyStats();
-    // Merge with defaults so stats saved before the combo/kill fields existed
-    // get safe zero values instead of undefined.
-    return { ...emptyStats(), ...parsed };
+    return normalizeStats(JSON.parse(localStorage.getItem(STATS_KEY) || 'null'));
   } catch {
     return emptyStats();
   }
 }
 
 export function saveLifetimeStats(stats: AchievementStats) {
-  try { localStorage.setItem(STATS_KEY, JSON.stringify(stats)); } catch {}
+  try { localStorage.setItem(STATS_KEY, JSON.stringify(normalizeStats(stats))); } catch {}
 }
 
 export function checkNewAchievements(prev: string[], current: AchievementStats): string[] {
