@@ -516,7 +516,9 @@ export class Player {
   }
 
   private _updateProjectiles(dt: number) {
-    this.projectiles = this.projectiles.filter((p) => {
+    let writeIdx = 0;
+    for (let readIdx = 0; readIdx < this.projectiles.length; readIdx++) {
+      const p = this.projectiles[readIdx];
       p.x += p.vx * dt;
       p.life -= dt;
       // Magic bolts push their current position onto the trail for the
@@ -527,8 +529,11 @@ export class Player {
         p.trail.unshift({ x: p.x, y: p.y });
         if (p.trail.length > 8) p.trail.length = 8;
       }
-      return p.life > 0;
-    });
+      if (p.life > 0) {
+        this.projectiles[writeIdx++] = p;
+      }
+    }
+    this.projectiles.length = writeIdx;
   }
 
   /** Expose movement parameters for net prediction/replay (read-only snapshot). */

@@ -32,8 +32,9 @@ export class ChunkManager {
       }
     }
 
-    // Unload chunks outside range
-    for (const [idx] of Array.from(this.chunks)) {
+    // Map iteration remains valid while deleting the current entry; avoid
+    // allocating an Array copy on every update frame.
+    for (const [idx] of this.chunks) {
       if (idx < minChunk - 1 || idx > maxChunk + 1) {
         this.chunks.delete(idx);
       }
