@@ -1,64 +1,13 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert, Animated, Pressable, Platform, Vibration } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from '@react-navigation/native';
 import { EMPTY_PLAYER_BEST, loadPlayerBest, type PlayerBest } from '../../lib/player-best';
 import { loadRunHistory, clearRunHistory, formatRunDate, type RunEntry } from '../../lib/run-history';
 import { useReducedMotion, motionSpring } from '../../hooks/useReducedMotion';
-
-// ─── Selection haptic helper ────────────────────────────────────────
-function selectionHaptic(): void {
-  Vibration.vibrate(8);
-}
-
-// ─── PressableScale — press feedback component ──────────────────────
-const PressableScale: React.FC<{
-  onPress?: () => void;
-  children: React.ReactNode;
-  style?: object;
-  accessibilityLabel?: string;
-  accessibilityHint?: string;
-  accessibilityRole?: 'button';
-}> = ({ onPress, children, style, accessibilityLabel, accessibilityHint, accessibilityRole }) => {
-  const reduced = useReducedMotion();
-  const scale = useRef(new Animated.Value(1)).current;
-
-  const onPressIn = () => {
-    if (reduced) return;
-    Animated.spring(scale, {
-      toValue: 0.97,
-      damping: 30,
-      stiffness: 600,
-      useNativeDriver: true,
-    }).start();
-  };
-
-  const onPressOut = () => {
-    if (reduced) return;
-    Animated.spring(scale, {
-      toValue: 1,
-      damping: 20,
-      stiffness: 300,
-      useNativeDriver: true,
-    }).start();
-  };
-
-  return (
-    <Pressable
-      onPressIn={onPressIn}
-      onPressOut={onPressOut}
-      onPress={onPress}
-      accessibilityRole={accessibilityRole}
-      accessibilityLabel={accessibilityLabel}
-      accessibilityHint={accessibilityHint}
-    >
-      <Animated.View style={[{ transform: [{ scale }] }, style]}>
-        {children}
-      </Animated.View>
-    </Pressable>
-  );
-};
+import { selectionHaptic } from '../../lib/haptics';
+import { PressableScale } from '../../components/PressableScale';
 
 // ─── SpringCard — spring-in on mount ────────────────────────────────
 const SpringCard: React.FC<{

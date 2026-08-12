@@ -2,7 +2,6 @@ import React, { useRef, useState, useCallback, useEffect } from 'react';
 import {
   View,
   StyleSheet,
-  TouchableOpacity,
   Pressable,
   Text,
   Dimensions,
@@ -32,58 +31,10 @@ import {
   useParticleBurst,
   useScreenShake,
 } from '../../components/ParticleBurst';
-import { AnimatedScore, AnimatedHeart, AnimatedHealthBar, StaggeredEntry } from '../../components/AnimatedUI';
+import { AnimatedScore, AnimatedHeart, AnimatedHealthBar } from '../../components/AnimatedUI';
+import { PressableScale } from '../../components/PressableScale';
 
 const GAME_HTML = require('../../assets/game.html');
-
-// ─── Press feedback + haptic helper ─────────────────────────────────
-function selectionHaptic(): void {
-  Vibration.vibrate(8);
-}
-
-const PressableScale: React.FC<{
-  onPress?: () => void;
-  children: React.ReactNode;
-  style?: object;
-  accessibilityLabel?: string;
-  accessibilityHint?: string;
-  accessibilityRole?: 'button';
-}> = ({ onPress, children, style, accessibilityLabel, accessibilityHint, accessibilityRole }) => {
-  const scale = useRef(new Animated.Value(1)).current;
-
-  const onPressIn = () => {
-    Animated.spring(scale, {
-      toValue: 0.97,
-      damping: 30,
-      stiffness: 600,
-      useNativeDriver: true,
-    }).start();
-  };
-
-  const onPressOut = () => {
-    Animated.spring(scale, {
-      toValue: 1,
-      damping: 20,
-      stiffness: 300,
-      useNativeDriver: true,
-    }).start();
-  };
-
-  return (
-    <Pressable
-      onPressIn={onPressIn}
-      onPressOut={onPressOut}
-      onPress={() => { selectionHaptic(); onPress?.(); }}
-      accessibilityRole={accessibilityRole}
-      accessibilityLabel={accessibilityLabel}
-      accessibilityHint={accessibilityHint}
-    >
-      <Animated.View style={[{ transform: [{ scale }] }, style]}>
-        {children}
-      </Animated.View>
-    </Pressable>
-  );
-};
 
 const MENU_STEPS = [
   { title: 'Warm up', detail: 'Start endless and learn the rhythm.' },
@@ -123,6 +74,7 @@ export default function GameScreen() {
   const [showMenu, setShowMenu] = useState(true);
   const [webViewKey, setWebViewKey] = useState(0);
   const [webViewReady, setWebViewReady] = useState(false);
+  const [webViewError, setWebViewError] = useState(false);
   const [runRequestId, setRunRequestId] = useState(0);
   const [largeControls, setLargeControls] = useState(DEFAULT_GAME_SETTINGS.largeControls);
   const [hapticsEnabled, setHapticsEnabled] = useState(DEFAULT_GAME_SETTINGS.hapticsEnabled);
@@ -271,6 +223,7 @@ export default function GameScreen() {
     console.warn('Dashverse game renderer terminated; remounting on next run.');
     pendingRunRef.current = null;
     setWebViewReady(false);
+    setWebViewError(true);
     setWebViewKey(previous => previous + 1);
     setGameState('menu');
     setShowMenu(true);
@@ -279,6 +232,7 @@ export default function GameScreen() {
   const queueRun = useCallback((seed: number) => {
     pendingRunRef.current = seed;
     setWebViewReady(false);
+    setWebViewError(false);
     setRunRequestId(previous => previous + 1);
     setGameState('playing');
     setShowMenu(false);
@@ -375,17 +329,38 @@ export default function GameScreen() {
             showsVerticalScrollIndicator={false}
             showsHorizontalScrollIndicator={false}
             nestedScrollEnabled={false}
-            onError={(e) => console.warn('WebView error:', e.nativeEvent)}
+            onError={(e) => {
+              console.warn('WebView error:', e.nativeEvent);
+              setWebViewError(true);
+            }}
             onRenderProcessGone={handleRenderProcessGone}
             setSupportMultipleWindows={false}
           />
           {/* WebView loading animation — shown while the game HTML loads. */}
-          {!webViewReady && (
+          {!webViewReady && !webViewError && (
             <View style={styles.loadingOverlay} pointerEvents="none">
               <LoadingSpinner label="Loading" size={48} color="#0A84FF" />
               <View style={{ marginTop: 20 }}>
                 <LoadingProgressBar width={160} height={3} color="#0A84FF" />
               </View>
+            </View>
+          )}
+          {/* WebView error overlay — shown if the game engine fails to load. */}
+          {webViewError && (
+            <View style={styles.loadingOverlay}>
+              <Ionicons name="warning" size={48} color="rgba(248,113,113,0.8)" />
+              <Text style={styles.webviewErrorTitle}>Failed to Load</Text>
+              <Text style={styles.webviewErrorBody}>
+                The game engine couldn't start. Check your connection and try again.
+              </Text>
+              <PressableScale
+                style={styles.webviewErrorRetryBtn}
+                onPress={() => handleRestart()}
+                accessibilityRole="button"
+                accessibilityLabel="Retry loading the game"
+              >
+                <Text style={styles.webviewErrorRetryText}>Retry</Text>
+              </PressableScale>
             </View>
           )}
         </View>
@@ -936,6 +911,32 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: 'rgba(6, 8, 20, 0.95)',
     zIndex: 5,
+  },
+  webviewErrorTitle: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: '700',
+    marginTop: 16,
+  },
+  webviewErrorBody: {
+    color: 'rgba(255,255,255,0.55)',
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+    marginTop: 8,
+    marginHorizontal: 40,
+  },
+  webviewErrorRetryBtn: {
+    marginTop: 24,
+    paddingHorizontal: 32,
+    paddingVertical: 12,
+    borderRadius: 14,
+    backgroundColor: '#0A84FF',
+  },
+  webviewErrorRetryText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
   },
   touchOverlay: {
     ...StyleSheet.absoluteFillObject,

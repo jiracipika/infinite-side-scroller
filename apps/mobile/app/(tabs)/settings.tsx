@@ -6,7 +6,6 @@ import {
   Switch,
   ScrollView,
   ActivityIndicator,
-  Pressable,
   Animated,
   Alert,
 } from 'react-native';
@@ -16,12 +15,8 @@ import Slider from '@react-native-community/slider';
 import { Ionicons } from '@expo/vector-icons';
 import { usePersistedSetting } from '../../hooks/usePersistedSetting';
 import { useReducedMotion, motionSpring } from '../../hooks/useReducedMotion';
-import { Vibration } from 'react-native';
-
-// ─── Selection haptic helper ────────────────────────────────────────
-function selectionHaptic(): void {
-  Vibration.vibrate(8);
-}
+import { selectionHaptic } from '../../lib/haptics';
+import { PressableScale } from '../../components/PressableScale';
 
 // ─── Glass Card wrapper ─────────────────────────────────────────────
 const GlassCard: React.FC<{
@@ -62,55 +57,6 @@ const GlassCard: React.FC<{
         {children}
       </View>
     </Animated.View>
-  );
-};
-
-// ─── PressableScale — press feedback component ──────────────────────
-const PressableScale: React.FC<{
-  onPress?: () => void;
-  children: React.ReactNode;
-  style?: object;
-  accessibilityLabel?: string;
-  accessibilityHint?: string;
-  accessibilityRole?: 'button';
-  delay?: number;
-}> = ({ onPress, children, style, accessibilityLabel, accessibilityHint, accessibilityRole, delay }) => {
-  const reduced = useReducedMotion();
-  const scale = useRef(new Animated.Value(1)).current;
-
-  const onPressIn = () => {
-    if (reduced) return;
-    Animated.spring(scale, {
-      toValue: 0.97,
-      damping: 30,
-      stiffness: 600,
-      useNativeDriver: true,
-    }).start();
-  };
-
-  const onPressOut = () => {
-    if (reduced) return;
-    Animated.spring(scale, {
-      toValue: 1,
-      damping: 20,
-      stiffness: 300,
-      useNativeDriver: true,
-    }).start();
-  };
-
-  return (
-    <Pressable
-      onPressIn={onPressIn}
-      onPressOut={onPressOut}
-      onPress={onPress}
-      accessibilityRole={accessibilityRole}
-      accessibilityLabel={accessibilityLabel}
-      accessibilityHint={accessibilityHint}
-    >
-      <Animated.View style={[{ transform: [{ scale }] }, style]}>
-        {children}
-      </Animated.View>
-    </Pressable>
   );
 };
 
