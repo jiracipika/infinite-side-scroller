@@ -31,6 +31,56 @@ describe('personal-best ghost persistence', () => {
     assert.deepEqual(loadGhostRun('slot1', 12345)?.points, [{ distance: 4, x: 10, y: 20 }]);
   });
 
+  it('keeps personal bests for multiple seeds in the same save slot', () => {
+    const makeRun = (seed: number, score: number) => ({
+      slotId: 'slot1' as const,
+      seed,
+      bestScore: score,
+      bestDistance: score * 2,
+      points: [{ distance: 4, x: seed, y: 20 }],
+      updatedAt: seed,
+    });
+
+    upsertGhostRun(makeRun(101, 200));
+    upsertGhostRun(makeRun(202, 300));
+
+    assert.equal(loadGhostRun('slot1', 101)?.bestScore, 200);
+    assert.equal(loadGhostRun('slot1', 202)?.bestScore, 300);
+  });
+
+  it('does not replace a seed personal best with a lower-scoring run', () => {
+    upsertGhostRun({
+      slotId: 'slot1', seed: 7, bestScore: 500, bestDistance: 600,
+      points: [{ distance: 4, x: 10, y: 20 }], updatedAt: 1,
+    });
+    upsertGhostRun({
+      slotId: 'slot1', seed: 7, bestScore: 400, bestDistance: 900,
+      points: [{ distance: 4, x: 99, y: 20 }], updatedAt: 2,
+    });
+
+    assert.equal(loadGhostRun('slot1', 7)?.bestScore, 500);
+    assert.equal(loadGhostRun('slot1', 7)?.points[0]?.x, 10);
+  });
+
+  it('migrates the legacy slot-only record on the next improved run', () => {
+    localStorageStub.setItem('iss-ghost-runs-v1', JSON.stringify({
+      slot1: {
+        slotId: 'slot1', seed: 9, bestScore: 100, bestDistance: 100,
+        points: [{ distance: 2, x: 3, y: 4 }], updatedAt: 1,
+      },
+    }));
+
+    upsertGhostRun({
+      slotId: 'slot1', seed: 9, bestScore: 101, bestDistance: 100,
+      points: [{ distance: 2, x: 5, y: 4 }], updatedAt: 2,
+    });
+
+    const stored = JSON.parse(MEMORY['iss-ghost-runs-v1']) as Record<string, unknown>;
+    assert.equal(stored.slot1, undefined);
+    assert.ok(stored['slot1:9']);
+    assert.equal(loadGhostRun('slot1', 9)?.bestScore, 101);
+  });
+
   it('drops malformed persisted points instead of passing them to the renderer', () => {
     localStorageStub.setItem('iss-ghost-runs-v1', JSON.stringify({
       slot1: {
