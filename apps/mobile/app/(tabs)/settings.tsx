@@ -16,15 +16,11 @@ import Slider from '@react-native-community/slider';
 import { Ionicons } from '@expo/vector-icons';
 import { usePersistedSetting } from '../../hooks/usePersistedSetting';
 import { useReducedMotion, motionSpring } from '../../hooks/useReducedMotion';
-import { Vibration, Platform } from 'react-native';
+import { Vibration } from 'react-native';
 
 // ─── Selection haptic helper ────────────────────────────────────────
 function selectionHaptic(): void {
-  if (Platform.OS === 'ios') {
-    Vibration.vibrate(8);
-  } else {
-    Vibration.vibrate(8);
-  }
+  Vibration.vibrate(8);
 }
 
 // ─── Glass Card wrapper ─────────────────────────────────────────────
@@ -60,7 +56,6 @@ const GlassCard: React.FC<{
     <Animated.View
       style={[
         { transform: [{ translateY }], opacity },
-        delay === -1 ? null : null,
       ]}
     >
       <View style={[styles.glassCard, style]}>
