@@ -89,7 +89,10 @@ assert(mobileGame.includes("useFocusEffect"), 'mobile game screen must refresh s
 
 // 10. Game-over must carry final stats (not rely on a stale HUD snapshot).
 assert(gameHtml.includes("type: 'gameover'") && gameHtml.includes('finalStats'), 'mobile game bundle must pass final stats through the gameover message')
-assert(mobileGame.includes('data.distance || stats.distance'), 'mobile gameover handler must prefer engine final stats over stale snapshot')
+assert(
+  mobileGame.includes("typeof data.distance === 'number' ? data.distance : stats.distance"),
+  'mobile gameover handler must prefer engine final stats over stale snapshot',
+)
 
 // 11. Large-controls and showFPS settings must be wired to the UI.
 assert(mobileGame.includes('largeControls={largeControls}'), 'mobile touch controls must receive the largeControls setting')

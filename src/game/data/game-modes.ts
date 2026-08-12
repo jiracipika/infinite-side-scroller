@@ -29,6 +29,20 @@ export const GAME_MODES: GameMode[] = [
     icon: '⏱️',
     isEndless: false,
   },
+  {
+    id: 'coin-rush',
+    name: 'Coin Rush',
+    description: 'Collect the target stash before the colour-soaked clock runs out',
+    icon: '🪙',
+    isEndless: false,
+  },
+  {
+    id: 'gauntlet',
+    name: 'Gauntlet',
+    description: 'Combat-first stages won by defeating every marked enemy',
+    icon: '⚔️',
+    isEndless: false,
+  },
 ];
 
 // Default configuration for each mode
@@ -48,5 +62,13 @@ export const MODE_CONFIGS = {
     // Levels will be loaded from levels.ts
     timePowerUpFrequency: 0.3, // Increased frequency of time power-ups
     bonusForSpeed: true,
+  },
+  'coin-rush': {
+    bonusForSpeed: true,
+    objective: 'coins',
+  },
+  gauntlet: {
+    comboScoring: true,
+    objective: 'kills',
   },
 };

@@ -276,6 +276,12 @@ export class GameEngine {
     dayPhase?: "dawn" | "day" | "dusk" | "night";
     levelTimeRemaining?: number;
     levelTarget?: number;
+    levelProgress?: number;
+    levelObjective?: "distance" | "coins" | "kills";
+    specialName?: string;
+    specialCooldownRemaining?: number;
+    specialCooldownTotal?: number;
+    specialActiveRemaining?: number;
   }) => void;
   onLocalPlayerSnapshot?: (snapshot: NetPlayerSnapshot) => void;
   onCarryIntent?: (payload: {
@@ -345,6 +351,10 @@ export class GameEngine {
   // whenever a new swing begins (detected by meleeActive going false→true).
   private meleeAlreadyHitIds = new Set<string>();
   private meleeWasActive = false;
+  private specialCooldownRemaining = 0;
+  private specialActiveRemaining = 0;
+  private specialPulseTimer = 0;
+  private specialPulseIndex = 0;
 
   constructor(
     canvas: HTMLCanvasElement,
@@ -491,6 +501,9 @@ export class GameEngine {
   }
 
   setSeed(seed: number, characterId?: string): void {
+    // A plain seed starts an endless/standard run. Level setup re-attaches its
+    // config after this reset so objectives never leak into the next mode.
+    this.levelConfig = null;
     this.worldSeed = seed;
     if (characterId) this._characterId = characterId;
     this.chunkManager = new ChunkManager(this.worldSeed);
@@ -517,7 +530,7 @@ export class GameEngine {
     // setSeed, but setSeed would immediately override it.
     this.particles.setReducedParticles(this.userReducedParticles);
     this.gameTime = 0;
-    this.levelTimeRemaining = this.levelConfig?.timeLimit ?? 0;
+    this.levelTimeRemaining = 0;
     this.levelCompleted = false;
     this.enemiesDefeated = 0;
     this.remotePlayer = null;
@@ -544,6 +557,10 @@ export class GameEngine {
     this.comboTimer = 0;
     this.maxCombo = 0;
     this.hitStopTimer = 0;
+    this.specialCooldownRemaining = 0;
+    this.specialActiveRemaining = 0;
+    this.specialPulseTimer = 0;
+    this.specialPulseIndex = 0;
     this.lastDistanceMilestone = 0;
     // Reset performance DPR so a new run re-evaluates the device rather than
     // inheriting a stale boosted state from a prior session.
@@ -557,8 +574,8 @@ export class GameEngine {
 
   /** Configure the engine for level-based play. */
   setLevel(config: LevelConfig): void {
-    this.levelConfig = config;
     this.setSeed(config.seed, this._characterId);
+    this.levelConfig = config;
     this.levelTimeRemaining = config.timeLimit ?? 0;
     this.levelCompleted = false;
     this.enemiesDefeated = 0;
@@ -1766,6 +1783,64 @@ export class GameEngine {
     }
   }
 
+  /**
+   * Character specials are deliberately short, high-impact timed attacks:
+   * tap V (or the touch ✦ button) to begin a brief pulse window, then the
+   * engine emits several expanding damage bursts. The cooldown starts only
+   * after activation, so holding the control cannot retrigger it.
+   */
+  private updateSpecialAttack(dt: number): void {
+    const character = getCharacterById(this._characterId);
+    this.specialCooldownRemaining = Math.max(0, this.specialCooldownRemaining - dt);
+
+    if (this.specialActiveRemaining <= 0
+      && this.specialCooldownRemaining <= 0
+      && this.input.isPressed("KeyV")) {
+      this.specialActiveRemaining = 0.62;
+      this.specialPulseTimer = 0;
+      this.specialPulseIndex = 0;
+      this.specialCooldownRemaining = character.specialCooldown;
+      this.camera.shake(4, 0.18);
+      this.particles.spawnScorePopup(
+        this.player.centerX,
+        this.player.y - 34,
+        `${character.specialName.toUpperCase()}!`,
+        character.specialColor,
+      );
+      this.sfx.play("powerup");
+    }
+
+    if (this.specialActiveRemaining <= 0) return;
+    this.specialActiveRemaining = Math.max(0, this.specialActiveRemaining - dt);
+    this.specialPulseTimer -= dt;
+    if (this.specialPulseTimer > 0) return;
+
+    this.specialPulseTimer = 0.18;
+    this.specialPulseIndex += 1;
+    const radius = 92 + this.specialPulseIndex * 18;
+    const damage = this._characterId === "tank" ? 4 : this._characterId === "mage" ? 3 : 2;
+    let hitCount = 0;
+
+    for (const enemy of this.enemies) {
+      if (!enemy.alive) continue;
+      const dx = enemy.x + enemy.width / 2 - this.player.centerX;
+      const dy = enemy.y + enemy.height / 2 - this.player.centerY;
+      if (dx * dx + dy * dy > radius * radius) continue;
+      enemy.takeDamage(damage);
+      hitCount += 1;
+      this.particles.spawnHitFlash(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2);
+      if (!enemy.alive) this.awardEnemyDefeat(enemy);
+      else {
+        const direction = dx === 0 ? (this.player.facingRight ? 1 : -1) : Math.sign(dx);
+        enemy.vx += direction * 260;
+        enemy.vy = Math.min(enemy.vy, -180);
+      }
+    }
+
+    this.particles.spawnHitFlash(this.player.centerX, this.player.centerY);
+    if (hitCount > 0) this.triggerHitStop(0.035);
+  }
+
   /** Returns the current combo multiplier based on combo count. */
   private getComboMultiplier(): number {
     return comboMultiplierFor(this.comboCount);
@@ -1926,6 +2001,7 @@ export class GameEngine {
       this.meleeAlreadyHitIds.clear();
     }
     this.meleeWasActive = this.player.meleeActive;
+    this.updateSpecialAttack(dt);
 
     // Wall collision
     if (!carriedByRemote && wallSide) {
@@ -2384,15 +2460,26 @@ export class GameEngine {
     if (this.levelConfig && !this.levelCompleted) {
       if (this.levelConfig.timeLimit !== null) {
         this.levelTimeRemaining = Math.max(0, this.levelTimeRemaining - dt);
+        const timedObjectiveComplete = this.levelConfig.targetCoins !== undefined
+          ? this.player.coins >= this.levelConfig.targetCoins
+          : this.levelConfig.targetKills !== undefined
+            ? this.enemiesDefeated >= this.levelConfig.targetKills
+            : this.player.distance >= this.levelConfig.targetDistance;
         if (
           this.levelTimeRemaining <= 0 &&
-          this.player.distance < this.levelConfig.targetDistance
+          !timedObjectiveComplete
         ) {
           this.player.alive = false;
         }
       }
 
-      if (this.player.distance >= this.levelConfig.targetDistance) {
+      const objectiveComplete = this.levelConfig.targetCoins !== undefined
+        ? this.player.coins >= this.levelConfig.targetCoins
+        : this.levelConfig.targetKills !== undefined
+          ? this.enemiesDefeated >= this.levelConfig.targetKills
+          : this.player.distance >= this.levelConfig.targetDistance;
+
+      if (objectiveComplete) {
         this.levelCompleted = true;
         this._state = "paused";
         this.sfx.play("levelComplete");
@@ -2501,13 +2588,29 @@ export class GameEngine {
       comboTimeRemaining: this.comboTimer > 0 ? this.comboTimer : 0,
       enemiesDefeated: this.enemiesDefeated,
       dayPhase: this.getDayPhase(),
+      specialName: getCharacterById(this._characterId).specialName,
+      specialCooldownRemaining: this.specialCooldownRemaining,
+      specialCooldownTotal: getCharacterById(this._characterId).specialCooldown,
+      specialActiveRemaining: this.specialActiveRemaining,
       ...(this.levelConfig
         ? {
             levelTimeRemaining:
               this.levelConfig.timeLimit !== null
                 ? this.levelTimeRemaining
                 : undefined,
-            levelTarget: this.levelConfig.targetDistance,
+            levelTarget: this.levelConfig.targetCoins
+              ?? this.levelConfig.targetKills
+              ?? this.levelConfig.targetDistance,
+            levelProgress: this.levelConfig.targetCoins !== undefined
+              ? this.player.coins
+              : this.levelConfig.targetKills !== undefined
+                ? this.enemiesDefeated
+                : this.player.distance,
+            levelObjective: this.levelConfig.targetCoins !== undefined
+              ? "coins" as const
+              : this.levelConfig.targetKills !== undefined
+                ? "kills" as const
+                : "distance" as const,
           }
         : {}),
     });
@@ -2548,8 +2651,8 @@ export class GameEngine {
 
     const chunks = this.chunkManager.getLoadedChunks();
 
-    this.renderer.drawSky(this.camera);
-    this.renderer.drawParallax(this.camera);
+    this.renderer.drawSky(this.camera, this.gameTime);
+    this.renderer.drawParallax(this.camera, this.gameTime);
     this.renderer.drawTerrain(chunks, this.camera);
     this.renderer.drawPlatforms(chunks, this.camera, this.gameTime);
     this.renderer.drawDecorations(chunks, this.camera);

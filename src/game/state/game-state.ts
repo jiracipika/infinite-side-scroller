@@ -79,6 +79,13 @@ export interface GameStats {
   dayPhase?: 'dawn' | 'day' | 'dusk' | 'night';
   levelTimeRemaining?: number;
   levelTarget?: number;
+  /** Current value for the active objective (distance, coins, or defeats). */
+  levelProgress?: number;
+  levelObjective?: 'distance' | 'coins' | 'kills';
+  specialName?: string;
+  specialCooldownRemaining?: number;
+  specialCooldownTotal?: number;
+  specialActiveRemaining?: number;
 }
 
 export interface GameCallbacks {

@@ -16,6 +16,8 @@
 import {
   ADVENTURE_LEVELS,
   TIME_ATTACK_LEVELS,
+  COIN_RUSH_LEVELS,
+  GAUNTLET_LEVELS,
   type LevelConfig,
 } from "@/game/data/levels";
 
@@ -58,7 +60,7 @@ export function saveProgress(data: LevelProgressMap): void {
  * with default values. Mutates the map in place AND returns the entry so
  * callers can chain.
  *
- * The first level of each mode (adventure id=1, time-attack id=21) is
+ * The first level of each mode is
  * unlocked by default; all others start locked.
  */
 export function ensureDefault(
@@ -69,7 +71,7 @@ export function ensureDefault(
     progress[id] = {
       stars: 0,
       bestScore: 0,
-      unlocked: id === 1 || id === 21,
+      unlocked: id === 1 || id === 21 || id === 31 || id === 41,
     };
   }
   return progress[id];
@@ -96,8 +98,13 @@ export function calcStars(level: LevelConfig, score: number): number {
  * Returns null if this is the last level in its mode.
  */
 export function findNextLevel(level: LevelConfig): LevelConfig | null {
-  const modeList =
-    level.mode === "time-attack" ? TIME_ATTACK_LEVELS : ADVENTURE_LEVELS;
+  const modeList = level.mode === "time-attack"
+    ? TIME_ATTACK_LEVELS
+    : level.mode === "coin-rush"
+      ? COIN_RUSH_LEVELS
+      : level.mode === "gauntlet"
+        ? GAUNTLET_LEVELS
+        : ADVENTURE_LEVELS;
   const idx = modeList.findIndex((l) => l.id === level.id);
   if (idx < 0 || idx >= modeList.length - 1) return null;
   return modeList[idx + 1] ?? null;

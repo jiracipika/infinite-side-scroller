@@ -2,9 +2,13 @@
 export interface LevelConfig {
   id: number;
   name: string;
-  mode: 'adventure' | 'time-attack';
+  mode: 'adventure' | 'time-attack' | 'coin-rush' | 'gauntlet';
   seed: number;
   targetDistance: number;
+  /** Coin Rush objective. When set, coins replace distance as the win condition. */
+  targetCoins?: number;
+  /** Gauntlet objective. When set, enemy defeats replace distance as the win condition. */
+  targetKills?: number;
   timeLimit: number | null; // seconds, null for adventure
   biome: 'forest' | 'desert' | 'ice' | 'volcano' | 'mixed';
   enemies: string[]; // which enemy types can spawn
@@ -533,5 +537,98 @@ export const TIME_ATTACK_LEVELS: LevelConfig[] = [
   },
 ];
 
+// Coin Rush — short, high-pressure scavenger routes where coins are the objective.
+export const COIN_RUSH_LEVELS: LevelConfig[] = [
+  {
+    id: 31, name: "Gilded Grove", mode: 'coin-rush', seed: generateSeed(3101),
+    targetDistance: 900, targetCoins: 12, timeLimit: 55, biome: 'forest',
+    enemies: ['Slime', 'Beetle'], enemyDensity: 0.25, hazardDensity: 0.12,
+    boss: false, powerUpFrequency: 0.55,
+    description: "Chase a ribbon of gold through an enchanted emerald grove.",
+    starThresholds: { one: 600, two: 1100, three: 1700 }
+  },
+  {
+    id: 32, name: "Mirage Mint", mode: 'coin-rush', seed: generateSeed(3202),
+    targetDistance: 1200, targetCoins: 18, timeLimit: 60, biome: 'desert',
+    enemies: ['Slime', 'Bat', 'Jumper'], enemyDensity: 0.32, hazardDensity: 0.2,
+    boss: false, powerUpFrequency: 0.5,
+    description: "Loot a neon oasis before its shimmering pathways disappear.",
+    starThresholds: { one: 900, two: 1500, three: 2200 }
+  },
+  {
+    id: 33, name: "Prism Vault", mode: 'coin-rush', seed: generateSeed(3303),
+    targetDistance: 1500, targetCoins: 24, timeLimit: 65, biome: 'ice',
+    enemies: ['Wisp', 'Bat', 'Skeleton'], enemyDensity: 0.38, hazardDensity: 0.26,
+    boss: false, powerUpFrequency: 0.48,
+    description: "Crack a frozen spectrum where every coin bends the light.",
+    starThresholds: { one: 1200, two: 1900, three: 2700 }
+  },
+  {
+    id: 34, name: "Magma Treasury", mode: 'coin-rush', seed: generateSeed(3404),
+    targetDistance: 1800, targetCoins: 30, timeLimit: 70, biome: 'volcano',
+    enemies: ['Mite', 'Jumper', 'Skeleton', 'Alien'], enemyDensity: 0.46, hazardDensity: 0.34,
+    boss: false, powerUpFrequency: 0.46,
+    description: "Plunder molten riches while the whole horizon burns in colour.",
+    starThresholds: { one: 1500, two: 2300, three: 3200 }
+  },
+  {
+    id: 35, name: "Chromatic Heist", mode: 'coin-rush', seed: generateSeed(3505),
+    targetDistance: 2200, targetCoins: 40, timeLimit: 75, biome: 'mixed',
+    enemies: ['Slime', 'Bat', 'Wisp', 'Alien', 'UFO'], enemyDensity: 0.55, hazardDensity: 0.42,
+    boss: true, powerUpFrequency: 0.52,
+    description: "Rob a reality-bending vault as every biome collides at once.",
+    starThresholds: { one: 2000, two: 3000, three: 4200 }
+  },
+];
+
+// Gauntlet — combat-first levels; defeat the marked number of enemies to escape.
+export const GAUNTLET_LEVELS: LevelConfig[] = [
+  {
+    id: 41, name: "Mosslight Melee", mode: 'gauntlet', seed: generateSeed(4101),
+    targetDistance: 1000, targetKills: 8, timeLimit: null, biome: 'forest',
+    enemies: ['Slime', 'Beetle'], enemyDensity: 0.5, hazardDensity: 0.1,
+    boss: false, powerUpFrequency: 0.5,
+    description: "Clear the moonlit undergrowth in a compact opening brawl.",
+    starThresholds: { one: 700, two: 1400, three: 2200 }
+  },
+  {
+    id: 42, name: "Sunflare Arena", mode: 'gauntlet', seed: generateSeed(4202),
+    targetDistance: 1400, targetKills: 14, timeLimit: null, biome: 'desert',
+    enemies: ['Bat', 'Jumper', 'Mite'], enemyDensity: 0.58, hazardDensity: 0.18,
+    boss: false, powerUpFrequency: 0.48,
+    description: "Fight through a blazing arena painted in hot coral and gold.",
+    starThresholds: { one: 1100, two: 2000, three: 3000 }
+  },
+  {
+    id: 43, name: "Aurora Siege", mode: 'gauntlet', seed: generateSeed(4303),
+    targetDistance: 1800, targetKills: 20, timeLimit: null, biome: 'ice',
+    enemies: ['Wisp', 'Skeleton', 'Bat'], enemyDensity: 0.65, hazardDensity: 0.24,
+    boss: false, powerUpFrequency: 0.46,
+    description: "Break a spectral siege beneath curtains of electric aurora.",
+    starThresholds: { one: 1600, two: 2700, three: 3900 }
+  },
+  {
+    id: 44, name: "Inferno Chorus", mode: 'gauntlet', seed: generateSeed(4404),
+    targetDistance: 2300, targetKills: 28, timeLimit: null, biome: 'volcano',
+    enemies: ['Jumper', 'Skeleton', 'Alien', 'UFO'], enemyDensity: 0.72, hazardDensity: 0.34,
+    boss: false, powerUpFrequency: 0.44,
+    description: "Turn a volcanic warband into a rhythmic chain of combos.",
+    starThresholds: { one: 2200, two: 3500, three: 5000 }
+  },
+  {
+    id: 45, name: "Dream Eater", mode: 'gauntlet', seed: generateSeed(4505),
+    targetDistance: 2800, targetKills: 36, timeLimit: null, biome: 'mixed',
+    enemies: ['Slime', 'Wisp', 'Skeleton', 'Alien', 'UFO', 'Boss'], enemyDensity: 0.82, hazardDensity: 0.44,
+    boss: true, powerUpFrequency: 0.5,
+    description: "Survive the final painted nightmare and devour its boss.",
+    starThresholds: { one: 3000, two: 4600, three: 6500 }
+  },
+];
+
 // Combined export for easy access
-export const ALL_LEVELS = [...ADVENTURE_LEVELS, ...TIME_ATTACK_LEVELS];
+export const ALL_LEVELS = [
+  ...ADVENTURE_LEVELS,
+  ...TIME_ATTACK_LEVELS,
+  ...COIN_RUSH_LEVELS,
+  ...GAUNTLET_LEVELS,
+];

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, type FC } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ADVENTURE_LEVELS, TIME_ATTACK_LEVELS, type LevelConfig } from '@/game/data/levels';
+import { ADVENTURE_LEVELS, TIME_ATTACK_LEVELS, COIN_RUSH_LEVELS, GAUNTLET_LEVELS, type LevelConfig } from '@/game/data/levels';
 import {
   loadProgress,
   type LevelProgress,
@@ -25,7 +25,7 @@ const BIOME_COLORS: Record<string, { bg: string; accent: string; emoji: string }
 
 function ensureDefault(progress: LevelProgressMap, id: number): LevelProgress {
   if (!progress[id]) {
-    progress[id] = { stars: 0, bestScore: 0, unlocked: id === 1 || id === 21 };
+    progress[id] = { stars: 0, bestScore: 0, unlocked: id === 1 || id === 21 || id === 31 || id === 41 };
   }
   return progress[id];
 }
@@ -38,6 +38,7 @@ const LevelCard: FC<{
 }> = ({ level, prog, onClick, index }) => {
   const biome = BIOME_COLORS[level.biome] || BIOME_COLORS.forest;
   const isTimeAttack = level.mode === 'time-attack';
+  const modePrefix = level.mode === 'time-attack' ? 'TA' : level.mode === 'coin-rush' ? 'CR' : level.mode === 'gauntlet' ? 'GX' : '';
   const locked = !prog.unlocked;
 
   return (
@@ -76,7 +77,7 @@ const LevelCard: FC<{
           fontSize: 11, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase',
           color: locked ? 'rgba(255,255,255,0.15)' : biome.accent,
         }}>
-          {isTimeAttack ? `TA-${level.id - 20}` : `${level.id}`}
+          {modePrefix ? `${modePrefix}-${level.id % 10}` : `${level.id}`}
         </span>
         {locked ? (
           <span style={{ fontSize: 14, opacity: 0.2 }}>🔒</span>
@@ -101,7 +102,13 @@ const LevelCard: FC<{
 
       {/* Subtitle */}
       <div style={{ fontSize: 10, color: locked ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.4)', lineHeight: 1.3 }}>
-        {isTimeAttack ? `${level.timeLimit}s · ${level.targetDistance}m` : `${level.targetDistance}m`}
+        {level.mode === 'coin-rush'
+          ? `${level.timeLimit}s · ${level.targetCoins} coins`
+          : level.mode === 'gauntlet'
+            ? `${level.targetKills} KOs`
+            : isTimeAttack
+              ? `${level.timeLimit}s · ${level.targetDistance}m`
+              : `${level.targetDistance}m`}
         {level.boss && ' · 👑'}
       </div>
 
@@ -155,7 +162,7 @@ const EndlessCard: FC<{ onClick: () => void }> = ({ onClick }) => {
 };
 
 const LevelSelectScreen: FC<Props> = ({ onLevelSelect, onBack, onEndlessPlay }) => {
-  const [tab, setTab] = useState<'adventure' | 'endless' | 'time-attack'>('adventure');
+  const [tab, setTab] = useState<'adventure' | 'endless' | 'time-attack' | 'coin-rush' | 'gauntlet'>('adventure');
   const [progress, setProgress] = useState<Record<number, LevelProgress>>({});
 
   useEffect(() => { setProgress(loadProgress()); }, []);
@@ -163,6 +170,8 @@ const LevelSelectScreen: FC<Props> = ({ onLevelSelect, onBack, onEndlessPlay }) 
   const currentLevels = useMemo(() => {
     if (tab === 'adventure') return ADVENTURE_LEVELS;
     if (tab === 'time-attack') return TIME_ATTACK_LEVELS;
+    if (tab === 'coin-rush') return COIN_RUSH_LEVELS;
+    if (tab === 'gauntlet') return GAUNTLET_LEVELS;
     return [];
   }, [tab]);
 
@@ -170,6 +179,8 @@ const LevelSelectScreen: FC<Props> = ({ onLevelSelect, onBack, onEndlessPlay }) 
     { id: 'adventure' as const, label: 'Adventure', icon: '🏰' },
     { id: 'endless' as const, label: 'Endless', icon: '♾️' },
     { id: 'time-attack' as const, label: 'Time Attack', icon: '⏱️' },
+    { id: 'coin-rush' as const, label: 'Coin Rush', icon: '🪙' },
+    { id: 'gauntlet' as const, label: 'Gauntlet', icon: '⚔️' },
   ];
 
   return (
@@ -177,7 +188,7 @@ const LevelSelectScreen: FC<Props> = ({ onLevelSelect, onBack, onEndlessPlay }) 
       width: '100%', maxWidth: 600, margin: '0 auto', padding: '20px 16px',
       color: '#fff', fontFamily: '-apple-system, system-ui, sans-serif',
       minHeight: '100vh',
-      background: 'linear-gradient(180deg, rgba(5,8,16,0.98), rgba(10,12,22,0.96))',
+      background: 'radial-gradient(circle at 15% 8%, rgba(255,45,149,0.2), transparent 38%), radial-gradient(circle at 90% 22%, rgba(0,229,255,0.16), transparent 42%), linear-gradient(145deg, #070314, #11172c 48%, #18071d)',
       boxShadow: '0 0 0 100vmax rgba(3,6,14,0.94)',
       clipPath: 'inset(0 -100vmax)',
     }}>
@@ -198,7 +209,7 @@ const LevelSelectScreen: FC<Props> = ({ onLevelSelect, onBack, onEndlessPlay }) 
       </div>
 
       {/* Mode tabs */}
-      <div role="tablist" aria-label="Game modes" style={{ display: 'flex', gap: 4, marginBottom: 20, background: 'rgba(13,16,26,0.92)', borderRadius: 12, padding: 4 }}>
+      <div role="tablist" aria-label="Game modes" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4, marginBottom: 20, background: 'rgba(13,16,26,0.82)', borderRadius: 12, padding: 4, backdropFilter: 'blur(18px)' }}>
         {tabs.map(t => {
           const active = tab === t.id;
           return (
@@ -243,7 +254,7 @@ const LevelSelectScreen: FC<Props> = ({ onLevelSelect, onBack, onEndlessPlay }) 
               color: tab === 'adventure' ? BIOME_COLORS.forest.accent : BIOME_COLORS.mixed.accent,
               marginBottom: 12, paddingLeft: 4,
             }}>
-              {tab === 'adventure' ? '🏰 Adventure Levels' : '⏱️ Time Attack Levels'}
+              {tab === 'adventure' ? '🏰 Adventure Levels' : tab === 'time-attack' ? '⏱️ Time Attack Levels' : tab === 'coin-rush' ? '🪙 Coin Rush Levels' : '⚔️ Gauntlet Levels'}
             </div>
 
             {/* Level grid */}

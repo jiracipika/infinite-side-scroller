@@ -46,6 +46,7 @@ const TouchControls: FC<TouchControlsProps> = ({
   const [attackHeld, setAttackHeld] = useState(false);
   const [dashHeld, setDashHeld] = useState(false);
   const [carryHeld, setCarryHeld] = useState(false);
+  const [specialHeld, setSpecialHeld] = useState(false);
   const movementDirectionRef = useRef<-1 | 0 | 1>(0);
 
   const emit = useCallback((type: string, value: boolean) => {
@@ -78,13 +79,15 @@ const TouchControls: FC<TouchControlsProps> = ({
   const endDash = useCallback(() => { emit('dash-press', false); setDashHeld(false); }, [emit]);
   const startCarry = useCallback(() => { emit('carry-press', true); setCarryHeld(true); pulseHaptic(8); }, [emit, pulseHaptic]);
   const endCarry = useCallback(() => { emit('carry-press', false); setCarryHeld(false); }, [emit]);
+  const startSpecial = useCallback(() => { emit('special-press', true); setSpecialHeld(true); pulseHaptic([16, 25, 22]); }, [emit, pulseHaptic]);
+  const endSpecial = useCallback(() => { emit('special-press', false); setSpecialHeld(false); }, [emit]);
 
   const releaseAll = useCallback(() => {
     movementDirectionRef.current = 0;
     setLeftHeld(false); setRightHeld(false);
-    setJumpHeld(false); setAttackHeld(false); setDashHeld(false); setCarryHeld(false);
+    setJumpHeld(false); setAttackHeld(false); setDashHeld(false); setCarryHeld(false); setSpecialHeld(false);
     emit('move-left', false); emit('move-right', false);
-    emit('jump-press', false); emit('attack-press', false); emit('dash-press', false); emit('carry-press', false);
+    emit('jump-press', false); emit('attack-press', false); emit('dash-press', false); emit('carry-press', false); emit('special-press', false);
     pulseHaptic(0);
   }, [emit, pulseHaptic]);
 
@@ -206,6 +209,9 @@ const TouchControls: FC<TouchControlsProps> = ({
         }}
       >
         <div style={{ display: 'flex', gap: compact ? 8 : 10 }}>
+          <TouchBtn active={specialHeld} onStart={startSpecial} onEnd={endSpecial}
+            size={compact ? 'xs' : 'sm'} controlSize={controlSize} compact={compact}
+            tint="cyan" aria-label="Special attack"><SpecialLabel /></TouchBtn>
           <TouchBtn
             active={dashHeld}
             onStart={startDash}
@@ -357,7 +363,7 @@ interface TouchBtnProps {
   size: TouchButtonSize;
   controlSize: TouchControlSize;
   compact: boolean;
-  tint?: 'blue' | 'orange' | 'purple' | 'green';
+  tint?: 'blue' | 'orange' | 'purple' | 'green' | 'cyan';
   'aria-label': string;
   children: React.ReactNode;
 }
@@ -390,6 +396,11 @@ const TINTS = {
     border:     'rgba(52,199,89,0.22)',
     borderActive: 'rgba(52,199,89,0.7)',
     glow:       '0 0 14px rgba(52,199,89,0.42)',
+  },
+  cyan: {
+    bg: 'rgba(34,211,238,0.2)', bgActive: 'rgba(34,211,238,0.62)',
+    border: 'rgba(34,211,238,0.28)', borderActive: 'rgba(103,232,249,0.86)',
+    glow: '0 0 18px rgba(34,211,238,0.58)',
   },
   none: {
     bg:         'rgba(120,120,128,0.22)',
@@ -506,6 +517,10 @@ const AtkLabel: FC = () => (
   }}>
     ATK
   </span>
+);
+
+const SpecialLabel: FC = () => (
+  <span style={{ fontSize: 15, fontWeight: 900, color: '#ecfeff', lineHeight: 1 }}>✦</span>
 );
 
 const DashLabel: FC = () => (

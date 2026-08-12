@@ -39,6 +39,10 @@ export interface CharacterDef {
    * piercing magic bolt with a trail effect, larger radius, and double damage.
    */
   hasMagicBolt?: boolean;
+  /** Character-flavoured super move, activated on a timed cooldown. */
+  specialName: string;
+  specialCooldown: number;
+  specialColor: string;
 }
 
 export const CHARACTERS: CharacterDef[] = [
@@ -62,6 +66,7 @@ export const CHARACTERS: CharacterDef[] = [
     meleeDamage: 2,
     meleeRange: 48,
     meleeDuration: 0.2,
+    specialName: 'Radiant Cleave', specialCooldown: 12, specialColor: '#f8fafc',
   },
   {
     id: 'ninja',
@@ -83,6 +88,7 @@ export const CHARACTERS: CharacterDef[] = [
     meleeDamage: 1,
     meleeRange: 40,
     meleeDuration: 0.15,
+    specialName: 'Shadow Tempest', specialCooldown: 9, specialColor: '#4ade80',
   },
   {
     id: 'tank',
@@ -104,6 +110,7 @@ export const CHARACTERS: CharacterDef[] = [
     meleeDamage: 3,
     meleeRange: 52,
     meleeDuration: 0.26,
+    specialName: 'Meteor Slam', specialCooldown: 14, specialColor: '#f97316',
   },
   {
     id: 'mage',
@@ -120,6 +127,7 @@ export const CHARACTERS: CharacterDef[] = [
     width: 22,
     height: 34,
     hasMagicBolt: true,
+    specialName: 'Arcane Nova', specialCooldown: 11, specialColor: '#c084fc',
   },
   {
     id: 'ranger',
@@ -135,6 +143,7 @@ export const CHARACTERS: CharacterDef[] = [
     maxHealth: 3,
     width: 22,
     height: 32,
+    specialName: 'Arrow Rain', specialCooldown: 10, specialColor: '#facc15',
   },
   {
     id: 'cyborg',
@@ -151,6 +160,7 @@ export const CHARACTERS: CharacterDef[] = [
     width: 24,
     height: 33,
     knockbackResistance: 0.5,
+    specialName: 'Overclock Pulse', specialCooldown: 12, specialColor: '#22d3ee',
     hasMelee: true,
     meleeCooldown: 0.38,
     meleeDamage: 2,
@@ -171,6 +181,7 @@ export const CHARACTERS: CharacterDef[] = [
     maxHealth: 2,
     width: 21,
     height: 33,
+    specialName: 'Astral Wake', specialCooldown: 10, specialColor: '#e879f9',
   },
   {
     id: 'healer',
@@ -186,6 +197,7 @@ export const CHARACTERS: CharacterDef[] = [
     maxHealth: 4,
     width: 23,
     height: 33,
+    specialName: 'Verdant Sanctuary', specialCooldown: 15, specialColor: '#2dd4bf',
   },
 ];
 

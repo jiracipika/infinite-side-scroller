@@ -41,6 +41,8 @@ export class InputManager {
   private touchCarryPressed = false;
   private touchMelee = false;
   private touchMeleePressed = false;
+  private touchSpecial = false;
+  private touchSpecialPressed = false;
 
   private handleGameInput: ((e: CustomEvent) => void) | null = null;
   private readonly inputChannel: string;
@@ -122,6 +124,12 @@ export class InputManager {
               this.touchMelee = false;
             }
             break;
+          case 'special-press':
+            if (value) {
+              if (!this.touchSpecial) this.touchSpecialPressed = true;
+              this.touchSpecial = true;
+            } else this.touchSpecial = false;
+            break;
         }
       };
       window.addEventListener(this.inputChannel, this.handleGameInput as EventListener);
@@ -164,6 +172,8 @@ export class InputManager {
     this.touchCarryPressed = false;
     this.touchMelee = false;
     this.touchMeleePressed = false;
+    this.touchSpecial = false;
+    this.touchSpecialPressed = false;
     this.gamepad = { ...EMPTY_GAMEPAD_INPUT };
     this.prevGamepad = { ...EMPTY_GAMEPAD_INPUT };
   };
@@ -181,7 +191,7 @@ export class InputManager {
 
   private acceptsKey(code: string): boolean {
     // Melee keys are always accepted regardless of keyboard scheme.
-    if (code === 'KeyC' || code === 'KeyN') return true;
+    if (code === 'KeyC' || code === 'KeyN' || code === 'KeyV') return true;
     if (this.keyboardScheme === 'all') return true;
     if (this.keyboardScheme === 'wasd') {
       return ['KeyA', 'KeyD', 'KeyW', 'KeyE', 'KeyQ', 'KeyF'].includes(code);
@@ -223,6 +233,7 @@ export class InputManager {
     if (code === 'KeyE' || code === 'KeyJ' || code === 'KeyZ') return this.touchAttack || gamepad.attack;
     if (code === 'KeyX' || code === 'ShiftLeft') return this.touchDash || gamepad.dash;
     if (code === 'KeyC') return this.touchMelee || gamepad.melee;
+    if (code === 'KeyV') return this.touchSpecial || gamepad.special;
     if (code === 'KeyF') return this.touchCarry || gamepad.carry;
     return false;
   }
@@ -249,6 +260,7 @@ export class InputManager {
       if (this.acceptsKey('KeyN') && this.keys.has('KeyN') && !this.prevKeys.has('KeyN')) return true;
       if (this.touchMeleePressed || (gamepad.melee && !this.prevGamepad.melee)) return true;
     }
+    if (code === 'KeyV' && (this.touchSpecialPressed || (gamepad.special && !this.prevGamepad.special))) return true;
     if (code === 'KeyF') {
       if (this.acceptsKey('ArrowDown') && this.keys.has('ArrowDown') && !this.prevKeys.has('ArrowDown')) return true;
       if (this.acceptsKey('KeyL') && this.keys.has('KeyL') && !this.prevKeys.has('KeyL')) return true;
@@ -288,6 +300,7 @@ export class InputManager {
     this.touchDashPressed = false;
     this.touchCarryPressed = false;
     this.touchMeleePressed = false;
+    this.touchSpecialPressed = false;
   }
 
   /** Clean up event listeners */

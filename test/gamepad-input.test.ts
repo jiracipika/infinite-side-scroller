@@ -40,13 +40,14 @@ describe('gamepad mapping', () => {
     assert.equal(mapGamepadInput(makeGamepad({ buttons: [15] })).right, true);
   });
 
-  it('maps standard face buttons and right bumper to gameplay actions', () => {
+  it('maps standard face buttons, triggers, and right bumper to gameplay actions', () => {
     const faceButtons = mapGamepadInput(makeGamepad({ buttons: [0, 1, 2, 3] }));
     assert.deepEqual(
       { jump: faceButtons.jump, dash: faceButtons.dash, attack: faceButtons.attack, carry: faceButtons.carry },
       { jump: true, dash: true, attack: true, carry: true },
     );
     assert.equal(mapGamepadInput(makeGamepad({ buttons: [5] })).attack, true);
+    assert.equal(mapGamepadInput(makeGamepad({ buttons: [6] })).special, true);
   });
 });
 
@@ -99,6 +100,17 @@ describe('InputManager gamepad support', () => {
       dashPressed: true,
       carryPressed: true,
     });
+    input.destroy();
+  });
+
+  it('exposes the left-trigger special as an edge-triggered KeyV action', () => {
+    const input = new InputManager({ enableKeyboard: false });
+    gamepad = makeGamepad({ buttons: [6] });
+    input.beginFrame();
+    assert.equal(input.isDown('KeyV'), true);
+    assert.equal(input.isPressed('KeyV'), true);
+    input.endFrame();
+    assert.equal(input.isPressed('KeyV'), false);
     input.destroy();
   });
 

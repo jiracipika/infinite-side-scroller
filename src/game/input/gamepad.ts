@@ -6,6 +6,8 @@ export interface GamepadInputState {
   dash: boolean;
   carry: boolean;
   melee: boolean;
+  /** Left trigger: character's timed special attack. */
+  special: boolean;
 }
 
 export const EMPTY_GAMEPAD_INPUT: Readonly<GamepadInputState> = Object.freeze({
@@ -16,6 +18,7 @@ export const EMPTY_GAMEPAD_INPUT: Readonly<GamepadInputState> = Object.freeze({
   dash: false,
   carry: false,
   melee: false,
+  special: false,
 });
 
 export const GAMEPAD_AXIS_DEADZONE = 0.35;
@@ -28,7 +31,7 @@ function buttonDown(gamepad: Gamepad, index: number): boolean {
 /**
  * Convert a standard-layout controller into the game's action vocabulary.
  * A/B/X/Y map to jump/dash/attack/carry; the right bumper also attacks;
- * the left bumper triggers melee.
+ * the left bumper triggers melee, while the left trigger activates specials.
  */
 export function mapGamepadInput(gamepad: Gamepad): GamepadInputState {
   const horizontalAxis = Number.isFinite(gamepad.axes[0]) ? gamepad.axes[0]! : 0;
@@ -40,7 +43,8 @@ export function mapGamepadInput(gamepad: Gamepad): GamepadInputState {
     dash: buttonDown(gamepad, 1),
     attack: buttonDown(gamepad, 2) || buttonDown(gamepad, 5),
     carry: buttonDown(gamepad, 3),
-    melee: buttonDown(gamepad, 4) || buttonDown(gamepad, 7),
+    melee: buttonDown(gamepad, 4),
+    special: buttonDown(gamepad, 6),
   };
 }
 

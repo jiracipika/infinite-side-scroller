@@ -215,15 +215,18 @@ const HUD: FC<Props> = ({ stats, settings }) => {
 
             {/* Level progress bar */}
             {stats.levelTarget && stats.levelTarget > 0 && (
-              <div style={{ marginTop: 4, width: 80 }} role="progressbar" aria-valuenow={Math.round((stats.distance / stats.levelTarget) * 100)} aria-valuemin={0} aria-valuemax={100} aria-label="Level progress">
+              <div style={{ marginTop: 4, width: 80 }} role="progressbar" aria-valuenow={Math.round(((stats.levelProgress ?? stats.distance) / stats.levelTarget) * 100)} aria-valuemin={0} aria-valuemax={100} aria-label="Level progress">
                 <div style={{ height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.12)', overflow: 'hidden' }}>
                   <div style={{
                     height: '100%',
                     borderRadius: 2,
-                    width: `${Math.min(100, (stats.distance / stats.levelTarget) * 100)}%`,
+                    width: `${Math.min(100, ((stats.levelProgress ?? stats.distance) / stats.levelTarget) * 100)}%`,
                     background: 'linear-gradient(90deg, var(--ios-green), var(--ios-tint))',
                     transition: 'width 0.3s ease',
                   }} />
+                </div>
+                <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.62)', marginTop: 2, textAlign: 'center', fontWeight: 700 }}>
+                  {Math.floor(stats.levelProgress ?? stats.distance)}/{stats.levelTarget}{stats.levelObjective === 'coins' ? ' coins' : stats.levelObjective === 'kills' ? ' KOs' : 'm'}
                 </div>
                 {stats.levelTimeRemaining !== undefined && stats.levelTimeRemaining > 0 && (
                   <div
@@ -236,6 +239,29 @@ const HUD: FC<Props> = ({ stats, settings }) => {
                     {Math.ceil(stats.levelTimeRemaining)}s
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Character special — the ✦ touch control / V key starts a short
+                pulse attack, then this meter makes its timed cooldown honest. */}
+            {stats.specialName && stats.specialCooldownTotal && (
+              <div
+                className="ios-hud-pill"
+                aria-label={`${stats.specialName}: ${stats.specialActiveRemaining && stats.specialActiveRemaining > 0 ? 'active' : `${Math.ceil(stats.specialCooldownRemaining ?? 0)} seconds until ready`}`}
+                style={{ marginTop: 4, display: 'flex', flexDirection: 'column', gap: 3, minWidth: 86 }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6, fontSize: 9, fontWeight: 800, color: stats.specialActiveRemaining && stats.specialActiveRemaining > 0 ? '#67e8f9' : 'rgba(255,255,255,0.7)' }}>
+                  <span>✦ {stats.specialName}</span>
+                  <span>{stats.specialActiveRemaining && stats.specialActiveRemaining > 0 ? 'NOW' : `${Math.ceil(stats.specialCooldownRemaining ?? 0)}s`}</span>
+                </div>
+                <div aria-hidden="true" style={{ height: 3, borderRadius: 3, overflow: 'hidden', background: 'rgba(255,255,255,0.14)' }}>
+                  <div style={{
+                    height: '100%', borderRadius: 3,
+                    width: `${stats.specialActiveRemaining && stats.specialActiveRemaining > 0 ? 100 : Math.max(0, Math.min(100, (1 - (stats.specialCooldownRemaining ?? 0) / stats.specialCooldownTotal) * 100))}%`,
+                    background: stats.specialActiveRemaining && stats.specialActiveRemaining > 0 ? 'linear-gradient(90deg, #22d3ee, #c084fc, #facc15)' : 'linear-gradient(90deg, #0ea5e9, #67e8f9)',
+                    transition: 'width 0.12s linear',
+                  }} />
+                </div>
               </div>
             )}
 

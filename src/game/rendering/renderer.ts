@@ -30,7 +30,7 @@ export class GameRenderer {
     this.height = height;
   }
 
-  drawSky(camera: Camera): void {
+  drawSky(camera: Camera, gameTime: number = 0): void {
     const centerX = camera.x + this.width / 2;
     const colors = getBlendedBiomeColors(centerX);
 
@@ -39,6 +39,24 @@ export class GameRenderer {
     gradient.addColorStop(1, colors.skyGradient);
     this.ctx.fillStyle = gradient;
     this.ctx.fillRect(0, 0, this.width, this.height);
+
+    const orbitX = this.width * (0.72 + Math.sin(gameTime * 0.08) * 0.08);
+    const orbitY = this.height * (0.18 + Math.cos(gameTime * 0.11) * 0.04);
+    const orb = this.ctx.createRadialGradient(
+      orbitX,
+      orbitY,
+      2,
+      orbitX,
+      orbitY,
+      Math.max(50, this.height * 0.16),
+    );
+    orb.addColorStop(0, this.shadeHexColor(colors.platform, 30));
+    orb.addColorStop(0.5, colors.platform);
+    orb.addColorStop(1, colors.sky);
+    this.ctx.fillStyle = orb;
+    this.ctx.beginPath();
+    this.ctx.arc(orbitX, orbitY, Math.max(44, this.height * 0.105), 0, Math.PI * 2);
+    this.ctx.fill();
 
     // World-anchored atmospheric haze so it doesn't look like a screen filter
     // attached to the player/camera movement.
@@ -56,10 +74,40 @@ export class GameRenderer {
     this.ctx.fillRect(0, 0, this.width, this.height);
   }
 
-  drawParallax(camera: Camera): void {
-    this.drawMountains(camera, 0.1, 200, "#00000020", 350);
-    this.drawMountains(camera, 0.2, 150, "#00000030", 400);
+  drawParallax(camera: Camera, gameTime: number = 0): void {
+    const colors = getBlendedBiomeColors(camera.x + this.width / 2);
+    this.drawMountains(camera, 0.1, 200, this.shadeHexColor(colors.groundDark, -18), 350);
+    this.drawMountains(camera, 0.2, 150, colors.groundDark, 400);
+    this.drawChromaticRibbons(camera, gameTime, colors);
     this.drawClouds(camera);
+  }
+
+  private drawChromaticRibbons(
+    camera: Camera,
+    gameTime: number,
+    colors: { ground: string; skyGradient: string; platform: string },
+  ): void {
+    const ctx = this.ctx;
+    const offset = camera.x * 0.035;
+    const ribbonColors = [
+      colors.platform,
+      colors.ground,
+      this.shadeHexColor(colors.skyGradient, 34),
+    ];
+    ctx.save();
+    for (let band = 0; band < 3; band++) {
+      ctx.strokeStyle = ribbonColors[band];
+      ctx.lineWidth = 5 + band * 3;
+      ctx.beginPath();
+      for (let x = -20; x <= this.width + 20; x += 20) {
+        const y = 90 + band * 46
+          + Math.sin((x + offset) * (0.006 + band * 0.0015) + gameTime * (0.18 + band * 0.05)) * (18 + band * 8);
+        if (x === -20) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+    ctx.restore();
   }
 
   private drawMountains(
