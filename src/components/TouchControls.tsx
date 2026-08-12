@@ -27,6 +27,7 @@ interface TouchControlsProps {
   layout?: TouchControlLayout;
   controlSize?: TouchControlSize;
   opacity?: number;
+  onPause?: () => void;
 }
 
 const TouchControls: FC<TouchControlsProps> = ({
@@ -37,6 +38,7 @@ const TouchControls: FC<TouchControlsProps> = ({
   layout = 'standard',
   controlSize = 'standard',
   opacity = 0.82,
+  onPause,
 }) => {
   const [leftHeld, setLeftHeld] = useState(false);
   const [rightHeld, setRightHeld] = useState(false);
@@ -125,6 +127,48 @@ const TouchControls: FC<TouchControlsProps> = ({
       role="group"
       aria-label="Touch game controls"
     >
+      {/* Pause button — top-right corner, above the HUD so it never overlaps. */}
+      {onPause && (
+        <button
+          type="button"
+          aria-label="Pause game"
+          onPointerDown={(e) => {
+            if (e.pointerType === 'mouse' && e.button !== 0) return;
+            e.preventDefault();
+            e.stopPropagation();
+            pulseHaptic(8);
+            onPause();
+          }}
+          onContextMenu={(e) => e.preventDefault()}
+          style={{
+            position: 'absolute',
+            top: 'max(12px, env(safe-area-inset-top, 12px))',
+            right: 'max(12px, env(safe-area-inset-right, 12px))',
+            width: compact ? 38 : 44,
+            height: compact ? 38 : 44,
+            borderRadius: '50%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 0,
+            pointerEvents: 'auto',
+            color: 'rgba(235,235,245,0.85)',
+            background: 'rgba(120,120,128,0.22)',
+            border: '1.5px solid rgba(255,255,255,0.12)',
+            backdropFilter: 'blur(12px) saturate(1.3)',
+            WebkitBackdropFilter: 'blur(12px) saturate(1.3)',
+            opacity: safeOpacity,
+            touchAction: 'none',
+            userSelect: 'none',
+            WebkitUserSelect: 'none',
+            WebkitTouchCallout: 'none',
+            zIndex: 5,
+          }}
+        >
+          <PauseIcon />
+        </button>
+      )}
+
       {/* Movement cluster — side follows the player's handedness preference. */}
       <div
         className="absolute pointer-events-auto"
@@ -483,4 +527,11 @@ const CarryLabel: FC = () => (
   }}>
     HELP
   </span>
+);
+
+const PauseIcon: FC = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill={STROKE}>
+    <rect x="6" y="5" width="4" height="14" rx="1" />
+    <rect x="14" y="5" width="4" height="14" rx="1" />
+  </svg>
 );

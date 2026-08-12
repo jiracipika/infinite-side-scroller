@@ -32,7 +32,6 @@ import { spawnHazardsForChunk, renderHazard, type Hazard } from "../hazards";
 import { getCharacterById } from "../data/characters";
 import type { Platform as PlatformData } from "../world/chunk";
 import { PerformanceProfiler } from "./performance-profiler";
-import { EntityPools } from "./entity-pools";
 import { comboMultiplierFor } from "./combo-tiers";
 import { getDayPhase, getDayTint, rgbaToString } from "./day-cycle";
 import type {
@@ -172,7 +171,6 @@ export class GameEngine {
 
   // Performance monitoring
   private profiler: PerformanceProfiler;
-  private entityPools: EntityPools;
 
   // Procedural audio — shares the global AudioContext singleton.
   private sfx: SfxEngine = getSfxEngine();
@@ -373,9 +371,8 @@ export class GameEngine {
     this.renderer = new GameRenderer(this.ctx);
     this.wireHealCallback();
 
-    // Initialize performance and entity pools
+    // Initialize performance monitoring
     this.profiler = new PerformanceProfiler();
-    this.entityPools = new EntityPools();
 
     this.handleResize();
     this.prepareOpeningFrame();
@@ -503,7 +500,6 @@ export class GameEngine {
     this.player.setDoubleJump(true);
     this.wireHealCallback();
     this.particles.clear();
-    this.entityPools.clear();
     this.profiler.reset();
     this.renderer.clearTerrainCache();
     this.enemies = [];

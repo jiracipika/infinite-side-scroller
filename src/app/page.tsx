@@ -1652,6 +1652,8 @@ export default function Home() {
         ref={canvasRef}
         className="absolute inset-0 w-full h-full block"
         style={{ imageRendering: "auto" }}
+        role="img"
+        aria-label="Dashverse game canvas — an infinite side-scrolling platformer. Use arrow keys or touch controls to play."
       />
 
       {/* Menu overlays */}
@@ -1725,6 +1727,7 @@ export default function Home() {
           layout={settings.touchControlLayout}
           controlSize={settings.touchControlSize}
           opacity={settings.touchControlOpacity}
+          onPause={pauseGame}
         />
       )}
       {state === "playing" && multiplayerSession && (

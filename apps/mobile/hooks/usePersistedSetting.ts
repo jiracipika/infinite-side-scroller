@@ -46,13 +46,19 @@ export function usePersistedSetting<T>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fullKey]);
 
+  const writeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const update = useCallback(
     (next: T | ((prev: T) => T)) => {
       setValue((prev) => {
         const resolved =
           typeof next === 'function' ? (next as (p: T) => T)(prev) : next;
-        // Fire-and-forget write; AsyncStorage errors are non-fatal.
-        AsyncStorage.setItem(fullKey, JSON.stringify(resolved)).catch(() => {});
+        // Debounce storage writes — sliders fire onValueChange continuously
+        // during drag, which would cause excessive disk I/O without this.
+        if (writeTimerRef.current) clearTimeout(writeTimerRef.current);
+        writeTimerRef.current = setTimeout(() => {
+          AsyncStorage.setItem(fullKey, JSON.stringify(resolved)).catch(() => {});
+        }, 300);
         return resolved;
       });
     },
