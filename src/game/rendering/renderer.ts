@@ -15,7 +15,7 @@ import { TerrainCache } from "../engine/terrain-cache";
 
 export class GameRenderer {
   private terrainCache: TerrainCache;
-  private cacheEnabled = false;
+  private cacheEnabled = true;
   private ctx: CanvasRenderingContext2D;
   private width = 0;
   private height = 0;
