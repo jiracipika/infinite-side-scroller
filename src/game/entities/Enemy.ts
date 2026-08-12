@@ -30,6 +30,7 @@ export abstract class Enemy {
   aiState: AIState = 'idle';
   aiStateTimer = 0;
   detectRange = 200;
+  baseDetectRange = 200;
   attackRange = 150;
   patrolSpeed = 60;
 
@@ -64,7 +65,9 @@ export abstract class Enemy {
     this.damageMult = damageMult;
     this.healthMult = healthMult;
     this.shootCooldownMult = shootCooldownMult;
-    this.detectRange *= detectMult;
+    // Guard against compounding: only apply detectMult to the base range
+    // (not to an already-scaled value from a previous applyDifficulty call)
+    this.detectRange = this.baseDetectRange * detectMult;
     // Scale health on spawn
     if (this.health === this.maxHealth) {
       this.health = Math.ceil(this.health * healthMult);

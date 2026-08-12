@@ -198,13 +198,13 @@ export default function GameScreen() {
           enemiesDefeated: data.enemiesDefeated || 0,
         });
       } else if (data.type === 'gameover') {
-        const score = Math.max(0, Math.floor(data.score || stats.score));
+        const score = Math.max(0, Math.floor(typeof data.score === 'number' ? data.score : stats.score));
         const runStats = {
           score,
-          distance: data.distance || stats.distance,
-          coins: data.coins || stats.coins,
-          maxCombo: data.maxCombo || stats.maxCombo,
-          enemiesDefeated: data.enemiesDefeated || stats.enemiesDefeated,
+          distance: typeof data.distance === 'number' ? data.distance : stats.distance,
+          coins: typeof data.coins === 'number' ? data.coins : stats.coins,
+          maxCombo: typeof data.maxCombo === 'number' ? data.maxCombo : stats.maxCombo,
+          enemiesDefeated: typeof data.enemiesDefeated === 'number' ? data.enemiesDefeated : stats.enemiesDefeated,
         };
         setGameState('gameover');
         void appendRunHistory(runStats);

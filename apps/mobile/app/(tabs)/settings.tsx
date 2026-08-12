@@ -68,13 +68,13 @@ const SectionHeader: React.FC<{ title: string }> = ({ title }) => (
 export default function SettingsScreen() {
   const [masterVolume, setMasterVolume, loadedMaster] = usePersistedSetting('masterVolume', 0.7);
   const [sfxVolume, setSfxVolume, loadedSfx] = usePersistedSetting('sfxVolume', 0.8);
-  const [musicVolume, setMusicVolume, loadedMusic] = usePersistedSetting('musicVolume', 0.6);
+  // musicVolume removed — engine has no music system yet. Re-enable when music tracks are added.
   const [showFPS, setShowFPS, loadedFps] = usePersistedSetting('showFPS', false);
   const [reducedParticles, setReducedParticles, loadedParticles] = usePersistedSetting('reducedParticles', true);
   const [hapticsEnabled, setHapticsEnabled, loadedHaptics] = usePersistedSetting('hapticsEnabled', true);
   const [largeControls, setLargeControls, loadedLarge] = usePersistedSetting('largeControls', false);
 
-  const allLoaded = loadedMaster && loadedSfx && loadedMusic && loadedFps && loadedParticles && loadedHaptics && loadedLarge;
+  const allLoaded = loadedMaster && loadedSfx && loadedFps && loadedParticles && loadedHaptics && loadedLarge;
 
   if (!allLoaded) {
     return (
@@ -144,22 +144,8 @@ export default function SettingsScreen() {
             />
           </SettingRow>
           <SettingDivider />
-          <SettingRow label="Music Volume" value={`${Math.round(musicVolume * 100)}%`}>
-            <Slider
-              style={styles.slider}
-              minimumValue={0}
-              maximumValue={1}
-              step={0.05}
-              value={musicVolume}
-              onValueChange={(v) => handleSliderChange(setMusicVolume, v)}
-              onSlidingComplete={handleSliderRelease}
-              minimumTrackTintColor="#0A84FF"
-              maximumTrackTintColor="rgba(255,255,255,0.14)"
-              thumbTintColor="#fff"
-              accessibilityLabel="Music volume"
-              accessibilityHint="Adjusts background music volume"
-              accessibilityValue={{ min: 0, max: 100, now: Math.round(musicVolume * 100), text: `${Math.round(musicVolume * 100)} percent` }}
-            />
+          <SettingRow label="Music Volume" value="Coming soon">
+            <Text style={[styles.valueText, { opacity: 0.4 }]}>No music tracks yet</Text>
           </SettingRow>
         </GlassCard>
 
@@ -231,7 +217,7 @@ export default function SettingsScreen() {
                     onPress: () => {
                       setMasterVolume(0.7);
                       setSfxVolume(0.8);
-                      setMusicVolume(0.6);
+                      // musicVolume reset removed — setting is disabled until engine supports music
                       setShowFPS(false);
                       setReducedParticles(true);
                       setHapticsEnabled(true);
