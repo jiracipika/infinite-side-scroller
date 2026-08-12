@@ -105,6 +105,13 @@ describe('level data integrity', () => {
     }
   });
 
+  it('every level has a supported biome ID', () => {
+    const supportedBiomes = new Set(['forest', 'desert', 'ice', 'volcano', 'mixed']);
+    for (const level of ALL_LEVELS) {
+      assert.ok(supportedBiomes.has(level.biome), `level ${level.id} has unsupported biome ${level.biome}`);
+    }
+  });
+
   it('every level has a non-empty name and description', () => {
     for (const l of ALL_LEVELS) {
       assert.ok(typeof l.name === 'string' && l.name.length > 0, `level ${l.id} needs a name`);

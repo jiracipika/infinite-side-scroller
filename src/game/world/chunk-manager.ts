@@ -4,6 +4,7 @@
  */
 
 import { Chunk, CHUNK_WIDTH } from './chunk';
+import type { BiomeConfig } from './biomes';
 
   /** How many chunks to keep loaded on each side of the player */
 const CHUNK_RANGE = 6;
@@ -12,7 +13,10 @@ export class ChunkManager {
   private worldSeed: number;
   private chunks = new Map<number, Chunk>();
 
-  constructor(worldSeed: number) {
+  constructor(
+    worldSeed: number,
+    private readonly biomeOverride: BiomeConfig | null = null,
+  ) {
     this.worldSeed = worldSeed;
   }
 
@@ -28,7 +32,7 @@ export class ChunkManager {
     // Generate any missing chunks in range
     for (let i = minChunk; i <= maxChunk; i++) {
       if (!this.chunks.has(i)) {
-        this.chunks.set(i, new Chunk(i, this.worldSeed));
+        this.chunks.set(i, new Chunk(i, this.worldSeed, this.biomeOverride));
       }
     }
 
@@ -61,7 +65,7 @@ export class ChunkManager {
     const idx = this.getChunkIndex(worldX);
     let chunk = this.chunks.get(idx);
     if (!chunk) {
-      chunk = new Chunk(idx, this.worldSeed);
+      chunk = new Chunk(idx, this.worldSeed, this.biomeOverride);
       this.chunks.set(idx, chunk);
     }
     return chunk.getHeight(worldX - chunk.worldX);

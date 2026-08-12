@@ -21,7 +21,7 @@ import { UFO } from "../entities/UFO";
 import { ParticleSystem } from "../entities/particles";
 import { GameRenderer } from "../rendering/renderer";
 import { getSfxEngine, type SfxEngine } from "../audio";
-import { getBiomeAt } from "../world/biomes";
+import { getBiomeAt, getLevelBiome, type BiomeConfig } from "../world/biomes";
 import { getDifficulty } from "../difficulty";
 import type { Collectible } from "../entities/Collectibles";
 import {
@@ -303,6 +303,8 @@ export class GameEngine {
   // Game time for animations
   private gameTime = 0;
   private levelConfig: LevelConfig | null = null;
+  /** Non-mixed finite levels lock terrain and atmosphere to their authored biome. */
+  private levelBiomeOverride: BiomeConfig | null = null;
   private levelTimeRemaining = 0;
   private levelCompleted = false;
   private enemiesDefeated = 0;
@@ -504,6 +506,7 @@ export class GameEngine {
     // A plain seed starts an endless/standard run. Level setup re-attaches its
     // config after this reset so objectives never leak into the next mode.
     this.levelConfig = null;
+    this.levelBiomeOverride = null;
     this.worldSeed = seed;
     if (characterId) this._characterId = characterId;
     this.chunkManager = new ChunkManager(this.worldSeed);
@@ -576,6 +579,17 @@ export class GameEngine {
   setLevel(config: LevelConfig): void {
     this.setSeed(config.seed, this._characterId);
     this.levelConfig = config;
+    this.levelBiomeOverride = getLevelBiome(config.biome);
+    if (this.levelBiomeOverride) {
+      // Recreate chunks before the opening frame is generated so their terrain,
+      // platforms, caves, and decorations use the authored level biome.
+      this.chunkManager = new ChunkManager(this.worldSeed, this.levelBiomeOverride);
+      this.spawnedChunks.clear();
+      this.enemies = [];
+      this.collectibles = [];
+      this.hazards = [];
+      this.prepareOpeningFrame();
+    }
     this.levelTimeRemaining = config.timeLimit ?? 0;
     this.levelCompleted = false;
     this.enemiesDefeated = 0;
@@ -2444,7 +2458,7 @@ export class GameEngine {
     this.camera.update(this.player.centerX, this.player.centerY, dt);
 
     // Particles
-    const biome = getBiomeAt(this.player.centerX);
+    const biome = this.levelBiomeOverride ?? getBiomeAt(this.player.centerX);
     const screenW = this.camera.viewportWidth;
     const screenH = this.camera.viewportHeight;
     this.particles.update(
@@ -2651,8 +2665,8 @@ export class GameEngine {
 
     const chunks = this.chunkManager.getLoadedChunks();
 
-    this.renderer.drawSky(this.camera, this.gameTime);
-    this.renderer.drawParallax(this.camera, this.gameTime);
+    this.renderer.drawSky(this.camera, this.gameTime, this.levelBiomeOverride);
+    this.renderer.drawParallax(this.camera, this.gameTime, this.levelBiomeOverride);
     this.renderer.drawTerrain(chunks, this.camera);
     this.renderer.drawPlatforms(chunks, this.camera, this.gameTime);
     this.renderer.drawDecorations(chunks, this.camera);

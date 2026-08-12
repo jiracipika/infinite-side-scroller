@@ -13,6 +13,9 @@ export enum BiomeType {
   Lava = 'lava',
 }
 
+/** Player-facing finite-level biome IDs. */
+export type LevelBiomeId = 'forest' | 'desert' | 'ice' | 'volcano' | 'mixed';
+
 export interface BiomeColors {
   ground: string;
   groundDark: string;
@@ -169,6 +172,23 @@ export const BIOMES: Record<BiomeType, BiomeConfig> = {
     platformDensity: 0.2,
   },
 };
+
+/**
+ * Translate finite-level IDs into the canonical terrain/rendering palette.
+ * `mixed` intentionally returns null so those levels retain the shifting
+ * endless-world sequence.
+ */
+const LEVEL_BIOME_TYPES: Record<Exclude<LevelBiomeId, 'mixed'>, BiomeType> = {
+  forest: BiomeType.Forest,
+  desert: BiomeType.Desert,
+  ice: BiomeType.Sky,
+  volcano: BiomeType.Lava,
+};
+
+export function getLevelBiome(levelBiome: LevelBiomeId): BiomeConfig | null {
+  if (levelBiome === 'mixed') return null;
+  return BIOMES[LEVEL_BIOME_TYPES[levelBiome]];
+}
 
 /**
  * Biome sequence — the order biomes appear as you explore.

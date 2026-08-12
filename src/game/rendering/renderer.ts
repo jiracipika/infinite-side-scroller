@@ -9,7 +9,7 @@ import { Player } from "../entities/player";
 import { getCharacterById } from "../data/characters";
 import { drawCharacterArt } from "./character-art";
 import { Particle } from "../entities/particles";
-import { getBlendedBiomeColors } from "../world/biomes";
+import { getBlendedBiomeColors, type BiomeConfig } from "../world/biomes";
 import type { Collectible } from "../entities/Collectibles";
 import { TerrainCache } from "../engine/terrain-cache";
 
@@ -30,9 +30,13 @@ export class GameRenderer {
     this.height = height;
   }
 
-  drawSky(camera: Camera, gameTime: number = 0): void {
+  drawSky(
+    camera: Camera,
+    gameTime: number = 0,
+    biomeOverride?: BiomeConfig | null,
+  ): void {
     const centerX = camera.x + this.width / 2;
-    const colors = getBlendedBiomeColors(centerX);
+    const colors = biomeOverride?.colors ?? getBlendedBiomeColors(centerX);
 
     const gradient = this.ctx.createLinearGradient(0, 0, 0, this.height);
     gradient.addColorStop(0, colors.sky);
@@ -74,8 +78,12 @@ export class GameRenderer {
     this.ctx.fillRect(0, 0, this.width, this.height);
   }
 
-  drawParallax(camera: Camera, gameTime: number = 0): void {
-    const colors = getBlendedBiomeColors(camera.x + this.width / 2);
+  drawParallax(
+    camera: Camera,
+    gameTime: number = 0,
+    biomeOverride?: BiomeConfig | null,
+  ): void {
+    const colors = biomeOverride?.colors ?? getBlendedBiomeColors(camera.x + this.width / 2);
     this.drawMountains(camera, 0.1, 200, this.shadeHexColor(colors.groundDark, -18), 350);
     this.drawMountains(camera, 0.2, 150, colors.groundDark, 400);
     this.drawChromaticRibbons(camera, gameTime, colors);

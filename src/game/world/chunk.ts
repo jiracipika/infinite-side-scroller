@@ -5,7 +5,7 @@
 
 import { createRng } from './rng';
 import { getTerrainHeight } from './terrain';
-import { getBiomeAt, BiomeConfig } from './biomes';
+import { getBiomeAt, type BiomeConfig } from './biomes';
 
 /** Width of each chunk in world pixels */
 export const CHUNK_WIDTH = 800;
@@ -63,10 +63,10 @@ export class Chunk {
   /** Cave regions */
   readonly caves: Cave[];
 
-  constructor(index: number, worldSeed: number) {
+  constructor(index: number, worldSeed: number, biomeOverride?: BiomeConfig | null) {
     this.index = index;
     this.worldX = index * CHUNK_WIDTH;
-    this.biome = getBiomeAt(this.worldX + CHUNK_WIDTH / 2);
+    this.biome = biomeOverride ?? getBiomeAt(this.worldX + CHUNK_WIDTH / 2);
 
     // Create a deterministic RNG for this chunk
     const chunkSeed = (worldSeed * 73856093) ^ (index * 19349663);
