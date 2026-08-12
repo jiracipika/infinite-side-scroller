@@ -2666,11 +2666,13 @@ export class GameEngine {
       const rsy = this.remotePlayer.y - this.camera.renderY - 8;
       ctx.fillStyle = "rgba(0,0,0,0.45)";
       ctx.fillRect(rsx - 48, rsy - 12, 96, 14);
+      ctx.save();
       ctx.fillStyle = "#e2e8f0";
       ctx.font = "11px ui-monospace, SFMono-Regular, Menlo, monospace";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillText(this.remotePlayerName ?? "Peer", rsx, rsy - 5);
+      ctx.restore();
     }
 
     // Shield visual
@@ -2720,6 +2722,7 @@ export class GameEngine {
     ) {
       ctx.fillStyle = "rgba(15,23,42,0.7)";
       ctx.fillRect(width / 2 - 120, height - 96, 240, 34);
+      ctx.save();
       ctx.fillStyle = "#e2e8f0";
       ctx.font = "13px -apple-system, BlinkMacSystemFont, sans-serif";
       ctx.textAlign = "center";
@@ -2728,6 +2731,7 @@ export class GameEngine {
         ? "Press F to drop your teammate"
         : "Press F near teammate to pick them up";
       ctx.fillText(hint, width / 2, height - 79);
+      ctx.restore();
     }
 
     this.renderer.drawParticles(this.particles.getParticles(), this.camera);
