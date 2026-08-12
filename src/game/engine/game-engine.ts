@@ -541,6 +541,7 @@ export class GameEngine {
     this.predictionError = 0;
     this.reconciliationCount = 0;
     this.ghostRecording = [];
+    this.ghostPlayback = [];
     this.ghostPlaybackIndex = 0;
     this.ghostSampleTimer = 0;
     this.comboCount = 0;
