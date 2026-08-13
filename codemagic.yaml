@@ -33,6 +33,7 @@ workflows:
         script: |
           cd apps/mobile
           npx expo prebuild --platform android --clean --no-install
+          bash scripts/patch-android.sh
       - name: Build installable test APK
         script: |
           cd apps/mobile/android
@@ -65,6 +66,7 @@ workflows:
         script: |
           cd apps/mobile
           npx expo prebuild --platform android --clean --no-install
+          bash scripts/patch-android.sh
       - name: Build release AAB
         script: |
           cd apps/mobile/android
@@ -150,6 +152,7 @@ workflows:
         script: |
           cd apps/mobile
           npx expo prebuild --clean --no-install
+          bash scripts/patch-android.sh
       - name: Build Android AAB
         script: |
           cd apps/mobile/android
