@@ -2078,3 +2078,22 @@ input[type="range"]::-moz-range-thumb {
     transition: none;
   }
 }
+
+
+/* ============================================================
+   SCROLL POLISH & ACCESSIBILITY
+   ============================================================ */
+
+html {
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+body {
+  touch-action: pan-y;
+  -webkit-tap-highlight-color: transparent;
+}
+
+:focus-visible {
+  transition: box-shadow 120ms ease-out, outline-color 120ms ease-out;
+}
