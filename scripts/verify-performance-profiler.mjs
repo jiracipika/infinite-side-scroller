@@ -39,7 +39,10 @@ try {
   assert(engine.includes('MAX_CANVAS_DPR = 2'), 'expected engine canvas backing-store DPR cap')
   assert(engine.includes('MOBILE_CANVAS_DPR = 1.5'), 'expected tighter mobile canvas DPR cap')
   assert(engine.includes('getCanvasRenderDpr(rawDpr, width, height)'), 'expected resize path to use capped canvas DPR')
-  assert(engine.includes('width * height <= MOBILE_CANVAS_AREA'), 'expected mobile viewport-area DPR clamp')
+  assert(
+    /const area = width \* height/.test(engine) && /area <= MOBILE_CANVAS_AREA/.test(engine),
+    'expected mobile viewport-area DPR clamp',
+  )
 
   const sixtyHz = new PerformanceProfiler()
   const sixtyMetrics = simulate(sixtyHz, 121, 1000 / 60)
