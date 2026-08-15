@@ -55,6 +55,7 @@ import {
 } from "@/lib/run-history";
 import { schedulePanelReveal } from "@/lib/menu-panel-reveal";
 import TouchControlSettings from "./TouchControlSettings";
+import ControlsHint from "./ControlsHint";
 import {
   fetchOnlineLeaderboard,
   fetchOnlineReplay,
@@ -405,6 +406,8 @@ const StartScreen: FC<Props> = ({
           <p className="dash-hero-lede">
             Endless runner with co-op, daily challenges, and online ghost races.
           </p>
+
+          <ControlsHint />
 
           <div className="dash-quick-stats-v2">
             <span>
