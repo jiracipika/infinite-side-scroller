@@ -35,7 +35,8 @@ const LevelCard: FC<{
   prog: LevelProgress;
   onClick: () => void;
   index: number;
-}> = ({ level, prog, onClick, index }) => {
+  isNext?: boolean;
+}> = ({ level, prog, onClick, index, isNext = false }) => {
   const biome = BIOME_COLORS[level.biome] || BIOME_COLORS.forest;
   const isTimeAttack = level.mode === 'time-attack';
   const modePrefix = level.mode === 'time-attack' ? 'TA' : level.mode === 'coin-rush' ? 'CR' : level.mode === 'gauntlet' ? 'GX' : '';
@@ -45,7 +46,8 @@ const LevelCard: FC<{
     <motion.button
       onClick={locked ? undefined : onClick}
       disabled={locked}
-      aria-label={`${level.name}${locked ? ', locked' : `, ${prog.stars} of 3 stars`}`}
+      title={locked ? 'Earn at least 1 star on the previous level to unlock' : undefined}
+      aria-label={`${level.name}${locked ? ', locked — earn a star on the previous level to unlock' : `, ${prog.stars} of 3 stars`}${isNext ? ', next up' : ''}`}
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.03, duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
@@ -70,6 +72,16 @@ const LevelCard: FC<{
       <div style={{ position: 'absolute', top: -4, right: -4, fontSize: 36, opacity: locked ? 0.03 : 0.08, pointerEvents: 'none' }}>
         {biome.emoji}
       </div>
+
+      {/* Next-up badge */}
+      {isNext && !locked && (
+        <div style={{
+          position: 'absolute', top: 6, right: 8, fontSize: 8, fontWeight: 800,
+          letterSpacing: 0.8, color: biome.accent, opacity: 0.9,
+        }}>
+          NEXT
+        </div>
+      )}
 
       {/* Level number */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -175,6 +187,38 @@ const LevelSelectScreen: FC<Props> = ({ onLevelSelect, onBack, onEndlessPlay }) 
     return [];
   }, [tab]);
 
+  const levelProgress = useMemo(() => {
+    const map: Record<number, LevelProgress> = {};
+    for (const level of currentLevels) ensureDefault(map, level.id);
+    // Overlay saved progress (copy so we never mutate loaded state)
+    for (const id of Object.keys(map)) {
+      const saved = progress[Number(id)];
+      if (saved) map[Number(id)] = saved;
+    }
+    return map;
+  }, [currentLevels, progress]);
+
+  /** The level the player should continue on: first unlocked level that
+   *  isn't fully starred, falling back to the last unlocked level. */
+  const continueLevel = useMemo(() => {
+    if (!currentLevels.length) return null;
+    let fallback: LevelConfig | null = null;
+    for (const level of currentLevels) {
+      const p = levelProgress[level.id];
+      if (p?.unlocked) {
+        fallback = level;
+        if (p.stars < 3) return level;
+      }
+    }
+    return fallback;
+  }, [currentLevels, levelProgress]);
+
+  const starsEarned = useMemo(
+    () => currentLevels.reduce((sum, l) => sum + (levelProgress[l.id]?.stars ?? 0), 0),
+    [currentLevels, levelProgress],
+  );
+  const starsTotal = currentLevels.length * 3;
+
   const tabs = [
     { id: 'adventure' as const, label: 'Adventure', icon: '🏰' },
     { id: 'endless' as const, label: 'Endless', icon: '♾️' },
@@ -206,7 +250,45 @@ const LevelSelectScreen: FC<Props> = ({ onLevelSelect, onBack, onEndlessPlay }) 
           <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0, letterSpacing: '-0.5px' }}>Select Level</h1>
           <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', margin: 0 }}>Choose your challenge</p>
         </div>
+        {tab !== 'endless' && (
+          <div
+            aria-label={`Mode progress: ${starsEarned} of ${starsTotal} stars earned`}
+            style={{ marginLeft: 'auto', fontSize: 13, color: 'rgba(255,255,255,0.55)', whiteSpace: 'nowrap' }}
+          >
+            ⭐ {starsEarned}/{starsTotal}
+          </div>
+        )}
       </div>
+
+      {/* Continue banner — one obvious next level */}
+      {tab !== 'endless' && continueLevel && (
+        <motion.button
+          onClick={() => onLevelSelect(continueLevel)}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          whileHover={{ scale: 1.01 }}
+          whileTap={{ scale: 0.98 }}
+          aria-label={`Continue: ${continueLevel.name}`}
+          style={{
+            width: '100%', display: 'flex', alignItems: 'center', gap: 14,
+            padding: '14px 18px', marginBottom: 20, borderRadius: 14, cursor: 'pointer',
+            border: `1px solid ${(BIOME_COLORS[continueLevel.biome] || BIOME_COLORS.forest).accent}55`,
+            background: `linear-gradient(120deg, ${(BIOME_COLORS[continueLevel.biome] || BIOME_COLORS.forest).bg}, rgba(13,16,26,0.9))`,
+            textAlign: 'left',
+          }}
+        >
+          <div style={{ fontSize: 24 }}>{(BIOME_COLORS[continueLevel.biome] || BIOME_COLORS.forest).emoji}</div>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', color: 'rgba(255,255,255,0.45)' }}>
+              CONTINUE
+            </div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: '#fff', letterSpacing: '-0.3px' }}>
+              {continueLevel.name}
+            </div>
+          </div>
+          <div style={{ fontSize: 22, color: (BIOME_COLORS[continueLevel.biome] || BIOME_COLORS.forest).accent }}>▶</div>
+        </motion.button>
+      )}
 
       {/* Mode tabs */}
       <div role="tablist" aria-label="Game modes" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4, marginBottom: 20, background: 'rgba(13,16,26,0.82)', borderRadius: 12, padding: 4, backdropFilter: 'blur(18px)' }}>
@@ -260,13 +342,14 @@ const LevelSelectScreen: FC<Props> = ({ onLevelSelect, onBack, onEndlessPlay }) 
             {/* Level grid */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
               {currentLevels.map((level, i) => {
-                const p = ensureDefault({ ...progress }, level.id);
+                const p = levelProgress[level.id];
                 return (
                   <LevelCard
                     key={level.id}
                     level={level}
                     prog={p}
                     index={i}
+                    isNext={continueLevel?.id === level.id}
                     onClick={() => onLevelSelect(level)}
                   />
                 );

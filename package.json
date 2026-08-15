@@ -11,7 +11,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit --incremental false",
-    "test": "node scripts/run-tests.mjs && node scripts/test-mobile-webview-recovery.mjs && node scripts/test-mobile-webview-lifecycle.mjs",
+    "test": "node scripts/run-tests.mjs && node scripts/test-level-select-ux.mjs && node scripts/test-mobile-webview-recovery.mjs && node scripts/test-mobile-webview-lifecycle.mjs",
     "mobile:dev": "npm --prefix apps/mobile run start",
     "mobile:ios": "npm --prefix apps/mobile run ios",
     "mobile:android": "npm --prefix apps/mobile run android",
@@ -34,7 +34,8 @@
     "verify:particles": "node scripts/verify-particles.mjs",
     "verify:reduced-motion": "node scripts/verify-reduced-motion.mjs",
     "verify:performance": "node scripts/verify-performance-profiler.mjs",
-    "release:evidence": "node scripts/release-evidence.mjs"
+    "release:evidence": "node scripts/release-evidence.mjs",
+    "test:level-ux": "node scripts/test-level-select-ux.mjs"
   },
   "dependencies": {
     "framer-motion": "^12.40.0",
