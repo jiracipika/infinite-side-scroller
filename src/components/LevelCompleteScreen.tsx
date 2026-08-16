@@ -167,6 +167,34 @@ const LevelCompleteScreen: FC<Props> = ({ level, result, onNext, onRetry, onBack
         {stars >= 3 ? 'PERFECT!' : stars >= 2 ? 'GREAT!' : stars >= 1 ? 'GOOD!' : 'TRY AGAIN'}
       </div>
 
+      {/* How far to the next star */}
+      {stars < 3 && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1.0, duration: 0.4 }}
+          role="status"
+          style={{
+            fontSize: 12.5,
+            color: 'rgba(255,255,255,0.5)',
+            marginBottom: 20,
+            padding: '8px 14px',
+            borderRadius: 10,
+            background: 'rgba(255,255,255,0.04)',
+            border: '1px solid rgba(255,255,255,0.07)',
+          }}
+        >
+          {stars === 0 ? (
+            <>Reach <strong style={{ color: biome.accent }}>{level.starThresholds.one.toLocaleString()}</strong> points to earn your first star</>
+          ) : stars === 1 ? (
+            <>Next star at <strong style={{ color: biome.accent }}>{level.starThresholds.two.toLocaleString()}</strong> points</>
+          ) : (
+            <>Perfect at <strong style={{ color: '#FFD60A' }}>{level.starThresholds.three.toLocaleString()}</strong> points</>
+          )}
+          {' '}· you scored {result.score.toLocaleString()}
+        </motion.div>
+      )}
+
       {/* Stats */}
       <motion.div
         initial={{ opacity: 0 }}
