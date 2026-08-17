@@ -401,10 +401,17 @@ export function markDailyChallengePlayed(slotId: SaveSlotId, day: string = toIso
       parsed = {};
     }
     const next: Record<string, string[]> = {};
-    const keepDays = [day];
+    // Keep the last 60 days of history (not just today) so streaks stay
+    // computable; older days are pruned to bound storage.
+    const cutoff = Date.now() - 60 * 86_400_000;
+    next[day] = [];
     for (const key of Object.keys(parsed)) {
-      if (keepDays.includes(key)) {
-        next[key] = Array.isArray(parsed[key]) ? parsed[key].filter((v): v is string => typeof v === 'string') : [];
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(key)) continue; // drop malformed keys
+      if (new Date(`${key}T00:00:00Z`).getTime() >= cutoff || key === day) {
+        const list = Array.isArray(parsed[key])
+          ? parsed[key].filter((v): v is string => typeof v === 'string')
+          : [];
+        if (list.length > 0) next[key] = list;
       }
     }
     const existing = next[day] ?? [];
@@ -414,6 +421,42 @@ export function markDailyChallengePlayed(slotId: SaveSlotId, day: string = toIso
   } catch {
     // ignore write failures
   }
+}
+
+/**
+ * Consecutive-day daily-challenge streak for a save slot, counting back
+ * from today (or yesterday, so a streak isn't lost mid-morning before
+ * today's run). Returns 0 when no history exists.
+ */
+export function getDailyStreak(slotId: SaveSlotId, today: string = toIsoDay()): number {
+  if (typeof window === 'undefined') return 0;
+  let parsed: Record<string, string[]>;
+  try {
+    const raw = localStorage.getItem(DAILY_RUNS_KEY);
+    parsed = raw ? (JSON.parse(raw) as Record<string, string[]>) : {};
+    if (!parsed || typeof parsed !== 'object') return 0;
+  } catch {
+    return 0;
+  }
+  const played = (day: string) => {
+    const list = parsed[day];
+    return Array.isArray(list) && list.includes(slotId);
+  };
+  // Streak anchor: today if already played, else yesterday (grace until
+  // the player does today's challenge).
+  let cursorTs = new Date(`${today}T00:00:00Z`).getTime();
+  if (!played(today)) cursorTs -= 86_400_000;
+  let streak = 0;
+  for (let i = 0; i < 60; i++) {
+    const day = toIsoDay(cursorTs);
+    if (played(day)) {
+      streak++;
+      cursorTs -= 86_400_000;
+    } else {
+      break;
+    }
+  }
+  return streak;
 }
 
 export function getTodayIsoDay(): string {

@@ -34,6 +34,7 @@ import {
 import {
   SHOP_UPGRADES,
   clearPendingContinueSlot,
+  getDailyStreak,
   getTodayIsoDay,
   hasPlayedDailyChallenge,
   loadActiveSaveSlotId,
@@ -350,6 +351,10 @@ const StartScreen: FC<Props> = ({
     () => hasPlayedDailyChallenge(activeSlotId, getTodayIsoDay()),
     [activeSlotId],
   );
+  const dailyStreak = useMemo(
+    () => getDailyStreak(activeSlotId, getTodayIsoDay()),
+    [activeSlotId],
+  );
   const runSummary = useMemo(() => summarizeRunHistory(runHistory), [runHistory]);
 
   useEffect(() => {
@@ -506,7 +511,11 @@ const StartScreen: FC<Props> = ({
                 <small>Compete</small>
                 <b>{dailyUsed ? "Daily Done" : "Daily"}</b>
                 <span>
-                  {dailyUsed ? "Resets tomorrow" : "One ranked shot"}
+                  {dailyStreak > 0
+                    ? `🔥 ${dailyStreak}-day streak${dailyUsed ? " · keep it going tomorrow" : ""}`
+                    : dailyUsed
+                      ? "Resets tomorrow"
+                      : "One ranked shot"}
                 </span>
                 <em>★</em>
               </button>
