@@ -1487,7 +1487,13 @@ export class GameEngine {
     return x - Math.floor(x);
   }
 
-  /** Spawn enemies/collectibles/hazards for newly loaded chunks */
+  /**
+   * Populates newly-loaded chunks with entities using the seeded RNG:
+   * skips chunks farther than 2400px ahead / 1400px behind the player and
+   * each chunk spawns at most once. Enemy mix/density scales with
+   * progressionLevel (worldX / 2500) and is filtered by the active level
+   * config (type allowlist + density 0.1–1.0).
+   */
   private spawnChunkEntities(): void {
     const chunks = this.chunkManager.getLoadedChunks();
     const playerX = this.player.centerX;
@@ -1909,6 +1915,12 @@ export class GameEngine {
     }
   }
 
+  /**
+   * Main simulation tick: advances game time, decays cooldowns and combo
+   * timers, updates chunks with a look-ahead spawn window, spawns/cleans up
+   * entities, then resolves collisions, physics, camera follow, difficulty
+   * ramp, power-ups, and particles.
+   */
   private update(dt: number): void {
     this.gameTime += dt;
     this.playerBounceCooldown = Math.max(0, this.playerBounceCooldown - dt);
@@ -2652,6 +2664,12 @@ export class GameEngine {
     return getDayPhase(this.gameTime);
   }
 
+  /**
+   * Draws one frame: clears the canvas (recovering viewport size if it
+   * collapsed), then layers sky, parallax, terrain, platforms, and
+   * decorations, followed by hazards/collectibles/entities/player/particles —
+   * each frustum-culled via camera.isVisible.
+   */
   private render(): void {
     const ctx = this.ctx;
     let width = this.camera.viewportWidth;
