@@ -1,8 +1,17 @@
 # GLM Next Slice — Infinite Side Scroller
 
 Status: implementation-ready handoff
+Status updated: 2026-08-20 — level-selection polish slice IMPLEMENTED (see Completed below).
 Owner: GLM 5.2/5.3 polish lane
 Priority: P2 premium visual/product polish; no correctness emergency
+
+## Completed
+
+2fe148a docs: quick-verify section + script reference (qwen-worker T1/T2)
+0086472 feat(ui): daily-challenge streak — fix history wipe + streak display
+39664ae feat(ui): next-star threshold hint on level-complete screen
+1b2653e feat(ui): start-screen controls hint (keyboard/touch adaptive)
+c353f6b feat(ui): level-select continue banner, star summary, next badge, unlock hints
 
 ## Baseline evidence
 
