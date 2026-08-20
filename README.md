@@ -19,6 +19,12 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
+## Quick verify
+
+- `npm run verify` — full release verification ladder (engine, progression, saves, HUD, mobile, touch, particles, typecheck, lint, tests)
+- `npm run build` — production Next.js build
+- `npm run release:evidence` — release evidence bundle
+
 ## Mobile App (Expo, iOS + Android)
 
 ```bash
