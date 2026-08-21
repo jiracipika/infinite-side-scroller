@@ -399,8 +399,8 @@ const StartScreen: FC<Props> = ({
             <div className="dash-brand-v2">
               <AppIcon characterId={selectedChar} />
               <div>
-                <p className="dash-eyebrow">Dashverse</p>
-                <h1>Pick a mode</h1>
+                <p className="dash-eyebrow">Dashverse // Runner OS</p>
+                <h1>Run the edge</h1>
               </div>
             </div>
             <div className="dash-live-pill">
@@ -409,7 +409,7 @@ const StartScreen: FC<Props> = ({
           </div>
 
           <p className="dash-hero-lede">
-            Endless runner with co-op, daily challenges, and online ghost races.
+            Outrun a living world. Build a streak, race a ghost, or bring a second runner into the void.
           </p>
 
           <ControlsHint />
@@ -460,8 +460,8 @@ const StartScreen: FC<Props> = ({
         <section className="dash-command-panel dash-modes-v2 dash-view-panel-v3">
           <div className="dash-section-title-row-v2">
             <div>
-              <p className="dash-eyebrow">Modes</p>
-              <h2>Choose your run</h2>
+              <p className="dash-eyebrow">Run protocols</p>
+              <h2>Select the next world</h2>
             </div>
           </div>
           <div className="dash-flow-tabs-v2" aria-label="Menu flow">
