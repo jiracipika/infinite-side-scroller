@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useCallback, useRef, useState } from 'react';
+import { AnimatePresence } from 'framer-motion';
 import { GameEngine, type CameraMode } from '@/game';
 import { resolveReducedMotion } from '@/game/state/game-state';
 import { useGameStore } from '@/components/GameStore';
@@ -12,6 +13,7 @@ import TouchControls from '@/components/TouchControls';
 import SplitScreenMode from '@/components/SplitScreenMode';
 import LevelSelectScreen from '@/components/LevelSelectScreen';
 import LevelCompleteScreen from '@/components/LevelCompleteScreen';
+import ScreenTransition from '@/components/ScreenTransition';
 import { shouldAutoPause } from '@/components/auto-pause';
 import type { LevelConfig } from '@/game/data/levels';
 import { recordLevelResult, findNextLevel } from '@/lib/level-progress';
@@ -1656,56 +1658,68 @@ export default function Home() {
         aria-label="Dashverse game canvas — an infinite side-scrolling platformer. Use arrow keys or touch controls to play."
       />
 
-      {/* Menu overlays */}
+      {/* Menu overlays — animated per-state (screens slide, interruptions spring) */}
       {state !== "playing" && (
-        <div className="absolute inset-0 z-10">
-          {state === "menu" && !splitScreenSeed && (
-            <StartScreen
-              onPlay={handlePlay}
-              onPlayDailyChallenge={handlePlayDailyChallenge}
-              onLevelSelect={goToLevelSelect}
-              onPlayMultiplayer={handlePlayMultiplayer}
-              onPlaySplitScreen={handlePlaySplitScreen}
-              onPlayOnlineGhostRace={handlePlayOnlineGhostRace}
-              initialRoomCode={prefillRoomCode}
-            />
-          )}
-          {state === "levelselect" && (
-            <LevelSelectScreen
-              onLevelSelect={handleStartLevel}
-              onBack={quitToMenu}
-              onEndlessPlay={handlePlay}
-            />
-          )}
-          {state === "levelcomplete" && currentLevel && levelResult && (
-            <LevelCompleteScreen
-              level={currentLevel}
-              result={levelResult}
-              onNext={handleNextLevel}
-              onRetry={() => handleStartLevel(currentLevel)}
-              onBack={goToLevelSelect}
-            />
-          )}
-          {state === "paused" && (
-            <PauseMenu
-              onResume={handleResume}
-              onRestart={handleRestart}
-              onQuit={handleQuit}
-            />
-          )}
-          {state === "gameover" && (
-            <GameOverScreen
-              stats={stats}
-              newRecords={newRecords}
-              hapticsEnabled={settings.hapticsEnabled}
-              onRestart={
-                currentLevel
-                  ? () => handleStartLevel(currentLevel)
-                  : handleRestart
-              }
-              onQuit={handleQuit}
-            />
-          )}
+        <div className="absolute inset-0 z-10" style={{ pointerEvents: 'none' }}>
+          <AnimatePresence>
+            {state === "menu" && !splitScreenSeed && (
+              <ScreenTransition key="menu" variant="screen" className="absolute inset-0" style={{ pointerEvents: 'auto' }} role="region" aria-label="Main menu">
+              <StartScreen
+                onPlay={handlePlay}
+                onPlayDailyChallenge={handlePlayDailyChallenge}
+                onLevelSelect={goToLevelSelect}
+                onPlayMultiplayer={handlePlayMultiplayer}
+                onPlaySplitScreen={handlePlaySplitScreen}
+                onPlayOnlineGhostRace={handlePlayOnlineGhostRace}
+                initialRoomCode={prefillRoomCode}
+              />
+              </ScreenTransition>
+            )}
+            {state === "levelselect" && (
+              <ScreenTransition key="levelselect" variant="screen" className="absolute inset-0" style={{ pointerEvents: 'auto' }} role="region" aria-label="Level select">
+              <LevelSelectScreen
+                onLevelSelect={handleStartLevel}
+                onBack={quitToMenu}
+                onEndlessPlay={handlePlay}
+              />
+              </ScreenTransition>
+            )}
+            {state === "levelcomplete" && currentLevel && levelResult && (
+              <ScreenTransition key="levelcomplete" variant="modal" className="absolute inset-0 grid place-items-center" style={{ pointerEvents: 'auto' }} role="region" aria-label="Level complete">
+              <LevelCompleteScreen
+                level={currentLevel}
+                result={levelResult}
+                onNext={handleNextLevel}
+                onRetry={() => handleStartLevel(currentLevel)}
+                onBack={goToLevelSelect}
+              />
+              </ScreenTransition>
+            )}
+            {state === "paused" && (
+              <ScreenTransition key="paused" variant="modal" className="absolute inset-0 grid place-items-center" style={{ pointerEvents: 'auto' }} role="region" aria-label="Paused">
+              <PauseMenu
+                onResume={handleResume}
+                onRestart={handleRestart}
+                onQuit={handleQuit}
+              />
+              </ScreenTransition>
+            )}
+            {state === "gameover" && (
+              <ScreenTransition key="gameover" variant="modal" className="absolute inset-0 grid place-items-center" style={{ pointerEvents: 'auto' }} role="region" aria-label="Game over">
+              <GameOverScreen
+                stats={stats}
+                newRecords={newRecords}
+                hapticsEnabled={settings.hapticsEnabled}
+                onRestart={
+                  currentLevel
+                    ? () => handleStartLevel(currentLevel)
+                    : handleRestart
+                }
+                onQuit={handleQuit}
+              />
+              </ScreenTransition>
+            )}
+          </AnimatePresence>
         </div>
       )}
 
