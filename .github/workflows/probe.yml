@@ -1,0 +1,18 @@
+name: WF Probe
+on: workflow_dispatch
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: 22, cache: npm}
+      - run: npm ci
+      - run: npm run build
+      - name: Inspect
+        run: |
+          pwd
+          ls -la | head -20
+          ls -la .next | head -8 || echo "NO .next"
+      - uses: actions/upload-artifact@v4
+        with: {name: probe, path: .next/BUILD_ID}
