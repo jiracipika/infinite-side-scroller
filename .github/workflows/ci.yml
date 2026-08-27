@@ -45,5 +45,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: web-build
-          path: .next
+          # Small canary file: full .next dir uploads were flaky-huge on the
+          # runner (intermittent "No files were found" even though Build
+          # succeeded and .next exists). BUILD_ID proves the build artifact
+          # and keeps the artifact a few bytes.
+          path: .next/BUILD_ID
           if-no-files-found: error
