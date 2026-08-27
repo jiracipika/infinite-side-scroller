@@ -36,3 +36,29 @@ export const MP_RECONCILE_SNAP_THRESHOLD = 84;
 export const MP_RECONCILE_SMOOTH_SPEED = 10.5;
 export const MP_INPUT_BUFFER_SIZE = 90;
 export const MP_HISTORY_BUFFER_DURATION_MS = 1800;
+
+/* ── Adaptive interpolation ────────────────────────────────────────────
+   The render delay for remote players is derived from measured RTT instead
+   of being a fixed constant. One-way latency ≈ RTT / 2; buffer about 1.5×
+   that plus a small floor to absorb jitter, then clamp between the LAN
+   floor and the static worst-case value. */
+
+/** Lowest render delay we will ever use (one P2P frame of buffering). */
+export const MP_INTERP_MIN_MS = 32;
+/** Highest render delay we will ever use (the legacy static value). */
+export const MP_INTERP_MAX_MS = MP_INTERPOLATION_DELAY_MS;
+/** Delay headroom multiplier over one-way RTT (absorbs jitter spikes). */
+export const MP_INTERP_JITTER_FACTOR = 1.5;
+/** Fixed buffer added on top of scaled one-way RTT (scheduling slack). */
+export const MP_INTERP_BASE_SLACK_MS = 24;
+
+/**
+ * Derive an interpolation delay from a smoothed RTT.
+ * Works for both transports: P2P RTT ~1–5 ms → near the floor; HTTP polling
+ * RTT ~40–150 ms → scales up smoothly toward MP_INTERP_MAX_MS.
+ */
+export function computeInterpolationDelayMs(rttMs: number): number {
+  if (!Number.isFinite(rttMs) || rttMs <= 0) return MP_INTERP_MAX_MS;
+  const target = (rttMs / 2) * MP_INTERP_JITTER_FACTOR + MP_INTERP_BASE_SLACK_MS;
+  return Math.round(Math.min(MP_INTERP_MAX_MS, Math.max(MP_INTERP_MIN_MS, target)));
+}

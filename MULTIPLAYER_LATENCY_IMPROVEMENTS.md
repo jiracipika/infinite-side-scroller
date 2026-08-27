@@ -38,7 +38,29 @@
 - Server stores bounded per-player history (`MP_HISTORY_BUFFER_DURATION_MS`).
 - Added helper for historical lookup by timestamp as a foundation for server-side hit rewind validation.
 
-### Diagnostics overlay
+### Adaptive interpolation delay (new)
+- Remote render delay is no longer a fixed constant. The engine eases toward
+  `computeInterpolationDelayMs(measuredRtt)` — one-way RTT (RTT/2) × 1.5 jitter
+  headroom + 24 ms slack, clamped to [32, 115] ms.
+- WebRTC path: fed from the data-channel RTT probe on every packet arrival.
+- HTTP fallback: fed from the sync round-trip EWMA while P2P is down.
+- LAN games now interpolate at ~32–54 ms instead of 115 ms; WAN scales smoothly.
+
+### Arrival-driven remote application (new)
+- WebRTC `onMessage` pushes remote snapshots + RTT into the engine immediately
+  on packet arrival instead of waiting for the next 60 Hz net tick — removes up
+  to ~16 ms of tick-phase latency and cross-client phase drift artifacts.
+
+### Reconciliation ramp (improved)
+- Small-error correction blend now ramps 0.18 → 0.60 proportional to error size
+  between MP_RECONCILE_SMALL_THRESHOLD and MP_RECONCILE_MEDIUM_THRESHOLD, so
+  medium drifts converge quickly instead of lingering; corrections stay subtle
+  for tiny errors.
+
+### RTT-scaled abort budget (improved)
+- In-flight HTTP syncs abort at 2× smoothed RTT (min one tick, max 600 ms) rather
+  than a fixed 420 ms, so slow-but-alive links aren't discarded while truly
+  stalled requests can't stretch the input pipeline.
 - Added in-game multiplayer debug overlay showing:
   - RTT
   - Jitter

@@ -47,6 +47,7 @@ import {
 } from "../../lib/progression";
 import type { LevelConfig } from "../data/levels";
 import {
+  computeInterpolationDelayMs,
   MP_INPUT_BUFFER_SIZE,
   MP_INTERPOLATION_DELAY_MS,
   MP_MAX_EXTRAPOLATION_MS,
@@ -765,6 +766,22 @@ export class GameEngine {
     this.interpolationDelayMs = Math.max(0, ms);
   }
 
+  /**
+   * Smoothed interpolation-delay getter — the page feeds measured RTT here
+   * and the engine eases toward the derived target so a single RTT spike
+   * never yanks the render delay around.
+   */
+  getInterpolationDelay(): number {
+    return this.interpolationDelayMs;
+  }
+
+  /** Ease interpolation delay toward a value derived from measured RTT. */
+  adaptInterpolationDelay(rttMs: number): void {
+    const target = computeInterpolationDelayMs(rttMs);
+    const eased = this.interpolationDelayMs + (target - this.interpolationDelayMs) * 0.12;
+    this.interpolationDelayMs = Math.max(0, Math.round(eased));
+  }
+
   setRemotePlayerState(remote: RemotePlayerViewState | null): void {
     if (!this.multiplayerEnabled || !remote) {
       this.remotePlayer = null;
@@ -1012,7 +1029,12 @@ export class GameEngine {
     }
 
     if (error >= MP_RECONCILE_SMALL_THRESHOLD) {
-      const blend = 0.18;
+      // Blend strength scales with error size: a 5 px drift eases gently,
+      // an 16 px drift pulls harder — corrections stay subtle but converge
+      // quickly instead of letting medium errors linger for many frames.
+      const span = MP_RECONCILE_MEDIUM_THRESHOLD - MP_RECONCILE_SMALL_THRESHOLD;
+      const t = Math.min(1, Math.max(0, (error - MP_RECONCILE_SMALL_THRESHOLD) / Math.max(1, span)));
+      const blend = 0.18 + t * 0.42; // 0.18 → 0.60 as error approaches the medium threshold
       this.player.x += dx * blend;
       this.player.y += dy * blend;
     }

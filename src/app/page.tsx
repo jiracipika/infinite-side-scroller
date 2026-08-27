@@ -1108,7 +1108,14 @@ export default function Home() {
 
       if (syncInFlightRef.current) {
         const inflightAge = performance.now() - inFlightSinceRef.current;
-        if (inflightAge > 420 && syncAbortRef.current) {
+        // Abort budget scales with measured RTT: 2× the smoothed RTT (min
+        // one tick, max ~600 ms). A slow response costs less than a stalled
+        // one that blocks the next tick and stretches the input pipeline.
+        const abortBudget = Math.min(
+          600,
+          Math.max(MP_TICK_MS, syncRttEwmaMsRef.current * 2),
+        );
+        if (inflightAge > abortBudget && syncAbortRef.current) {
           syncAbortRef.current.abort();
           syncAbortRef.current = null;
           syncInFlightRef.current = false;
@@ -1260,6 +1267,17 @@ export default function Home() {
         // Keep RTT EWMA for the net overlay display; cadence is fixed (tick-based).
         syncRttEwmaMsRef.current =
           syncRttEwmaMsRef.current * 0.75 + elapsed * 0.25;
+        // Adaptive interpolation: derive the remote render delay from the
+        // smoothed RTT (one-way ≈ RTT/2, plus jitter headroom) instead of a
+        // single hardcoded 115 ms value. LAN HTTP stays near ~44 ms; WAN
+        // grows smoothly toward the 115 ms ceiling.
+        if (syncRttEwmaMsRef.current > 0 && !rtcConnectedRef.current) {
+          game.adaptInterpolationDelay(syncRttEwmaMsRef.current);
+          setNetOverlay((prev) => ({
+            ...prev,
+            interpolationDelayMs: Math.round(game.getInterpolationDelay()),
+          }));
+        }
 
         responseCounterRef.current += 1;
         const now = performance.now();
@@ -1381,7 +1399,29 @@ export default function Home() {
           const seq = msg.seq ?? 0;
           if (seq && seq <= remoteRTCSeqRef.current) return;
           remoteRTCSeqRef.current = Math.max(remoteRTCSeqRef.current, seq);
-          remoteRTCDataRef.current = { ...msg, receivedAt: performance.now() };
+          const receivedAt = performance.now();
+          remoteRTCDataRef.current = { ...msg, receivedAt };
+          // Arrival-driven application: push the remote snapshot into the
+          // engine the moment the packet lands instead of waiting for the
+          // next 60 Hz net tick. At 60 fps that saves up to ~16 ms of added
+          // latency; it also removes tick-phase alignment artifacts (both
+          // clients' net ticks drift independently).
+          const game = gameRef.current;
+          if (game && msg.snapshot) {
+            const ri = remotePlayerInfoRef.current;
+            game.setRemotePlayerState({
+              id: ri?.id ?? 'remote',
+              name: ri?.name ?? 'Player',
+              snapshot: msg.snapshot,
+              carryTargetId: msg.carryTargetId ?? null,
+              carriedById: null,
+            });
+            // Feed measured round-trip time so interpolation delay adapts
+            // continuously instead of jumping between two hardcoded values.
+            if (rtcRef.current?.rtt && rtcRef.current.rtt > 0) {
+              game.adaptInterpolationDelay(rtcRef.current.rtt);
+            }
+          }
         }
       };
       transport.onClose = () => {
