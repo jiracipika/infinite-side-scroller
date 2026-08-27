@@ -10,6 +10,7 @@ Maps common failure symptoms to the verify script that catches them.
 **Symptom:** Save slot data lost → run `npm run verify:saves` (save slot integrity)
 **Symptom:** HUD shows wrong hearts/coins → run `npm run verify:hud` (HUD invariants check)
 **Symptom:** Game feels laggy on Retina → run `npm run verify:performance` (profiler/DPR optimization)
+**Symptom:** Background music missing or volume slider dead → run `npm run verify:music` (procedural music system check)
 **Symptom:** CI build config broken → run `npm run verify:codemagic` (CI config validation)
 **Symptom:** Touch controls dead on mobile → run `npm run verify:touch` (touch controls test)
 

@@ -21,6 +21,7 @@ import { UFO } from "../entities/UFO";
 import { ParticleSystem } from "../entities/particles";
 import { GameRenderer } from "../rendering/renderer";
 import { getSfxEngine, type SfxEngine } from "../audio";
+import { getMusicEngine, type MusicEngine } from "../audio";
 import { getBiomeAt, getLevelBiome, type BiomeConfig } from "../world/biomes";
 import { getDifficulty } from "../difficulty";
 import type { Collectible } from "../entities/Collectibles";
@@ -175,6 +176,7 @@ export class GameEngine {
 
   // Procedural audio — shares the global AudioContext singleton.
   private sfx: SfxEngine = getSfxEngine();
+  private music: MusicEngine = getMusicEngine();
 
   // Adaptive quality
   private adaptiveQualityEnabled = true;
@@ -411,6 +413,7 @@ export class GameEngine {
 
   private handleVisibilityChange = (): void => {
     this.sfx.setEnabled(!document.hidden);
+    this.music.setEnabled(!document.hidden);
     if (!document.hidden) {
       // RAF is suspended in background tabs. Drop the hidden-time gap so a
       // returning multiplayer session neither fast-forwards simulation nor
@@ -428,9 +431,12 @@ export class GameEngine {
 
   pause(): void {
     this._state = "paused";
+    // Duck the soundtrack out while paused; setMusicPlaying/resume restores it.
+    this.music.stop(0.3);
   }
   resume(): void {
     this._state = "playing";
+    this.music.start();
     this.lastTime = performance.now();
     this.accumulated = 0;
   }
@@ -452,8 +458,25 @@ export class GameEngine {
   }
 
   /** Update audio volumes from persisted settings. */
-  setAudioVolumes(master: number, sfx: number): void {
+  setAudioVolumes(master: number, sfx: number, music?: number): void {
     this.sfx.setVolumes(master, sfx);
+    if (music !== undefined) {
+      this.music.setVolume(master, music);
+    }
+  }
+
+  /**
+   * Run soundtrack control. Called by the React layer on run start / quit /
+   * game over / pause. Safe to call repeatedly (idempotent inside the engine).
+   */
+  setMusicPlaying(playing: boolean): void {
+    if (playing) this.music.start();
+    else this.music.stop();
+  }
+
+  /** Per-frame soundtrack intensity (0..1) from run distance/speed. */
+  setMusicIntensity(intensity: number): void {
+    this.music.setIntensity(intensity);
   }
 
   /**
@@ -470,6 +493,11 @@ export class GameEngine {
   /** Resume the AudioContext (must be called from a user gesture). */
   resumeAudio(): void {
     this.sfx.resume();
+    this.music.resume();
+    // Keep the run soundtrack consistent across gesture re-entry (mobile
+    // WebView shells call resumeAudio() after autoplay-policy unlocks).
+    if (this._state === "playing") this.music.start();
+    else this.music.stop();
   }
 
   /**
@@ -2085,6 +2113,10 @@ export class GameEngine {
       this.player.score += this.player.distance - prevDistance;
     }
 
+    // Run soundtrack intensity — scales layer density (bass/arp/hats) with
+    // distance so the mix builds as the run goes. Clamped ramp over ~3km.
+    this.music.setIntensity(Math.min(1, this.player.distance / 3000));
+
     // Distance milestone notifications — every 500m, fire a celebratory popup
     // and a short sfx cue. Gives players a sense of progression and a dopamine
     // hit during long runs.
@@ -2588,6 +2620,10 @@ export class GameEngine {
     if (!this.player.alive) {
       this._state = "gameover";
       this.camera.shake(8, 0.5);
+      // Let the game-over stinger read clearly: duck the soundtrack, then
+      // fade it out entirely (React also stops it on state change).
+      this.music.duck();
+      this.music.stop(1.2);
       this.sfx.play("gameOver");
       this.onGameOver?.({
         score: Math.max(0, Math.floor(this.player.score)),

@@ -426,10 +426,14 @@ export default function Home() {
     return;
   }, [settings.reducedMotion]);
 
-  // Sync audio volumes from settings into the engine's SFX singleton.
+  // Sync audio volumes from settings into the engine's audio singletons.
   useEffect(() => {
-    gameRef.current?.setAudioVolumes(settings.masterVolume, settings.sfxVolume);
-  }, [settings.masterVolume, settings.sfxVolume]);
+    gameRef.current?.setAudioVolumes(
+      settings.masterVolume,
+      settings.sfxVolume,
+      settings.musicVolume,
+    );
+  }, [settings.masterVolume, settings.sfxVolume, settings.musicVolume]);
 
   // Resume the AudioContext on first user gesture (browser autoplay policy).
   useEffect(() => {
@@ -449,6 +453,13 @@ export default function Home() {
     if (!gameRef.current) return;
     if (state === "paused") gameRef.current.pause();
     else if (state === "playing") gameRef.current.resume();
+  }, [state]);
+
+  // Run soundtrack lifecycle: start when a run is playing, stop on pause /
+  // game over / menu. The engine keeps this idempotent, and gesture-resume
+  // (below) re-asserts the correct state after autoplay-policy unlocks.
+  useEffect(() => {
+    gameRef.current?.setMusicPlaying(state === "playing");
   }, [state]);
 
   // Protect solo runs from background-tab deaths. Mobile app switches, phone

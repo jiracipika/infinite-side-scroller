@@ -393,6 +393,30 @@ const SettingsPanel: FC = () => {
           />
         </div>
 
+        {/* Music volume slider */}
+        <div
+          className="ios-row"
+          style={{ flexDirection: 'column', alignItems: 'stretch', gap: 8, paddingTop: 13, paddingBottom: 13 }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span className="ios-row-label">Music</span>
+            <span
+              className="ios-footnote"
+              style={{ fontVariantNumeric: 'tabular-nums', minWidth: 34, textAlign: 'right' }}
+            >
+              {Math.round(settings.musicVolume * 100)}%
+            </span>
+          </div>
+          <input
+            type="range" min="0" max="1" step="0.05"
+            value={settings.musicVolume}
+            onChange={(e) => {
+              setSettings({ musicVolume: parseFloat(e.target.value) });
+              getSfxEngine().play('click');
+            }}
+          />
+        </div>
+
         {/* Show FPS */}
         <div className="ios-row">
           <span className="ios-row-label">Show FPS</span>

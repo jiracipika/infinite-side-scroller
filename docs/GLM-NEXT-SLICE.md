@@ -1,12 +1,17 @@
 # GLM Next Slice — Infinite Side Scroller
 
 Status: implementation-ready handoff
-Status updated: 2026-08-20 — level-selection polish slice IMPLEMENTED (see Completed below).
+Status updated: 2026-08-27 — procedural music slice IMPLEMENTED (see Completed below).
 Owner: GLM 5.2/5.3 polish lane
 Priority: P2 premium visual/product polish; no correctness emergency
 
 ## Completed
 
+- 2026-08-27: Procedural music engine (WebAudio, zero assets): layered pad/bass/arpeggio/hat
+  soundtrack that builds with run distance; plays only during runs; ducks out on pause/game-over;
+  mutes on tab-hide; Music volume sliders live on web (Start + Pause settings) and mobile;
+  `verify:music` gate added; mobile game.html re-bundled. Browser-verified: oscillators schedule
+  only while playing, pause freezes them, slider changes take effect live.
 2fe148a docs: quick-verify section + script reference (qwen-worker T1/T2)
 0086472 feat(ui): daily-challenge streak — fix history wipe + streak display
 39664ae feat(ui): next-star threshold hint on level-complete screen

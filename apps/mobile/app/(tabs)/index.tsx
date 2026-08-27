@@ -143,7 +143,7 @@ export default function GameScreen() {
       // Push audio/particle preferences into the engine if the WebView is alive.
       if (webViewRef.current) {
         webViewRef.current.injectJavaScript(
-          `try { window.__gameControls.setAudioVolumes(${settings.masterVolume}, ${settings.sfxVolume}); } catch(e){} true;`
+          `try { window.__gameControls.setAudioVolumes(${settings.masterVolume}, ${settings.sfxVolume}, ${settings.musicVolume}); } catch(e){} true;`
         );
         webViewRef.current.injectJavaScript(
           `try { window.__gameControls.setUserReducedParticles(${settings.reducedParticles}); } catch(e){} true;`
@@ -247,7 +247,7 @@ export default function GameScreen() {
     // respects audio volumes and particle preferences.
     const s = settingsRef.current;
     webViewRef.current?.injectJavaScript(
-      `try { window.__gameControls.setAudioVolumes(${s.masterVolume}, ${s.sfxVolume}); window.__gameControls.setUserReducedParticles(${s.reducedParticles}); window.__gameControls.resumeAudio(); } catch(e){} true;`
+      `try { window.__gameControls.setAudioVolumes(${s.masterVolume}, ${s.sfxVolume}, ${s.musicVolume}); window.__gameControls.setUserReducedParticles(${s.reducedParticles}); window.__gameControls.resumeAudio(); } catch(e){} true;`
     );
     callEngine(`setSeed(${seed})`);
     callEngine('resume');
