@@ -9,9 +9,25 @@ import { Player } from "../entities/player";
 import { getCharacterById } from "../data/characters";
 import { drawCharacterArt } from "./character-art";
 import { Particle } from "../entities/particles";
-import { getBlendedBiomeColors, type BiomeConfig } from "../world/biomes";
+import {
+  getBlendedBiomeColors,
+  type BiomeConfig,
+  type BiomeColors,
+} from "../world/biomes";
 import type { Collectible } from "../entities/Collectibles";
 import { TerrainCache } from "../engine/terrain-cache";
+import {
+  drawBackgroundSky,
+  drawBackgroundParallax,
+  type BackgroundDetail,
+} from "./background";
+import {
+  paintGroundTexture,
+  tuftsForChunk,
+  drawTuft,
+  paintPlatformDetail,
+} from "./textures";
+import { shadeHexColor } from "./color";
 
 export class GameRenderer {
   private terrainCache: TerrainCache;
@@ -19,6 +35,10 @@ export class GameRenderer {
   private ctx: CanvasRenderingContext2D;
   private width = 0;
   private height = 0;
+  /** Visual fidelity for background + ground texture passes (engine quality). */
+  private backgroundDetail: BackgroundDetail = "high";
+  /** Static world override for finite levels; null = shifting endless biomes. */
+  private worldBiomeOverride: BiomeConfig | null = null;
 
   constructor(ctx: CanvasRenderingContext2D) {
     this.ctx = ctx;
@@ -30,52 +50,43 @@ export class GameRenderer {
     this.height = height;
   }
 
+  /**
+   * Set background/texture fidelity. LOW keeps terrain caching and a sparse
+   * texture pass (still reads as textured, just cheaper) for weak GPUs.
+   */
+  setBackgroundDetail(detail: BackgroundDetail): void {
+    if (this.backgroundDetail === detail) return;
+    this.backgroundDetail = detail;
+  }
+
+  /** Pin the world palette (finite levels). Null restores endless blending. */
+  setWorldBiomeOverride(biome: BiomeConfig | null): void {
+    if (this.worldBiomeOverride === biome) return;
+    this.worldBiomeOverride = biome;
+  }
+
+  /** Resolve palette for a world X, honoring the finite-level override. */
+  private paletteAt(worldX: number): BiomeColors {
+    return (
+      this.worldBiomeOverride?.colors ?? getBlendedBiomeColors(worldX)
+    );
+  }
+
   drawSky(
     camera: Camera,
     gameTime: number = 0,
     biomeOverride?: BiomeConfig | null,
   ): void {
-    const centerX = camera.x + this.width / 2;
-    const colors = biomeOverride?.colors ?? getBlendedBiomeColors(centerX);
-
-    const gradient = this.ctx.createLinearGradient(0, 0, 0, this.height);
-    gradient.addColorStop(0, colors.sky);
-    gradient.addColorStop(1, colors.skyGradient);
-    this.ctx.fillStyle = gradient;
-    this.ctx.fillRect(0, 0, this.width, this.height);
-
-    const orbitX = this.width * (0.72 + Math.sin(gameTime * 0.08) * 0.08);
-    const orbitY = this.height * (0.18 + Math.cos(gameTime * 0.11) * 0.04);
-    const orb = this.ctx.createRadialGradient(
-      orbitX,
-      orbitY,
-      2,
-      orbitX,
-      orbitY,
-      Math.max(50, this.height * 0.16),
-    );
-    orb.addColorStop(0, this.shadeHexColor(colors.platform, 30));
-    orb.addColorStop(0.5, colors.platform);
-    orb.addColorStop(1, colors.sky);
-    this.ctx.fillStyle = orb;
-    this.ctx.beginPath();
-    this.ctx.arc(orbitX, orbitY, Math.max(44, this.height * 0.105), 0, Math.PI * 2);
-    this.ctx.fill();
-
-    // World-anchored atmospheric haze so it doesn't look like a screen filter
-    // attached to the player/camera movement.
-    const hazeStartY = 250 - camera.y;
-    const hazeEndY = 780 - camera.y;
-    const hazeGradient = this.ctx.createLinearGradient(
-      0,
-      hazeStartY,
-      0,
-      hazeEndY,
-    );
-    hazeGradient.addColorStop(0, "rgba(255,255,255,0)");
-    hazeGradient.addColorStop(1, "rgba(255,255,255,0.07)");
-    this.ctx.fillStyle = hazeGradient;
-    this.ctx.fillRect(0, 0, this.width, this.height);
+    drawBackgroundSky(this.ctx, {
+      width: this.width,
+      height: this.height,
+      cameraX: camera.x,
+      cameraY: camera.y,
+      gameTime,
+      colors: biomeOverride?.colors ?? getBlendedBiomeColors(camera.x + this.width / 2),
+      detail: this.backgroundDetail,
+      reducedMotion: camera.isReducedMotion(),
+    });
   }
 
   drawParallax(
@@ -83,110 +94,26 @@ export class GameRenderer {
     gameTime: number = 0,
     biomeOverride?: BiomeConfig | null,
   ): void {
-    const colors = biomeOverride?.colors ?? getBlendedBiomeColors(camera.x + this.width / 2);
-    this.drawMountains(camera, 0.1, 200, this.shadeHexColor(colors.groundDark, -18), 350);
-    this.drawMountains(camera, 0.2, 150, colors.groundDark, 400);
-    this.drawChromaticRibbons(camera, gameTime, colors);
-    this.drawClouds(camera);
+    drawBackgroundParallax(this.ctx, {
+      width: this.width,
+      height: this.height,
+      cameraX: camera.x,
+      cameraY: camera.y,
+      gameTime,
+      colors: biomeOverride?.colors ?? getBlendedBiomeColors(camera.x + this.width / 2),
+      detail: this.backgroundDetail,
+      reducedMotion: camera.isReducedMotion(),
+    });
   }
 
-  private drawChromaticRibbons(
+  drawTerrain(
+    chunks: Chunk[],
     camera: Camera,
-    gameTime: number,
-    colors: { ground: string; skyGradient: string; platform: string },
+    gameTime: number = 0,
+    reducedMotion: boolean = false,
   ): void {
-    const ctx = this.ctx;
-    const offset = camera.x * 0.035;
-    const ribbonColors = [
-      colors.platform,
-      colors.ground,
-      this.shadeHexColor(colors.skyGradient, 34),
-    ];
-    ctx.save();
-    for (let band = 0; band < 3; band++) {
-      ctx.strokeStyle = ribbonColors[band];
-      ctx.lineWidth = 5 + band * 3;
-      ctx.beginPath();
-      for (let x = -20; x <= this.width + 20; x += 20) {
-        const y = 90 + band * 46
-          + Math.sin((x + offset) * (0.006 + band * 0.0015) + gameTime * (0.18 + band * 0.05)) * (18 + band * 8);
-        if (x === -20) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      }
-      ctx.stroke();
-    }
-    ctx.restore();
-  }
-
-  private drawMountains(
-    camera: Camera,
-    parallaxFactor: number,
-    amplitude: number,
-    color: string,
-    baseY: number,
-  ): void {
-    const offsetX = camera.x * parallaxFactor;
-    const offsetY = 0;
-
-    this.ctx.fillStyle = color;
-    this.ctx.beginPath();
-    this.ctx.moveTo(0, this.height);
-
-    for (let screenX = 0; screenX <= this.width; screenX += 4) {
-      const worldX = screenX + offsetX;
-      const h =
-        Math.sin(worldX * 0.003) * amplitude +
-        Math.sin(worldX * 0.007) * amplitude * 0.5;
-      const y = baseY - h - offsetY;
-      this.ctx.lineTo(screenX, y);
-    }
-
-    this.ctx.lineTo(this.width, this.height);
-    this.ctx.closePath();
-    this.ctx.fill();
-  }
-
-  private drawClouds(camera: Camera): void {
-    const offsetX = camera.x * 0.05;
-    this.ctx.fillStyle = "#ffffff40";
-
-    for (let i = 0; i < 8; i++) {
-      const baseX = ((i * 350 + 100 - (offsetX % 2800) + 2800) % 2800) - 200;
-      const y = 50 + (i % 3) * 40;
-      this.drawCloud(baseX, y, 60 + (i % 3) * 30);
-    }
-  }
-
-  private drawCloud(x: number, y: number, size: number): void {
-    const ctx = this.ctx;
-    ctx.beginPath();
-    ctx.ellipse(x, y, size, size * 0.4, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.ellipse(
-      x - size * 0.5,
-      y + size * 0.1,
-      size * 0.6,
-      size * 0.3,
-      0,
-      0,
-      Math.PI * 2,
-    );
-    ctx.fill();
-    ctx.beginPath();
-    ctx.ellipse(
-      x + size * 0.4,
-      y + size * 0.15,
-      size * 0.5,
-      size * 0.25,
-      0,
-      0,
-      Math.PI * 2,
-    );
-    ctx.fill();
-  }
-
-  drawTerrain(chunks: Chunk[], camera: Camera): void {
+    this.liveGameTime = gameTime;
+    this.liveReducedMotion = reducedMotion;
     for (const chunk of chunks) {
       if (!camera.isVisible(chunk.worldX, 0, CHUNK_WIDTH + 4, this.height))
         continue;
@@ -223,14 +150,16 @@ export class GameRenderer {
       const offCtx = offscreen.getContext("2d");
       if (!offCtx) return;
 
-      // Draw terrain to offscreen canvas
-      this.drawTerrainToContext(offCtx, chunk, cacheWidth, cacheHeight, 0, 0);
+      // Draw terrain to offscreen canvas — isCacheContext=true keeps the
+      // animated tuft pass out of the frozen cache image.
+      this.drawTerrainToContext(offCtx, chunk, cacheWidth, cacheHeight, 0, 0, true);
 
       // Cache the transparent canvas itself; drawImage preserves destination sky.
       this.terrainCache.set(chunk.index, offscreen);
     }
 
-    // Draw to main canvas
+    // Draw to main canvas — live context gets gameTime/reducedMotion so the
+    // grass tufts can sway; the baked cache canvas never animates.
     this.drawTerrainToContext(
       ctx,
       chunk,
@@ -238,8 +167,18 @@ export class GameRenderer {
       this.height,
       chunk.worldX - camera.renderX,
       -camera.renderY,
+      false,
+      this.liveGameTime,
+      this.liveReducedMotion,
     );
   }
+
+  /**
+   * Per-frame animation inputs for the live terrain pass. Set at the top of
+   * drawTerrain; defaults keep the signature backward compatible.
+   */
+  private liveGameTime = 0;
+  private liveReducedMotion = false;
 
   private drawTerrainToContext(
     ctx: CanvasRenderingContext2D,
@@ -248,6 +187,9 @@ export class GameRenderer {
     canvasHeight: number,
     offsetX: number,
     offsetY: number,
+    isCacheContext: boolean = false,
+    gameTime: number = 0,
+    reducedMotion: boolean = false,
   ): void {
     ctx.beginPath();
     let started = false;
@@ -269,56 +211,47 @@ export class GameRenderer {
 
     ctx.save();
     ctx.clip();
-    // Paint in short world-space strips so biome/chunk transitions blend instead
-    // of becoming vertical walls at chunk boundaries.
-    const stripWidth = 18;
+    // Biome-tinted soil body. A single vertical gradient is enough now that
+    // texture depth comes from the dedicated passes below; short world-space
+    // strips still keep chunk/biome boundaries from becoming vertical walls.
+    const stripWidth = 90;
     for (let localX = 0; localX <= CHUNK_WIDTH; localX += stripWidth) {
       const worldX = chunk.worldX + localX;
-      const stripColors = getBlendedBiomeColors(worldX);
+      const stripColors = this.paletteAt(worldX);
       const soilGradient = ctx.createLinearGradient(0, 0, 0, canvasHeight);
       soilGradient.addColorStop(
         0,
-        this.shadeHexColor(stripColors.groundDark, 12),
+        shadeHexColor(stripColors.groundDark, 12),
       );
       soilGradient.addColorStop(0.45, stripColors.groundDark);
       soilGradient.addColorStop(
         1,
-        this.shadeHexColor(stripColors.groundDark, -35),
+        shadeHexColor(stripColors.groundDark, -35),
       );
       ctx.fillStyle = soilGradient;
       ctx.fillRect(localX + offsetX - 1, 0, stripWidth + 2, canvasHeight + 10);
     }
+
+    // Deterministic texture passes: strata bands, speckles, pebbles.
+    paintGroundTexture(ctx, {
+      heights: chunk.heights,
+      chunkWorldX: chunk.worldX,
+      chunkIndex: chunk.index,
+      offsetX,
+      offsetY,
+      depthPx: canvasHeight,
+      ground: this.paletteAt(chunk.worldX + CHUNK_WIDTH / 2).ground,
+      groundDark: this.paletteAt(chunk.worldX + CHUNK_WIDTH / 2).groundDark,
+      detail: this.backgroundDetail === "high",
+    });
     ctx.restore();
 
-    // Layered ground texture. Deterministic math keeps cached chunks stable.
-    ctx.save();
-    ctx.globalAlpha = 0.16;
-    ctx.lineWidth = 1;
-    for (let i = 8; i < chunk.heights.length; i += 14) {
-      const localX = i * 4;
-      const worldX = chunk.worldX + localX;
-      const fleckColors = getBlendedBiomeColors(worldX);
-      const screenX = localX + offsetX;
-      const surfaceY = chunk.heights[i] + offsetY;
-      const fleckY =
-        surfaceY +
-        22 +
-        (Math.sin((worldX + chunk.index * 37) * 0.047) + 1) * 34;
-      const fleckW = 8 + ((i + chunk.index) % 5) * 3;
-      ctx.strokeStyle = this.shadeHexColor(fleckColors.groundDark, -22);
-      ctx.beginPath();
-      ctx.moveTo(screenX, fleckY);
-      ctx.lineTo(screenX + fleckW, fleckY + Math.sin(worldX * 0.03) * 2);
-      ctx.stroke();
-    }
-    ctx.restore();
-
-    // Grass cap and highlight
+    // Grass cap and highlight (thicker, layered for a readable ledge).
     ctx.lineWidth = 7;
     for (let i = 0; i < chunk.heights.length - 1; i++) {
       const worldX = chunk.worldX + i * 4;
-      const capColors = getBlendedBiomeColors(worldX);
-      ctx.strokeStyle = this.shadeHexColor(capColors.ground, -15);
+      const capColors = this.paletteAt(worldX);
+      ctx.strokeStyle = shadeHexColor(capColors.ground, -15);
       ctx.beginPath();
       ctx.moveTo(i * 4 + offsetX, chunk.heights[i] + offsetY);
       ctx.lineTo((i + 1) * 4 + offsetX, chunk.heights[i + 1] + offsetY);
@@ -328,8 +261,8 @@ export class GameRenderer {
     ctx.lineWidth = 3;
     for (let i = 0; i < chunk.heights.length - 1; i++) {
       const worldX = chunk.worldX + i * 4;
-      const capColors = getBlendedBiomeColors(worldX);
-      ctx.strokeStyle = this.shadeHexColor(capColors.ground, 24);
+      const capColors = this.paletteAt(worldX);
+      ctx.strokeStyle = shadeHexColor(capColors.ground, 24);
       const screenX = i * 4 + offsetX;
       const screenY = chunk.heights[i] - 1 + offsetY;
       ctx.beginPath();
@@ -338,10 +271,29 @@ export class GameRenderer {
       ctx.stroke();
     }
 
+    // Live view only: animated grass tufts riding the surface. (Cached chunk
+    // canvases are static, so tufts would freeze mid-sway if baked in.)
+    if (!isCacheContext && this.backgroundDetail === "high") {
+      const capColors = this.paletteAt(chunk.worldX + CHUNK_WIDTH / 2);
+      const tufts = tuftsForChunk(
+        chunk.index,
+        chunk.heights,
+        Math.min(0.85, 0.3 + capColors.ground.length * 0.05),
+      );
+      const sway = reducedMotion
+        ? 0
+        : Math.sin(gameTime * 2.1) * 0.9;
+      for (const tuft of tufts) {
+        const sx = tuft.x + offsetX;
+        if (sx < -10 || sx > canvasWidth + 10) continue;
+        drawTuft(ctx, tuft, shadeHexColor(capColors.ground, -8), sway, offsetX, offsetY);
+      }
+    }
+
     // Caves
     for (const cave of chunk.caves) {
       const caveScreenX = cave.x - chunk.worldX + offsetX;
-      const caveColors = getBlendedBiomeColors(cave.x);
+      const caveColors = this.paletteAt(cave.x);
       ctx.fillStyle = caveColors.sky;
       ctx.globalAlpha = 0.7;
       ctx.fillRect(caveScreenX, cave.y + offsetY, cave.width, cave.height);
@@ -355,7 +307,7 @@ export class GameRenderer {
   drawPlatforms(chunks: Chunk[], camera: Camera, gameTime: number = 0): void {
     const ctx = this.ctx;
     for (const chunk of chunks) {
-      const colors = getBlendedBiomeColors(chunk.worldX + 400);
+      const colors = this.paletteAt(chunk.worldX + 400);
       for (const platform of chunk.platforms) {
         // Calculate moving platform Y offset
         let platY = platform.y;
@@ -370,8 +322,8 @@ export class GameRenderer {
           0,
           screen.y + 10,
         );
-        beamGradient.addColorStop(0, this.shadeHexColor(colors.platform, 18));
-        beamGradient.addColorStop(1, this.shadeHexColor(colors.platform, -22));
+        beamGradient.addColorStop(0, shadeHexColor(colors.platform, 18));
+        beamGradient.addColorStop(1, shadeHexColor(colors.platform, -22));
         ctx.fillStyle = beamGradient;
         ctx.fillRect(screen.x, screen.y, platform.width, 10);
         ctx.fillStyle = "rgba(255,255,255,0.18)";
@@ -381,9 +333,21 @@ export class GameRenderer {
           Math.max(0, platform.width - 4),
           2,
         );
-        ctx.strokeStyle = this.shadeHexColor(colors.groundDark, -20);
+        // Soil-tinted top edge ties the beam to the ground below it.
+        ctx.fillStyle = shadeHexColor(colors.groundDark, 6);
+        ctx.fillRect(screen.x, screen.y, platform.width, 2);
+        ctx.strokeStyle = shadeHexColor(colors.groundDark, -20);
         ctx.lineWidth = 1;
         ctx.strokeRect(screen.x, screen.y, platform.width, 10);
+        // Floating-island underside: tapered keel, root strands, rivets.
+        paintPlatformDetail(
+          ctx,
+          screen.x,
+          screen.y,
+          platform.width,
+          colors.groundDark,
+          shadeHexColor(colors.groundDark, -28),
+        );
         // Small glow for moving platforms
         if (platform.moveAmp) {
           ctx.fillStyle = "rgba(255,255,255,0.08)";
@@ -465,16 +429,6 @@ export class GameRenderer {
     ctx.strokeStyle = "#555";
     ctx.lineWidth = 1;
     ctx.stroke();
-  }
-
-  private shadeHexColor(hex: string, amount: number): string {
-    const clean = hex.replace("#", "");
-    if (clean.length !== 6) return hex;
-    const clamp = (value: number) => Math.max(0, Math.min(255, value));
-    const r = clamp(parseInt(clean.slice(0, 2), 16) + amount);
-    const g = clamp(parseInt(clean.slice(2, 4), 16) + amount);
-    const b = clamp(parseInt(clean.slice(4, 6), 16) + amount);
-    return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
   }
 
   private drawBush(x: number, y: number, scale: number, variant: number): void {

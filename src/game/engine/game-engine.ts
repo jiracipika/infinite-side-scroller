@@ -34,7 +34,7 @@ import { getCharacterById } from "../data/characters";
 import type { Platform as PlatformData } from "../world/chunk";
 import { PerformanceProfiler } from "./performance-profiler";
 import { comboMultiplierFor } from "./combo-tiers";
-import { getDayPhase, getDayTint, rgbaToString } from "./day-cycle";
+import { getDayPhase, getDayTint, rgbaToString, DAY_CYCLE_SECONDS } from "./day-cycle";
 import type {
   NetEnemySnapshot,
   NetInputCommand,
@@ -305,6 +305,12 @@ export class GameEngine {
 
   // Game time for animations
   private gameTime = 0;
+  /**
+   * Sky-only clock offset so runs begin at sunrise (dawn midpoint, phase
+   * 0.14 of the 120s day/night cycle) instead of deep night. Affects only
+   * the day/night phase/tint — the run timer (gameTime) is untouched.
+   */
+  private skyClockOffset = 0.14 * DAY_CYCLE_SECONDS;
   private levelConfig: LevelConfig | null = null;
   /** Non-mixed finite levels lock terrain and atmosphere to their authored biome. */
   private levelBiomeOverride: BiomeConfig | null = null;
@@ -536,6 +542,7 @@ export class GameEngine {
     // config after this reset so objectives never leak into the next mode.
     this.levelConfig = null;
     this.levelBiomeOverride = null;
+    this.renderer.setWorldBiomeOverride(null);
     this.worldSeed = seed;
     if (characterId) this._characterId = characterId;
     this.chunkManager = new ChunkManager(this.worldSeed);
@@ -609,6 +616,7 @@ export class GameEngine {
     this.setSeed(config.seed, this._characterId);
     this.levelConfig = config;
     this.levelBiomeOverride = getLevelBiome(config.biome);
+    this.renderer.setWorldBiomeOverride(this.levelBiomeOverride);
     if (this.levelBiomeOverride) {
       // Recreate chunks before the opening frame is generated so their terrain,
       // platforms, caves, and decorations use the authored level biome.
@@ -1426,11 +1434,13 @@ export class GameEngine {
         // Drop quality — also clamp DPR to 1.0 to shed fill-rate.
         this.currentQualityLevel = "low";
         this.particles.setReducedParticles(true);
+        this.renderer.setBackgroundDetail("low");
         this.handleResize();
       } else if (metrics.fps > 50 && this.currentQualityLevel !== "high") {
         // Increase quality — restore DPR if we have earned it.
         this.currentQualityLevel = "high";
         this.particles.setReducedParticles(false);
+        this.renderer.setBackgroundDetail("high");
         this.handleResize();
       } else if (
         metrics.fps >= 35 &&
@@ -1440,6 +1450,7 @@ export class GameEngine {
         // Medium quality
         this.currentQualityLevel = "medium";
         this.particles.setReducedParticles(false);
+        this.renderer.setBackgroundDetail("high");
         this.handleResize();
       }
     }
@@ -2719,7 +2730,7 @@ export class GameEngine {
 
   /** Day/night cycle — based on game time, full cycle every 120s. */
   private getDayPhase(): 'dawn' | 'day' | 'dusk' | 'night' {
-    return getDayPhase(this.gameTime);
+    return getDayPhase(this.gameTime + this.skyClockOffset);
   }
 
   /**
@@ -2741,9 +2752,9 @@ export class GameEngine {
 
     const chunks = this.chunkManager.getLoadedChunks();
 
-    this.renderer.drawSky(this.camera, this.gameTime, this.levelBiomeOverride);
-    this.renderer.drawParallax(this.camera, this.gameTime, this.levelBiomeOverride);
-    this.renderer.drawTerrain(chunks, this.camera);
+    this.renderer.drawSky(this.camera, this.gameTime + this.skyClockOffset, this.levelBiomeOverride);
+    this.renderer.drawParallax(this.camera, this.gameTime + this.skyClockOffset, this.levelBiomeOverride);
+    this.renderer.drawTerrain(chunks, this.camera, this.gameTime, this.reducedMotion);
     this.renderer.drawPlatforms(chunks, this.camera, this.gameTime);
     this.renderer.drawDecorations(chunks, this.camera);
 
@@ -2933,7 +2944,7 @@ export class GameEngine {
     // module (smoothstep between keyframes). The renderer keeps the discrete
     // phase label for the HUD but the on-canvas tint no longer pops at phase
     // boundaries.
-    const tint = getDayTint(this.gameTime);
+    const tint = getDayTint(this.gameTime + this.skyClockOffset);
     if (tint.a > 0.0005) {
       ctx.fillStyle = rgbaToString(tint);
       ctx.fillRect(0, 0, width, height);
