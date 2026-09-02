@@ -53,7 +53,7 @@ for (const marker of ['onPointerDown', 'onPointerMove', 'setPointerCapture', 'on
   requireMarker(touchControls, 'TouchControls.tsx', marker)
 }
 
-for (const marker of ['jump-press', 'dash-press', 'attack-press', 'carry-press', 'Carry teammate']) {
+for (const marker of ['jump-press', 'dash-press', 'attack-press', 'carry-press', 'melee-press', 'Carry teammate', 'Melee slash']) {
   requireMarker(touchControls, 'TouchControls.tsx', marker)
 }
 

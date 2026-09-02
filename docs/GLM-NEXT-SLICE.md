@@ -1,11 +1,20 @@
 # GLM Next Slice — Infinite Side Scroller
 
 Status: implementation-ready handoff
-Status updated: 2026-08-27 — procedural music slice IMPLEMENTED (see Completed below).
+Status updated: 2026-09-02 — mobile melee button + airborne sprite pose IMPLEMENTED (see Completed below).
 Owner: GLM 5.2/5.3 polish lane
 Priority: P2 premium visual/product polish; no correctness emergency
 
 ## Completed
+
+- 2026-09-02: Mobile melee button + airborne sprite pose. TouchControls gains a red
+  `Melee slash` button (action row, between Attack and Carry) emitting `melee-press`,
+  so mobile players can finally use Knight/Ninja/Tank/Cyborg melee (gap open since the
+  Aug 6 combat slice). `drawCharacterArt` now consumes the previously-dead `airborne`
+  pose flag via a pure `resolveLegPose` solver (rear leg tucks up, front leg reaches);
+  8 new unit tests in test/character-leg-pose.test.ts. verify:touch asserts the new
+  markers. 496 tests, full verify, typecheck, lint, build all green; mobile bundle
+  regenerated (148.7KB). Browser-verified with CDP touch events + canvas pixel probes.
 
 - 2026-08-27: Procedural music engine (WebAudio, zero assets): layered pad/bass/arpeggio/hat
   soundtrack that builds with run distance; plays only during runs; ducks out on pause/game-over;

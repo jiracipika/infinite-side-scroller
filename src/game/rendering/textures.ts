@@ -130,7 +130,6 @@ function paintSpeckles(
   ctx.save();
   for (let lx = 12, col = 0; lx < heights.length * 4; lx += step, col++) {
     const surface = surfaceAt(heights, lx);
-    const wx = chunkWorldX + lx;
     const sx = lx + offsetX;
 
     const rolls = detail ? 2 : 1;

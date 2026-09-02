@@ -6,6 +6,87 @@ export interface CharacterArtPose {
   dashing?: boolean;
 }
 
+/** Y anchor where legs attach: torsoY(15) + torsoH(max(10, h-25)) - 1. */
+export function characterLegAnchorY(height: number): number {
+  return Math.max(10, height - 25) + 14;
+}
+
+/**
+ * Resolved leg geometry for the shared character sprite. Coordinates are
+ * authored in the sprite's local space (origin = top-left of the collision
+ * box) and consumed by drawCharacterArt. Legs are 5px wide, boots 8x3.
+ */
+export interface CharacterLegPose {
+  rearLegX: number;
+  rearLegY: number;
+  rearLegH: number;
+  frontLegX: number;
+  frontLegY: number;
+  frontLegH: number;
+  rearBootX: number;
+  rearBootY: number;
+  frontBootX: number;
+  frontBootY: number;
+  airborne: boolean;
+}
+
+/**
+ * Pure leg-pose solver shared by gameplay rendering and tests.
+ *
+ * Ground: both legs hang from the torso anchor; the walk cycle swaps their
+ * lengths via the clamped stride and boots ride the stride along the ground
+ * baseline (height - 3).
+ *
+ * Airborne (previously the `airborne` pose flag was accepted but never
+ * consumed — the sprite kept running its walk cycle mid-air): the rear leg
+ * tucks up (attaches 2px higher, 6px shorter) while the front leg reaches
+ * forward/down (5px longer). Boots track the ends of their legs instead of
+ * planting on the ground baseline.
+ */
+export function resolveLegPose(
+  width: number,
+  height: number,
+  pose: CharacterArtPose = {},
+): CharacterLegPose {
+  const stride = Math.max(-2.5, Math.min(2.5, pose.stride ?? 0));
+  const anchor = characterLegAnchorY(height);
+  const baseLen = height - anchor - 2;
+
+  if (pose.airborne) {
+    const rearLegY = anchor - 2;
+    const rearLegH = baseLen - 6;
+    const frontLegY = anchor;
+    const frontLegH = baseLen + 5;
+    return {
+      rearLegX: 5,
+      rearLegY,
+      rearLegH,
+      frontLegX: width - 10,
+      frontLegY,
+      frontLegH,
+      rearBootX: 3,
+      rearBootY: rearLegY + rearLegH,
+      frontBootX: width - 11,
+      frontBootY: frontLegY + frontLegH - 1,
+      airborne: true,
+    };
+  }
+
+  return {
+    rearLegX: 5,
+    rearLegY: anchor,
+    rearLegH: baseLen + stride,
+    frontLegX: width - 10,
+    frontLegY: anchor,
+    frontLegH: baseLen - stride,
+    rearBootX: 3,
+    rearBootY: height - 3 + Math.max(0, stride),
+    frontBootX: width - 11,
+    frontBootY: height - 3 + Math.max(0, -stride),
+    airborne: false,
+  };
+}
+
 function rect(
   ctx: CanvasRenderingContext2D,
   color: string,
@@ -119,10 +200,11 @@ export function drawCharacterArt(
     ctx.closePath();
     ctx.fill();
   } else {
-    rect(ctx, dark, 5, legY, 5, height - legY - 2 + stride);
-    rect(ctx, dark, width - 10, legY, 5, height - legY - 2 - stride);
-    rect(ctx, "#0f172a", 3, height - 3 + Math.max(0, stride), 8, 3);
-    rect(ctx, "#0f172a", width - 11, height - 3 + Math.max(0, -stride), 8, 3);
+    const legs = resolveLegPose(width, height, { stride, airborne: pose.airborne });
+    rect(ctx, dark, legs.rearLegX, legs.rearLegY, 5, legs.rearLegH);
+    rect(ctx, dark, legs.frontLegX, legs.frontLegY, 5, legs.frontLegH);
+    rect(ctx, "#0f172a", legs.rearBootX, legs.rearBootY, 8, 3);
+    rect(ctx, "#0f172a", legs.frontBootX, legs.frontBootY, 8, 3);
   }
 
   // Torso and arms.

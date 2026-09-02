@@ -14,7 +14,7 @@ import {
  *
  * Layout:
  *   Left side  — Left / Right D-pad buttons
- *   Right side — Dash / Attack / Carry (small) + Jump (large, blue)
+ *   Right side — Special / Dash / ATK / Melee / Carry (small) + Jump (large, blue)
  *
  * Emits 'game-input' CustomEvents consumed by InputManager.
  * Respects iOS safe-area-inset-bottom for notched devices.
@@ -46,6 +46,7 @@ const TouchControls: FC<TouchControlsProps> = ({
   const [attackHeld, setAttackHeld] = useState(false);
   const [dashHeld, setDashHeld] = useState(false);
   const [carryHeld, setCarryHeld] = useState(false);
+  const [meleeHeld, setMeleeHeld] = useState(false);
   const [specialHeld, setSpecialHeld] = useState(false);
   const movementDirectionRef = useRef<-1 | 0 | 1>(0);
 
@@ -79,15 +80,17 @@ const TouchControls: FC<TouchControlsProps> = ({
   const endDash = useCallback(() => { emit('dash-press', false); setDashHeld(false); }, [emit]);
   const startCarry = useCallback(() => { emit('carry-press', true); setCarryHeld(true); pulseHaptic(8); }, [emit, pulseHaptic]);
   const endCarry = useCallback(() => { emit('carry-press', false); setCarryHeld(false); }, [emit]);
+  const startMelee = useCallback(() => { emit('melee-press', true); setMeleeHeld(true); pulseHaptic([12, 20, 12]); }, [emit, pulseHaptic]);
+  const endMelee = useCallback(() => { emit('melee-press', false); setMeleeHeld(false); }, [emit]);
   const startSpecial = useCallback(() => { emit('special-press', true); setSpecialHeld(true); pulseHaptic([16, 25, 22]); }, [emit, pulseHaptic]);
   const endSpecial = useCallback(() => { emit('special-press', false); setSpecialHeld(false); }, [emit]);
 
   const releaseAll = useCallback(() => {
     movementDirectionRef.current = 0;
     setLeftHeld(false); setRightHeld(false);
-    setJumpHeld(false); setAttackHeld(false); setDashHeld(false); setCarryHeld(false); setSpecialHeld(false);
+    setJumpHeld(false); setAttackHeld(false); setDashHeld(false); setCarryHeld(false); setMeleeHeld(false); setSpecialHeld(false);
     emit('move-left', false); emit('move-right', false);
-    emit('jump-press', false); emit('attack-press', false); emit('dash-press', false); emit('carry-press', false); emit('special-press', false);
+    emit('jump-press', false); emit('attack-press', false); emit('dash-press', false); emit('carry-press', false); emit('melee-press', false); emit('special-press', false);
     pulseHaptic(0);
   }, [emit, pulseHaptic]);
 
@@ -237,6 +240,18 @@ const TouchControls: FC<TouchControlsProps> = ({
             <AtkLabel />
           </TouchBtn>
           <TouchBtn
+            active={meleeHeld}
+            onStart={startMelee}
+            onEnd={endMelee}
+            size={compact ? 'xs' : 'sm'}
+            controlSize={controlSize}
+            compact={compact}
+            tint="red"
+            aria-label="Melee slash"
+          >
+            <MeleeLabel />
+          </TouchBtn>
+          <TouchBtn
             active={carryHeld}
             onStart={startCarry}
             onEnd={endCarry}
@@ -363,7 +378,7 @@ interface TouchBtnProps {
   size: TouchButtonSize;
   controlSize: TouchControlSize;
   compact: boolean;
-  tint?: 'blue' | 'orange' | 'purple' | 'green' | 'cyan';
+  tint?: 'blue' | 'orange' | 'purple' | 'green' | 'cyan' | 'red';
   'aria-label': string;
   children: React.ReactNode;
 }
@@ -401,6 +416,13 @@ const TINTS = {
     bg: 'rgba(34,211,238,0.2)', bgActive: 'rgba(34,211,238,0.62)',
     border: 'rgba(34,211,238,0.28)', borderActive: 'rgba(103,232,249,0.86)',
     glow: '0 0 18px rgba(34,211,238,0.58)',
+  },
+  red: {
+    bg:         'rgba(255,59,48,0.18)',
+    bgActive:   'rgba(255,59,48,0.56)',
+    border:     'rgba(255,59,48,0.24)',
+    borderActive: 'rgba(255,105,97,0.72)',
+    glow:       '0 0 14px rgba(255,59,48,0.44)',
   },
   none: {
     bg:         'rgba(120,120,128,0.22)',
@@ -517,6 +539,17 @@ const AtkLabel: FC = () => (
   }}>
     ATK
   </span>
+);
+
+const MeleeLabel: FC = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+    stroke="rgba(255,255,255,0.88)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
+  >
+    {/* Sword: blade + guard, tilted like the DashLabel arrow language */}
+    <path d="M14.5 4.5L19.5 9.5L9 20L4 20L4 15Z" fill="rgba(255,255,255,0.22)" />
+    <path d="M14.5 4.5L19.5 9.5" />
+    <path d="M7.5 13.5L10.5 16.5" />
+  </svg>
 );
 
 const SpecialLabel: FC = () => (
