@@ -7,6 +7,14 @@ Priority: P2 premium visual/product polish; no correctness emergency
 
 ## Completed
 
+- 2026-09-02 (slice A): Character micro-animations. New pure solvers `resolveArmPose`
+  (arms cross-swing opposite the run cycle, raise asymmetrically airborne, trail back
+  compressed while dashing, thrust at the melee peak) and `resolveHeadPose` (1px bob at
+  stride extremes, forward lean + lift airborne, crouch-lean dashing, lean into melee).
+  Weapons (sword/bow) now follow the front arm. Renderer passes `melee: meleeProgress`.
+  16 new tests in test/character-arm-head-pose.test.ts; 512 total green. Mobile bundle
+  regenerated (149.5KB). Motion is deliberately small (≤3px) so silhouettes stay crisp.
+
 - 2026-09-02: Mobile melee button + airborne sprite pose. TouchControls gains a red
   `Melee slash` button (action row, between Attack and Carry) emitting `melee-press`,
   so mobile players can finally use Knight/Ninja/Tank/Cyborg melee (gap open since the

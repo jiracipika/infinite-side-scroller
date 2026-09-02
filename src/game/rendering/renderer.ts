@@ -495,6 +495,7 @@ export class GameRenderer {
       stride,
       airborne: !player.onGround,
       dashing: player.dashing,
+      melee: player.meleeActive ? player.meleeProgress : 0,
     });
 
     if (player.wallSliding) {

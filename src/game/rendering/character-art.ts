@@ -4,11 +4,121 @@ export interface CharacterArtPose {
   stride?: number;
   airborne?: boolean;
   dashing?: boolean;
+  /** Melee swing progress 0..1; >0 while a swing is animating. */
+  melee?: number;
 }
 
 /** Y anchor where legs attach: torsoY(15) + torsoH(max(10, h-25)) - 1. */
 export function characterLegAnchorY(height: number): number {
   return Math.max(10, height - 25) + 14;
+}
+
+/** Arm anchor: 2px below the torso top. Arms are 4px wide. */
+const ARM_BASE_Y = 17;
+
+/**
+ * Resolved arm geometry for the shared character sprite (local space).
+ * Arms are drawn 4px wide, hanging from the torso shoulders.
+ */
+export interface CharacterArmPose {
+  rearArmX: number;
+  rearArmY: number;
+  rearArmH: number;
+  frontArmX: number;
+  frontArmY: number;
+  frontArmH: number;
+}
+
+/**
+ * Pure arm-pose solver (micro-animation): arms cross-swing with the run
+ * cycle (opposite phase to the legs), raise asymmetrically when airborne,
+ * sweep back compressed while dashing, and thrust the front arm up at the
+ * melee swing peak. All motion is a few pixels — silhouette stays readable.
+ */
+export function resolveArmPose(
+  width: number,
+  height: number,
+  pose: CharacterArtPose = {},
+): CharacterArmPose {
+  const stride = Math.max(-2.5, Math.min(2.5, pose.stride ?? 0));
+  const armLen = Math.min(10, Math.max(10, height - 25));
+
+  // Base shoulder positions.
+  let rearX = 0;
+  let frontX = width - 4;
+  let rearY = ARM_BASE_Y;
+  let frontY = ARM_BASE_Y;
+  let rearH = armLen;
+  let frontH = armLen;
+
+  // Run cycle: arms swing opposite the legs.
+  rearY -= stride;
+  frontY += stride;
+
+  if (pose.airborne) {
+    // Both arms lift; front reaches higher (asymmetric jump flourish).
+    rearY -= 1;
+    frontY -= 3;
+    frontH -= 3;
+    rearH -= 1;
+  } else if (pose.dashing) {
+    // Arms stream back: shift toward the rear and compress.
+    rearX -= 3;
+    frontX -= 5;
+    rearH -= 2;
+    frontH -= 2;
+  }
+
+  // Melee thrust: front arm sweeps up through the swing (sine over progress).
+  if (pose.melee && pose.melee > 0) {
+    const swing = Math.sin(Math.min(1, pose.melee) * Math.PI);
+    frontY -= Math.round(swing * 4);
+    frontH -= Math.round(swing * 2);
+  }
+
+  // Bounds: arms never rise above the torso top or spill below the hips.
+  rearY = Math.max(15, rearY);
+  frontY = Math.max(15, frontY);
+  rearH = Math.max(3, Math.min(armLen, rearH));
+  frontH = Math.max(3, Math.min(armLen, frontH));
+
+  return { rearArmX: rearX, rearArmY: rearY, rearArmH: rearH, frontArmX: frontX, frontArmY: frontY, frontArmH: frontH };
+}
+
+/**
+ * Resolved head offset for the shared character sprite (local space).
+ * Values are small (|offset| <= 1px) so the face stays readable.
+ */
+export interface CharacterHeadPose {
+  offsetX: number;
+  offsetY: number;
+}
+
+/**
+ * Pure head-pose solver (micro-animation): a 1px bob at the stride extremes,
+ * a forward lean with a 1px lift when airborne, a crouched forward lean while
+ * dashing, and a lean into the melee thrust.
+ */
+export function resolveHeadPose(
+  _width: number,
+  pose: CharacterArtPose = {},
+): CharacterHeadPose {
+  let offsetX = 0;
+  let offsetY = 0;
+
+  if (pose.airborne) {
+    offsetX = 1;
+    offsetY = -1;
+  } else if (pose.dashing) {
+    offsetX = 1;
+    offsetY = 1;
+  } else {
+    // Bob at the walk-cycle extremes only (legs visibly extended).
+    if (Math.abs(pose.stride ?? 0) > 1.2) offsetY = 1;
+    if (pose.melee && pose.melee > 0.1) offsetX = 1;
+  }
+
+  return { offsetX, offsetY };
 }
 
 /**
@@ -148,8 +258,9 @@ export function drawCharacterArt(
   const light = shade(char.bodyColor, 28);
   const center = width / 2;
   const headW = Math.max(13, width - 8);
-  const headX = center - headW / 2;
-  const headY = 4;
+  const head = resolveHeadPose(width, pose);
+  const headX = center - headW / 2 + head.offsetX;
+  const headY = 4 + head.offsetY;
   const torsoY = 15;
   const torsoH = Math.max(10, height - 25);
   const legY = torsoY + torsoH - 1;
@@ -207,12 +318,14 @@ export function drawCharacterArt(
     rect(ctx, "#0f172a", legs.frontBootX, legs.frontBootY, 8, 3);
   }
 
-  // Torso and arms.
+  // Torso, then solver-driven arms (cross-swing / raise / trail / thrust).
+  // Drawn after the torso so raised arms overlap the chest, not the reverse.
   rect(ctx, dark, 2, torsoY + 1, width - 4, torsoH);
   rect(ctx, char.bodyColor, 4, torsoY, width - 8, torsoH - 1);
   rect(ctx, light, 5, torsoY + 1, Math.max(4, width - 13), 3);
-  rect(ctx, dark, 0, torsoY + 2, 4, Math.min(10, torsoH));
-  rect(ctx, dark, width - 4, torsoY + 2, 4, Math.min(10, torsoH));
+  const arms = resolveArmPose(width, height, pose);
+  rect(ctx, dark, arms.rearArmX, arms.rearArmY, 4, arms.rearArmH);
+  rect(ctx, dark, arms.frontArmX, arms.frontArmY, 4, arms.frontArmH);
 
   if (char.id === "tank") {
     rect(ctx, "#cbd5e1", 2, torsoY, width - 4, 4);
@@ -227,10 +340,10 @@ export function drawCharacterArt(
     rect(ctx, "#ccfbf1", center - 5, torsoY + 6, 10, 2);
   } else if (char.id === "ranger") {
     rect(ctx, "#84cc16", 4, torsoY + 2, width - 8, 2);
-    drawBow(ctx, width + 1, torsoY + 6);
+    drawBow(ctx, arms.frontArmX + 5, arms.frontArmY + 3);
   } else if (char.id === "knight") {
     rect(ctx, "#fbbf24", center - 1, torsoY + 3, 2, torsoH - 4);
-    drawSword(ctx, width + 1, torsoY - 1);
+    drawSword(ctx, arms.frontArmX + 5, arms.frontArmY - 1);
   } else if (char.id === "ninja") {
     rect(ctx, "#111827", 4, torsoY, width - 8, torsoH - 1);
     rect(ctx, "#dc2626", 4, torsoY + 5, width - 8, 2);
