@@ -90,6 +90,26 @@ for (const fn of ['shadeHexColor', 'blendHex', 'hexToRgba', 'shadeFraction']) {
   }
 }
 
+// 7. Power-up FX (magnet/speedBoost) — pure solvers, deterministic, gated.
+const powerFx = read('src/game/rendering/power-fx.ts')
+for (const fn of ['resolveMagnetFieldPose', 'resolveSpeedLinesPose', 'powerFxIntensity']) {
+  if (!new RegExp(`export function ${fn}`).test(powerFx)) {
+    errors.push(`power-fx.ts must export ${fn} (pure, testable solver)`)
+  }
+}
+if (/Math\.random/.test(powerFx)) {
+  errors.push('power-fx.ts must not use Math.random — FX are seeded by run time for multiplayer parity')
+}
+if (!engine.includes('resolveMagnetFieldPose(') || !engine.includes('resolveSpeedLinesPose(')) {
+  errors.push('engine must render magnet/speedBoost FX via the power-fx solvers')
+}
+if (!/magnetActive[\s\S]{0,400}reducedMotion/.test(engine) && !/reducedMotion[\s\S]{0,400}magnetActive/.test(engine)) {
+  errors.push('magnet FX must be gated by reducedMotion (static fallback ring)')
+}
+if (!/speedBoostTimer > 0 &&\s*\n\s*!this\.reducedMotion/.test(engine)) {
+  errors.push('speedBoost FX must be fully suppressed under reducedMotion')
+}
+
 // 6. Verifier is wired into the pipeline
 if (!pkg.scripts['verify:visual-textures']) {
   errors.push('package.json must define verify:visual-textures')

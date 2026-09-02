@@ -20,6 +20,11 @@ import { Alien } from "../entities/Alien";
 import { UFO } from "../entities/UFO";
 import { ParticleSystem } from "../entities/particles";
 import { GameRenderer } from "../rendering/renderer";
+import {
+  resolveMagnetFieldPose,
+  resolveSpeedLinesPose,
+  powerFxIntensity,
+} from "../rendering/power-fx";
 import { getSfxEngine, type SfxEngine } from "../audio";
 import { getMusicEngine, type MusicEngine } from "../audio";
 import { getBiomeAt, getLevelBiome, type BiomeConfig } from "../world/biomes";
@@ -183,6 +188,11 @@ export class GameEngine {
   private currentQualityLevel = "high"; // 'high', 'medium', 'low'
   private qualityChangeTimer = 0;
   private qualityChangeCooldown = 2.0; // seconds between quality changes
+
+  // Reference durations for power-up FX fade-in/out ramps (matches the
+  // default apply durations in player.ts; only used for FX alpha ramps).
+  private readonly magnetFxDuration = 8;
+  private readonly speedFxDuration = 5;
 
   /**
    * Performance DPR — starts conservative (1.25) and only rises to the full
@@ -2900,6 +2910,58 @@ export class GameEngine {
       ctx.beginPath();
       ctx.arc(sx, sy, this.player.width * 1.05, 0, Math.PI * 2);
       ctx.stroke();
+    }
+
+    // Magnet field — pulsing triple ring filling the actual pull radius.
+    // Gated by reduced-motion (static faint ring instead) and quality level.
+    if (this.player.magnetActive && this.player.magnetTimer > 0) {
+      const intensity = powerFxIntensity(this.player.magnetTimer, this.magnetFxDuration);
+      if (intensity > 0) {
+        const cx = this.player.x - this.camera.renderX + this.player.width / 2;
+        const cy = this.player.y - this.camera.renderY + this.player.height / 2;
+        const radius = this.player.magnetRadius;
+        if (this.reducedMotion || this.currentQualityLevel === "low") {
+          // Static single faint ring — no animation.
+          ctx.strokeStyle = `rgba(251, 146, 60, ${0.14 * intensity})`;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+          ctx.stroke();
+        } else {
+          const pose = resolveMagnetFieldPose(radius, this.gameTime);
+          ctx.save();
+          ctx.lineWidth = 1.5;
+          const radii: [number, number, number] = [pose.inner, pose.mid, pose.ringRadius];
+          for (let i = 0; i < 3; i++) {
+            ctx.strokeStyle = `rgba(251, 146, 60, ${(pose.ringAlphas[i] * intensity).toFixed(3)})`;
+            ctx.beginPath();
+            ctx.arc(cx, cy, radii[i] + pose.ringShimmer[i], 0, Math.PI * 2);
+            ctx.stroke();
+          }
+          ctx.restore();
+        }
+      }
+    }
+
+    // Speed boost — deterministic streaks trailing behind the runner.
+    // Gated by reduced-motion (none) and quality level (none on LOW).
+    if (
+      this.player.speedBoostTimer > 0 &&
+      !this.reducedMotion &&
+      this.currentQualityLevel !== "low"
+    ) {
+      const intensity = powerFxIntensity(this.player.speedBoostTimer, this.speedFxDuration);
+      if (intensity > 0) {
+        const px = this.player.x - this.camera.renderX;
+        const py = this.player.y - this.camera.renderY;
+        const pose = resolveSpeedLinesPose(this.player.width, this.player.height, this.gameTime);
+        ctx.save();
+        for (const s of pose.streaks) {
+          ctx.fillStyle = `rgba(147, 197, 253, ${(s.alpha * intensity).toFixed(3)})`;
+          ctx.fillRect(px + s.x, py + s.y, s.len, 2);
+        }
+        ctx.restore();
+      }
     }
 
     // Dash trail

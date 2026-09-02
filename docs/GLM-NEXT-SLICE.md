@@ -7,6 +7,17 @@ Priority: P2 premium visual/product polish; no correctness emergency
 
 ## Completed
 
+- 2026-09-02 (slice B): Power-up FX for the two visually silent effects. New pure
+  solver module src/game/rendering/power-fx.ts: resolveMagnetFieldPose (pulsing
+  triple amber ring filling the real magnetRadius), resolveSpeedLinesPose (4
+  deterministic trailing streaks), powerFxIntensity (0.25s fade-in / 0.4s fade-out
+  ramp — no pop-in/out). FX are time-seeded (no RNG) for multiplayer parity;
+  magnet degrades to a static faint ring under reduced-motion or LOW quality;
+  speed streaks are fully suppressed in both cases. 12 solver tests in
+  test/power-fx.test.ts (524 total); verify:visual-textures now asserts the
+  solvers, engine wiring, no-RNG, and reduced-motion gates. Live-verified: magnet
+  rings + coin pull stream visible around the player during a real run.
+
 - 2026-09-02 (slice A): Character micro-animations. New pure solvers `resolveArmPose`
   (arms cross-swing opposite the run cycle, raise asymmetrically airborne, trail back
   compressed while dashing, thrust at the melee peak) and `resolveHeadPose` (1px bob at
