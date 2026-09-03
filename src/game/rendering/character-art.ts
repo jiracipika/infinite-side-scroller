@@ -6,6 +6,56 @@ export interface CharacterArtPose {
   dashing?: boolean;
   /** Melee swing progress 0..1; >0 while a swing is animating. */
   melee?: number;
+  /**
+   * Double-jump tumble intensity 0..1 (from Player.airbornePose). 0 = no
+   * tumble; the sprite eases a forward half-flip as the value rises.
+   */
+  tumble?: number;
+}
+
+/**
+ * Pure tumble-rotation solver for the double-jump flourish. Returns the
+ * sprite rotation in radians: 0 at pose 0, a full half flip (PI) at pose 1,
+ * mirrored by facing direction so the flip always reads "forward". Purely
+ * visual — gameplay physics and the collision box never rotate.
+ */
+export function resolveTumbleRotation(
+  facingRight: number,
+  pose: number,
+): number {
+  const clamped = Math.max(0, Math.min(1, pose));
+  // Ease-out: the flip snaps in at the double jump and settles gently
+  // upright as the pose decays (reads as a quick tumble, not a spin-down).
+  const magnitude = Math.pow(clamped, 1.6) * Math.PI;
+  // Normalize -0 (0 magnitude × left-facing sign) so pose 0 is exactly +0.
+  return magnitude === 0 ? 0 : magnitude * (facingRight >= 0 ? 1 : -1);
+}
+
+export interface TumbleArmPose {
+  frontArmDx: number;
+  frontArmDy: number;
+  rearArmDx: number;
+  rearArmDy: number;
+}
+
+/**
+ * Pure tumble arm offsets (local-space px): arms tuck up and inward at the
+ * mid-tumble spin and settle back to the base pose by pose 1 (landing clears
+ * the pose, so the settled state is only ever seen for a frame or two).
+ * Offsets are integers within ±4px so pixel-art alignment holds.
+ */
+export function resolveTumbleArms(pose: number): TumbleArmPose {
+  const clamped = Math.max(0, Math.min(1, pose));
+  // Sine envelope: 0 → 0, peaks 1 at mid-tumble, back to 0 at pose 1.
+  const lift = Math.round(Math.sin(clamped * Math.PI) * 3);
+  const inward = Math.round(Math.sin(clamped * Math.PI) * 2);
+  // `0 - x` instead of `-x` so zero magnitude is +0, never -0.
+  return {
+    frontArmDx: 0 - inward,
+    frontArmDy: 0 - lift,
+    rearArmDx: inward,
+    rearArmDy: 0 - Math.round(lift * 0.67),
+  };
 }
 
 /** Y anchor where legs attach: torsoY(15) + torsoH(max(10, h-25)) - 1. */
@@ -259,6 +309,10 @@ export function drawCharacterArt(
   const center = width / 2;
   const headW = Math.max(13, width - 8);
   const head = resolveHeadPose(width, pose);
+  // Double-jump tumble: pure solver → eased rotation + tucked arms. Purely
+  // visual — the collision box and gameplay physics stay unrotated.
+  const tumblePose = Math.max(0, Math.min(1, pose.tumble ?? 0));
+  const tumbleArms = resolveTumbleArms(tumblePose);
   const headX = center - headW / 2 + head.offsetX;
   const headY = 4 + head.offsetY;
   const torsoY = 15;
@@ -269,6 +323,16 @@ export function drawCharacterArt(
   ctx.save();
   ctx.imageSmoothingEnabled = false;
   ctx.lineJoin = "miter";
+
+  // Tumble rotation wraps ALL sprite geometry (around the sprite center).
+  // pose=0 keeps the transform exactly identity, so grounded/single-jump
+  // rendering is bit-identical to the pre-tumble art.
+  if (tumblePose > 0) {
+    const rotation = resolveTumbleRotation(1, tumblePose);
+    ctx.translate(width / 2, height / 2);
+    ctx.rotate(rotation);
+    ctx.translate(-width / 2, -height / 2);
+  }
 
   if (pose.dashing) {
     rect(ctx, "rgba(125,211,252,0.22)", -10, 8, 8, height - 12);
@@ -324,8 +388,22 @@ export function drawCharacterArt(
   rect(ctx, char.bodyColor, 4, torsoY, width - 8, torsoH - 1);
   rect(ctx, light, 5, torsoY + 1, Math.max(4, width - 13), 3);
   const arms = resolveArmPose(width, height, pose);
-  rect(ctx, dark, arms.rearArmX, arms.rearArmY, 4, arms.rearArmH);
-  rect(ctx, dark, arms.frontArmX, arms.frontArmY, 4, arms.frontArmH);
+  rect(
+    ctx,
+    dark,
+    arms.rearArmX + tumbleArms.rearArmDx,
+    arms.rearArmY + tumbleArms.rearArmDy,
+    4,
+    arms.rearArmH,
+  );
+  rect(
+    ctx,
+    dark,
+    arms.frontArmX + tumbleArms.frontArmDx,
+    arms.frontArmY + tumbleArms.frontArmDy,
+    4,
+    arms.frontArmH,
+  );
 
   if (char.id === "tank") {
     rect(ctx, "#cbd5e1", 2, torsoY, width - 4, 4);
@@ -340,10 +418,18 @@ export function drawCharacterArt(
     rect(ctx, "#ccfbf1", center - 5, torsoY + 6, 10, 2);
   } else if (char.id === "ranger") {
     rect(ctx, "#84cc16", 4, torsoY + 2, width - 8, 2);
-    drawBow(ctx, arms.frontArmX + 5, arms.frontArmY + 3);
+    drawBow(
+      ctx,
+      arms.frontArmX + 5 + tumbleArms.frontArmDx,
+      arms.frontArmY + 3 + tumbleArms.frontArmDy,
+    );
   } else if (char.id === "knight") {
     rect(ctx, "#fbbf24", center - 1, torsoY + 3, 2, torsoH - 4);
-    drawSword(ctx, arms.frontArmX + 5, arms.frontArmY - 1);
+    drawSword(
+      ctx,
+      arms.frontArmX + 5 + tumbleArms.frontArmDx,
+      arms.frontArmY - 1 + tumbleArms.frontArmDy,
+    );
   } else if (char.id === "ninja") {
     rect(ctx, "#111827", 4, torsoY, width - 8, torsoH - 1);
     rect(ctx, "#dc2626", 4, torsoY + 5, width - 8, 2);

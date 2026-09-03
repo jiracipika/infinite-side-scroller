@@ -139,6 +139,14 @@ export class Player {
   private coyoteTimer = 0;
   private readonly COYOTE_TIME = 0.1; // seconds of coyote time
   private jumpBufferTimer = 0;
+
+  /**
+   * Airborne flip/pose intensity for the renderer (0 = neutral). Set to 1
+   * when the double jump is consumed, then decays smoothly to 0 so the
+   * sprite reads a quick tumble rather than a permanent pose. The renderer
+   * adds an eased rotation from this value; gameplay physics ignore it.
+   */
+  airbornePose = 0;
   private readonly JUMP_BUFFER_TIME = 0.12;
 
   // Projectiles
@@ -283,6 +291,11 @@ export class Player {
     }
     if (this.jumpBufferTimer > 0)
       this.jumpBufferTimer = Math.max(0, this.jumpBufferTimer - dt);
+
+    // Airborne tumble pose decays smoothly (about 0.5s to fully settle).
+    if (this.airbornePose > 0) {
+      this.airbornePose = Math.max(0, this.airbornePose - dt * 2);
+    }
     if (this.shootCooldown > 0) this.shootCooldown -= dt;
     if (this.weaponTimer > 0) {
       this.weaponTimer -= dt;
@@ -462,10 +475,12 @@ export class Player {
       this.onGround = true;
       this.coyoteTimer = 0;
       this.hasDoubleJumped = false;
+      this.airbornePose = 0; // landing clears any residual tumble
     } else if (onPlatform) {
       this.onGround = true;
       this.coyoteTimer = 0;
       this.hasDoubleJumped = false;
+      this.airbornePose = 0; // landing clears any residual tumble
     } else {
       this.onGround = false;
     }
@@ -779,6 +794,8 @@ export class Player {
     if (this.canDoubleJump) {
       this.vy = this.config.jumpVelocity;
       this.hasDoubleJumped = true;
+      // Visual: engage the tumble pose (renderer eases rotation from this).
+      this.airbornePose = 1;
     }
   }
 

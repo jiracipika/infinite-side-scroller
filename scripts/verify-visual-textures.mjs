@@ -110,6 +110,24 @@ if (!/speedBoostTimer > 0 &&\s*\n\s*!this\.reducedMotion/.test(engine)) {
   errors.push('speedBoost FX must be fully suppressed under reducedMotion')
 }
 
+// 8. Double-jump tumble FX — pure solvers, rendered via character-art,
+// gated by reducedMotion at the drawPlayer call site.
+const characterArt = read('src/game/rendering/character-art.ts')
+for (const fn of ['resolveTumbleRotation', 'resolveTumbleArms']) {
+  if (!new RegExp(`export function ${fn}`).test(characterArt)) {
+    errors.push(`character-art.ts must export ${fn} (pure, testable solver)`)
+  }
+}
+if (/Math\.random/.test(characterArt)) {
+  errors.push('character-art.ts must not use Math.random — pose/FX output stays deterministic')
+}
+if (!renderer.includes('tumble:') || !renderer.includes('airbornePose')) {
+  errors.push('renderer must feed player.airbornePose into drawCharacterArt as tumble')
+}
+if (!/isReducedMotion\(\) \? 0 : player\.airbornePose/.test(renderer)) {
+  errors.push('tumble FX must be fully suppressed under reducedMotion (camera.isReducedMotion gate)')
+}
+
 // 6. Verifier is wired into the pipeline
 if (!pkg.scripts['verify:visual-textures']) {
   errors.push('package.json must define verify:visual-textures')

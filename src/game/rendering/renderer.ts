@@ -496,6 +496,11 @@ export class GameRenderer {
       airborne: !player.onGround,
       dashing: player.dashing,
       melee: player.meleeActive ? player.meleeProgress : 0,
+      // Double-jump tumble FX: fully suppressed under reduced motion, same
+      // gate as the magnet/speed FX. Local-player flourish only — the wire
+      // snapshot (NetPlayerSnapshot) carries no pose field, so the remote
+      // sprite stays neutral rather than guessing a tumble it can't sync.
+      tumble: camera.isReducedMotion() ? 0 : player.airbornePose,
     });
 
     if (player.wallSliding) {

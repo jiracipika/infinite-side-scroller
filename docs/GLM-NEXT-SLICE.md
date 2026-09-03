@@ -1,11 +1,26 @@
 # GLM Next Slice — Infinite Side Scroller
 
 Status: implementation-ready handoff
-Status updated: 2026-09-02 — mobile melee button + airborne sprite pose IMPLEMENTED (see Completed below).
+Status updated: 2026-09-02 — double-jump tumble FX IMPLEMENTED (see Completed, slice C).
 Owner: GLM 5.2/5.3 polish lane
 Priority: P2 premium visual/product polish; no correctness emergency
 
 ## Completed
+
+- 2026-09-02 (slice C): Double-jump tumble FX. Player.airbornePose (set to 1
+  when the double jump is consumed, decays ~0.5s, cleared on landing) is now
+  consumed by the renderer: pure solvers resolveTumbleRotation (eased
+  (^1.6) half flip around the sprite center, mirrored by facing) and
+  resolveTumbleArms (sine-envelope arm tuck, ≤3px integer offsets, weapons
+  follow the front arm) in character-art.ts. Pose 0 keeps the transform at
+  identity, so grounded/single-jump rendering is unchanged. Fully suppressed
+  under reduced motion at the drawPlayer call site (same contract as the
+  magnet/speed FX). Local player only — NetPlayerSnapshot carries no pose
+  field, so the remote sprite stays neutral rather than guessing. 7 solver
+  tests in test/tumble-pose.test.ts + 4 player-state tests in
+  test/double-jump-fx.test.ts (535 total); verify:visual-textures asserts
+  the solvers, renderer wiring, and the reducedMotion gate. Mobile bundle
+  regenerated (151.8KB).
 
 - 2026-09-02 (slice B): Power-up FX for the two visually silent effects. New pure
   solver module src/game/rendering/power-fx.ts: resolveMagnetFieldPose (pulsing
