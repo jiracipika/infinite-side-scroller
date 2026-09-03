@@ -16,6 +16,7 @@ const errors = []
 
 const particles = fs.readFileSync(particlesPath, 'utf8')
 const engine = fs.readFileSync(enginePath, 'utf8')
+const renderer = fs.readFileSync(path.join(root, 'src/game/rendering/renderer.ts'), 'utf8')
 
 // 1. update() must NOT use .filter() for dead-particle removal
 //    (the old code did this.particles = this.particles.filter(p => p.life > 0))
@@ -52,10 +53,26 @@ if (hitFlashCalls.length < 4) {
   errors.push(`Expected spawnHitFlash at 4 damage sites, found ${hitFlashCalls.length}`)
 }
 
+// 5. Wall-slide FX: scuff burst emitter + reducedParticles cap + renderer
+//    case for the wall_slide particle type.
+if (!/spawnWallSlideDust\s*\(\s*x:\s*number,\s*y:\s*number,\s*facingRight:\s*boolean\s*\)/.test(particles)) {
+  errors.push('ParticleSystem must define spawnWallSlideDust(x, y, facingRight)')
+}
+const wallSlideBlock = particles.match(/spawnWallSlideDust[\s\S]*?^  \}/m)
+if (!wallSlideBlock || !/reducedParticles/.test(wallSlideBlock[0])) {
+  errors.push('spawnWallSlideDust must check reducedParticles to cap particle count')
+}
+if (!engine.includes('spawnWallSlideDust(')) {
+  errors.push('engine must emit wall-slide scuff dust while player.wallSliding is active')
+}
+if (!renderer.includes('case "wall_slide"')) {
+  errors.push('renderer must draw the wall_slide particle type (scuff chips)')
+}
+
 if (errors.length > 0) {
   console.error(`${errors.length} particle system check(s) failed:`)
   for (const e of errors) console.error(`  - ${e}`)
   process.exit(1)
 }
 
-console.log(`Particle system verified: in-place compaction (no .filter allocation), spawnHitFlash present with reducedParticles guard, wired into ${hitFlashCalls.length} damage sites.`)
+console.log(`Particle system verified: in-place compaction (no .filter allocation), spawnHitFlash present with reducedParticles guard, wired into ${hitFlashCalls.length} damage sites, wall-slide scuff emitter gated.`)

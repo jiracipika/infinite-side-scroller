@@ -504,9 +504,23 @@ export class GameRenderer {
     });
 
     if (player.wallSliding) {
-      ctx.fillStyle = "#fef08a";
-      ctx.fillRect(w + 1, h - 9, 2, 2);
-      ctx.fillRect(w + 3, h - 5, 2, 2);
+      // Contact sparkle: a shimmer of chips at the wall-side edge while the
+      // slide is actively scrubbing. Phase is keyed to screen.y — during a
+      // slide the player descends, so y always advances even when vx is
+      // clamped to 0 (vx-derived clocks freeze against a wall). No RNG:
+      // deterministic for any client rendering the same state.
+      const t = screen.y;
+      const side = player.facingRight ? 1 : -1;
+      const chips = 3;
+      for (let i = 0; i < chips; i++) {
+        const phase = (t / 14 + i / chips) % 1;
+        const cy = h - 6 - phase * 9;
+        const cx = w / 2 + side * (w / 2 + 1 + Math.sin(phase * Math.PI) * 2);
+        ctx.globalAlpha = Math.sin(phase * Math.PI) * 0.8;
+        ctx.fillStyle = i === 0 ? "#fef08a" : "#fbbf24";
+        ctx.fillRect(Math.round(cx) - 1, Math.round(cy), 2, 2);
+      }
+      ctx.globalAlpha = 1;
     }
 
     ctx.restore();
@@ -782,6 +796,15 @@ export class GameRenderer {
           ctx.beginPath();
           ctx.arc(screen.x, screen.y, p.size, 0, Math.PI * 2);
           ctx.fill();
+          break;
+        case "wall_slide":
+          // Scuff chips: slightly tilted squares read as scraped-off grit
+          // rather than generic dust (tilt is a pure function of life).
+          ctx.save();
+          ctx.translate(screen.x, screen.y);
+          ctx.rotate((p.maxLife - p.life) * 9 * (p.vx >= 0 ? 1 : -1));
+          ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+          ctx.restore();
           break;
         default:
           ctx.fillRect(screen.x, screen.y, p.size, p.size);

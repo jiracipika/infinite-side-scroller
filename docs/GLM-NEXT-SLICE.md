@@ -1,11 +1,27 @@
 # GLM Next Slice — Infinite Side Scroller
 
 Status: implementation-ready handoff
-Status updated: 2026-09-02 — double-jump tumble FX IMPLEMENTED (see Completed, slice C).
+Status updated: 2026-09-02 — wall-slide FX IMPLEMENTED (see Completed, slice D).
 Owner: GLM 5.2/5.3 polish lane
 Priority: P2 premium visual/product polish; no correctness emergency
 
 ## Completed
+
+- 2026-09-02 (slice D): Wall-slide FX. Contact feedback for wall slides was
+  two static yellow pixels. Now: (1) shimmering 3-chip sparkle at the
+  wall-side edge in drawPlayer, phase keyed to screen.y (NOT
+  distanceTraveled — vx-derived clocks freeze against a wall, a dead-wiring
+  trap), pure function of rendered state, no RNG; (2) new
+  ParticleSystem.spawnWallSlideDust(x, y, facingRight) — 6 grit chips
+  (3 under reducedParticles) originating at the wall-side edge and kicking
+  AWAY from the wall (player faces INTO the wall while sliding), drifting
+  up; (3) engine emits bursts at 0.14s cadence while player.wallSliding,
+  timer reset on contact so the first burst is instant, skipped when
+  carried by remote; (4) renderer draws wall_slide particles as tilted
+  squares (scraped-grit read, tilt a pure function of life). 4 tests in
+  test/wall-slide-fx.test.ts (539 total); verify:particles now asserts the
+  emitter, reducedParticles cap, engine wiring, and renderer case. Mobile
+  bundle regenerated (152.7KB).
 
 - 2026-09-02 (slice C): Double-jump tumble FX. Player.airbornePose (set to 1
   when the double jump is consumed, decays ~0.5s, cleared on landing) is now

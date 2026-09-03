@@ -13,7 +13,7 @@ export interface Particle {
   maxLife: number;
   size: number;
   color: string;
-  type: 'dust' | 'leaf' | 'snow' | 'spark' | 'jump_dust' | 'landing' | 'coin_sparkle' | 'enemy_death' | 'score_popup' | 'heal';
+  type: 'dust' | 'leaf' | 'snow' | 'spark' | 'jump_dust' | 'landing' | 'coin_sparkle' | 'enemy_death' | 'score_popup' | 'heal' | 'wall_slide';
   text?: string;
 }
 
@@ -112,6 +112,32 @@ export class ParticleSystem {
         size: Math.random() * 3 + 1,
         color: '#c4a96a',
         type: 'jump_dust',
+      });
+    }
+  }
+
+  /**
+   * Scuff burst while wall-sliding (spun up a few times per second by the
+   * engine while the slide is active). The player always faces INTO the
+   * wall while sliding (facingRight=true ⇔ wall on the right), so the dust
+   * originates at the wall-side edge and kicks AWAY from the wall, drifting
+   * up along it.
+   */
+  spawnWallSlideDust(x: number, y: number, facingRight: boolean): void {
+    const count = this.reducedParticles ? 3 : 6;
+    // Direction away from the wall: wall on the right → dust flies left.
+    const away = facingRight ? -1 : 1;
+    for (let i = 0; i < count; i++) {
+      this.particles.push({
+        x: x + (facingRight ? 1 : -1) * (4 + Math.random() * 4),
+        y: y + (Math.random() - 0.5) * 8,
+        vx: away * (30 + Math.random() * 60),
+        vy: -(20 + Math.random() * 50),
+        life: 0.25 + Math.random() * 0.25,
+        maxLife: 0.5,
+        size: Math.random() * 2 + 1,
+        color: '#9aa7b5',
+        type: 'wall_slide',
       });
     }
   }

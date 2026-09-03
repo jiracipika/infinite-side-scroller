@@ -372,6 +372,8 @@ export class GameEngine {
   // whenever a new swing begins (detected by meleeActive going false→true).
   private meleeAlreadyHitIds = new Set<string>();
   private meleeWasActive = false;
+  /** Wall-slide dust burst cadence accumulator (seconds). */
+  private wallSlideDustTimer = 0;
   private specialCooldownRemaining = 0;
   private specialActiveRemaining = 0;
   private specialPulseTimer = 0;
@@ -2089,6 +2091,22 @@ export class GameEngine {
         this.input.isPressed("KeyW");
       if (jumpPressed && (this.player.onGround || this.player.vy < -100)) {
         this.particles.spawnJumpDust(this.player.centerX, this.player.bottom);
+      }
+
+      // Wall-slide scuff: continuous contact feedback while sliding. Small
+      // burst a few times per second, kicked away from the wall.
+      if (this.player.wallSliding) {
+        this.wallSlideDustTimer -= dt;
+        if (this.wallSlideDustTimer <= 0) {
+          this.wallSlideDustTimer = 0.14;
+          this.particles.spawnWallSlideDust(
+            this.player.centerX,
+            this.player.centerY,
+            this.player.facingRight,
+          );
+        }
+      } else {
+        this.wallSlideDustTimer = 0; // burst immediately on next contact
       }
     }
 
