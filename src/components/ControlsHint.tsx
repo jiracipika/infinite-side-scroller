@@ -58,9 +58,9 @@ const ControlsHint: FC = () => {
         <>
           <strong style={{ color: '#fff', fontSize: 12, letterSpacing: 0.4 }}>KEYBOARD</strong>
           <span><Key>A</Key>/<Key>D</Key> or <Key>←</Key>/<Key>→</Key> move</span>
-          <span><Key>Space</Key> jump</span>
+          <span><Key>Space</Key> jump · mid-air again = double jump · just before landing = buffered</span>
           <span><Key>Z</Key> attack</span>
-          <span><Key>X</Key> dash</span>
+          <span><Key>X</Key> then <Key>Space</Key> dash-jump</span>
           <span><Key>V</Key> special</span>
           <span><Key>Esc</Key> pause</span>
         </>

@@ -374,6 +374,8 @@ export class GameEngine {
   private meleeWasActive = false;
   /** Wall-slide dust burst cadence accumulator (seconds). */
   private wallSlideDustTimer = 0;
+  /** Airborne state from the previous simulation step (jump-dust edge detect). */
+  private wasAirborneLastStep = false;
   private specialCooldownRemaining = 0;
   private specialActiveRemaining = 0;
   private specialPulseTimer = 0;
@@ -1390,6 +1392,11 @@ export class GameEngine {
           continue;
         }
         this.update(FIXED_DT);
+        // Advance input edges per SIMULATION step, not per rendered frame:
+        // presses are consumed by exactly one step, survive frames with no
+        // step (paused / hit-stop / 120Hz cadence), and never fire twice on
+        // catch-up frames running multiple steps.
+        this.input.endUpdate();
         this.accumulated -= FIXED_DT;
       }
       this.input.endFrame();
@@ -2084,11 +2091,15 @@ export class GameEngine {
         this.sfx.play("land");
       }
 
-      // Jump dust particles
+      // Jump dust particles — driven by the player actually leaving the
+      // ground with upward velocity (works for ground jumps, double jumps and
+      // wall jumps; independent of the consumed input edge, which the player
+      // now owns via its jump buffer).
       const jumpPressed =
-        this.input.isPressed("Space") ||
-        this.input.isPressed("ArrowUp") ||
-        this.input.isPressed("KeyW");
+        this.player.vy < -100 &&
+        !this.wasAirborneLastStep &&
+        !this.player.onGround;
+      this.wasAirborneLastStep = !this.player.onGround;
       if (jumpPressed && (this.player.onGround || this.player.vy < -100)) {
         this.particles.spawnJumpDust(this.player.centerX, this.player.bottom);
       }

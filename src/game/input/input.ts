@@ -28,6 +28,16 @@ export class InputManager {
   private touchLeftOrder = 0;
   private touchRightOrder = 0;
 
+  /**
+   * Press latch — latches "this action was pressed at some point since the
+   * last endFrame()" so brief presses can never be lost. A keydown+keyup that
+   * completes between two frames, a press on a rendered-but-not-simulated
+   * frame (120Hz displays), or a press while the engine is paused would all
+   * be invisible to the prevKeys edge-diff; the latch makes them survive
+   * until the next simulation step consumes them.
+   */
+  private pressedLatch = new Set<string>();
+
   // Touch virtual button state
   private touchLeft = false;
   private touchRight = false;
@@ -43,6 +53,28 @@ export class InputManager {
   private touchMeleePressed = false;
   private touchSpecial = false;
   private touchSpecialPressed = false;
+
+  // Latched counterparts of the *Pressed flags above. The plain flags are
+  // cleared every endFrame(); the latches only clear when a simulation step
+  // actually ran (see endFrame), so presses on no-update frames survive.
+  private touchJumpPressedLatch = false;
+  private touchAttackPressedLatch = false;
+  private touchDashPressedLatch = false;
+  private touchCarryPressedLatch = false;
+  private touchMeleePressedLatch = false;
+  private touchSpecialPressedLatch = false;
+
+  // Gamepad edge latches, set in beginFrame() when a button transitions
+  // up→down relative to the last *simulated* frame. Same survival rule as the
+  // touch latches.
+  private gamepadPressedLatch = {
+    jump: false,
+    dash: false,
+    attack: false,
+    carry: false,
+    melee: false,
+    special: false,
+  };
 
   private handleGameInput: ((e: CustomEvent) => void) | null = null;
   private readonly inputChannel: string;
@@ -86,7 +118,10 @@ export class InputManager {
             break;
           case 'jump-press':
             if (value) {
-              if (!this.touchJump) this.touchJumpPressed = true;
+              if (!this.touchJump) {
+                this.touchJumpPressed = true;
+                this.touchJumpPressedLatch = true;
+              }
               this.touchJump = true;
             } else {
               this.touchJump = false;
@@ -94,7 +129,10 @@ export class InputManager {
             break;
           case 'attack-press':
             if (value) {
-              if (!this.touchAttack) this.touchAttackPressed = true;
+              if (!this.touchAttack) {
+                this.touchAttackPressed = true;
+                this.touchAttackPressedLatch = true;
+              }
               this.touchAttack = true;
             } else {
               this.touchAttack = false;
@@ -102,7 +140,10 @@ export class InputManager {
             break;
           case 'dash-press':
             if (value) {
-              if (!this.touchDash) this.touchDashPressed = true;
+              if (!this.touchDash) {
+                this.touchDashPressed = true;
+                this.touchDashPressedLatch = true;
+              }
               this.touchDash = true;
             } else {
               this.touchDash = false;
@@ -110,7 +151,10 @@ export class InputManager {
             break;
           case 'carry-press':
             if (value) {
-              if (!this.touchCarry) this.touchCarryPressed = true;
+              if (!this.touchCarry) {
+                this.touchCarryPressed = true;
+                this.touchCarryPressedLatch = true;
+              }
               this.touchCarry = true;
             } else {
               this.touchCarry = false;
@@ -118,7 +162,10 @@ export class InputManager {
             break;
           case 'melee-press':
             if (value) {
-              if (!this.touchMelee) this.touchMeleePressed = true;
+              if (!this.touchMelee) {
+                this.touchMeleePressed = true;
+                this.touchMeleePressedLatch = true;
+              }
               this.touchMelee = true;
             } else {
               this.touchMelee = false;
@@ -126,7 +173,10 @@ export class InputManager {
             break;
           case 'special-press':
             if (value) {
-              if (!this.touchSpecial) this.touchSpecialPressed = true;
+              if (!this.touchSpecial) {
+                this.touchSpecialPressed = true;
+                this.touchSpecialPressedLatch = true;
+              }
               this.touchSpecial = true;
             } else this.touchSpecial = false;
             break;
@@ -140,6 +190,10 @@ export class InputManager {
     if (!this.acceptsKey(e.code)) return;
     if (!this.keys.has(e.code)) {
       this.keyPressOrder.set(e.code, ++this.inputSequence);
+      // Latch the press immediately. If the key is released before the next
+      // simulation step (sub-frame tap, 120Hz no-update frame), the prevKeys
+      // diff would never see it — the latch is the only witness.
+      this.pressedLatch.add(e.code);
     }
     this.keys.add(e.code);
     if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) {
@@ -150,6 +204,9 @@ export class InputManager {
   private onKeyUp = (e: KeyboardEvent): void => {
     this.keys.delete(e.code);
     this.keyPressOrder.delete(e.code);
+    // Note: intentionally NOT clearing the press latch here — the whole point
+    // is for a press-and-release that happens between frames to survive until
+    // the next endFrame() snapshot.
   };
 
   private onVisibilityChange = (): void => {
@@ -160,6 +217,7 @@ export class InputManager {
     this.keys.clear();
     this.prevKeys.clear();
     this.keyPressOrder.clear();
+    this.pressedLatch.clear();
     this.touchLeft = false;
     this.touchRight = false;
     this.touchJump = false;
@@ -176,6 +234,18 @@ export class InputManager {
     this.touchSpecialPressed = false;
     this.gamepad = { ...EMPTY_GAMEPAD_INPUT };
     this.prevGamepad = { ...EMPTY_GAMEPAD_INPUT };
+    this.touchJumpPressedLatch = false;
+    this.touchAttackPressedLatch = false;
+    this.touchDashPressedLatch = false;
+    this.touchCarryPressedLatch = false;
+    this.touchMeleePressedLatch = false;
+    this.touchSpecialPressedLatch = false;
+    this.gamepadPressedLatch.jump = false;
+    this.gamepadPressedLatch.dash = false;
+    this.gamepadPressedLatch.attack = false;
+    this.gamepadPressedLatch.carry = false;
+    this.gamepadPressedLatch.melee = false;
+    this.gamepadPressedLatch.special = false;
   };
 
   /** Poll connected controllers once before each rendered frame. */
@@ -183,6 +253,16 @@ export class InputManager {
     this.gamepad = this.gamepadEnabled
       ? readGamepadInput(this.gamepadIndex)
       : { ...EMPTY_GAMEPAD_INPUT };
+    // Latch controller rising edges against the last *simulated* frame's
+    // snapshot. prevGamepad only advances in endUpdate(), so a press on a
+    // rendered-but-not-simulated frame is caught here and survives until a
+    // simulation step consumes it.
+    if (this.gamepad.jump && !this.prevGamepad.jump) this.gamepadPressedLatch.jump = true;
+    if (this.gamepad.dash && !this.prevGamepad.dash) this.gamepadPressedLatch.dash = true;
+    if (this.gamepad.attack && !this.prevGamepad.attack) this.gamepadPressedLatch.attack = true;
+    if (this.gamepad.carry && !this.prevGamepad.carry) this.gamepadPressedLatch.carry = true;
+    if (this.gamepad.melee && !this.prevGamepad.melee) this.gamepadPressedLatch.melee = true;
+    if (this.gamepad.special && !this.prevGamepad.special) this.gamepadPressedLatch.special = true;
   }
 
   private getGamepad(): GamepadInputState {
@@ -241,6 +321,10 @@ export class InputManager {
   /** Check if a key or virtual button was just pressed this frame */
   isPressed(code: string): boolean {
     if (this.acceptsKey(code) && this.keys.has(code) && !this.prevKeys.has(code)) return true;
+    // Press latch: survives sub-frame taps (down+up between frames) and
+    // presses that happened on frames where no simulation step ran (120Hz
+    // displays, hit-stop) — the prevKeys diff alone misses both.
+    if (this.acceptsKey(code) && this.pressedLatch.has(code)) return true;
     const gamepad = this.getGamepad();
     if (code === 'KeyX') {
       if (this.acceptsKey('KeyQ') && this.keys.has('KeyQ') && !this.prevKeys.has('KeyQ')) return true;
@@ -258,24 +342,42 @@ export class InputManager {
     if (code === 'KeyC') {
       if (this.acceptsKey('KeyC') && this.keys.has('KeyC') && !this.prevKeys.has('KeyC')) return true;
       if (this.acceptsKey('KeyN') && this.keys.has('KeyN') && !this.prevKeys.has('KeyN')) return true;
-      if (this.touchMeleePressed || (gamepad.melee && !this.prevGamepad.melee)) return true;
+      if (this.touchMeleePressed || this.touchMeleePressedLatch) return true;
+      if (gamepad.melee && !this.prevGamepad.melee) return true;
+      if (this.gamepadPressedLatch.melee) return true;
     }
-    if (code === 'KeyV' && (this.touchSpecialPressed || (gamepad.special && !this.prevGamepad.special))) return true;
+    if (code === 'KeyV' && (this.touchSpecialPressed || this.touchSpecialPressedLatch)) return true;
+    if (code === 'KeyV' && (gamepad.special && !this.prevGamepad.special)) return true;
+    if (code === 'KeyV' && this.gamepadPressedLatch.special) return true;
     if (code === 'KeyF') {
       if (this.acceptsKey('ArrowDown') && this.keys.has('ArrowDown') && !this.prevKeys.has('ArrowDown')) return true;
       if (this.acceptsKey('KeyL') && this.keys.has('KeyL') && !this.prevKeys.has('KeyL')) return true;
-      if (this.touchCarryPressed || (gamepad.carry && !this.prevGamepad.carry)) return true;
+      if (this.touchCarryPressed || this.touchCarryPressedLatch) return true;
+      if (gamepad.carry && !this.prevGamepad.carry) return true;
+      if (this.gamepadPressedLatch.carry) return true;
     }
     if ((code === 'Space' || code === 'ArrowUp' || code === 'KeyW')
-      && (this.touchJumpPressed || (gamepad.jump && !this.prevGamepad.jump))) {
+      && (this.touchJumpPressed || this.touchJumpPressedLatch)) {
+      return true;
+    }
+    if ((code === 'Space' || code === 'ArrowUp' || code === 'KeyW')
+      && ((gamepad.jump && !this.prevGamepad.jump) || this.gamepadPressedLatch.jump)) {
       return true;
     }
     if ((code === 'KeyX' || code === 'ShiftLeft')
-      && (this.touchDashPressed || (gamepad.dash && !this.prevGamepad.dash))) {
+      && (this.touchDashPressed || this.touchDashPressedLatch)) {
+      return true;
+    }
+    if ((code === 'KeyX' || code === 'ShiftLeft')
+      && ((gamepad.dash && !this.prevGamepad.dash) || this.gamepadPressedLatch.dash)) {
       return true;
     }
     if ((code === 'KeyE' || code === 'KeyJ' || code === 'KeyZ')
-      && (this.touchAttackPressed || (gamepad.attack && !this.prevGamepad.attack))) {
+      && (this.touchAttackPressed || this.touchAttackPressedLatch)) {
+      return true;
+    }
+    if ((code === 'KeyE' || code === 'KeyJ' || code === 'KeyZ')
+      && ((gamepad.attack && !this.prevGamepad.attack) || this.gamepadPressedLatch.attack)) {
       return true;
     }
     return false;
@@ -291,16 +393,47 @@ export class InputManager {
     );
   }
 
-  /** Call at end of frame to snapshot current input state for press detection. */
-  endFrame(): void {
+  /**
+   * Called by the engine after EACH simulation update step (not each rendered
+   * frame). Advances the edge snapshots and clears the press latches so a
+   * press is consumed by exactly one simulation step — never zero (drops:
+   * sub-frame taps, no-update frames) and never two (catch-up frames running
+   * multiple updates per rAF would otherwise fire the same press twice,
+   * e.g. a ground jump instantly burning the double jump).
+   */
+  endUpdate(): void {
     this.prevKeys = new Set(this.keys);
     this.prevGamepad = { ...this.gamepad };
+    this.pressedLatch.clear();
     this.touchJumpPressed = false;
     this.touchAttackPressed = false;
     this.touchDashPressed = false;
     this.touchCarryPressed = false;
     this.touchMeleePressed = false;
     this.touchSpecialPressed = false;
+    this.touchJumpPressedLatch = false;
+    this.touchAttackPressedLatch = false;
+    this.touchDashPressedLatch = false;
+    this.touchCarryPressedLatch = false;
+    this.touchMeleePressedLatch = false;
+    this.touchSpecialPressedLatch = false;
+    this.gamepadPressedLatch.jump = false;
+    this.gamepadPressedLatch.dash = false;
+    this.gamepadPressedLatch.attack = false;
+    this.gamepadPressedLatch.carry = false;
+    this.gamepadPressedLatch.melee = false;
+    this.gamepadPressedLatch.special = false;
+  }
+
+  /**
+   * Called at the end of each rendered frame. Edge snapshots now advance in
+   * endUpdate(); this only exists so presses that arrived after the last
+   * simulation step of the frame stay latched for the next frame when no
+   * step ran (paused, hit-stop, 120Hz cadence).
+   */
+  endFrame(): void {
+    // No-op when a simulation step ran — endUpdate already consumed the
+    // latches. When no step ran, everything intentionally survives.
   }
 
   /** Clean up event listeners */

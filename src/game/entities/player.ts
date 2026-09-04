@@ -289,8 +289,8 @@ export class Player {
       this.speedBoostTimer -= dt;
       if (this.speedBoostTimer <= 0) this.config.speed = this.baseSpeed;
     }
-    if (this.jumpBufferTimer > 0)
-      this.jumpBufferTimer = Math.max(0, this.jumpBufferTimer - dt);
+    // (Jump buffer decay lives next to the press read below — it must freeze
+    // while dashing, which the dash early-return would otherwise skip.)
 
     // Airborne tumble pose decays smoothly (about 0.5s to fully settle).
     if (this.airbornePose > 0) {
@@ -327,6 +327,20 @@ export class Player {
     } else {
       this.healingAuraTickTimer = 0;
     }
+
+    // Jump buffering — record the press FIRST so it survives the dash
+    // early-return below and is honored the moment the dash ends, instead of
+    // being silently dropped.
+    const wantJump =
+      input.isPressed("Space") ||
+      input.isPressed("ArrowUp") ||
+      input.isPressed("KeyW");
+    if (wantJump) this.jumpBufferTimer = this.JUMP_BUFFER_TIME;
+    // A dash (0.15s) outlives the jump buffer (0.12s) — freeze the buffer
+    // while dashing so a jump pressed mid-dash fires as a dash-jump the
+    // moment the dash ends instead of expiring unused.
+    else if (this.jumpBufferTimer > 0 && !this.dashing)
+      this.jumpBufferTimer = Math.max(0, this.jumpBufferTimer - dt);
 
     // Dash attack
     const wantDash = input.isPressed("KeyX") || input.isPressed("ShiftLeft");
@@ -420,11 +434,9 @@ export class Player {
       this.shootCooldown = shot.cooldown;
     }
 
-    const wantJump =
-      input.isPressed("Space") ||
-      input.isPressed("ArrowUp") ||
-      input.isPressed("KeyW");
-    if (wantJump) this.jumpBufferTimer = this.JUMP_BUFFER_TIME;
+    // Jump press is read at the top of update() (before the dash early-return)
+    // so a jump tapped during a dash is buffered and honored when it ends
+    // instead of being silently dropped.
 
     // Wall slide — only if falling and pressing toward wall
     this.wallSliding = false;
@@ -435,7 +447,12 @@ export class Player {
       }
     }
 
-    this.tryConsumeJump(maxSpeed);
+    // Pre-collision jump attempt: handles coyote/wall/double-jump cases.
+    // The double-jump branch is suppressed when a landing is imminent this
+    // very step, so a press a hair above the ground resolves as a ground jump
+    // (via the post-collision retry below) instead of wasting the double jump.
+    const imminentLanding = this.vy >= 0 && this.wouldLandThisStep(dt, groundY, platforms);
+    this.tryConsumeJump(maxSpeed, imminentLanding);
 
     this.vy += this.config.gravity * dt;
     if (this.vy > 900) this.vy = 900; // terminal velocity
@@ -488,7 +505,10 @@ export class Player {
     if (!this.onGround && this.wasOnGround) this.coyoteTimer = 0; // just left ground, start coyote timer
     if (!this.onGround) this.coyoteTimer += dt;
 
-    // If jump was buffered slightly before landing, consume it immediately.
+    // If a jump was buffered slightly before landing, consume it now — after
+    // collision has resolved, so it fires as a full ground jump (and leaves
+    // the double jump available) rather than being spent mid-air a frame
+    // earlier as a wasted double jump.
     if (this.jumpBufferTimer > 0 && this.onGround) {
       this.tryConsumeJump(maxSpeed);
     }
@@ -498,7 +518,7 @@ export class Player {
     this._updateProjectiles(dt);
   }
 
-  private tryConsumeJump(maxSpeed: number): boolean {
+  private tryConsumeJump(maxSpeed: number, suppressDoubleJump = false): boolean {
     if (this.jumpBufferTimer <= 0) return false;
 
     if (this.onGround || this.coyoteTimer < this.COYOTE_TIME) {
@@ -521,12 +541,36 @@ export class Player {
       return true;
     }
 
-    if (this.canDoubleJump) {
+    if (this.canDoubleJump && !suppressDoubleJump) {
       this.useDoubleJump();
       this.jumpBufferTimer = 0;
       return true;
     }
 
+    // Buffer kept when suppressed (about to land) or nothing matched — the
+    // post-collision retry or a subsequent frame will resolve it.
+    return false;
+  }
+
+  /**
+   * Predict whether gravity + movement this step would put the player at or
+   * past a landing surface (ground or one-way platform top). Used to hold a
+   * fresh jump press for the ground branch instead of spending it as a double
+   * jump a few pixels above touchdown. Gravity is applied after the jump
+   * check inside update(), so this uses the post-gravity vy the collision
+   * step will actually resolve with.
+   */
+  private wouldLandThisStep(dt: number, groundY: number, platforms: Platform[]): boolean {
+    const stepVy = Math.min(this.vy + this.config.gravity * dt, 900);
+    const projectedBottom = this.y + this.height + stepVy * dt;
+    if (groundY !== Infinity && projectedBottom >= groundY) return true;
+    if (stepVy >= 0) {
+      for (const plat of platforms) {
+        if (this.x + this.width > plat.x && this.x < plat.x + plat.width) {
+          if (projectedBottom >= plat.y) return true;
+        }
+      }
+    }
     return false;
   }
 

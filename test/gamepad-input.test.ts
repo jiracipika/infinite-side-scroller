@@ -79,7 +79,20 @@ describe('InputManager gamepad support', () => {
     assert.equal(input.isPressed('KeyE'), true);
     assert.equal(input.isAttackDown(), true);
 
+    // A rendered frame with NO simulation step must not consume the press —
+    // it stays latched for the next update (120Hz / paused-frame safety).
     input.endFrame();
+    assert.equal(input.isPressed('Space'), true);
+    assert.equal(input.isPressed('KeyE'), true);
+
+    // The first simulation step consumes the press exactly once; a held
+    // button must not re-fire on subsequent steps.
+    input.endUpdate();
+    assert.equal(input.isPressed('Space'), false);
+    assert.equal(input.isPressed('KeyE'), false);
+    input.endFrame();
+    input.beginFrame();
+    input.endUpdate();
     assert.equal(input.isPressed('Space'), false);
     assert.equal(input.isPressed('KeyE'), false);
     input.destroy();
@@ -109,7 +122,15 @@ describe('InputManager gamepad support', () => {
     input.beginFrame();
     assert.equal(input.isDown('KeyV'), true);
     assert.equal(input.isPressed('KeyV'), true);
+    // Press survives a no-update frame, is consumed by the first simulation
+    // step, and does not re-fire while the trigger stays held.
     input.endFrame();
+    assert.equal(input.isPressed('KeyV'), true);
+    input.endUpdate();
+    assert.equal(input.isPressed('KeyV'), false);
+    input.endFrame();
+    input.beginFrame();
+    input.endUpdate();
     assert.equal(input.isPressed('KeyV'), false);
     input.destroy();
   });
