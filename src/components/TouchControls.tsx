@@ -173,9 +173,10 @@ const TouchControls: FC<TouchControlsProps> = ({
         </button>
       )}
 
-      {/* Movement cluster — side follows the player's handedness preference. */}
+      {/* Movement cluster — side follows the player's handedness preference.
+          Pass-through container, pad button captures input. */}
       <div
-        className="absolute pointer-events-auto"
+        className="absolute"
         role="group"
         aria-label="Movement controls"
         style={{
@@ -184,6 +185,7 @@ const TouchControls: FC<TouchControlsProps> = ({
           display: 'flex',
           gap: compact ? 8 : 10,
           opacity: safeOpacity,
+          pointerEvents: 'none',
         }}
       >
         <MovementPad
@@ -194,9 +196,12 @@ const TouchControls: FC<TouchControlsProps> = ({
         />
       </div>
 
-      {/* Action cluster occupies the opposite side. */}
+      {/* Action cluster occupies the opposite side. The container is
+          pointer-events:none so its empty corners (which overlap the movement
+          pad on narrow portrait screens) cannot swallow thumb touches — only
+          the buttons themselves capture input. */}
       <div
-        className="absolute pointer-events-auto"
+        className="absolute"
         role="group"
         aria-label="Action controls"
         style={{
@@ -207,9 +212,10 @@ const TouchControls: FC<TouchControlsProps> = ({
           alignItems: layout === 'mirrored' ? 'flex-start' : 'flex-end',
           gap: compact ? 8 : 10,
           opacity: safeOpacity,
+          pointerEvents: 'none',
         }}
       >
-        <div style={{ display: 'flex', gap: compact ? 8 : 10 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: 'calc(100vw - 190px)', gap: compact ? 8 : 10 }}>
           <TouchBtn active={specialHeld} onStart={startSpecial} onEnd={endSpecial}
             size={compact ? 'xs' : 'sm'} controlSize={controlSize} compact={compact}
             tint="cyan" aria-label="Special attack"><SpecialLabel /></TouchBtn>
@@ -333,6 +339,7 @@ const MovementPad: FC<MovementPadProps> = ({ direction, onDirectionChange, contr
         gridTemplateColumns: '1fr 1fr',
         alignItems: 'center',
         borderRadius: '4px 18px 4px 18px',
+        pointerEvents: 'auto',
         overflow: 'hidden',
         color: '#f4f2ed',
         background: '#1c1c2e',
@@ -434,6 +441,7 @@ const TouchBtn: FC<TouchBtnProps> = ({
         alignItems: 'center',
         justifyContent: 'center',
         flexShrink: 0,
+        pointerEvents: 'auto',
         color: active ? '#0a0a0f' : t.border,
         background: active ? t.bgActive : t.bg,
         border: `1.5px solid ${active ? t.borderActive : t.border}`,

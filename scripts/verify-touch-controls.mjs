@@ -53,6 +53,22 @@ for (const marker of ['onPointerDown', 'onPointerMove', 'setPointerCapture', 'on
   requireMarker(touchControls, 'TouchControls.tsx', marker)
 }
 
+// Portrait narrow-viewport regression: the action cluster's transparent
+// container used to sit above the movement pad's right half and swallow
+// thumb touches (right move dead in portrait, fine in landscape). The
+// containers must be pointer-events:none with capture re-enabled on buttons,
+// and the action row must wrap instead of overlapping the pad.
+for (const marker of [
+  'pointerEvents: \'none\'', // cluster containers pass touches through
+  "pointerEvents: 'auto'", // buttons capture input
+  'flexWrap: \'wrap\'', // action row wraps on narrow portrait
+]) {
+  requireMarker(touchControls, 'TouchControls.tsx', marker)
+}
+if (/className="absolute pointer-events-auto"\s*\n\s*role="group"\s*\n\s*aria-label="(Action|Movement) controls"/.test(touchControls)) {
+  errors.push('TouchControls.tsx: control cluster containers must not be pointer-events-auto (portrait overlap swallows movement touches)')
+}
+
 for (const marker of ['jump-press', 'dash-press', 'attack-press', 'carry-press', 'melee-press', 'Carry teammate', 'Melee slash']) {
   requireMarker(touchControls, 'TouchControls.tsx', marker)
 }
