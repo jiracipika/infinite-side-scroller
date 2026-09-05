@@ -1,0 +1,335 @@
+/* ═════════════════════════════════ NEW FILE ═════════════════════════
+   HUD.module.css — neon comic-panel HUD clusters
+   ════════════════════════════════════════════════════════════════════
+   Approved art direction: neon graphic novel (not a cyberpunk dashboard).
+   Panels are OPAQUE (no backdrop blur) so the HUD stays readable over any
+   biome/day-phase backdrop and avoids per-frame GPU blur cost.
+
+   Palette (approved):
+     near-black  #0a0a0f   ink base
+     panel       #1c1c2e   opaque panel body
+     lime        #c7ff4d   progression / coins / momentum
+     violet      #9570ff   contextual abilities (special meter, power-ups)
+     coral       #ff7166   health / danger
+     offwhite    #f4f2ed   readable white labels
+
+   Local to the HUD via this CSS module — no global CSS is touched.
+   Reduced motion is handled by the existing global reduced-motion guard
+   in globals.css: infinite pulses here are matched by the existing
+   `[style*="animation"][style*="infinite"]` / `.reduce-motion-forced`
+   selectors, and non-infinite animations are collapsed to 0.18s fades.
+   ════════════════════════════════════════════════════════════════════ */
+
+/* ── Panel cluster container ─────────────────────────────────────── */
+.cluster {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+/* ── Panel body ──────────────────────────────────────────────────── */
+.panel {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  background: #1c1c2e;
+  border: 1px solid rgba(244, 242, 237, 0.16);
+  /* Comic ink edge: two sharp corners, two rounded — reads as a hand-inked
+     panel without needing clip-path (which would clip the border). */
+  border-radius: 8px 2px 8px 2px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+}
+
+/* Numeric / label text (offwhite). */
+.label {
+  color: #f4f2ed;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+/* Coin / progression accent text (lime). */
+.labelLime {
+  color: #c7ff4d;
+}
+
+/* Small caption text — biome, level target, cooldown seconds. */
+.caption {
+  color: rgba(244, 242, 237, 0.72);
+}
+
+/* ── Hearts panel (coral danger accent) ──────────────────────────── */
+.heartsPanel {
+  composes: panel;
+  border-top: 2px solid #ff7166;
+}
+
+/* Empty heart socket — clear outline against the panel body. */
+.heartEmpty {
+  fill: rgba(244, 242, 237, 0.22);
+}
+
+/* ── Coins / progression accent (lime) ───────────────────────────── */
+.coinsPanel {
+  composes: panel;
+  border-top: 2px solid #c7ff4d;
+}
+
+/* Extra lives readout (earned hearts beyond the starting two). */
+.livesPanel {
+  composes: panel;
+  border-top: 2px solid #ff7166;
+}
+
+.livesText {
+  color: #ff7166;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Power-ups (contextual ability — violet) ─────────────────────── */
+.powerUpsRow {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.powerUpPanel {
+  composes: panel;
+  border-top: 2px solid #9570ff;
+  flex-direction: column;
+  padding: 3px 6px;
+  gap: 2px;
+}
+
+/* Countdown bar track, visible against the panel body. */
+.barTrack {
+  background: rgba(244, 242, 237, 0.14);
+  overflow: hidden;
+  border-radius: 2px;
+}
+
+/* ── Center column: score / distance / level / special / combo ──── */
+.centerCol {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+}
+
+/* Big score — expressive condensed title treatment. */
+.score {
+  color: #f4f2ed;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.05;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.8);
+  transform-origin: center bottom;
+}
+
+/* Score pop on increase (non-infinite → collapsed to fade under
+   reduced motion by the existing global guard). */
+.scorePop {
+  animation: hudScorePop 0.28s ease both;
+}
+
+@keyframes hudScorePop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+
+/* ── Level progress (lime progression accent) ───────────────────── */
+.levelBlock {
+  margin-top: 4px;
+  width: 84px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.levelTrack {
+  width: 100%;
+  height: 4px;
+  background: rgba(244, 242, 237, 0.14);
+  overflow: hidden;
+  border-radius: 2px;
+}
+
+.levelFill {
+  height: 100%;
+  border-radius: 2px;
+  background: #c7ff4d;
+  transition: width 0.3s ease;
+}
+
+.levelCaption {
+  font-size: 9px;
+  font-weight: 700;
+  color: rgba(244, 242, 237, 0.75);
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.levelTimeCaption {
+  font-size: 10px;
+  font-weight: 700;
+  color: #c7ff4d;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+/* Level timer under 10s — coral urgency. */
+.levelTimeHot {
+  color: #ff7166;
+}
+
+/* ── Special meter (violet contextual-ability accent) ───────────── */
+.specialPanel {
+  composes: panel;
+  border-top: 2px solid #9570ff;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 3px;
+  margin-top: 4px;
+  min-width: 90px;
+  align-self: center;
+  padding: 4px 10px;
+}
+
+.specialHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.specialName {
+  color: rgba(244, 242, 237, 0.78);
+}
+
+.specialTime {
+  color: #9570ff;
+  font-variant-numeric: tabular-nums;
+}
+
+/* While the special is firing, the readout flips to lime. */
+.specialTimeActive {
+  color: #c7ff4d;
+}
+
+.specialTrack {
+  height: 3px;
+  background: rgba(244, 242, 237, 0.14);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.specialFill {
+  height: 100%;
+  border-radius: 3px;
+  background: #9570ff;
+  transition: width 0.12s linear;
+}
+
+/* While firing, the bar fills lime with a violet gradient edge so "ready"
+   reads across both the bar and the accent border. */
+.specialFillActive {
+  background: linear-gradient(90deg, #c7ff4d, #9570ff);
+}
+
+/* ── Combo (momentum — lime, coral when the decay window is closing) */
+.comboBlock {
+  margin-top: 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.comboPill {
+  padding: 2px 10px;
+  background: #1c1c2e;
+  border: 1px solid rgba(199, 255, 77, 0.45);
+  border-radius: 10px 2px 10px 2px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #c7ff4d;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 8px rgba(199, 255, 77, 0.35);
+}
+
+.comboPillHot {
+  border-color: rgba(255, 113, 102, 0.6);
+  color: #ff7166;
+  text-shadow: 0 0 8px rgba(255, 113, 102, 0.4);
+}
+
+.comboTrack {
+  width: 76px;
+  height: 3px;
+  background: rgba(244, 242, 237, 0.12);
+  overflow: hidden;
+  border-radius: 2px;
+}
+
+.comboFill {
+  height: 100%;
+  border-radius: 2px;
+  background: #c7ff4d;
+  transition: width 0.12s linear;
+}
+
+/* Decay urgency states — solid fills; the color switch itself carries the
+   lime → amber → coral urgency ramp. */
+.comboFillMid {
+  background: #ffd60a;
+}
+
+.comboFillHot {
+  background: #ff7166;
+}
+
+/* ── Right cluster: biome / time of day / FPS ───────────────────── */
+.rightCol {
+  display: flex;
+  flex-direction: column;
+  /* Keep biome/FPS clear of the pause button in the top-right corner. */
+  margin-right: 46px;
+  align-items: flex-end;
+  gap: 5px;
+}
+
+.biomeCaption {
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(244, 242, 237, 0.72);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.dayPanel {
+  composes: panel;
+  padding: 3px 7px;
+}
+
+/* ── FPS readout (diagnostic, stays muted) ───────────────────────── */
+.fpsCol {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  line-height: 1;
+}
+
+.fpsGood { color: #c7ff4d; }
+.fpsOk   { color: #ffd60a; }
+.fpsBad  { color: #ff7166; }
