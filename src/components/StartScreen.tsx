@@ -57,6 +57,7 @@ import {
 import { schedulePanelReveal } from "@/lib/menu-panel-reveal";
 import TouchControlSettings from "./TouchControlSettings";
 import ControlsHint from "./ControlsHint";
+import styles from "./StartScreen.module.css";
 import {
   fetchOnlineLeaderboard,
   fetchOnlineReplay,
@@ -376,7 +377,7 @@ const StartScreen: FC<Props> = ({
   return (
     <div
       ref={parallaxRef}
-      className="absolute inset-0 dash-menu-shell"
+      className={`absolute inset-0 dash-menu-shell ${styles.shell}`}
       style={{
         opacity: mounted ? 1 : 0,
         transition: "opacity 0.28s ease",
@@ -389,21 +390,23 @@ const StartScreen: FC<Props> = ({
       }}
     >
       <StarField />
-      <div className="dash-grid-glow dash-grid-glow-a" />
-      <div className="dash-grid-glow dash-grid-glow-b" />
-      <div className="dash-grid-glow dash-grid-glow-c" />
+      <div className={styles.inkBleed} aria-hidden="true" />
 
       <main className="dash-menu-stage dash-menu-stage-v2">
-        <section className="dash-command-panel dash-hero-v2">
+        <section className={`dash-command-panel dash-hero-v2 ${styles.heroPanel}`}>
           <div className="dash-topbar-v2">
             <div className="dash-brand-v2">
               <AppIcon characterId={selectedChar} />
               <div>
                 <p className="dash-eyebrow">Dashverse // Runner OS</p>
-                <h1>Run the edge</h1>
+                <h1>
+                  Run the
+                  <br />
+                  edge
+                </h1>
               </div>
             </div>
-            <div className="dash-live-pill">
+            <div className={`dash-live-pill ${styles.pill}`}>
               <span /> Ready
             </div>
           </div>
@@ -433,13 +436,19 @@ const StartScreen: FC<Props> = ({
             </span>
           </div>
 
-          <div className="dash-primary-row-v2">
-            <button className="dash-play-button-v2" onClick={handlePlay}>
+          <div className={`dash-primary-row-v2 ${styles.primaryRow}`}>
+            <button
+              className={`dash-play-button-v2 ${styles.playCta}`}
+              onClick={handlePlay}
+            >
               <span>Play Endless</span>
               <small>Jump straight into a run</small>
+              <em className={styles.playGlyph} aria-hidden="true">
+                →
+              </em>
             </button>
             <button
-              className={`dash-icon-action-v2 ${activeView === "character" ? "is-active" : ""}`}
+              className={`dash-icon-action-v2 ${styles.iconAction} ${activeView === "character" ? "is-active" : ""}`}
               onClick={() => setActiveView("character")}
               aria-label="Open character select"
               aria-pressed={activeView === "character"}
@@ -447,7 +456,7 @@ const StartScreen: FC<Props> = ({
               <CharacterSprite characterId={selectedChar} size={38} decorative />
             </button>
             <button
-              className={`dash-icon-action-v2 ${activeView === "profile" ? "is-active" : ""}`}
+              className={`dash-icon-action-v2 ${styles.iconAction} ${activeView === "profile" ? "is-active" : ""}`}
               onClick={() => setActiveView("profile")}
               aria-label="Open player profile"
               aria-pressed={activeView === "profile"}
@@ -457,14 +466,16 @@ const StartScreen: FC<Props> = ({
           </div>
         </section>
 
-        <section className="dash-command-panel dash-modes-v2 dash-view-panel-v3">
+        <section
+          className={`dash-command-panel dash-modes-v2 dash-view-panel-v3 ${styles.modesPanel}`}
+        >
           <div className="dash-section-title-row-v2">
             <div>
               <p className="dash-eyebrow">Run protocols</p>
               <h2>Select the next world</h2>
             </div>
           </div>
-          <div className="dash-flow-tabs-v2" aria-label="Menu flow">
+          <div className={`dash-flow-tabs-v2 ${styles.flowTabs}`} aria-label="Menu flow">
             <span className="is-active">Play</span>
             <span>Compete</span>
             <span>Customize</span>
@@ -472,18 +483,18 @@ const StartScreen: FC<Props> = ({
           <p className="dash-tester-checklist-v2">
             Recommended play plan: run Adventure first, try Daily next, then use Same-Wi-Fi for nearby co-op.
           </p>
-          <div className="dash-mode-grid-v2">
-            {onLevelSelect && (
-              <button
-                className="dash-mode-card-v2 solo"
-                onClick={onLevelSelect}
-              >
-                <small>Solo</small>
-                <b>Adventure</b>
-                <span>Levels + time attacks</span>
-                <em>→</em>
-              </button>
-            )}
+            <div className={`dash-mode-grid-v2 ${styles.modeGrid}`}>
+              {onLevelSelect && (
+                <button
+                  className="dash-mode-card-v2 solo"
+                  onClick={onLevelSelect}
+                >
+                  <small>Solo</small>
+                  <b>Adventure</b>
+                  <span>Levels + time attacks</span>
+                  <em>→</em>
+                </button>
+              )}
             <button
               className="dash-mode-card-v2 coop"
               onClick={() => setShowMultiplayer((v) => !v)}
@@ -1096,40 +1107,29 @@ const StarField: FC = () => {
 
 const AppIcon: FC<{ characterId: string }> = ({ characterId }) => (
   <div className="dash-app-icon-v3">
-    {/* Expanding glow ring */}
+    {/* Ink-cut halo: static, opaque panel tone with a lime hairline */}
     <div
       style={{
         position: "absolute",
-        inset: 0,
-        borderRadius: 22,
-        background: "rgba(0,122,255,0.18)",
-        animation: "ringExpand 3.2s ease-out 0.4s infinite",
-        pointerEvents: "none",
-      }}
-    />
-    {/* Ambient soft glow */}
-    <div
-      style={{
-        position: "absolute",
-        inset: -14,
-        borderRadius: 36,
+        inset: -10,
+        borderRadius: 30,
+        border: "1px solid rgba(199, 255, 77, 0.22)",
         background:
-          "radial-gradient(circle, rgba(0,122,255,0.18) 0%, transparent 70%)",
-        animation: "iconAmbient 3.6s ease-in-out infinite",
+          "radial-gradient(circle, rgba(199, 255, 77, 0.08) 0%, transparent 68%)",
         pointerEvents: "none",
       }}
     />
-    {/* App icon face */}
+    {/* App icon face: near-black ink slab with hard offset edge */}
     <div
       style={{
         position: "relative",
         width: 88,
         height: 88,
-        borderRadius: 20,
-        background:
-          "linear-gradient(148deg, #0C1A30 0%, #0E2244 55%, #091C38 100%)",
+        borderRadius: 18,
+        background: "linear-gradient(150deg, #16162a 0%, #101020 60%, #0c0c18 100%)",
+        border: "2px solid #1c1c2e",
         boxShadow:
-          "0 10px 32px rgba(0,0,0,0.6), 0 0 0 0.5px rgba(255,255,255,0.09), 0 1px 0 rgba(255,255,255,0.06) inset",
+          "4px 4px 0 0 #000000, inset 0 1px 0 rgba(255, 255, 255, 0.06)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
