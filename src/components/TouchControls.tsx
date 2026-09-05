@@ -10,11 +10,11 @@ import {
 } from '@/game/input/touch-controls';
 
 /**
- * Touch controls overlay for mobile — iOS game controller aesthetic.
+ * Touch controls overlay for mobile — neon ink controller panels.
  *
  * Layout:
  *   Left side  — Left / Right D-pad buttons
- *   Right side — Special / Dash / ATK / Melee / Carry (small) + Jump (large, blue)
+ *   Right side — Special / Dash / ATK / Melee / Carry (small) + Jump (large, lime)
  *
  * Emits 'game-input' CustomEvents consumed by InputManager.
  * Respects iOS safe-area-inset-bottom for notched devices.
@@ -152,17 +152,15 @@ const TouchControls: FC<TouchControlsProps> = ({
             right: 'max(12px, env(safe-area-inset-right, 12px))',
             width: compact ? 38 : 44,
             height: compact ? 38 : 44,
-            borderRadius: '50%',
+            borderRadius: '4px 16px 4px 16px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             padding: 0,
             pointerEvents: 'auto',
-            color: 'rgba(235,235,245,0.85)',
-            background: 'rgba(120,120,128,0.22)',
-            border: '1.5px solid rgba(255,255,255,0.12)',
-            backdropFilter: 'blur(12px) saturate(1.3)',
-            WebkitBackdropFilter: 'blur(12px) saturate(1.3)',
+            color: '#f4f2ed',
+            background: '#1c1c2e',
+            border: '2px solid #9570ff',
             opacity: safeOpacity,
             touchAction: 'none',
             userSelect: 'none',
@@ -334,14 +332,12 @@ const MovementPad: FC<MovementPadProps> = ({ direction, onDirectionChange, contr
         display: 'grid',
         gridTemplateColumns: '1fr 1fr',
         alignItems: 'center',
-        borderRadius: height / 2,
+        borderRadius: '4px 18px 4px 18px',
         overflow: 'hidden',
-        color: 'rgba(235,235,245,0.85)',
-        background: 'rgba(120,120,128,0.22)',
-        border: '1.5px solid rgba(255,255,255,0.12)',
-        backdropFilter: 'blur(12px) saturate(1.3)',
-        WebkitBackdropFilter: 'blur(12px) saturate(1.3)',
-        boxShadow: direction === 0 ? 'none' : '0 0 16px rgba(10,132,255,0.32)',
+        color: '#f4f2ed',
+        background: '#1c1c2e',
+        border: '2px solid #9570ff',
+        boxShadow: '4px 4px 0 #0a0a0f',
         touchAction: 'none',
         userSelect: 'none',
         WebkitUserSelect: 'none',
@@ -359,10 +355,10 @@ const MovementPad: FC<MovementPadProps> = ({ direction, onDirectionChange, contr
       }}
       onContextMenu={(e) => e.preventDefault()}
     >
-      <span style={{ height: '100%', display: 'grid', placeItems: 'center', background: direction === -1 ? 'rgba(10,132,255,0.5)' : 'transparent' }}>
+      <span style={{ height: '100%', display: 'grid', placeItems: 'center', background: direction === -1 ? '#c7ff4d' : 'transparent', color: direction === -1 ? '#0a0a0f' : '#c7ff4d' }}>
         <ChevronLeft />
       </span>
-      <span style={{ height: '100%', display: 'grid', placeItems: 'center', background: direction === 1 ? 'rgba(10,132,255,0.5)' : 'transparent' }}>
+      <span style={{ height: '100%', display: 'grid', placeItems: 'center', background: direction === 1 ? '#c7ff4d' : 'transparent', color: direction === 1 ? '#0a0a0f' : '#c7ff4d' }}>
         <ChevronRight />
       </span>
     </button>
@@ -383,54 +379,19 @@ interface TouchBtnProps {
   children: React.ReactNode;
 }
 
+// Semantic accents shared by held fills and idle outlines. Input bindings stay
+// independent of appearance; opacity remains the player's explicit preference.
+const inkTint = (accent: string) => ({
+  bg: '#1c1c2e', bgActive: accent, border: accent, borderActive: accent,
+});
 const TINTS = {
-  blue:   {
-    bg:         'rgba(0,122,255,0.2)',
-    bgActive:   'rgba(0,122,255,0.58)',
-    border:     'rgba(0,122,255,0.22)',
-    borderActive: 'rgba(0,122,255,0.7)',
-    glow:       '0 0 16px rgba(0,122,255,0.45)',
-  },
-  orange: {
-    bg:         'rgba(255,149,0,0.18)',
-    bgActive:   'rgba(255,149,0,0.56)',
-    border:     'rgba(255,149,0,0.22)',
-    borderActive: 'rgba(255,149,0,0.7)',
-    glow:       '0 0 14px rgba(255,149,0,0.42)',
-  },
-  purple: {
-    bg:         'rgba(175,82,222,0.18)',
-    bgActive:   'rgba(175,82,222,0.56)',
-    border:     'rgba(175,82,222,0.22)',
-    borderActive: 'rgba(175,82,222,0.7)',
-    glow:       '0 0 14px rgba(175,82,222,0.42)',
-  },
-  green: {
-    bg:         'rgba(52,199,89,0.18)',
-    bgActive:   'rgba(52,199,89,0.56)',
-    border:     'rgba(52,199,89,0.22)',
-    borderActive: 'rgba(52,199,89,0.7)',
-    glow:       '0 0 14px rgba(52,199,89,0.42)',
-  },
-  cyan: {
-    bg: 'rgba(34,211,238,0.2)', bgActive: 'rgba(34,211,238,0.62)',
-    border: 'rgba(34,211,238,0.28)', borderActive: 'rgba(103,232,249,0.86)',
-    glow: '0 0 18px rgba(34,211,238,0.58)',
-  },
-  red: {
-    bg:         'rgba(255,59,48,0.18)',
-    bgActive:   'rgba(255,59,48,0.56)',
-    border:     'rgba(255,59,48,0.24)',
-    borderActive: 'rgba(255,105,97,0.72)',
-    glow:       '0 0 14px rgba(255,59,48,0.44)',
-  },
-  none: {
-    bg:         'rgba(120,120,128,0.22)',
-    bgActive:   'rgba(120,120,128,0.52)',
-    border:     'rgba(255,255,255,0.1)',
-    borderActive: 'rgba(255,255,255,0.28)',
-    glow:       '0 0 12px rgba(255,255,255,0.15)',
-  },
+  blue: inkTint('#c7ff4d'),
+  orange: inkTint('#ff7166'),
+  purple: inkTint('#9570ff'),
+  green: inkTint('#c7ff4d'),
+  cyan: inkTint('#9570ff'),
+  red: inkTint('#ff7166'),
+  none: inkTint('#f4f2ed'),
 };
 
 const TouchBtn: FC<TouchBtnProps> = ({
@@ -468,18 +429,17 @@ const TouchBtn: FC<TouchBtnProps> = ({
       style={{
         width: dim,
         height: dim,
-        borderRadius: '50%',
+        borderRadius: '4px 16px 4px 16px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         flexShrink: 0,
+        color: active ? '#0a0a0f' : t.border,
         background: active ? t.bgActive : t.bg,
         border: `1.5px solid ${active ? t.borderActive : t.border}`,
-        backdropFilter: 'blur(12px) saturate(1.3)',
-        WebkitBackdropFilter: 'blur(12px) saturate(1.3)',
-        boxShadow: active ? t.glow : 'none',
+        boxShadow: active ? '1px 1px 0 #0a0a0f' : '4px 4px 0 #0a0a0f',
         transition: 'background 0.07s ease, border-color 0.07s ease, box-shadow 0.1s ease, transform 0.08s ease',
-        transform: active ? 'scale(0.92)' : 'scale(1)',
+        transform: 'none',
         touchAction: 'none',
         userSelect: 'none',
         WebkitUserSelect: 'none',
@@ -503,7 +463,7 @@ const TouchBtn: FC<TouchBtnProps> = ({
 
 /* ── Icons ──────────────────────────────────────────────────── */
 
-const STROKE = 'rgba(235,235,245,0.8)';
+const STROKE = 'currentColor';
 
 const ChevronLeft: FC = () => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
@@ -523,7 +483,7 @@ const ChevronRight: FC = () => (
 
 const ChevronUp: FC = () => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
-    stroke="rgba(235,235,245,0.9)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+    stroke={STROKE} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
   >
     <path d="M18 15l-6-6-6 6" />
   </svg>
@@ -533,7 +493,7 @@ const AtkLabel: FC = () => (
   <span style={{
     fontSize: 11,
     fontWeight: 800,
-    color: 'rgba(255,255,255,0.85)',
+    color: 'inherit',
     letterSpacing: '0.06em',
     lineHeight: 1,
   }}>
@@ -543,7 +503,7 @@ const AtkLabel: FC = () => (
 
 const MeleeLabel: FC = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
-    stroke="rgba(255,255,255,0.88)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
+    stroke={STROKE} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
   >
     {/* Sword: blade + guard, tilted like the DashLabel arrow language */}
     <path d="M14.5 4.5L19.5 9.5L9 20L4 20L4 15Z" fill="rgba(255,255,255,0.22)" />
@@ -553,12 +513,12 @@ const MeleeLabel: FC = () => (
 );
 
 const SpecialLabel: FC = () => (
-  <span style={{ fontSize: 15, fontWeight: 900, color: '#ecfeff', lineHeight: 1 }}>✦</span>
+  <span style={{ fontSize: 15, fontWeight: 900, color: 'inherit', lineHeight: 1 }}>✦</span>
 );
 
 const DashLabel: FC = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
-    stroke="rgba(255,255,255,0.85)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+    stroke={STROKE} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
   >
     <path d="M5 12h14" />
     <path d="M13 6l6 6-6 6" />
@@ -569,7 +529,7 @@ const CarryLabel: FC = () => (
   <span style={{
     fontSize: 10,
     fontWeight: 800,
-    color: 'rgba(255,255,255,0.85)',
+    color: 'inherit',
     letterSpacing: '0.05em',
     lineHeight: 1,
   }}>

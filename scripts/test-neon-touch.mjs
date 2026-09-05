@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+const source = readFileSync(new URL('../src/components/TouchControls.tsx', import.meta.url), 'utf8');
+assert.ok(!source.includes('backdropFilter:'), 'Touch controls must use cheap ink panels, not backdrop blur');
+for (const color of ['#c7ff4d', '#9570ff', '#ff7166', '#1c1c2e']) assert.ok(source.includes(color), `Approved palette: ${color}`);
+assert.ok(source.includes("const STROKE = 'currentColor'"), 'Icons inherit contrasting held-state ink');
+for (const action of ['jump', 'dash', 'attack', 'melee', 'special', 'carry']) assert.ok(source.includes(`emit('${action}-press', false)`), `${action} can release`);
+assert.ok(source.includes('onLostPointerCapture'), 'Capture loss releases inputs');
+assert.ok(source.includes('opacity: safeOpacity'), 'Player opacity preference is retained');
+console.log('PASS: ink touch palette, no blur, inherited icon contrast, input release and opacity contracts');

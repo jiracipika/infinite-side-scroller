@@ -398,11 +398,9 @@ const StartScreen: FC<Props> = ({
             <div className="dash-brand-v2">
               <AppIcon characterId={selectedChar} />
               <div>
-                <p className="dash-eyebrow">Dashverse // Runner OS</p>
-                <h1>
-                  Run the
-                  <br />
-                  edge
+                <p className="dash-eyebrow">Run the edge</p>
+                <h1 aria-label="Dashverse">
+                  DASH<br />VERSE
                 </h1>
               </div>
             </div>

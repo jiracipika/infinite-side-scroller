@@ -99,12 +99,41 @@
   animation: none;
 }
 
-/* Short desktop (e.g. 1280x630): pull the stacked title in. */
+/* Short desktop: keep all eight destinations above the fold. The shell
+   still scrolls for expanded panels and increased text sizes. */
 @media (min-width: 1180px) and (max-height: 700px) {
+  .modesPanel .modeGrid { gap: 7px; }
+  .modesPanel .modeGrid button:global(.dash-mode-card-v2) {
+    min-height: 76px;
+    padding: 10px 12px;
+  }
+  .modesPanel .modeGrid button:global(.dash-mode-card-v2) span {
+    margin-top: 3px;
+    font-size: 11px;
+    line-height: 1.2;
+  }
+  .modesPanel .modeGrid button:global(.dash-mode-card-v2) b {
+    font-size: 14px;
+    line-height: 1.2;
+  }
+  .modesPanel .modeGrid button:global(.dash-mode-card-v2) small {
+    margin-bottom: 5px;
+    padding-block: 2px;
+  }
+  .modesPanel :global(.dash-tester-checklist-v2) {
+    margin: 8px 0;
+    padding: 8px 10px;
+    font-size: 11px;
+  }
   .heroPanel :global(.dash-brand-v2) h1 {
     font-size: clamp(26px, 3.2vw, 40px);
     text-shadow: 3px 3px 0 rgba(199, 255, 77, 0.32);
   }
+}
+
+@media (max-width: 380px) {
+  .heroPanel :global(.dash-brand-v2) { gap: 8px; }
+  .heroPanel :global(.dash-brand-v2) h1 { font-size: 34px; }
 }
 
 /* ── Ready pill: lime ink stamp ────────────────────────────────── */

@@ -1792,7 +1792,6 @@ export default function Home() {
           layout={settings.touchControlLayout}
           controlSize={settings.touchControlSize}
           opacity={settings.touchControlOpacity}
-          onPause={pauseGame}
         />
       )}
       {state === "playing" && multiplayerSession && (
@@ -2029,41 +2028,29 @@ export default function Home() {
         </div>
       )}
 
-      {/* Pause button — iOS system style */}
+      {/* Pause button — one shared ink control for keyboard and touch. */}
       {state === "playing" && !splitScreenSeed && (
         <button
+          type="button"
           onClick={handlePause}
-          aria-label="Pause"
+          aria-label="Pause game"
           style={{
             position: "absolute",
             top: "calc(env(safe-area-inset-top, 0px) + 12px)",
             right: "calc(env(safe-area-inset-right, 0px) + 14px)",
             zIndex: 20,
-            width: 36,
-            height: 36,
-            borderRadius: "50%",
-            background: "rgba(0,0,0,0.48)",
-            backdropFilter: "blur(12px)",
-            WebkitBackdropFilter: "blur(12px)",
-            border: "0.5px solid rgba(255,255,255,0.1)",
+            width: 44,
+            height: 44,
+            borderRadius: "4px 14px 4px 14px",
+            background: "#1c1c2e",
+            border: "2px solid #9570ff",
+            boxShadow: "3px 3px 0 #0a0a0f",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             cursor: "pointer",
-            transition:
-              "transform 0.12s cubic-bezier(0.34,1.56,0.64,1), opacity 0.1s ease, background 0.12s ease",
-            color: "rgba(235,235,245,0.6)",
+            color: "#f4f2ed",
           }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.color = "rgba(235,235,245,0.92)";
-            e.currentTarget.style.background = "rgba(0,0,0,0.64)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.color = "rgba(235,235,245,0.6)";
-            e.currentTarget.style.background = "rgba(0,0,0,0.48)";
-          }}
-          onMouseDown={(e) => (e.currentTarget.style.transform = "scale(0.92)")}
-          onMouseUp={(e) => (e.currentTarget.style.transform = "scale(1)")}
         >
           <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
             <rect x="3" y="2" width="3.5" height="12" rx="1.2" />
