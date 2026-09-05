@@ -44,9 +44,17 @@ GAME_URL=http://127.0.0.1:3010 PLAYWRIGHT_PACKAGE=/absolute/tooling/package.json
 Screenshot output defaults to `/tmp/dashverse-menu-qa.png` and `/tmp/dashverse-touch-qa.png`; override with `MENU_SCREENSHOT` / `TOUCH_SCREENSHOT`. The browser scripts are opt-in local QA, not part of the dependency-free unit-test command.
 
 ### Remaining visual work
-- Deliberate sun/moon and cloud treatment; current scenery can display both celestial bodies.
+- ~~Deliberate sun/moon treatment; scenery could display both celestial bodies.~~ DONE 2026-09-05:
+  `resolveCelestialAlphas(gameTime)` (pure, RNG-free) cross-fades the sun and moon —
+  sunAlpha + moonAlpha ≤ 1 at every phase, so only one body ever owns the sky.
+  Live-verified by frame capture: day/dusk shows the sun alone with its lime rim,
+  night shows the moon alone with a violet halo (concept-board identity).
+  13 solver tests in `test/celestial-cycle.test.ts` + `scripts/test-neon-sky-a11y.mjs`
+  gate (wired into `npm test`).
 - Broader native-shell theme parity and physical-device verification.
 - GLM 5.3 Flash independently reviewed the diff and re-ran the test suite and both browser probes: no regressions found. Parent also re-ran its independent expanded-panel and pause/resume probes successfully. Expanded settings are scrollable, not fully contained within the viewport (the worker report overstates this as "fully onscreen").
-- GLM noted a preexisting accessibility gap: the Saves + Shop disclosure lacks aria-expanded/aria-controls. Same-Wi-Fi two-peer behavior was not tested this slice.
+- FIXED 2026-09-05: all six disclosure cards (Saves+Shop, Settings, Run Lab, Same-Wi-Fi,
+  Leaderboard, plus panel wiring) now carry aria-expanded/aria-controls pointing at real
+  panel ids; enforced by the a11y contract gate in `npm test`. Same-Wi-Fi two-peer behavior was not tested this slice.
 - Independent QA report: `/tmp/dashverse-glm-qa/report.md`; probes: `menu-edge.mjs` and `touch-edge.mjs` in the same directory.
 - User approved committing and pushing the verified slice after independent QA. Local production preview was verified on port 3010.

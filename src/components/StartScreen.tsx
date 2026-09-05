@@ -495,6 +495,8 @@ const StartScreen: FC<Props> = ({
               )}
             <button
               className="dash-mode-card-v2 coop"
+              aria-expanded={showMultiplayer}
+              aria-controls="samesifi-panel"
               onClick={() => setShowMultiplayer((v) => !v)}
             >
               <small>Co-op</small>
@@ -531,6 +533,8 @@ const StartScreen: FC<Props> = ({
             )}
             <button
               className="dash-mode-card-v2 compete"
+              aria-expanded={showLeaderboard}
+              aria-controls="leaderboard-panel"
               onClick={handleLeaderboardToggle}
             >
               <small>Compete</small>
@@ -557,6 +561,8 @@ const StartScreen: FC<Props> = ({
             </button>
             <button
               className="dash-mode-card-v2 customize"
+              aria-expanded={showProgression}
+              aria-controls="saves-shop-panel"
               onClick={() => setShowProgression((v) => !v)}
             >
               <small>Customize</small>
@@ -727,6 +733,7 @@ const StartScreen: FC<Props> = ({
 
         {showMultiplayer && (
           <MenuPanel
+            id="samesifi-panel"
             title="Same-Wi‑Fi room"
             subtitle="Host creates the room. Guest enters the code. Both devices should use the exact same site URL."
           >
@@ -850,6 +857,7 @@ const StartScreen: FC<Props> = ({
 
         {showLeaderboard && (
           <MenuPanel
+            id="leaderboard-panel"
             title="Top runs"
             subtitle="Race your local records or load an online ghost replay."
           >
@@ -935,6 +943,7 @@ const StartScreen: FC<Props> = ({
 
         {showProgression && (
           <MenuPanel
+            id="saves-shop-panel"
             title="Saves + shop"
             subtitle={`Active bank: ${activeSlot?.bankCoins ?? 0} coins`}
           >

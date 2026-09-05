@@ -153,12 +153,15 @@ export function drawBackgroundSky(
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, width, height);
 
+  const { sunAlpha, moonAlpha } = resolveCelestialAlphas(gameTime);
   if (nightness > 0.02) {
     drawStars(ctx, width, height, cameraY, gameTime, nightness, detail, reducedMotion);
-    drawMoon(ctx, width, height, phase, nightness);
   }
-  if (nightness < 0.98) {
-    drawSun(ctx, width, height, phase, colors.platform);
+  if (moonAlpha > 0.004) {
+    drawMoon(ctx, width, height, phase, moonAlpha);
+  }
+  if (sunAlpha > 0.004) {
+    drawSun(ctx, width, height, phase, colors.platform, sunAlpha);
   }
 
   // World-anchored atmospheric haze so it doesn't look like a screen filter
@@ -222,10 +225,11 @@ function drawSun(
   height: number,
   phase: number,
   platformColor: string,
+  alpha: number,
 ): void {
-  const t = (phase - 0.075) / 0.625; // 0..1 across the day
-  if (t < -0.06 || t > 1.06) return;
-  const vis = Math.max(0, Math.min(1, Math.min(t + 0.06, 1.06 - t) * 6));
+  const t = (phase - SUN_ARC_START) / SUN_ARC_LENGTH; // 0..1 across the day
+  if (t < 0 || t > 1) return;
+  const vis = alpha;
   const x = width * (0.14 + 0.72 * t);
   const y = height * (0.46 - Math.sin(Math.max(0, Math.min(1, t)) * Math.PI) * 0.32);
   const r = Math.max(30, height * 0.075);
@@ -241,6 +245,48 @@ function drawSun(
   ctx.beginPath();
   ctx.arc(x, y, r * 0.62, 0, Math.PI * 2);
   ctx.fill();
+  if (vis > 0.05) {
+    ctx.strokeStyle = hexToRgba("#c7ff4d", vis * 0.55);
+    ctx.lineWidth = Math.max(1.5, r * 0.05);
+    ctx.beginPath();
+    // Upper-left rim arc (sun rises left, sets right — rim faces the zenith).
+    ctx.arc(x, y, r * 0.62, Math.PI * 1.05, Math.PI * 1.85);
+    ctx.stroke();
+  }
+}
+
+// Celestial arc windows (fraction of the day cycle). The sun rides
+// dawn→dusk, the moon rides dusk→dawn; together they tile the cycle, and
+// resolveCelestialAlphas cross-fades them so only one body owns the sky.
+export const SUN_ARC_START = 0.075;
+export const SUN_ARC_LENGTH = 0.625;
+export const MOON_ARC_START = 0.575;
+export const MOON_ARC_LENGTH = 0.625;
+
+/**
+ * Deterministic per-phase visibility of the sun and moon. Both bodies are
+ * painted every frame; these alphas decide who is actually seen:
+ *   sunAlpha  = sun arc progress × (1 − nightness)
+ *   moonAlpha = moon arc progress × nightness
+ * Because arcs tile the cycle and nightness is complementary at the two
+ * hand-offs, sunAlpha + moonAlpha ≤ 1 at every phase — the previously
+ * possible "sun and moon side by side at full strength" is impossible.
+ */
+export function resolveCelestialAlphas(
+  gameTime: number,
+): { sunAlpha: number; moonAlpha: number } {
+  const { phase, nightness } = getSkyCycle(gameTime);
+  const sunSpan = (phase - SUN_ARC_START) / SUN_ARC_LENGTH;
+  const sunArc =
+    sunSpan >= 0 && sunSpan <= 1
+      ? Math.min(1, Math.min(sunSpan + 0.06, 1.06 - sunSpan) * 6)
+      : 0;
+  const moonSpan = ((phase - MOON_ARC_START) % 1 + 1) % 1 / MOON_ARC_LENGTH;
+  const moonArc = moonSpan >= 0 && moonSpan <= 1 ? 1 : 0;
+  return {
+    sunAlpha: sunArc * (1 - nightness),
+    moonAlpha: moonArc * nightness,
+  };
 }
 
 /** Moon rides the night arc (phase 0.575 → wrap → 0.2) with subtle craters. */
@@ -249,21 +295,33 @@ function drawMoon(
   width: number,
   height: number,
   phase: number,
-  nightness: number,
+  alpha: number,
 ): void {
-  const span = (phase - 0.575 + 1) % 1; // 0 at moonrise
-  const t = span / 0.625; // same arc length as the sun
+  const span = (phase - MOON_ARC_START + 1) % 1; // 0 at moonrise
+  const t = span / MOON_ARC_LENGTH; // same arc length as the sun
   if (t < 0 || t > 1) return;
+  const vis = alpha;
   const x = width * (0.14 + 0.72 * t);
   const y = height * (0.44 - Math.sin(t * Math.PI) * 0.3);
   const r = Math.max(18, height * 0.045);
+  // Concept-board identity: the moon sits inside a soft violet halo that
+  // fades with its own visibility (no full-screen blur, purely local).
+  if (vis > 0.05) {
+    const halo = ctx.createRadialGradient(x, y, r * 0.9, x, y, r * 2.4);
+    halo.addColorStop(0, hexToRgba("#9570ff", vis * 0.22));
+    halo.addColorStop(1, hexToRgba("#9570ff", 0));
+    ctx.fillStyle = halo;
+    ctx.beginPath();
+    ctx.arc(x, y, r * 2.4, 0, Math.PI * 2);
+    ctx.fill();
+  }
   const body = "#e8ecf4";
-  ctx.fillStyle = hexToRgba(body, nightness);
+  ctx.fillStyle = hexToRgba(body, vis);
   ctx.beginPath();
   ctx.arc(x, y, r, 0, Math.PI * 2);
   ctx.fill();
   // Craters
-  ctx.fillStyle = hexToRgba("#c3c9d9", nightness * 0.7);
+  ctx.fillStyle = hexToRgba("#b9a8e8", vis * 0.7);
   ctx.beginPath();
   ctx.arc(x - r * 0.3, y - r * 0.2, r * 0.2, 0, Math.PI * 2);
   ctx.fill();
