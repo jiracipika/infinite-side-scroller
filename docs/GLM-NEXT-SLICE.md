@@ -7,6 +7,18 @@ Priority: P2 premium visual/product polish; no correctness emergency
 
 ## Completed
 
+- 2026-09-05 (slice E): Single-celestial sky hand-off + disclosure a11y.
+  resolveCelestialAlphas(gameTime) cross-fades sun/moon (sum of alphas ≤ 1 at
+  every phase — the "both bodies visible" bug is structurally impossible);
+  painters consume explicit alphas. Neon identity per concept board: lime rim
+  arc on the sun, violet halo + violet craters on the moon (local gradients,
+  no blur, RNG-free for multiplayer parity). Saves+Shop / Same-Wi-Fi /
+  Leaderboard disclosure cards now carry aria-expanded/aria-controls. 13
+  solver tests + scripts/test-neon-sky-a11y.mjs gate (in npm test). Live
+  frame QA: day sun w/ lime rim, night moon w/ violet halo, never both.
+  Full verify + build + release:evidence green; mobile bundle regenerated
+  (156.3KB). Pushed as b2fb8dc.
+
 - 2026-09-02 (slice D): Wall-slide FX. Contact feedback for wall slides was
   two static yellow pixels. Now: (1) shimmering 3-chip sparkle at the
   wall-side edge in drawPlayer, phase keyed to screen.y (NOT
