@@ -247,6 +247,16 @@ export class GameRenderer {
     ctx.restore();
 
     // Grass cap and highlight (thicker, layered for a readable ledge).
+    // Graphic-novel treatment: ink outline under the bright cap so every
+    // ledge reads as a bold inked contour against the dark soil body.
+    ctx.lineWidth = 9;
+    ctx.strokeStyle = "#0a0a0f";
+    for (let i = 0; i < chunk.heights.length - 1; i++) {
+      ctx.beginPath();
+      ctx.moveTo(i * 4 + offsetX, chunk.heights[i] + 2 + offsetY);
+      ctx.lineTo((i + 1) * 4 + offsetX, chunk.heights[i + 1] + 2 + offsetY);
+      ctx.stroke();
+    }
     ctx.lineWidth = 7;
     for (let i = 0; i < chunk.heights.length - 1; i++) {
       const worldX = chunk.worldX + i * 4;
@@ -322,22 +332,18 @@ export class GameRenderer {
           0,
           screen.y + 10,
         );
-        beamGradient.addColorStop(0, shadeHexColor(colors.platform, 18));
-        beamGradient.addColorStop(1, shadeHexColor(colors.platform, -22));
+        // Ink body: near-black slab so the lime cap reads as a crisp landing
+        // edge against any biome — the graphic-novel signature.
+        beamGradient.addColorStop(0, "#1c1c2e");
+        beamGradient.addColorStop(1, shadeHexColor(colors.groundDark, -26));
         ctx.fillStyle = beamGradient;
         ctx.fillRect(screen.x, screen.y, platform.width, 10);
-        ctx.fillStyle = "rgba(255,255,255,0.18)";
-        ctx.fillRect(
-          screen.x + 2,
-          screen.y + 1,
-          Math.max(0, platform.width - 4),
-          2,
-        );
-        // Soil-tinted top edge ties the beam to the ground below it.
-        ctx.fillStyle = shadeHexColor(colors.groundDark, 6);
-        ctx.fillRect(screen.x, screen.y, platform.width, 2);
-        ctx.strokeStyle = shadeHexColor(colors.groundDark, -20);
-        ctx.lineWidth = 1;
+        // Lime landing cap — bright, opaque, unmistakably "stand here".
+        ctx.fillStyle = colors.platform;
+        ctx.fillRect(screen.x, screen.y, platform.width, 2.5);
+        // Thin ink border keeps the slab inked rather than floated.
+        ctx.strokeStyle = "#0a0a0f";
+        ctx.lineWidth = 1.5;
         ctx.strokeRect(screen.x, screen.y, platform.width, 10);
         // Floating-island underside: tapered keel, root strands, rivets.
         paintPlatformDetail(
@@ -483,9 +489,9 @@ export class GameRenderer {
       ctx.globalAlpha = Math.floor(t) % 2 === 0 ? 0.45 : 1;
     }
 
-    ctx.fillStyle = "rgba(0,0,0,0.25)";
+    ctx.fillStyle = "rgba(0,0,0,0.4)";
     ctx.beginPath();
-    ctx.ellipse(screen.x + w / 2, sy + h + 4, w * 0.43, h * 0.13, 0, 0, Math.PI * 2);
+    ctx.ellipse(screen.x + w / 2, sy + h + 4, w * 0.46, h * 0.16, 0, 0, Math.PI * 2);
     ctx.fill();
 
     ctx.translate(screen.x + w / 2, sy);

@@ -476,5 +476,24 @@ export function drawCharacterArt(
     rect(ctx, "#134e4a", headX + headW - 5, headY + 4, 2, 2);
   }
 
+  // Ink contour pass — the graphic-novel signature. A 1px near-black
+  // silhouette outline around the full sprite keeps the character readable
+  // over dark terrain and midground ridges at any biome/time-of-day.
+  ctx.strokeStyle = "#0a0a0f";
+  ctx.lineWidth = 1;
+  ctx.globalAlpha = 0.9;
+  ctx.strokeRect(0.5, 1.5, width - 1, height - 3);
+  // Lime underglow accent ties the hero to the interaction palette without
+  // a per-frame bloom: a static hairline at the boot line, ink-bordered
+  // white so it stays visible even when standing on the lime ground cap
+  // (lime-on-lime would vanish).
+  ctx.strokeStyle = "#f4f2ed";
+  ctx.globalAlpha = 0.75;
+  ctx.beginPath();
+  ctx.moveTo(1, height - 0.5);
+  ctx.lineTo(width - 1, height - 0.5);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+
   ctx.restore();
 }

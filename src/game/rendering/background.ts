@@ -290,9 +290,9 @@ export function drawBackgroundParallax(
   const seed = colorSeed(colors);
 
   // Aerial perspective: far ridges blend toward the sky color so depth reads.
-  const farColor = blendHex(shadeFraction(colors.groundDark, -0.24), colors.sky, 0.48);
-  const midColor = blendHex(shadeFraction(colors.groundDark, -0.1), colors.sky, 0.24);
-  const nearColor = colors.groundDark;
+  const farColor = blendHex(shadeFraction(colors.groundDark, -0.24), colors.sky, 0.62);
+  const midColor = blendHex(shadeFraction(colors.groundDark, -0.1), colors.sky, 0.4);
+  const nearColor = blendHex(colors.groundDark, colors.sky, 0.16);
   const snowColor = blendHex("#e7eefc", colors.sky, 0.15);
 
   drawRidge(ctx, width, height, cameraX, cameraY, 0.08, 232, 92, farColor, seed + 40, null, detail === "high" ? 6 : 10);
