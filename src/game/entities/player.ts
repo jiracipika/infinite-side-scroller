@@ -342,6 +342,16 @@ export class Player {
     else if (this.jumpBufferTimer > 0 && !this.dashing)
       this.jumpBufferTimer = Math.max(0, this.jumpBufferTimer - dt);
 
+    // Resolve intent before dash so simultaneous direction + dash works
+    // for keyboard, touch and analog gamepads alike.
+    const horizontalAxis = typeof input.getHorizontalAxis === "function"
+      ? input.getHorizontalAxis()
+      : (input.isDown("ArrowLeft") || input.isDown("KeyA"))
+        ? -1
+        : (input.isDown("ArrowRight") || input.isDown("KeyD"))
+          ? 1
+          : 0;
+
     // Dash attack
     const wantDash = input.isPressed("KeyX") || input.isPressed("ShiftLeft");
     if (wantDash && this.dashCooldown <= 0 && !this.dashing) {
@@ -349,6 +359,7 @@ export class Player {
       this.dashTimer = this.DASH_DURATION;
       this.dashCooldown =
         this.DASH_COOLDOWN * this.progressionBonuses.dashCooldownMultiplier;
+      if (horizontalAxis !== 0) this.facingRight = horizontalAxis > 0;
       this.dashDirection = this.facingRight ? 1 : -1;
       this.invulnerable = true;
       this.invulnerableTimer = Math.max(
@@ -390,13 +401,6 @@ export class Player {
     }
 
     // Horizontal movement
-    const horizontalAxis = typeof input.getHorizontalAxis === "function"
-      ? input.getHorizontalAxis()
-      : (input.isDown("ArrowLeft") || input.isDown("KeyA"))
-        ? -1
-        : (input.isDown("ArrowRight") || input.isDown("KeyD"))
-          ? 1
-          : 0;
     const moveLeft = horizontalAxis < 0;
     const moveRight = horizontalAxis > 0;
     const sprint = input.isDown("ShiftRight");
@@ -562,12 +566,18 @@ export class Player {
    */
   private wouldLandThisStep(dt: number, groundY: number, platforms: Platform[]): boolean {
     const stepVy = Math.min(this.vy + this.config.gravity * dt, 900);
-    const projectedBottom = this.y + this.height + stepVy * dt;
+    const previousBottom = this.y + this.height;
+    const projectedBottom = previousBottom + stepVy * dt;
+    const projectedX = Math.max(0, this.x + this.vx * dt);
     if (groundY !== Infinity && projectedBottom >= groundY) return true;
     if (stepVy >= 0) {
       for (const plat of platforms) {
-        if (this.x + this.width > plat.x && this.x < plat.x + plat.width) {
-          if (projectedBottom >= plat.y) return true;
+        // Match the actual one-way collision test, including its tolerance
+        // and post-movement horizontal bounds. An overhead platform is not
+        // a landing, nor is a ledge we leave during this step.
+        if (projectedX + this.width > plat.x && projectedX < plat.x + plat.width &&
+            previousBottom <= plat.y + 2 && projectedBottom >= plat.y - 2) {
+          return true;
         }
       }
     }
