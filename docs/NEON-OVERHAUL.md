@@ -43,7 +43,17 @@ GAME_URL=http://127.0.0.1:3010 PLAYWRIGHT_PACKAGE=/absolute/tooling/package.json
 
 Screenshot output defaults to `/tmp/dashverse-menu-qa.png` and `/tmp/dashverse-touch-qa.png`; override with `MENU_SCREENSHOT` / `TOUCH_SCREENSHOT`. The browser scripts are opt-in local QA, not part of the dependency-free unit-test command.
 
-### Remaining visual work
+### Concept-fidelity pass 2 (2026-09-05, slice F)
+- Ink clouds: near-black inked bodies w/ light top rim (were 11%-alpha white
+  ellipses — invisible). Opaque fills per art direction.
+- Ink city skyline: deterministic silhouette towers between the chromatic
+  streams and near ridge — lit windows brighten at night, ~1-in-3 towers carry
+  a vertical neon sign (lime/violet/coral, local glow, flicker frozen under
+  reduced motion). Contract gate: scripts/test-neon-backdrop.mjs (in npm test).
+- Live frame QA: night scene shows ink clouds w/ rim, towers w/ windows, sign
+  strips in the approved accent trio. Perf, build, evidence green.
+
+## Remaining visual work
 - ~~Deliberate sun/moon treatment; scenery could display both celestial bodies.~~ DONE 2026-09-05:
   `resolveCelestialAlphas(gameTime)` (pure, RNG-free) cross-fades the sun and moon —
   sunAlpha + moonAlpha ≤ 1 at every phase, so only one body ever owns the sky.

@@ -356,6 +356,7 @@ export function drawBackgroundParallax(
   drawRidge(ctx, width, height, cameraX, cameraY, 0.08, 232, 92, farColor, seed + 40, null, detail === "high" ? 6 : 10);
   drawRidge(ctx, width, height, cameraX, cameraY, 0.18, 305, 74, midColor, seed + 160, detail === "high" ? snowColor : null, detail === "high" ? 5 : 9);
   drawChromaticStreams(ctx, width, gameTime, colors, nightness, detail, reducedMotion(opts));
+  drawInkSkyline(ctx, width, height, cameraX, cameraY, gameTime, colors, nightness, seed, detail, reducedMotion(opts));
   drawRidge(ctx, width, height, cameraX, cameraY, 0.35, 395, 62, nearColor, seed + 280, null, detail === "high" ? 4 : 8);
   drawCloudLayer(ctx, width, height, cameraX, cameraY, gameTime, colors, nightness, detail, reducedMotion(opts));
 }
@@ -456,6 +457,111 @@ function drawChromaticStreams(
 }
 
 /**
+ * Graphic-novel ink city skyline — the concept board's signature backdrop.
+ * Deterministic silhouette towers (hash-seeded, multiplayer-stable) with a
+ * scatter of lit windows and occasional vertical neon signs. Sits between
+ * the chromatic streams and the near ridge so towers read as mid-ground
+ * city blocks. Alpha lifts at night (the concept is a violet night city);
+ * signs use the approved accent trio (lime / violet / coral).
+ */
+function drawInkSkyline(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  cameraX: number,
+  cameraY: number,
+  gameTime: number,
+  colors: BiomeColors,
+  nightness: number,
+  seed: number,
+  detail: BackgroundDetail,
+  reducedMotionFlag: boolean,
+): void {
+  const parallax = 0.26;
+  const baseY = 405 - cameraY * 0.26;
+  const towers = detail === "high" ? 10 : 6;
+  const spanX = width + 480;
+  const ink = blendHex("#0a0a0f", colors.groundDark, 0.3);
+  const SIGN_TINTS = ["#c7ff4d", "#9570ff", "#ff7166"] as const;
+  const time = reducedMotionFlag ? 0 : gameTime;
+
+  for (let i = 0; i < towers; i++) {
+    const h1 = textureHash(i * 23 + 5, seed + 901);
+    const h2 = textureHash(i * 41 + 9, seed + 902);
+    const h3 = textureHash(i * 61 + 13, seed + 903);
+    const tw = 34 + h1 * 58;              // tower width
+    const th = 90 + h2 * 190;             // tower height
+    const x = mod(h1 * spanX + time * 3.2 - cameraX * parallax, spanX + tw) - tw;
+    const topY = baseY - th;
+    if (topY > height * 0.72 || baseY < 0) continue;
+    const bodyAlpha = 0.66 + h3 * 0.22;
+
+    // Ink tower body (flat, opaque, slight taper for a hand-inked read).
+    ctx.fillStyle = hexToRgba(ink, bodyAlpha);
+    ctx.beginPath();
+    ctx.moveTo(x, baseY);
+    ctx.lineTo(x + tw * 0.08, topY);
+    ctx.lineTo(x + tw * 0.92, topY);
+    ctx.lineTo(x + tw, baseY);
+    ctx.closePath();
+    ctx.fill();
+
+    // Rooftop block (antenna/roof detail varies per tower).
+    if (h3 > 0.55) {
+      ctx.fillRect(x + tw * (0.18 + h1 * 0.3), topY - 10 - h2 * 12, tw * 0.16, 10 + h2 * 12);
+    }
+
+    if (detail !== "high") continue;
+
+    // Lit windows: deterministic grid scatter, warm-pale, brighter at night.
+    const cols = Math.max(2, Math.floor(tw / 16));
+    const rows = Math.max(3, Math.floor(th / 22));
+    const winAlpha = (0.16 + nightness * 0.5) * bodyAlpha;
+    ctx.fillStyle = hexToRgba("#ffe9c9", winAlpha);
+    for (let c = 0; c < cols; c++) {
+      for (let rw = 0; rw < rows; rw++) {
+        const lit = textureHash(i * 97 + c * 13 + rw * 7, seed + 904);
+        if (lit > 0.62) {
+          ctx.fillRect(
+            x + tw * 0.14 + c * (tw * 0.72) / cols,
+            topY + 12 + rw * (th - 20) / rows,
+            3.4,
+            4.6,
+          );
+        }
+      }
+    }
+
+    // Vertical neon sign on ~1 in 3 towers: thin glowing strip with bands.
+    if (h2 > 0.66) {
+      const tint = SIGN_TINTS[Math.floor(h3 * SIGN_TINTS.length) % SIGN_TINTS.length];
+      const sx = x + tw * (0.3 + h1 * 0.4);
+      const sy = topY + 14;
+      const sh = th * (0.42 + h3 * 0.3);
+      const flicker = reducedMotionFlag
+        ? 1
+        : 0.82 + Math.sin(gameTime * (2 + h1 * 3) + i * 2.1) * 0.18;
+      const signAlpha = (0.5 + nightness * 0.4) * flicker;
+      ctx.fillStyle = hexToRgba(ink, bodyAlpha);
+      ctx.fillRect(sx - 5, sy - 6, 10, sh + 12);
+      ctx.fillStyle = hexToRgba(tint, signAlpha);
+      const bands = Math.max(3, Math.floor(sh / 12));
+      for (let b = 0; b < bands; b++) {
+        if (textureHash(i * 31 + b * 17, seed + 905) > 0.3) {
+          ctx.fillRect(sx - 2.5, sy + b * (sh / bands), 5, (sh / bands) * 0.62);
+        }
+      }
+      // Soft local glow around the strip (never full-screen).
+      const glow = ctx.createRadialGradient(sx, sy + sh / 2, 2, sx, sy + sh / 2, sh * 0.55);
+      glow.addColorStop(0, hexToRgba(tint, signAlpha * 0.16));
+      glow.addColorStop(1, hexToRgba(tint, 0));
+      ctx.fillStyle = glow;
+      ctx.fillRect(sx - sh * 0.3, sy - 10, sh * 0.6, sh + 20);
+    }
+  }
+}
+
+/**
  * World-anchored drifting clouds. Positions come from deterministic hashes
  * over the cloud slot index — the same sky renders on every client.
  */
@@ -471,12 +577,13 @@ function drawCloudLayer(
   detail: BackgroundDetail,
   reducedMotionFlag: boolean,
 ): void {
-  const slots = detail === "high" ? 11 : 6;
+  const slots = detail === "high" ? 9 : 5;
   const spanX = width + 600;
-  // Clouds pick up the biome gradient at dawn/dusk and darken at night.
-  const cloudBase = blendHex("#ffffff", colors.skyGradient, 0.22);
-  const cloudTint = blendHex(cloudBase, colors.sky, nightness * 0.62);
-  const shade = blendHex(cloudTint, colors.groundDark, 0.35);
+  // Graphic-novel ink clouds: near-black inked bodies with a subtle top rim
+  // picked up from the biome highlight (violet day, pale night). Opaque fills
+  // keep the inked read; alpha only softens them slightly into the sky.
+  const inkBody = blendHex("#0a0a0f", colors.groundDark, 0.42);
+  const rimLight = blendHex(colors.skyGradient, "#f4f2ed", 0.38);
   const time = reducedMotionFlag ? 0 : gameTime;
 
   for (let i = 0; i < slots; i++) {
@@ -489,8 +596,8 @@ function drawCloudLayer(
     const y =
       42 + h2 * (height * 0.2) - cameraY * 0.1 + (reducedMotionFlag ? 0 : Math.sin(time * 0.5 + i) * 2.5);
     if (y < -30 || y > height * 0.6) continue;
-    const alpha = 0.11 + h3 * 0.1;
-    drawCloudShape(ctx, x, y, scale, hexToRgba(cloudTint, alpha), hexToRgba(shade, alpha * 0.55));
+    const alpha = 0.78 + h3 * 0.18;
+    drawCloudShape(ctx, x, y, scale, hexToRgba(inkBody, alpha), hexToRgba(rimLight, alpha * 0.5));
   }
 }
 
@@ -500,8 +607,9 @@ function drawCloudShape(
   y: number,
   s: number,
   body: string,
-  shade: string,
+  rim: string,
 ): void {
+  // Flat ink silhouette built from overlapping puffs — bold, not fluffy.
   ctx.fillStyle = body;
   ctx.beginPath();
   ctx.ellipse(x, y, 42 * s, 14 * s, 0, 0, Math.PI * 2);
@@ -515,9 +623,14 @@ function drawCloudShape(
   ctx.beginPath();
   ctx.ellipse(x + 4 * s, y - 8 * s, 24 * s, 11 * s, 0, 0, Math.PI * 2);
   ctx.fill();
-  // Flat under-shade gives the puffs volume.
-  ctx.fillStyle = shade;
+  // Thin light rim traced along the top of the main puff — the inked
+  // highlight that makes the cloud read against dark skies.
+  ctx.strokeStyle = rim;
+  ctx.lineWidth = Math.max(1, 1.6 * s);
   ctx.beginPath();
-  ctx.ellipse(x - 4 * s, y + 8 * s, 38 * s, 7 * s, 0, 0, Math.PI * 2);
-  ctx.fill();
+  ctx.ellipse(x + 4 * s, y - 8 * s, 24 * s, 11 * s, 0, Math.PI * 1.08, Math.PI * 1.92);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.ellipse(x, y, 42 * s, 14 * s, 0, Math.PI * 1.12, Math.PI * 1.75);
+  ctx.stroke();
 }
