@@ -11,7 +11,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit --incremental false",
-    "test": "node scripts/run-tests.mjs && node scripts/test-level-select-ux.mjs && node scripts/test-controls-hint.mjs && node scripts/test-level-complete-hint.mjs && node scripts/test-daily-streak.mjs && node scripts/test-mobile-webview-recovery.mjs && node scripts/test-mobile-webview-lifecycle.mjs && node scripts/test-hud-neon-panels.mjs && node scripts/test-neon-touch.mjs && node scripts/test-neon-sky-a11y.mjs && node scripts/test-neon-backdrop.mjs",
+    "test": "node scripts/run-tests.mjs && node scripts/test-level-select-ux.mjs && node scripts/test-controls-hint.mjs && node scripts/test-level-complete-hint.mjs && node scripts/test-daily-streak.mjs && node scripts/test-mobile-webview-recovery.mjs && node scripts/test-mobile-webview-lifecycle.mjs && node scripts/test-hud-neon-panels.mjs && node scripts/test-neon-touch.mjs && node scripts/test-neon-sky-a11y.mjs && node scripts/test-neon-backdrop.mjs && node scripts/test-neon-moments.mjs",
     "mobile:dev": "npm --prefix apps/mobile run start",
     "mobile:ios": "npm --prefix apps/mobile run ios",
     "mobile:android": "npm --prefix apps/mobile run android",

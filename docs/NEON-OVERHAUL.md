@@ -53,6 +53,20 @@ Screenshot output defaults to `/tmp/dashverse-menu-qa.png` and `/tmp/dashverse-t
 - Live frame QA: night scene shows ink clouds w/ rim, towers w/ windows, sign
   strips in the approved accent trio. Perf, build, evidence green.
 
+## Concept-fidelity pass 3 — moment FX (2026-09-05, slice G)
+- Biome-entry title card: engine dispatches `dashverse-biome` (CustomEvent) once
+  per biome change during a run; BiomeTitleCard plays a graphic-novel ink card
+  ("NOW ENTERING / VOLCANIC", skewed ink panel, accent underline in the biome
+  platform color, ink-wipe entrance, ~1.4s hold, aria-live). Animation frozen
+  (static card) under reduced motion. Tracker resets per run.
+- Game-over knockout flash: 2-frame ink/paper flash + radial burst lines
+  (repeating-conic-gradient) for ~650ms before the results panel reads.
+  aria-hidden, pointer-transparent, fully skipped under reduced motion, no
+  canvas/engine timing touched.
+- Contract gate scripts/test-neon-moments.mjs (9 assertions, in npm test).
+  Live QA: card renders + auto-unmounts on event; flash observed on a real
+  natural game-over transition (DOM watcher). Verify + build + evidence green.
+
 ## Remaining visual work
 - ~~Deliberate sun/moon treatment; scenery could display both celestial bodies.~~ DONE 2026-09-05:
   `resolveCelestialAlphas(gameTime)` (pure, RNG-free) cross-fades the sun and moon —

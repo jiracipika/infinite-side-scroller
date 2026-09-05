@@ -10,6 +10,8 @@ import PauseMenu from '@/components/PauseMenu';
 import GameOverScreen from '@/components/GameOverScreen';
 import HUD from '@/components/HUD';
 import TouchControls from '@/components/TouchControls';
+import BiomeTitleCard from '@/components/BiomeTitleCard';
+import GameOverFlash from '@/components/GameOverFlash';
 import SplitScreenMode from '@/components/SplitScreenMode';
 import LevelSelectScreen from '@/components/LevelSelectScreen';
 import LevelCompleteScreen from '@/components/LevelCompleteScreen';
@@ -1757,6 +1759,7 @@ export default function Home() {
             )}
             {state === "gameover" && (
               <ScreenTransition key="gameover" variant="modal" className="absolute inset-0 grid place-items-center" style={{ pointerEvents: 'auto' }} role="region" aria-label="Game over">
+              <GameOverFlash still={resolveReducedMotion(settings.reducedMotion)} />
               <GameOverScreen
                 stats={stats}
                 newRecords={newRecords}
@@ -1786,6 +1789,9 @@ export default function Home() {
         />
       )}
       {state === "playing" && <HUD stats={stats} settings={settings} />}
+      {state === "playing" && (
+        <BiomeTitleCard still={resolveReducedMotion(settings.reducedMotion)} />
+      )}
       {state === "playing" && (
         <TouchControls
           hapticsEnabled={settings.hapticsEnabled}

@@ -273,6 +273,33 @@ button,
   }
 }
 
+/* Biome title card — ink-wipe entrance, calm exit. */
+@keyframes biomeCardIn {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) translateX(-28px) skewX(-6deg);
+    clip-path: inset(0 100% 0 0);
+  }
+  60% {
+    opacity: 1;
+    clip-path: inset(0 0 0 0);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(-50%) translateX(0);
+  }
+}
+
+@keyframes biomeCardOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-8px);
+  }
+}
+
 @keyframes iconAmbient {
   0%,
   100% {

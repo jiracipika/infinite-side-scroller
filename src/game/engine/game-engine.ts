@@ -243,6 +243,8 @@ export class GameEngine {
    * it is a timing effect, not a motion effect — the viewport stays still.
    */
   private hitStopTimer = 0;
+  /** Last biome name announced via the dashverse-biome event (null until first resolution). */
+  private lastAnnouncedBiome: string | null = null;
 
   /**
    * Distance milestone tracker: fires a celebratory popup every 500m to give
@@ -610,6 +612,7 @@ export class GameEngine {
     this.comboTimer = 0;
     this.maxCombo = 0;
     this.hitStopTimer = 0;
+    this.lastAnnouncedBiome = null;
     this.specialCooldownRemaining = 0;
     this.specialActiveRemaining = 0;
     this.specialPulseTimer = 0;
@@ -2575,6 +2578,21 @@ export class GameEngine {
 
     // Particles
     const biome = this.levelBiomeOverride ?? getBiomeAt(this.player.centerX);
+    // Biome-entry announcement: fires once per biome change during a run so
+    // the React shell can play the graphic-novel title card. The first
+    // resolution seeds the tracker (run start handles its own intro).
+    if (this.lastAnnouncedBiome === null) {
+      this.lastAnnouncedBiome = biome.name;
+    } else if (this.lastAnnouncedBiome !== biome.name) {
+      this.lastAnnouncedBiome = biome.name;
+      if (typeof window !== "undefined" && this._state === "playing") {
+        window.dispatchEvent(
+          new CustomEvent("dashverse-biome", {
+            detail: { name: biome.name, accent: biome.colors.platform },
+          }),
+        );
+      }
+    }
     const screenW = this.camera.viewportWidth;
     const screenH = this.camera.viewportHeight;
     this.particles.update(
