@@ -67,6 +67,33 @@ Screenshot output defaults to `/tmp/dashverse-menu-qa.png` and `/tmp/dashverse-t
   Live QA: card renders + auto-unmounts on event; flash observed on a real
   natural game-over transition (DOM watcher). Verify + build + evidence green.
 
+## Gameplay ink pass 4 — playable graphic-novel world (2026-09-06)
+- Three-plate industrial city (`src/game/rendering/ink-city.ts`): deterministic
+  world-cell towers ×3 parallax tiers with antennas, fire escapes, water tanks,
+  sagging cables; screenprint facade texture baked into the terrain cache; all
+  emphasis violet/lavender — lime stays reserved for traversal.
+- Terrain is now black ink with a lime traversal rim; platform slabs get rough
+  undersides below an exact collision top; decorations are non-colliding ink
+  roof props (antenna trees, hazard-hatched boxes). Legacy hills/streams/dup
+  skyline removed from background.ts (−500 lines net).
+- Knight redrawn as an armored ink silhouette (cape, lime visor) using the
+  shared pose solvers; Slime/Beetle recolored to black bodies + coral eyes;
+  spikes/crumbling platforms now black with coral tips + warning hatch; enemy
+  "!" ink-burst alert on chase/attack entry; brush-cut dash trails (reduced-motion gated);
+  HUD panels are angular clip-path slabs with outlined condensed score type.
+- Runs open on the violet moon (skyClockOffset phase 0.8); day/night tint now
+  renders BEHIND gameplay so hero/hazard ink is never muted; only the dominant
+  celestial body draws during dawn/dusk crossfade.
+- Gates: test/ink-city.test.ts, test/ink-knight.test.ts, rewritten
+  scripts/test-neon-backdrop.mjs + scripts/test-ink-art-browser.mjs (menu/
+  gameplay/traversal/combat/dash screenshots + live-engine assertions).
+  Verified: 582 core tests + contract suites, typecheck, lint, production
+  build, release:evidence, production-server browser probes (menu reflow,
+  touch, ink art), mobile game.html rebundled. Render profile on live engine:
+  full render median 1.6ms / p95 3.8ms per frame (headless, 1280×720).
+- Palette ratios enforced: ~70% black/purple plates, 20% violet/lavender, 10%
+  lime/coral accents (bright color only on things the eye must find).
+
 ## Remaining visual work
 - ~~Deliberate sun/moon treatment; scenery could display both celestial bodies.~~ DONE 2026-09-05:
   `resolveCelestialAlphas(gameTime)` (pure, RNG-free) cross-fades the sun and moon —
