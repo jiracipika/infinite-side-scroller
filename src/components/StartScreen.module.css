@@ -1,294 +1,179 @@
-/* ════════════════════════════════════════════════════════════════
-   StartScreen — neon graphic-novel restyle (scoped module)
-
-   Art direction: near-black #0a0a0f paper, opaque #1c1c2e ink panels,
-   lime #c7ff4d primary, violet #9570ff secondary, coral #ff7166 danger,
-   offwhite #f4f2ed type. Bold ink-cut angular edges, restrained
-   halftone, hard offset shadows — NOT a glassy cyberpunk dashboard.
-
-   Every rule here is scoped under the module classes applied by
-   StartScreen.tsx and uses compound :global() selectors so the
-   overrides win on specificity over globals.css regardless of
-   bundle order. No new dependencies, no infinite JS/CSS animation
-   (everything decorative here is static), no large blurs.
-   ════════════════════════════════════════════════════════════════ */
-
-/* ── Shell: near-black ink paper + restrained halftone ─────────── */
-
+/* DASHVERSE — comic-cover edition. Opaque ink, violet paper, acid-lime cuts.
+   Scoped above legacy dashboard rules; no blur filters or bitmap dependencies. */
 :global(.dash-menu-shell).shell {
-  background:
-    radial-gradient(circle at 16% 0%, rgba(149, 112, 255, 0.09), transparent 34rem),
-    radial-gradient(circle at 90% 100%, rgba(255, 113, 102, 0.06), transparent 30rem),
-    #0a0a0f;
+  --dash-cyan: #c7ff4d;
+  --dash-line: #554364;
+  background: repeating-linear-gradient(121deg, #0a0a0f 0 60px, #100d18 61px 63px, #0a0a0f 64px 110px);
+  animation: none;
 }
-
-/* Replace the cyan sci-fi grid overlay with a faint halftone dot field. */
 :global(.dash-menu-shell).shell::before {
-  background: radial-gradient(rgba(244, 242, 237, 0.05) 1px, transparent 1.4px);
-  background-size: 9px 9px;
-  opacity: 0.55;
+  background: radial-gradient(#41304f 0.7px, transparent 1px);
+  background-size: 8px 8px;
+  opacity: 0.28;
 }
-
-/* Kill the perspective grid floor — graphic novel, not synthwave. */
-:global(.dash-menu-shell).shell::after {
-  content: none;
-}
-
-/* Static ink speed-lines (replaces the three blur-glow divs). */
+:global(.dash-menu-shell).shell::after { content: none; }
 .inkBleed {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  background:
-    linear-gradient(115deg, transparent 41%, rgba(199, 255, 77, 0.05) 42.5%, transparent 44.5%),
-    linear-gradient(63deg, transparent 67%, rgba(149, 112, 255, 0.06) 68.5%, transparent 70.5%);
+  position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(119deg, transparent 28%, #452065 28.1% 28.4%, transparent 28.5%), linear-gradient(119deg, transparent 80%, #c7ff4d 80.1% 80.3%, transparent 80.4%);
 }
-
-/* ── Panels: opaque #1c1c2e ink slabs, hard offset shadow ──────── */
-
-.shell :global(.dash-command-panel),
-.shell :global(.dash-card) {
-  border: 2px solid #1c1c2e;
-  border-radius: 4px 18px 4px 18px;
-  background: linear-gradient(165deg, #15151f 0%, #101019 55%, #0c0c13 100%);
-  box-shadow: 6px 6px 0 0 rgba(0, 0, 0, 0.8);
+.shell :global(.dash-menu-stage-v2) { gap: 14px; align-items: stretch; }
+.shell :global(.dash-command-panel), .shell :global(.dash-card) {
+  border: 1px solid #625270;
+  border-radius: 1px;
+  background: #101017;
+  box-shadow: 5px 6px 0 #030305;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
-
-/* Left spine edge becomes lime instead of cyan. */
-.shell :global(.dash-command-panel)::before {
-  background: linear-gradient(transparent, rgba(199, 255, 77, 0.6), transparent);
-  opacity: 0.45;
-}
-
-/* Hero gets a violet-tinted variant of the ink slab. */
+.shell :global(.dash-command-panel)::before { content: none; }
+.shell :global(.dash-command-panel) { padding: 18px; }
 :global(.dash-command-panel).heroPanel {
-  background:
-    radial-gradient(circle at 14% 8%, rgba(149, 112, 255, 0.12), transparent 34%),
-    linear-gradient(160deg, #171725 0%, #10101a 58%, #0c0c13 100%);
+  background: #0a0a0f;
+  border-top: 4px solid #c7ff4d;
+  gap: 10px;
+  justify-content: flex-start;
 }
-
-/* ── Typography: bold condensed ink titles ─────────────────────── */
-
-.shell :global(.dash-eyebrow) {
-  color: #c7ff4d;
-}
-
-.shell :global(.dash-section-title-row-v2) h2 {
-  font-size: 20px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  text-transform: uppercase;
-}
-
-/* Main title: stacked, uppercase, heavy, hard lime offset. */
+.heroPanel::after { content: none; }
+.shell :global(.dash-eyebrow) { color: #c7ff4d; font-size: 9px; letter-spacing: .16em; }
+.heroPanel :global(.dash-topbar-v2) { margin: 0; gap: 4px; align-items: flex-start; }
 .heroPanel :global(.dash-brand-v2) h1 {
-  color: #f4f2ed;
+  margin: 8px 0 0;
+  color: #c7ff4d;
   background: none;
   -webkit-text-fill-color: currentColor;
-  font-family: "Arial Black", "Arial Bold", Arial, sans-serif;
-  font-size: clamp(40px, 11vw, 64px);
+  font-family: Impact, 'Arial Narrow', 'Arial Black', sans-serif;
+  font-size: clamp(42px, 5.2vw, 76px);
+  font-style: italic;
   font-weight: 900;
-  font-stretch: condensed;
-  line-height: 0.92;
-  letter-spacing: -0.015em;
+  line-height: .9;
+  letter-spacing: -.035em;
   text-transform: uppercase;
-  text-shadow: 4px 4px 0 rgba(199, 255, 77, 0.32);
+  text-shadow: 3px 3px 0 #3f2460;
+  transform: skew(-5deg) rotate(-2deg);
+  transform-origin: left center;
   animation: none;
+  white-space: nowrap;
 }
-
-/* Short desktop: keep all eight destinations above the fold. The shell
-   still scrolls for expanded panels and increased text sizes. */
-@media (min-width: 1180px) and (max-height: 700px) {
-  .modesPanel .modeGrid { gap: 7px; }
-  .modesPanel .modeGrid button:global(.dash-mode-card-v2) {
-    min-height: 76px;
-    padding: 10px 12px;
-  }
-  .modesPanel .modeGrid button:global(.dash-mode-card-v2) span {
-    margin-top: 3px;
-    font-size: 11px;
-    line-height: 1.2;
-  }
-  .modesPanel .modeGrid button:global(.dash-mode-card-v2) b {
-    font-size: 14px;
-    line-height: 1.2;
-  }
-  .modesPanel .modeGrid button:global(.dash-mode-card-v2) small {
-    margin-bottom: 5px;
-    padding-block: 2px;
-  }
-  .modesPanel :global(.dash-tester-checklist-v2) {
-    margin: 8px 0;
-    padding: 8px 10px;
-    font-size: 11px;
-  }
-  .heroPanel :global(.dash-brand-v2) h1 {
-    font-size: clamp(26px, 3.2vw, 40px);
-    text-shadow: 3px 3px 0 rgba(199, 255, 77, 0.32);
-  }
+.heroPanel :global(.dash-brand-v2) h1 span { color: #f4f2ed; }
+:global(.dash-live-pill).pill { padding: 5px; border: 0; background: none; color: #c7ff4d; font-size: 8px; }
+.pill span { box-shadow: none; }
+.cover {
+  position: relative; min-height: 180px; height: clamp(180px, 26vh, 280px);
+  overflow: hidden; margin: 2px -7px 0;
+  border: 1px solid #9570ff;
+  clip-path: polygon(0 4%,100% 0,100% 96%,0 100%);
+  background: #30164d;
 }
-
-@media (max-width: 380px) {
-  .heroPanel :global(.dash-brand-v2) { gap: 8px; }
-  .heroPanel :global(.dash-brand-v2) h1 { font-size: 34px; }
+.cover svg { width: 100%; height: 100%; display: block; }
+.coverMoon { transform: translate(calc((var(--px, .5) - .5) * -10px), calc((var(--py, .5) - .5) * -5px)); }
+.coverCity { transform: translateX(calc((var(--px, .5) - .5) * -5px)); }
+.coverRunner { transform: translate(calc((var(--px, .5) - .5) * 15px), calc((var(--py, .5) - .5) * 9px)); }
+.coverMoon, .coverCity, .coverRunner { transition: transform .35s ease-out; }
+.coverCaption {
+  position: absolute; bottom: 12px; left: 10px; right: 10px;
+  display: flex; justify-content: space-between; gap: 8px;
+  font: 800 9px ui-monospace, monospace; letter-spacing: .04em;
 }
-
-/* ── Ready pill: lime ink stamp ────────────────────────────────── */
-
-:global(.dash-live-pill).pill {
-  border: 1.5px solid rgba(199, 255, 77, 0.45);
-  border-radius: 3px;
-  background: rgba(199, 255, 77, 0.08);
-  color: #d9ffa1;
-}
-
-/* ── Quick stats: ink chips ────────────────────────────────────── */
-
-.shell :global(.dash-quick-stats-v2) span {
-  border-color: #23233a;
-  border-radius: 3px 10px 3px 10px;
-  background: #101019;
-}
-
-.shell :global(.dash-tester-checklist-v2) {
-  border-color: rgba(199, 255, 77, 0.22);
-  border-radius: 3px 12px 3px 12px;
-  background: rgba(199, 255, 77, 0.06);
-}
-
-/* ── Dominant lime Play CTA ────────────────────────────────────── */
-
+.coverCaption span { background: #0a0a0f; color: #c7ff4d; padding: 5px 6px; }
+.heroPanel :global(.dash-hero-lede) { font-size: 12px; line-height: 1.5; margin: 0; color: #c7bfce; }
+.controlsDisclosure { border-block: 1px solid #39303f; }
+.controlsDisclosure summary { padding: 10px 0; cursor: pointer; font: 700 11px ui-monospace, monospace; color: #f4f2ed; text-transform: uppercase; }
+.controlsDisclosure summary::marker { color: #c7ff4d; }
+.controlsDisclosure[open] { background: #171220; }
+.controlsDisclosure summary:focus-visible, .shell button:focus-visible { outline: 2px solid #c7ff4d; outline-offset: 3px; }
+.heroPanel :global(.dash-quick-stats-v2) { margin: 0; gap: 5px; grid-template-columns: repeat(4,minmax(0,1fr)); }
+.shell :global(.dash-quick-stats-v2) span { padding: 8px; border: 0; border-left: 2px solid #51415f; border-radius: 0; background: #17121e; }
+.shell :global(.dash-quick-stats-v2) small { color: #b5a7c1; }
+.shell :global(.dash-quick-stats-v2) b { font-size: 12px; overflow-wrap: anywhere; }
+.primaryRow { margin-top: auto; }
 :global(.dash-play-button-v2).playCta {
-  border: 2px solid #050505;
-  border-radius: 4px 14px 4px 14px;
-  background: linear-gradient(135deg, #d9ff70, #c7ff4d 55%, #b4f031);
-  box-shadow: 5px 5px 0 0 rgba(0, 0, 0, 0.9);
+  min-height: 74px; padding: 12px 44px 12px 14px;
+  border: 1px solid #d9ff89; border-radius: 0;
+  background: #c7ff4d; box-shadow: 4px 4px 0 #452065;
 }
-
-/* Static sheen only — no looping shine animation. */
-:global(.dash-play-button-v2).playCta::before {
-  animation: none;
-  background: linear-gradient(105deg, transparent 38%, rgba(255, 255, 255, 0.42) 50%, transparent 62%);
-  transform: none;
-}
-
-:global(.dash-play-button-v2).playCta::after {
-  content: none;
-}
-
-:global(.dash-play-button-v2).playCta span {
-  font-size: 24px;
-  font-weight: 900;
-  letter-spacing: -0.02em;
-  text-transform: uppercase;
-  color: #0a0a0f;
-}
-
-:global(.dash-play-button-v2).playCta small {
-  color: rgba(10, 10, 15, 0.68);
-  font-weight: 600;
-}
-
-:global(.dash-play-button-v2).playCta:hover {
-  transform: translate(-2px, -2px);
-  border-color: #050505;
-  box-shadow: 7px 7px 0 0 rgba(0, 0, 0, 0.9);
-}
-
-:global(.dash-play-button-v2).playCta:active {
-  transform: translate(2px, 2px);
-  box-shadow: 2px 2px 0 0 rgba(0, 0, 0, 0.9);
-}
-
-.playGlyph {
-  position: absolute;
-  right: 18px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-style: normal;
-  font-size: 30px;
-  font-weight: 900;
-  line-height: 1;
-  color: #0a0a0f;
-}
-
-/* ── View-toggle icon buttons: ink squares ─────────────────────── */
-
-:global(.dash-icon-action-v2).iconAction {
-  border-radius: 4px 12px 4px 12px;
-  border-color: #2a2a44;
-  background: #12121c;
-}
-
-:global(.dash-icon-action-v2).iconAction:global(.is-active) {
-  border-color: #c7ff4d;
-  background: rgba(199, 255, 77, 0.12);
-  box-shadow: inset 0 0 0 1px rgba(199, 255, 77, 0.35);
-}
-
-/* ── Mode navigation: ink cards with color-coded spines ────────── */
-
-.modesPanel .flowTabs {
-  border-color: #23233a;
-  border-radius: 3px;
-  background: #0d0d15;
-}
-
-.modesPanel .flowTabs span:global(.is-active) {
-  border-radius: 2px;
-  color: #0a0a0f;
-  background: #c7ff4d;
-  box-shadow: 3px 3px 0 0 rgba(0, 0, 0, 0.8);
-}
-
+:global(.dash-play-button-v2).playCta::before, :global(.dash-play-button-v2).playCta::after { content: none; }
+:global(.dash-play-button-v2).playCta span { font: italic 900 25px Impact, 'Arial Narrow', sans-serif; letter-spacing: .01em; text-transform: uppercase; color: #0a0a0f; }
+:global(.dash-play-button-v2).playCta small { color: #29380d; font-size: 11px; }
+:global(.dash-play-button-v2).playCta:hover { transform: translate(-2px,-2px) rotate(-.5deg); box-shadow: 6px 6px 0 #6b3894; }
+:global(.dash-play-button-v2).playCta:active { transform: translate(2px,2px); box-shadow: 1px 1px 0 #6b3894; }
+.playGlyph { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); font: 900 30px sans-serif; color: #0a0a0f; }
+:global(.dash-icon-action-v2).iconAction { border-radius: 0; border-color: #5f4d71; background: #19131f; min-width: 44px; }
+:global(.dash-icon-action-v2).iconAction:global(.is-active) { background: #211a2c; border-color: #c7ff4d; box-shadow: none; }
+.shell :global(.dash-section-title-row-v2) { margin-bottom: 12px; }
+.shell :global(.dash-section-title-row-v2) h2 { margin-top: 6px; font: italic 900 30px Impact, 'Arial Narrow', sans-serif; letter-spacing: .01em; text-transform: uppercase; color: #f4f2ed; }
+:global(.dash-command-panel).modesPanel { border-top: 4px solid #9570ff; background: #14101d; }
+.chapterRule { display: flex; justify-content: space-between; gap: 4px; padding: 8px 0; border-block: 1px solid #554065; color: #d0bddf; font: 800 8px ui-monospace, monospace; }
+.shell .modesPanel :global(.dash-tester-checklist-v2) { padding: 9px 0; margin: 0 0 7px; border: 0; border-radius: 0; background: none; font-size: 11px; color: #b9acc7; line-height: 1.45; }
+.modesPanel .modeGrid { gap: 8px; grid-template-columns: repeat(2,minmax(0,1fr)); }
 .modeGrid button:global(.dash-mode-card-v2) {
-  border-color: #23233a;
-  border-radius: 4px 12px 4px 12px;
-  background-color: #12121c;
-  background-image: radial-gradient(rgba(244, 242, 237, 0.045) 1px, transparent 1.3px);
-  background-size: 7px 7px;
+  min-height: 88px; padding: 10px 12px;
+  border: 1px solid #584367; border-left: 3px solid #c7ff4d; border-radius: 0;
+  background: repeating-linear-gradient(125deg,#1c1427 0 28px,#221730 29px 30px,#1c1427 31px 58px);
+  box-shadow: 3px 3px 0 #08070c;
 }
-
-.modeGrid button:global(.dash-mode-card-v2):hover {
-  border-color: rgba(199, 255, 77, 0.4);
-  box-shadow: 4px 4px 0 0 rgba(0, 0, 0, 0.8);
+.modeGrid button:global(.dash-mode-card-v2):hover, .modeGrid button:global(.dash-mode-card-v2):focus-visible {
+  transform: translateY(-2px); border-color: #c7ff4d; background-color: #30203c; box-shadow: 4px 5px 0 #08070c;
 }
-
-.modeGrid button:global(.dash-mode-card-v2) em {
-  color: #9570ff;
-}
-
-.modeGrid button:global(.solo) {
-  border-left: 3px solid #c7ff4d;
-}
-
-.modeGrid button:global(.coop) {
-  border-left: 3px solid #9570ff;
-}
-
-.modeGrid button:global(.compete) {
-  border-left: 3px solid #ff7166;
-}
-
-.modeGrid button:global(.customize) {
-  border-left: 3px solid #f4f2ed;
-}
-
-/* ── Character presentation: ink-framed ────────────────────────── */
-
-.shell :global(.dash-character-avatar-v2),
+.modeGrid button:global(.dash-mode-card-v2) b { font: italic 800 20px Impact, 'Arial Narrow', sans-serif; letter-spacing: .01em; }
+.modeGrid button:global(.dash-mode-card-v2) small { display: block; background: none; padding: 0; margin-bottom: 5px; color: #c5b2d5; font-size: 8px; }
+.modeGrid button:global(.dash-mode-card-v2) span { margin-top: 4px; font-size: 11px; line-height: 1.25; color: #c2b5cd; }
+.modeGrid button:global(.dash-mode-card-v2) em { color: #c7ff4d; font-size: 22px; top: 7px; right: 10px; }
+.modeGrid button:global(.coop) { border-left-color: #ad83ff; }
+.modeGrid button:global(.compete) { border-left-color: #ff7166; }
+.modeGrid button:global(.customize) { border-left-color: #bba7d5; }
+.shell :global(.dash-runner-v2) { border-top: 4px solid #f4f2ed; background: #101017; }
+.shell :global(.dash-panel-subtitle) { color: #bfb3cb; font-size: 12px; }
+.shell :global(.dash-runner-v2) :global(.dash-character-hero-v3) { gap: 14px; grid-template-columns: auto minmax(0,1fr); }
+.shell :global(.dash-stat-stack-v2) { min-width: 0; }
+.shell :global(.dash-character-roster-v3) { min-width: 0; grid-template-columns: repeat(4,minmax(0,1fr)); }
+.shell :global(.dash-character-card-v3) { padding-inline: 3px; overflow-wrap: anywhere; }
 .shell :global(.dash-character-stage-v3) {
-  border-radius: 4px 14px 4px 14px;
+  width: 146px; height: 150px;
+  border-radius: 0; border-width: 2px;
+  background: repeating-linear-gradient(130deg,#2c1b42 0 22px,#39224f 23px 24px,#2c1b42 25px 45px) !important;
+  box-shadow: 5px 5px 0 #050508 !important;
+  transform: rotate(-3deg);
 }
-
-.shell :global(.dash-character-card-v3) {
-  border-radius: 4px 10px 4px 10px;
-  background: #101019;
+.shell :global(.dash-character-card-v3) { border-radius: 0; border-color: #52435f; background: #19131f; min-height: 64px; }
+.shell :global(.dash-character-card-v3):global(.is-active) { border-color: #c7ff4d; box-shadow: 2px 2px 0 #c7ff4d; background: #252b16; }
+.shell :global(.dash-subtle-pill-v2) { border-radius: 0; background: #20162c; color: #ddd2e8; }
+@media (min-width: 1180px) {
+  .shell :global(.dash-menu-stage-v2) { grid-template-columns: minmax(0,1.22fr) minmax(0,1.08fr) minmax(0,1fr); }
+  .shell :global(.dash-hero-v2), .shell :global(.dash-modes-v2), .shell :global(.dash-runner-v2) { grid-column: auto; }
 }
-
-.shell :global(.dash-character-card-v3):global(.is-active) {
-  box-shadow: 0 0 0 1.5px #c7ff4d, 3px 3px 0 0 rgba(0, 0, 0, 0.8);
+@media (min-width: 1180px) and (max-height: 700px) {
+  .shell :global(.dash-command-panel) { padding: 14px; }
+  .heroPanel :global(.dash-brand-v2) h1 { font-size: 55px; }
+  .cover { height: 185px; min-height: 185px; }
+  .modesPanel .modeGrid button:global(.dash-mode-card-v2) { min-height: 86px; }
+  .shell :global(.dash-section-title-row-v2) h2 { font-size: 28px; }
 }
+@media (max-width: 1179px) {
+  .heroPanel :global(.dash-brand-v2) h1 { font-size: clamp(42px,8vw,72px); }
+  .cover { height: 230px; }
+}
+@media (max-width: 720px) {
+  .shell :global(.dash-menu-stage-v2) { width: calc(100% - 24px); }
+  .shell :global(.dash-command-panel) { padding: 14px; }
+  .heroPanel :global(.dash-brand-v2) h1 { font-size: clamp(40px,12vw,68px); }
+  .cover { height: 205px; }
+  .coverCaption { font-size: 8px; }
+  .heroPanel :global(.dash-brand-v2) { gap: 0; }
+  .shell .modeGrid button:global(.dash-mode-card-v2) { min-height: 96px; }
+  .controlsDisclosure summary { min-height: 44px; }
+}
+@media (max-width: 380px) {
+  .shell :global(.dash-command-panel) { padding: 11px; }
+  :global(.dash-live-pill).pill { display: none; }
+  .cover { height: 180px; }
+  :global(.dash-play-button-v2).playCta span { font-size: 22px; }
+  :global(.dash-play-button-v2).playCta small { font-size: 10px; }
+  .playGlyph { font-size: 24px; right: 8px; }
+  .modeGrid button:global(.dash-mode-card-v2) b { font-size: 18px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .shell, .shell *, .shell *::before, .shell *::after { animation: none !important; transition: none !important; }
+  .coverMoon, .coverCity, .coverRunner { transform: none; }
+}
+:global(.reduce-motion-forced) .shell, :global(.reduce-motion-forced) .shell * { animation: none !important; transition: none !important; }
+:global(.reduce-motion-forced) .coverMoon, :global(.reduce-motion-forced) .coverCity, :global(.reduce-motion-forced) .coverRunner { transform: none; }

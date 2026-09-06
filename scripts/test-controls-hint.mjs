@@ -32,6 +32,6 @@ describe('ControlsHint contract', () => {
 
   test('StartScreen renders the hint inside the hero panel', () => {
     assert.match(startSrc, /import ControlsHint from "\.\/ControlsHint"/);
-    assert.match(startSrc, /<ControlsHint \/>/);
+    assert.match(startSrc, /<ControlsHint dismissible=\{false\} \/>/);
   });
 });

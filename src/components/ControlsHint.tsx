@@ -9,7 +9,7 @@ import { useEffect, useState, type FC } from 'react';
  * - Collapsible; collapsed state persists in localStorage so returning
  *   players don't see it after their first session.
  */
-const ControlsHint: FC = () => {
+const ControlsHint: FC<{ dismissible?: boolean }> = ({ dismissible = true }) => {
   const [isTouch, setIsTouch] = useState(false);
   const [dismissed, setDismissed] = useState(true); // hidden until mounted (SSR-safe)
 
@@ -22,7 +22,7 @@ const ControlsHint: FC = () => {
     }
   }, []);
 
-  if (dismissed) return null;
+  if (dismissible && dismissed) return null;
 
   const dismiss = () => {
     setDismissed(true);
@@ -65,7 +65,7 @@ const ControlsHint: FC = () => {
           <span><Key>Esc</Key> pause</span>
         </>
       )}
-      <button
+      {dismissible && <button
         onClick={dismiss}
         aria-label="Hide controls hint"
         style={{
@@ -80,7 +80,7 @@ const ControlsHint: FC = () => {
         }}
       >
         Got it ✕
-      </button>
+      </button>}
     </div>
   );
 };

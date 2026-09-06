@@ -143,8 +143,8 @@ export function drawBackgroundSky(
 
   // Horizon shifts toward the dark zenith color at night so the bright
   // biome gradient doesn't glow through the night tint.
-  const zenith = colors.sky;
-  const horizon = blendHex(colors.skyGradient, colors.sky, 0.55 * nightness);
+  const zenith = blendHex(colors.sky, "#301348", nightness * 0.55);
+  const horizon = blendHex(colors.skyGradient, "#743599", nightness * 0.52);
 
   const gradient = ctx.createLinearGradient(0, 0, 0, height);
   gradient.addColorStop(0, zenith);
@@ -302,8 +302,8 @@ function drawMoon(
   if (t < 0 || t > 1) return;
   const vis = alpha;
   const x = width * (0.14 + 0.72 * t);
-  const y = height * (0.44 - Math.sin(t * Math.PI) * 0.3);
-  const r = Math.max(18, height * 0.045);
+  const r = Math.max(32, Math.min(110, height * 0.13, width * 0.18));
+  const y = Math.max(r + 10, height * (0.44 - Math.sin(t * Math.PI) * 0.3));
   // Concept-board identity: the moon sits inside a soft violet halo that
   // fades with its own visibility (no full-screen blur, purely local).
   if (vis > 0.05) {
@@ -315,11 +315,43 @@ function drawMoon(
     ctx.arc(x, y, r * 2.4, 0, Math.PI * 2);
     ctx.fill();
   }
-  const body = "#e8ecf4";
-  ctx.fillStyle = hexToRgba(body, vis);
+  // Fractured lithograph disc. Bounded polygon work, never a blur filter.
+  ctx.fillStyle = hexToRgba("#c999ef", vis);
   ctx.beginPath();
-  ctx.arc(x, y, r, 0, Math.PI * 2);
+  for (let i = 0; i < 18; i++) {
+    const a = i / 18 * Math.PI * 2;
+    const radius = r * (i % 3 === 0 ? 0.92 : 1);
+    const px = x + Math.cos(a) * radius;
+    const py = y + Math.sin(a) * radius;
+    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  ctx.closePath();
   ctx.fill();
+  ctx.strokeStyle = hexToRgba("#311843", vis);
+  ctx.lineWidth = Math.max(3, r * 0.09);
+  ctx.beginPath();
+  ctx.moveTo(x + r * 0.2, y - r);
+  ctx.lineTo(x - r * 0.1, y - r * 0.4);
+  ctx.lineTo(x + r * 0.25, y - r * 0.12);
+  ctx.lineTo(x - r * 0.23, y + r * 0.45);
+  ctx.lineTo(x + r * 0.1, y + r);
+  ctx.moveTo(x - r * 0.95, y + r * 0.14);
+  ctx.lineTo(x - r * 0.1, y - r * 0.4);
+  ctx.stroke();
+  // Detached ink chips make the broken edge readable at small sizes.
+  ctx.fillStyle = hexToRgba("#d9b4f5", vis);
+  for (let i = 0; i < 5; i++) {
+    const a = i * 1.9 + 0.2;
+    const sx = x + Math.cos(a) * r * 1.17;
+    const sy = y + Math.sin(a) * r * 1.17;
+    ctx.beginPath();
+    ctx.moveTo(sx, sy - r * 0.06);
+    ctx.lineTo(sx + r * 0.09, sy);
+    ctx.lineTo(sx, sy + r * 0.09);
+    ctx.lineTo(sx - r * 0.04, sy);
+    ctx.closePath();
+    ctx.fill();
+  }
   // Craters
   ctx.fillStyle = hexToRgba("#b9a8e8", vis * 0.7);
   ctx.beginPath();
@@ -483,28 +515,42 @@ function drawInkSkyline(
   const spanX = width + 480;
   const ink = blendHex("#0a0a0f", colors.groundDark, 0.3);
   const SIGN_TINTS = ["#c7ff4d", "#9570ff", "#ff7166"] as const;
-  const time = reducedMotionFlag ? 0 : gameTime;
-
   for (let i = 0; i < towers; i++) {
     const h1 = textureHash(i * 23 + 5, seed + 901);
     const h2 = textureHash(i * 41 + 9, seed + 902);
     const h3 = textureHash(i * 61 + 13, seed + 903);
-    const tw = 34 + h1 * 58;              // tower width
-    const th = 90 + h2 * 190;             // tower height
-    const x = mod(h1 * spanX + time * 3.2 - cameraX * parallax, spanX + tw) - tw;
+    const tw = 46 + h1 * 76;             // broad ink silhouette
+    const th = 140 + h2 * 235;           // dramatic stepped roofs
+    const x = mod((i / towers) * spanX + h1 * 42 - cameraX * parallax, spanX) - tw;
     const topY = baseY - th;
     if (topY > height * 0.72 || baseY < 0) continue;
-    const bodyAlpha = 0.66 + h3 * 0.22;
+    const bodyAlpha = 1; // Opaque ink: no overlapping translucent architecture.
 
     // Ink tower body (flat, opaque, slight taper for a hand-inked read).
-    ctx.fillStyle = hexToRgba(ink, bodyAlpha);
+    ctx.fillStyle = ink;
     ctx.beginPath();
     ctx.moveTo(x, baseY);
-    ctx.lineTo(x + tw * 0.08, topY);
-    ctx.lineTo(x + tw * 0.92, topY);
+    ctx.lineTo(x + tw * 0.08, topY + 14);
+    ctx.lineTo(x + tw * 0.2, topY + 14);
+    ctx.lineTo(x + tw * 0.2, topY - 10);
+    ctx.lineTo(x + tw * 0.38, topY - 10);
+    ctx.lineTo(x + tw * 0.38, topY);
+    ctx.lineTo(x + tw * 0.7, topY);
+    ctx.lineTo(x + tw * 0.7, topY - 18);
+    ctx.lineTo(x + tw * 0.82, topY - 18);
+    ctx.lineTo(x + tw * 0.82, topY + 8);
+    ctx.lineTo(x + tw * 0.92, topY + 8);
     ctx.lineTo(x + tw, baseY);
     ctx.closePath();
     ctx.fill();
+
+    // Facade contour + rooftop aerials: fine, opaque violet ink.
+    ctx.strokeStyle = blendHex("#9570ff", colors.groundDark, 0.55);
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.fillStyle = ink;
+    ctx.fillRect(x + tw * 0.25, topY - 36, 2, 31);
+    ctx.fillRect(x + tw * 0.66, topY - 30, 2, 34);
 
     // Rooftop block (antenna/roof detail varies per tower).
     if (h3 > 0.55) {
@@ -543,12 +589,18 @@ function drawInkSkyline(
         : 0.82 + Math.sin(gameTime * (2 + h1 * 3) + i * 2.1) * 0.18;
       const signAlpha = (0.5 + nightness * 0.4) * flicker;
       ctx.fillStyle = hexToRgba(ink, bodyAlpha);
-      ctx.fillRect(sx - 5, sy - 6, 10, sh + 12);
+      ctx.fillRect(sx - 9, sy - 6, 18, sh + 12);
+      ctx.strokeStyle = tint;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(sx - 9, sy - 6, 18, sh + 12);
       ctx.fillStyle = hexToRgba(tint, signAlpha);
       const bands = Math.max(3, Math.floor(sh / 12));
       for (let b = 0; b < bands; b++) {
         if (textureHash(i * 31 + b * 17, seed + 905) > 0.3) {
-          ctx.fillRect(sx - 2.5, sy + b * (sh / bands), 5, (sh / bands) * 0.62);
+          const gy = sy + b * (sh / bands);
+          ctx.fillRect(sx - 5, gy, 10, 2);
+          ctx.fillRect(sx - 2, gy - 2, 2, 9);
+          ctx.fillRect(sx - 5, gy + 5, 9, 2);
         }
       }
       // Soft local glow around the strip (never full-screen).

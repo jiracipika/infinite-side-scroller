@@ -57,6 +57,7 @@ import {
 import { schedulePanelReveal } from "@/lib/menu-panel-reveal";
 import TouchControlSettings from "./TouchControlSettings";
 import ControlsHint from "./ControlsHint";
+import InkCover from "./InkCover";
 import styles from "./StartScreen.module.css";
 import {
   fetchOnlineLeaderboard,
@@ -396,11 +397,10 @@ const StartScreen: FC<Props> = ({
         <section className={`dash-command-panel dash-hero-v2 ${styles.heroPanel}`}>
           <div className="dash-topbar-v2">
             <div className="dash-brand-v2">
-              <AppIcon characterId={selectedChar} />
               <div>
-                <p className="dash-eyebrow">Run the edge</p>
+                <p className="dash-eyebrow">THE INFINITE RUN / VOL. 01</p>
                 <h1 aria-label="Dashverse">
-                  DASH<br />VERSE
+                  DASH<span>VERSE</span>
                 </h1>
               </div>
             </div>
@@ -409,11 +409,15 @@ const StartScreen: FC<Props> = ({
             </div>
           </div>
 
+          <InkCover />
           <p className="dash-hero-lede">
-            Outrun a living world. Build a streak, race a ghost, or bring a second runner into the void.
+            One more jump. One more world. Make this run count.
           </p>
 
-          <ControlsHint />
+          <details className={styles.controlsDisclosure}>
+            <summary>How to play</summary>
+            <ControlsHint dismissible={false} />
+          </details>
 
           <div className="dash-quick-stats-v2">
             <span>
@@ -469,17 +473,13 @@ const StartScreen: FC<Props> = ({
         >
           <div className="dash-section-title-row-v2">
             <div>
-              <p className="dash-eyebrow">Run protocols</p>
-              <h2>Select the next world</h2>
+              <p className="dash-eyebrow">CHOOSE YOUR NEXT CHAPTER</p>
+              <h2>Break the limit.</h2>
             </div>
           </div>
-          <div className={`dash-flow-tabs-v2 ${styles.flowTabs}`} aria-label="Menu flow">
-            <span className="is-active">Play</span>
-            <span>Compete</span>
-            <span>Customize</span>
-          </div>
+          <div className={styles.chapterRule} aria-hidden="true"><span>01 — PLAY</span><span>02 — COMPETE</span><span>03 — BUILD</span></div>
           <p className="dash-tester-checklist-v2">
-            Recommended play plan: run Adventure first, try Daily next, then use Same-Wi-Fi for nearby co-op.
+            Recommended play plan: Adventure first. Daily for records. Same-Wi-Fi with a friend.
           </p>
             <div className={`dash-mode-grid-v2 ${styles.modeGrid}`}>
               {onLevelSelect && (
@@ -591,7 +591,7 @@ const StartScreen: FC<Props> = ({
           <section className="dash-command-panel dash-runner-v2 dash-character-select-v3 dash-view-panel-v3">
             <div className="dash-section-title-row-v2">
               <div>
-                <p className="dash-eyebrow">Runner</p>
+                <p className="dash-eyebrow">YOUR RUNNER / LOADOUT</p>
                 <h2>{selectedCharacter.name}</h2>
               </div>
               <span className="dash-subtle-pill-v2">
@@ -1109,44 +1109,6 @@ const StarField: FC = () => {
     </div>
   );
 };
-
-/* ── App icon with ambient glow ring ─────────────────────────── */
-
-const AppIcon: FC<{ characterId: string }> = ({ characterId }) => (
-  <div className="dash-app-icon-v3">
-    {/* Ink-cut halo: static, opaque panel tone with a lime hairline */}
-    <div
-      style={{
-        position: "absolute",
-        inset: -10,
-        borderRadius: 30,
-        border: "1px solid rgba(199, 255, 77, 0.22)",
-        background:
-          "radial-gradient(circle, rgba(199, 255, 77, 0.08) 0%, transparent 68%)",
-        pointerEvents: "none",
-      }}
-    />
-    {/* App icon face: near-black ink slab with hard offset edge */}
-    <div
-      style={{
-        position: "relative",
-        width: 88,
-        height: 88,
-        borderRadius: 18,
-        background: "linear-gradient(150deg, #16162a 0%, #101020 60%, #0c0c18 100%)",
-        border: "2px solid #1c1c2e",
-        boxShadow:
-          "4px 4px 0 0 #000000, inset 0 1px 0 rgba(255, 255, 255, 0.06)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        userSelect: "none",
-      }}
-    >
-      <CharacterSprite characterId={characterId} size={72} decorative />
-    </div>
-  </div>
-);
 
 /* ── Settings Panel ──────────────────────────────────────────── */
 
