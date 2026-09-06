@@ -82,68 +82,33 @@ export function spawnHazardsForChunk(
   return hazards;
 }
 
-/** Render a hazard */
-export function renderHazard(ctx: CanvasRenderingContext2D, h: Hazard, cameraX: number, cameraY: number = 0) {
+/** Graphic danger ink; render-only offsets never change hazard collision data. */
+export function renderHazard(ctx: CanvasRenderingContext2D, h: Hazard, cameraX: number, cameraY: number = 0, reducedMotion = false) {
+  if (h.destroyed) return;
   const sx = h.x - cameraX;
   const sy = h.y - cameraY;
-
-  if (h.destroyed) return;
-
   ctx.save();
-
   if (h.type === 'spike') {
-    // Carved obsidian spikes
     const count = Math.floor(h.width / 12);
-    ctx.fillStyle = '#475569';
-    ctx.strokeStyle = '#0f172a';
-    ctx.lineWidth = 1;
+    ctx.fillStyle = '#09080f'; ctx.strokeStyle = '#ff7166'; ctx.lineWidth = 1.4;
     for (let i = 0; i < count; i++) {
       const bx = sx + i * 12;
-      ctx.beginPath();
-      ctx.moveTo(bx, sy + h.height);
-      ctx.lineTo(bx + 6, sy);
-      ctx.lineTo(bx + 12, sy + h.height);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(bx, sy + h.height); ctx.lineTo(bx + 6, sy); ctx.lineTo(bx + 12, sy + h.height); ctx.closePath(); ctx.fill(); ctx.stroke();
+      // Opaque coral tips make danger readable even against the black terrain.
+      ctx.fillStyle = '#ff7166'; ctx.beginPath(); ctx.moveTo(bx + 3, sy + 6); ctx.lineTo(bx + 6, sy); ctx.lineTo(bx + 9, sy + 6); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#09080f';
     }
-    // Inner edge glow
-    ctx.fillStyle = 'rgba(148,163,184,0.65)';
-    for (let i = 0; i < count; i++) {
-      const bx = sx + i * 12;
-      ctx.beginPath();
-      ctx.moveTo(bx + 3, sy + h.height);
-      ctx.lineTo(bx + 6, sy + 3);
-      ctx.lineTo(bx + 6, sy + h.height);
-      ctx.closePath();
-      ctx.fill();
-    }
-  } else if (h.type === 'falling_platform') {
-    // Crumbling platform with warning cracks
-    const shakeX = h.crumbleTimer && h.crumbleTimer > 0 && !h.falling
-      ? (Math.random() - 0.5) * 2 : 0;
-    const alpha = h.crumbleTimer && h.crumbleTimer > 0.4 ? 0.6 : 1.0;
-    ctx.globalAlpha = alpha;
-    const grad = ctx.createLinearGradient(sx, sy, sx, sy + h.height);
-    grad.addColorStop(0, '#7c3f1d');
-    grad.addColorStop(1, '#4a2714');
-    ctx.fillStyle = grad;
-    ctx.fillRect(sx + shakeX, sy, h.width, h.height);
-    ctx.strokeStyle = '#2a1409';
-    ctx.strokeRect(sx + shakeX, sy, h.width, h.height);
-    // Crack lines when crumbling
+  } else {
+    const shakeX = !reducedMotion && h.crumbleTimer && !h.falling ? Math.sin(h.crumbleTimer * 65) * 1.5 : 0;
+    ctx.fillStyle = '#09080f'; ctx.fillRect(sx + shakeX, sy, h.width, h.height);
+    ctx.strokeStyle = '#ff7166'; ctx.lineWidth = 1.5; ctx.strokeRect(sx + shakeX, sy, h.width, h.height);
+    // Warning hatch is present BEFORE activation, not only after stepping on it.
+    ctx.beginPath();
+    for (let x = 4; x < h.width - 5; x += 14) { ctx.moveTo(sx + x + shakeX, sy + h.height - 1); ctx.lineTo(sx + x + 5 + shakeX, sy + 1); }
+    ctx.stroke();
     if (h.crumbleTimer && h.crumbleTimer > 0) {
-      ctx.strokeStyle = '#fca5a5';
-      ctx.lineWidth = 1;
       const cx = sx + h.width / 2 + shakeX;
-      ctx.beginPath();
-      ctx.moveTo(cx - 8, sy + 2);
-      ctx.lineTo(cx, sy + h.height / 2);
-      ctx.lineTo(cx + 6, sy + h.height - 2);
-      ctx.stroke();
+      ctx.strokeStyle = '#f4f2ed'; ctx.beginPath(); ctx.moveTo(cx - 8, sy); ctx.lineTo(cx, sy + h.height / 2); ctx.lineTo(cx + 6, sy + h.height); ctx.stroke();
     }
-    ctx.globalAlpha = 1;
   }
-
   ctx.restore();
 }

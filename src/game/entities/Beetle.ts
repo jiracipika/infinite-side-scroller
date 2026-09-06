@@ -63,9 +63,9 @@ export class Beetle extends Enemy {
     }
 
     const shell = ctx.createLinearGradient(0, sy, 0, sy + this.height);
-    shell.addColorStop(0, '#facc15');
-    shell.addColorStop(0.5, '#a16207');
-    shell.addColorStop(1, '#422006');
+    shell.addColorStop(0, '#754294');
+    shell.addColorStop(0.5, '#21112f');
+    shell.addColorStop(1, '#09080f');
     ctx.fillStyle = shell;
     ctx.beginPath();
     ctx.ellipse(cx, sy + 9, 10, 7, 0, 0, Math.PI * 2);
@@ -79,7 +79,7 @@ export class Beetle extends Enemy {
     ctx.lineTo(cx, sy + 15);
     ctx.stroke();
 
-    ctx.fillStyle = '#fefce8';
+    ctx.fillStyle = '#ff7166';
     const eyeX = this.facingRight ? sx + 16 : sx + 4;
     ctx.fillRect(eyeX, sy + 6, 3, 3);
     ctx.fillStyle = '#111827';

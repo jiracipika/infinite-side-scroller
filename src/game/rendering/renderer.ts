@@ -28,6 +28,7 @@ import {
   paintPlatformDetail,
 } from "./textures";
 import { shadeHexColor } from "./color";
+import { INK, paintRooftopFacade, paintInkSlab, paintRoofProp, paintDashBrush } from "./ink-city";
 
 export class GameRenderer {
   private terrainCache: TerrainCache;
@@ -211,26 +212,9 @@ export class GameRenderer {
 
     ctx.save();
     ctx.clip();
-    // Biome-tinted soil body. A single vertical gradient is enough now that
-    // texture depth comes from the dedicated passes below; short world-space
-    // strips still keep chunk/biome boundaries from becoming vertical walls.
-    const stripWidth = 90;
-    for (let localX = 0; localX <= CHUNK_WIDTH; localX += stripWidth) {
-      const worldX = chunk.worldX + localX;
-      const stripColors = this.paletteAt(worldX);
-      const soilGradient = ctx.createLinearGradient(0, 0, 0, canvasHeight);
-      soilGradient.addColorStop(
-        0,
-        shadeHexColor(stripColors.groundDark, 12),
-      );
-      soilGradient.addColorStop(0.45, stripColors.groundDark);
-      soilGradient.addColorStop(
-        1,
-        shadeHexColor(stripColors.groundDark, -35),
-      );
-      ctx.fillStyle = soilGradient;
-      ctx.fillRect(localX + offsetX - 1, 0, stripWidth + 2, canvasHeight + 10);
-    }
+    // Opaque ink foundation; all depth comes from printed facade detail.
+    ctx.fillStyle = INK.black;
+    ctx.fillRect(offsetX, 0, CHUNK_WIDTH + 1, canvasHeight + 10);
 
     // Deterministic texture passes: strata bands, speckles, pebbles.
     paintGroundTexture(ctx, {
@@ -244,6 +228,7 @@ export class GameRenderer {
       groundDark: this.paletteAt(chunk.worldX + CHUNK_WIDTH / 2).groundDark,
       detail: this.backgroundDetail === "high",
     });
+    paintRooftopFacade(ctx, chunk.heights, chunk.index, offsetX, offsetY, canvasHeight, this.backgroundDetail === "high");
     ctx.restore();
 
     // Grass cap and highlight (thicker, layered for a readable ledge).
@@ -259,9 +244,7 @@ export class GameRenderer {
     }
     ctx.lineWidth = 7;
     for (let i = 0; i < chunk.heights.length - 1; i++) {
-      const worldX = chunk.worldX + i * 4;
-      const capColors = this.paletteAt(worldX);
-      ctx.strokeStyle = shadeHexColor(capColors.ground, -15);
+      ctx.strokeStyle = INK.deep;
       ctx.beginPath();
       ctx.moveTo(i * 4 + offsetX, chunk.heights[i] + offsetY);
       ctx.lineTo((i + 1) * 4 + offsetX, chunk.heights[i + 1] + offsetY);
@@ -272,7 +255,7 @@ export class GameRenderer {
     for (let i = 0; i < chunk.heights.length - 1; i++) {
       const worldX = chunk.worldX + i * 4;
       const capColors = this.paletteAt(worldX);
-      ctx.strokeStyle = shadeHexColor(capColors.ground, 24);
+      ctx.strokeStyle = capColors.platform;
       const screenX = i * 4 + offsetX;
       const screenY = chunk.heights[i] - 1 + offsetY;
       ctx.beginPath();
@@ -354,6 +337,7 @@ export class GameRenderer {
           colors.groundDark,
           shadeHexColor(colors.groundDark, -28),
         );
+        paintInkSlab(ctx, screen.x, screen.y, platform.width, Math.round(platform.x));
         // Small glow for moving platforms
         if (platform.moveAmp) {
           ctx.fillStyle = "rgba(255,255,255,0.08)";
@@ -378,76 +362,7 @@ export class GameRenderer {
   ): void {
     const s = dec.scale;
     const screen = camera.worldToScreen(dec.x, dec.y);
-    switch (dec.type) {
-      case "tree":
-        this.drawTree(screen.x, screen.y, s, dec.variant);
-        break;
-      case "rock":
-        this.drawRock(screen.x, screen.y, s, dec.variant);
-        break;
-      case "bush":
-        this.drawBush(screen.x, screen.y, s, dec.variant);
-        break;
-    }
-  }
-
-  private drawTree(x: number, y: number, scale: number, variant: number): void {
-    const ctx = this.ctx;
-    const s = scale;
-    ctx.fillStyle = "#5a3e1b";
-    ctx.fillRect(x - 4 * s, y - 30 * s, 8 * s, 30 * s);
-    const greens = ["#2d7a27", "#3a8a34", "#4a9c44"];
-    ctx.fillStyle = greens[variant % greens.length];
-    if (variant === 0) {
-      ctx.beginPath();
-      ctx.arc(x, y - 40 * s, 20 * s, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(x - 8 * s, y - 35 * s, 14 * s, 0, Math.PI * 2);
-      ctx.fill();
-    } else if (variant === 1) {
-      ctx.beginPath();
-      ctx.moveTo(x, y - 65 * s);
-      ctx.lineTo(x - 18 * s, y - 20 * s);
-      ctx.lineTo(x + 18 * s, y - 20 * s);
-      ctx.closePath();
-      ctx.fill();
-    } else {
-      ctx.beginPath();
-      ctx.arc(x, y - 35 * s, 16 * s, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(x + 10 * s, y - 30 * s, 12 * s, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(x - 10 * s, y - 28 * s, 13 * s, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  }
-
-  private drawRock(x: number, y: number, scale: number, variant: number): void {
-    const ctx = this.ctx;
-    const s = scale;
-    ctx.fillStyle = variant === 0 ? "#8a8a8a" : "#6a6a6a";
-    ctx.beginPath();
-    ctx.ellipse(x, y - 5 * s, 12 * s, 8 * s, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = "#555";
-    ctx.lineWidth = 1;
-    ctx.stroke();
-  }
-
-  private drawBush(x: number, y: number, scale: number, variant: number): void {
-    const ctx = this.ctx;
-    const s = scale;
-    const greens = ["#3a7a34", "#4a8a44"];
-    ctx.fillStyle = greens[variant % greens.length];
-    ctx.beginPath();
-    ctx.arc(x, y - 6 * s, 10 * s, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(x + 7 * s, y - 4 * s, 7 * s, 0, Math.PI * 2);
-    ctx.fill();
+    paintRoofProp(this.ctx, screen.x, screen.y, s, dec.type, dec.variant);
   }
 
   private drawRoundedRect(
@@ -482,6 +397,9 @@ export class GameRenderer {
     const stride = Math.sin(player.distanceTraveled * 0.22) * (moving ? 2.4 : 0.35);
     const bob = player.onGround ? Math.abs(stride) * 0.18 : -1.5;
     const sy = screen.y + bob;
+    if (player.dashing && !camera.isReducedMotion()) {
+      paintDashBrush(ctx, screen.x + w / 2, sy, h, player.facingRight);
+    }
 
     ctx.save();
     if (player.invulnerable && !player.dashing) {
@@ -548,7 +466,7 @@ export class GameRenderer {
     ctx.save();
     switch (c.type) {
       case "coin": {
-        this.drawCollectibleOrb(cx, cy, radius, "#fde68a", "#f59e0b");
+        this.drawCollectibleOrb(cx, cy, radius, INK.lime, INK.deep);
         ctx.strokeStyle = "#7c2d12";
         ctx.lineWidth = 1.5;
         ctx.beginPath();

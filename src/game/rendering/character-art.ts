@@ -349,6 +349,38 @@ function drawInkNinja(ctx: CanvasRenderingContext2D, width: number, height: numb
   poly(lime, [[15+hx,10+hy],[21+hx,7+hy],[19+hx,11+hy],[15+hx,12+hy]]);
 }
 
+/** Armored ink silhouette. Same pose solvers and collision dimensions as before. */
+function drawInkKnight(ctx: CanvasRenderingContext2D, w: number, h: number, pose: CharacterArtPose) {
+  const legs = resolveLegPose(w, h, pose);
+  const arms = resolveArmPose(w, h, pose);
+  const head = resolveHeadPose(w, pose);
+  const hip = characterLegAnchorY(h);
+  const poly = (fill: string, points: number[][], rim = "#b885d7") => {
+    ctx.fillStyle = fill; ctx.strokeStyle = rim; ctx.lineWidth = 0.8;
+    ctx.beginPath(); points.forEach(([x,y],i) => i ? ctx.lineTo(x,y) : ctx.moveTo(x,y));
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+  };
+  const reach = pose.dashing ? 35 : pose.airborne ? 23 : 14;
+  const flutter = pose.stride ?? 0;
+  poly("#754294", [[6,12],[-reach,14+flutter],[-reach+8,20],[-reach-3,28-flutter],[3,h-1],[9,20]], "#09080f");
+  for (const [x,y,len,bx,by] of [
+    [legs.rearLegX,legs.rearLegY,legs.rearLegH,legs.rearBootX,legs.rearBootY],
+    [legs.frontLegX,legs.frontLegY,legs.frontLegH,legs.frontBootX,legs.frontBootY],
+  ]) poly("#09080f", [[x,y],[x+5,y],[x+5,y+len],[bx+8,by],[bx+8,by+3],[bx,by+3],[x,y+len]]);
+  poly("#09080f", [[3,15],[w/2,12],[w-3,15],[w-4,hip],[w/2,hip+2],[4,hip]]);
+  poly("#44205f", [[5,16],[w/2,15],[w-5,17],[w/2,hip-2],[5,hip-3]], "#44205f");
+  for(const [x,y,len] of [[arms.rearArmX,arms.rearArmY,arms.rearArmH],[arms.frontArmX,arms.frontArmY,arms.frontArmH]])
+    poly("#09080f", [[x-1,y],[x+4,y-1],[x+6,y+4],[x+3,y+len],[x,y+len]]);
+  const hx=head.offsetX; const hy=head.offsetY;
+  poly("#09080f", [[3+hx,4+hy],[w/2+hx,1+hy],[w-3+hx,5+hy],[w-4+hx,14+hy],[w/2+hx,17+hy],[4+hx,13+hy]], "#c7ff4d");
+  poly("#44205f", [[5+hx,5+hy],[w/2+hx,3+hy],[w/2+hx,7+hy],[5+hx,8+hy]], "#44205f");
+  ctx.fillStyle="#c7ff4d";ctx.fillRect(6+hx,9+hy,w-12,2);ctx.fillRect(w/2-1,18,2,6);ctx.fillRect(w/2-4,20,8,2);
+  // Shoulder-driven sword; exaggerated silhouette, unchanged melee hitbox.
+  const sx=arms.frontArmX+5, sy=arms.frontArmY;
+  poly("#f4f2ed", [[sx,sy-8],[sx+2,sy-12],[sx+4,sy-8],[sx+3,sy+7],[sx,sy+7]], "#09080f");
+  ctx.fillStyle="#c7ff4d";ctx.fillRect(sx-3,sy+5,9,2);
+}
+
 /**
  * Shared procedural character art for menu previews and live gameplay.
  * Coordinates are authored against each character's collision box, so the
@@ -394,6 +426,12 @@ export function drawCharacterArt(
 
   if (char.id === "ninja") {
     drawInkNinja(ctx, width, height, pose);
+    ctx.restore();
+    return;
+  }
+
+  if (char.id === "knight") {
+    drawInkKnight(ctx, width, height, pose);
     ctx.restore();
     return;
   }

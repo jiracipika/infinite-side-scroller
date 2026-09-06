@@ -67,13 +67,13 @@ export class Slime extends Enemy {
     ctx.fill();
 
     const bodyGradient = ctx.createRadialGradient(cx - 4, cy - 8, 2, cx, cy, w * 0.7);
-    bodyGradient.addColorStop(0, '#86efac');
-    bodyGradient.addColorStop(1, '#16a34a');
+    bodyGradient.addColorStop(0, '#44205f');
+    bodyGradient.addColorStop(1, '#09080f');
     ctx.fillStyle = bodyGradient;
     ctx.beginPath();
     ctx.ellipse(cx, cy, w / 2, h / 2, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = '#14532d';
+    ctx.strokeStyle = '#ff7166';
     ctx.lineWidth = 1.3;
     ctx.stroke();
 
@@ -84,14 +84,14 @@ export class Slime extends Enemy {
     ctx.fill();
 
     const eyeY = sy + 8;
-    ctx.fillStyle = '#f8fafc';
+    ctx.fillStyle = '#ff7166';
     ctx.fillRect(sx + 6, eyeY, 5, 4);
     ctx.fillRect(sx + 17, eyeY, 5, 4);
     ctx.fillStyle = '#052e16';
     ctx.fillRect(sx + 8, eyeY + 1, 2, 2);
     ctx.fillRect(sx + 19, eyeY + 1, 2, 2);
 
-    ctx.strokeStyle = '#14532d';
+    ctx.strokeStyle = '#ff7166';
     ctx.lineWidth = 1.1;
     ctx.beginPath();
     ctx.arc(cx, sy + 16, 4, 0.1 * Math.PI, 0.9 * Math.PI);

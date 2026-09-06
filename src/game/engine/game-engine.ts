@@ -4,6 +4,7 @@
  */
 
 import { Camera, DEFAULT_CAMERA_CONFIG, type CameraMode } from "./camera";
+import { paintAlert } from "../rendering/ink-city";
 import { ChunkManager } from "../world/chunk-manager";
 import { InputManager } from "../input/input";
 import { Player, DEFAULT_PLAYER_CONFIG, type PowerUpTimer } from "../entities/player";
@@ -318,11 +319,10 @@ export class GameEngine {
   // Game time for animations
   private gameTime = 0;
   /**
-   * Sky-only clock offset so runs begin at sunrise (dawn midpoint, phase
-   * 0.14 of the 120s day/night cycle) instead of deep night. Affects only
+   * Sky-only clock offset opens on the violet moon (phase 0.8). Affects only
    * the day/night phase/tint — the run timer (gameTime) is untouched.
    */
-  private skyClockOffset = 0.14 * DAY_CYCLE_SECONDS;
+  private skyClockOffset = 0.8 * DAY_CYCLE_SECONDS;
   private levelConfig: LevelConfig | null = null;
   /** Non-mixed finite levels lock terrain and atmosphere to their authored biome. */
   private levelBiomeOverride: BiomeConfig | null = null;
@@ -2811,6 +2811,12 @@ export class GameEngine {
 
     this.renderer.drawSky(this.camera, this.gameTime + this.skyClockOffset, this.levelBiomeOverride);
     this.renderer.drawParallax(this.camera, this.gameTime + this.skyClockOffset, this.levelBiomeOverride);
+    // Atmospheric tint belongs behind gameplay, never over hero/hazard ink.
+    const tint = getDayTint(this.gameTime + this.skyClockOffset);
+    if (tint.a > 0.0005) {
+      ctx.fillStyle = rgbaToString(tint);
+      ctx.fillRect(0, 0, width, height);
+    }
     this.renderer.drawTerrain(chunks, this.camera, this.gameTime, this.reducedMotion);
     this.renderer.drawPlatforms(chunks, this.camera, this.gameTime);
     this.renderer.drawDecorations(chunks, this.camera);
@@ -2818,7 +2824,7 @@ export class GameEngine {
     // Hazards - frustum culling
     for (const h of this.hazards) {
       if (!this.camera.isVisible(h.x, h.y, h.width, h.height)) continue;
-      renderHazard(ctx, h, this.camera.renderX, this.camera.renderY);
+      renderHazard(ctx, h, this.camera.renderX, this.camera.renderY, this.reducedMotion);
     }
 
     // Collectibles - frustum culling
@@ -2834,6 +2840,9 @@ export class GameEngine {
       if (!this.camera.isVisible(enemy.x, enemy.y, enemy.width, enemy.height))
         continue;
       enemy.render(ctx, this.camera.renderX, this.camera.renderY);
+      if ((enemy.aiState === "chase" || enemy.aiState === "attack") && enemy.aiStateTimer < 0.8) {
+        paintAlert(ctx, enemy.x + enemy.width / 2 - this.camera.renderX, enemy.y - 21 - this.camera.renderY);
+      }
     }
 
     // Player projectiles
@@ -3048,16 +3057,6 @@ export class GameEngine {
     }
 
     this.renderer.drawParticles(this.particles.getParticles(), this.camera);
-
-    // Day/night tint overlay — continuously interpolated by the day-cycle
-    // module (smoothstep between keyframes). The renderer keeps the discrete
-    // phase label for the HUD but the on-canvas tint no longer pops at phase
-    // boundaries.
-    const tint = getDayTint(this.gameTime + this.skyClockOffset);
-    if (tint.a > 0.0005) {
-      ctx.fillStyle = rgbaToString(tint);
-      ctx.fillRect(0, 0, width, height);
-    }
 
     // Hit-stop accent: a faint warm flash that intensifies the freeze-frame.
     // Applied after the day/night tint so it reads as a combat beat, not

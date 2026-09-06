@@ -34,9 +34,9 @@
   padding: 3px 9px;
   background: #1c1c2e;
   border: 1px solid rgba(244, 242, 237, 0.16);
-  /* Comic ink edge: two sharp corners, two rounded — reads as a hand-inked
-     panel without needing clip-path (which would clip the border). */
-  border-radius: 8px 2px 8px 2px;
+  /* Printed trapezoid; inset text remains inside the clipped ink edge. */
+  border-radius: 0;
+  clip-path: polygon(3% 0, 100% 3%, 97% 100%, 0 94%);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
 }
 
@@ -125,7 +125,9 @@
   letter-spacing: -0.5px;
   font-variant-numeric: tabular-nums;
   line-height: 1.05;
-  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.8);
+  font-family: Impact, "Arial Narrow", sans-serif;
+  font-style: italic;
+  text-shadow: 2px 3px 0 #09080f, -1px -1px 0 #09080f;
   transform-origin: center bottom;
 }
 

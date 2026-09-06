@@ -1,56 +1,17 @@
-import { test, describe } from 'node:test';
+import {test,describe} from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-
-// Static contract for the graphic-novel backdrop slice: ink clouds and the
-// ink city skyline with lit windows + neon signs (concept-board fidelity).
-// Mirrors the source-contract style of the other scripts/*.mjs gates.
-
-const background = readFileSync(new URL('../src/game/rendering/background.ts', import.meta.url), 'utf8');
-
-describe('graphic-novel backdrop contract', () => {
-  test('ink clouds: bold opaque inked bodies, not alpha-washed white ellipses', () => {
-    // The old invisible clouds used a ~0.11-0.21 alpha white base.
-    assert.ok(
-      !/cloudBase = blendHex\("#ffffff"/.test(background),
-      'clouds must not fall back to near-invisible white blobs',
-    );
-    assert.match(background, /const inkBody = blendHex\("#0a0a0f", colors\.groundDark, 0\.42\);/);
-    assert.match(background, /const alpha = 0\.78 \+ h3 \* 0\.18;/, 'ink clouds stay near-opaque');
-    assert.match(background, /ctx\.strokeStyle = rim;/, 'clouds carry the light top rim (inked highlight)');
-  });
-
-  test('ink city skyline exists between streams and near ridge', () => {
-    const order = background.indexOf('drawChromaticStreams(');
-    const skyline = background.indexOf('drawInkSkyline(');
-    const ridge = background.indexOf('drawRidge(ctx, width, height, cameraX, cameraY, 0.35,');
-    assert.ok(skyline > 0, 'drawInkSkyline must be defined/called');
-    assert.ok(order < skyline && skyline < ridge, 'skyline must render between streams and near ridge');
-  });
-
-  test('skyline is deterministic — hash-seeded, no RNG, multiplayer-stable', () => {
-    const fn = background.slice(background.indexOf('function drawInkSkyline'), background.indexOf('/**\n * World-anchored drifting clouds'));
-    assert.ok(!fn.includes('Math.random'), 'skyline must not use Math.random');
-    assert.match(fn, /textureHash\(/, 'skyline geometry comes from textureHash');
-  });
-
-  test('neon signs use the approved accent trio and stay local (no full-screen blur)', () => {
-    const fn = background.slice(background.indexOf('function drawInkSkyline'), background.indexOf('/**\n * World-anchored drifting clouds'));
-    for (const tint of ['#c7ff4d', '#9570ff', '#ff7166']) {
-      assert.ok(fn.includes(tint), `sign palette must include ${tint}`);
-    }
-    assert.match(fn, /createRadialGradient/, 'sign glow is a local radial gradient');
-  });
-
-  test('lit windows and sign flicker brighten at night; reduced motion freezes flicker', () => {
-    const fn = background.slice(background.indexOf('function drawInkSkyline'), background.indexOf('/**\n * World-anchored drifting clouds'));
-    assert.match(fn, /0\.16 \+ nightness \* 0\.5/, 'windows brighten with nightness');
-    assert.match(fn, /reducedMotionFlag\s*\n?\s*\? 1/, 'flicker frozen under reduced motion');
-  });
-
-  test('low detail degrades gracefully (fewer towers, no window/sign pass)', () => {
-    const fn = background.slice(background.indexOf('function drawInkSkyline'), background.indexOf('/**\n * World-anchored drifting clouds'));
-    assert.match(fn, /detail !== "high"\) continue;/, 'window/sign detail skipped at low fidelity');
-    assert.match(fn, /detail === "high" \? 10 : 6/, 'tower count scales with detail');
-  });
+import {readFileSync} from 'node:fs';
+const read=p=>readFileSync(new URL(p,import.meta.url),'utf8');
+const background=read('../src/game/rendering/background.ts');
+const city=read('../src/game/rendering/ink-city.ts');
+const renderer=read('../src/game/rendering/renderer.ts');
+// Replaces the superseded hill/cloud implementation contract. Runtime geometry
+// invariants (opacity, anchoring, fidelity, collision tops) live in ink-city.test.ts.
+describe('industrial graphic-novel integration',()=>{
+ test('real background calls the three-plate city, not duplicate legacy scenery',()=>{assert.match(background,/paintIndustrialCity\(ctx, width, height, cameraX, cameraY, detail === "high"\)/);assert.doesNotMatch(background,/drawInkSkyline|drawChromaticStreams|drawCloudShape/);assert.match(city,/layer\s*<\s*3/);});
+ test('all procedural marks stay deterministic',()=>{assert.doesNotMatch(background+city,/Math\.random/);assert.match(city,/textureHash/);});
+ test('environment emphasis is violet rather than lime window spam',()=>{assert.match(city,/ctx\.strokeStyle\s*=\s*INK\.lavender/);assert.doesNotMatch(city,/shadowBlur|createRadialGradient/);});
+ test('cached terrain facade and accurate slab are wired to live renderer',()=>{assert.match(renderer,/paintRooftopFacade\(ctx, chunk\.heights/);assert.match(renderer,/paintInkSlab\(ctx, screen\.x, screen\.y, platform\.width/);assert.match(renderer,/paintRoofProp\(this\.ctx/);});
+ test('dash brush respects reduced motion',()=>{assert.match(renderer,/player\.dashing && !camera\.isReducedMotion\(\)/);assert.match(renderer,/paintDashBrush\(ctx/);});
+ test('sky paints only the dominant celestial body during crossfade',()=>{assert.match(background,/moonAlpha >= sunAlpha/);assert.match(background,/sunAlpha > moonAlpha/);});
 });
