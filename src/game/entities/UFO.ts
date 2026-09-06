@@ -75,8 +75,8 @@ export class UFO extends Enemy {
       const bx = beam.x - cameraX;
       const by = beam.y - cameraY;
       const grad = ctx.createLinearGradient(bx, by, bx, by + beam.height);
-      grad.addColorStop(0, `rgba(125, 249, 255, ${0.32 + pulse * 0.12})`);
-      grad.addColorStop(1, 'rgba(125, 249, 255, 0.02)');
+      grad.addColorStop(0, `rgba(184, 133, 215, ${0.32 + pulse * 0.12})`);
+      grad.addColorStop(1, 'rgba(184, 133, 215, 0.02)');
       ctx.fillStyle = grad;
       ctx.beginPath();
       ctx.moveTo(cx - 18, sy + this.height - 2);
@@ -104,16 +104,16 @@ export class UFO extends Enemy {
     ctx.stroke();
 
     const dome = ctx.createRadialGradient(cx - 6, sy + 5, 2, cx, sy + 10, 18);
-    dome.addColorStop(0, '#e0f2fe');
-    dome.addColorStop(1, '#38bdf8');
+    dome.addColorStop(0, '#e6d5f7');
+    dome.addColorStop(1, '#9570ff');
     ctx.fillStyle = dome;
     ctx.beginPath();
     ctx.ellipse(cx, sy + 10, 16, 10, 0, Math.PI, 0);
     ctx.fill();
-    ctx.strokeStyle = '#0369a1';
+    ctx.strokeStyle = '#754294';
     ctx.stroke();
 
-    const lights = ['#fef08a', '#a7f3d0', '#f0abfc'];
+    const lights = ['#c7ff4d', '#9570ff', '#ff7166'];
     for (let i = 0; i < 3; i++) {
       ctx.fillStyle = lights[i];
       ctx.globalAlpha = i === Math.floor(this.animTimer * 8) % 3 ? 1 : 0.45;
@@ -124,7 +124,7 @@ export class UFO extends Enemy {
     ctx.globalAlpha = 1;
 
     if (this.disruptTimer > 0) {
-      ctx.strokeStyle = '#fef08a';
+      ctx.strokeStyle = '#c7ff4d';
       ctx.lineWidth = 1.4;
       ctx.beginPath();
       ctx.moveTo(sx + 10, sy - 2);

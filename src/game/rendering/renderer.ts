@@ -467,7 +467,7 @@ export class GameRenderer {
     switch (c.type) {
       case "coin": {
         this.drawCollectibleOrb(cx, cy, radius, INK.lime, INK.deep);
-        ctx.strokeStyle = "#7c2d12";
+        ctx.strokeStyle = "#21112f";
         ctx.lineWidth = 1.5;
         ctx.beginPath();
         ctx.arc(cx, cy, radius * 0.52, 0, Math.PI * 2);
@@ -544,7 +544,7 @@ export class GameRenderer {
       }
       case "slingshot": {
         this.drawCollectibleOrb(cx, cy, radius, "#fed7aa", "#d97706");
-        ctx.strokeStyle = "#7c2d12";
+        ctx.strokeStyle = "#21112f";
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.moveTo(cx - 4, cy + 5);

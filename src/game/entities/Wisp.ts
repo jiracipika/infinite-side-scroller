@@ -54,19 +54,19 @@ export class Wisp extends Enemy {
 
     ctx.save();
     const glow = ctx.createRadialGradient(cx, cy, 2, cx, cy, 15);
-    glow.addColorStop(0, 'rgba(255,255,255,0.9)');
-    glow.addColorStop(0.45, 'rgba(125,211,252,0.75)');
-    glow.addColorStop(1, 'rgba(14,165,233,0)');
+    glow.addColorStop(0, 'rgba(244,242,237,0.85)');
+    glow.addColorStop(0.45, 'rgba(149,112,255,0.7)');
+    glow.addColorStop(1, 'rgba(149,112,255,0)');
     ctx.fillStyle = glow;
     ctx.beginPath();
     ctx.arc(cx, cy, 15 * pulse, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.fillStyle = '#e0f2fe';
+    ctx.fillStyle = '#b885d7';
     ctx.beginPath();
     ctx.ellipse(cx, cy, 6, 7.5, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = '#0284c7';
+    ctx.strokeStyle = '#754294';
     ctx.lineWidth = 1;
     ctx.stroke();
 

@@ -61,7 +61,7 @@ export class Bat extends Enemy {
     ctx.fill();
 
     // Wings read first so the small face stays crisp.
-    ctx.fillStyle = this.chasing ? '#7c3aed' : '#6d28d9';
+    ctx.fillStyle = '#09080f';
     ctx.beginPath();
     ctx.moveTo(bodyX - 5, bodyY - 1);
     ctx.quadraticCurveTo(sx - 8, sy + 1 + wingFlap, sx + 4, sy + 17);
@@ -76,23 +76,23 @@ export class Bat extends Enemy {
     ctx.closePath();
     ctx.fill();
 
-    ctx.fillStyle = '#5b21b6';
+    ctx.fillStyle = '#44205f';
     ctx.beginPath();
     ctx.ellipse(bodyX, bodyY, 10, 7, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = '#2e1065';
+    ctx.lineWidth = 1.3; ctx.strokeStyle = '#754294';
     ctx.lineWidth = 1.2;
     ctx.stroke();
 
-    ctx.fillStyle = '#fef3c7';
+    ctx.fillStyle = '#ff7166';
     ctx.fillRect(sx + 9, sy + 7, 3, 3);
     ctx.fillRect(sx + 16, sy + 7, 3, 3);
-    ctx.fillStyle = '#dc2626';
+    ctx.fillStyle = '#09080f';
     ctx.fillRect(sx + 10, sy + 8, 1, 1);
     ctx.fillRect(sx + 17, sy + 8, 1, 1);
 
     // Tiny fangs
-    ctx.fillStyle = '#f8fafc';
+    ctx.fillStyle = '#f4f2ed';
     ctx.fillRect(bodyX - 2, sy + 13, 1.5, 2);
     ctx.fillRect(bodyX + 0.5, sy + 13, 1.5, 2);
 

@@ -62,13 +62,13 @@ export class Mite extends Enemy {
     ctx.fill();
 
     const body = ctx.createLinearGradient(0, sy, 0, sy + this.height);
-    body.addColorStop(0, '#fb7185');
-    body.addColorStop(1, '#7f1d1d');
+    body.addColorStop(0, '#21112f');
+    body.addColorStop(1, '#09080f');
     ctx.fillStyle = body;
     ctx.beginPath();
     ctx.ellipse(cx, sy + 10, stretched ? 12 : 9, stretched ? 5 : 8, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = '#450a0a';
+    ctx.strokeStyle = '#ff7166';
     ctx.lineWidth = 1.2;
     ctx.stroke();
 
@@ -80,10 +80,10 @@ export class Mite extends Enemy {
     ctx.closePath();
     ctx.fill();
 
-    ctx.fillStyle = '#fef2f2';
+    ctx.fillStyle = '#ff7166';
     const eyeX = this.facingRight ? sx + 12 : sx + 5;
     ctx.fillRect(eyeX, sy + 7, 3, 3);
-    ctx.fillStyle = '#7f1d1d';
+    ctx.fillStyle = '#09080f';
     ctx.fillRect(eyeX + 1, sy + 8, 1, 1);
     ctx.restore();
   }

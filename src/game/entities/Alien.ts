@@ -56,7 +56,7 @@ export class Alien extends Enemy {
     ctx.fill();
 
     // Antennae
-    ctx.strokeStyle = '#166534';
+    ctx.strokeStyle = '#754294';
     ctx.lineWidth = 1.4;
     ctx.beginPath();
     ctx.moveTo(cx - 5, sy + 8 + bob);
@@ -64,24 +64,24 @@ export class Alien extends Enemy {
     ctx.moveTo(cx + 5, sy + 8 + bob);
     ctx.quadraticCurveTo(cx + 10, sy - 2 + bob, cx + 13, sy - 6 + bob);
     ctx.stroke();
-    ctx.fillStyle = '#a3e635';
+    ctx.fillStyle = '#b885d7';
     ctx.beginPath(); ctx.arc(cx - 13, sy - 6 + bob, 2.5, 0, Math.PI * 2); ctx.fill();
     ctx.beginPath(); ctx.arc(cx + 13, sy - 6 + bob, 2.5, 0, Math.PI * 2); ctx.fill();
 
     const body = ctx.createLinearGradient(0, sy, 0, sy + this.height);
-    body.addColorStop(0, '#bef264');
-    body.addColorStop(0.55, '#65a30d');
-    body.addColorStop(1, '#365314');
+    body.addColorStop(0, '#b885d7');
+    body.addColorStop(0.55, '#754294');
+    body.addColorStop(1, '#21112f');
     ctx.fillStyle = body;
     ctx.beginPath();
     ctx.ellipse(cx, sy + 19 + bob, 12, 16, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = '#1f3b0d';
+    ctx.strokeStyle = '#21112f';
     ctx.lineWidth = 1.4;
     ctx.stroke();
 
     // Oversized glassy eyes
-    ctx.fillStyle = '#ecfeff';
+    ctx.fillStyle = '#ff7166';
     ctx.beginPath(); ctx.ellipse(cx - 5, sy + 14 + bob, 4, 5, -0.25, 0, Math.PI * 2); ctx.fill();
     ctx.beginPath(); ctx.ellipse(cx + 5, sy + 14 + bob, 4, 5, 0.25, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = '#0f172a';
@@ -90,7 +90,7 @@ export class Alien extends Enemy {
 
     // Little boots sell the stomp target.
     const foot = Math.sin(this.animTimer * 10) * 2;
-    ctx.fillStyle = '#1f2937';
+    ctx.fillStyle = '#09080f';
     ctx.fillRect(sx + 4, sy + this.height - 2 + foot, 8, 3);
     ctx.fillRect(sx + this.width - 12, sy + this.height - 2 - foot, 8, 3);
 

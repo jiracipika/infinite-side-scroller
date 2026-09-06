@@ -104,7 +104,7 @@ export class Skeleton extends Enemy {
     ctx.fillStyle = '#0f172a';
     ctx.fillRect(sx + 8, sy + 4, 5, 5);
     ctx.fillRect(sx + 16, sy + 4, 5, 5);
-    ctx.fillStyle = '#ef4444';
+    ctx.fillStyle = '#ff7166';
     ctx.fillRect(sx + 9, sy + 5, 2, 2);
     ctx.fillRect(sx + 17, sy + 5, 2, 2);
 
@@ -122,18 +122,18 @@ export class Skeleton extends Enemy {
     ctx.fillRect(sx + 16, sy + 43 - legAnim, 7, 2);
 
     // Render projectiles
-    ctx.fillStyle = '#f97316';
+    ctx.fillStyle = '#ff7166';
     for (const p of this.projectiles) {
       const px = p.x - cameraX;
       const py = p.y - cameraY;
       ctx.beginPath();
       ctx.arc(px, py, 4, 0, Math.PI * 2);
       ctx.fill();
-      ctx.fillStyle = 'rgba(254,215,170,0.35)';
+      ctx.fillStyle = 'rgba(184,133,215,0.35)';
       ctx.beginPath();
       ctx.arc(px, py, 7, 0, Math.PI * 2);
       ctx.fill();
-      ctx.fillStyle = '#f97316';
+      ctx.fillStyle = '#ff7166';
     }
 
     ctx.restore();

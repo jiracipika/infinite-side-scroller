@@ -97,17 +97,17 @@ export class Boss extends Enemy {
     ctx.save();
 
     const shell = ctx.createLinearGradient(sx, sy, sx, sy + this.height);
-    shell.addColorStop(0, '#7f1d1d');
-    shell.addColorStop(1, '#3f0b0b');
+    shell.addColorStop(0, '#21112f');
+    shell.addColorStop(1, '#09080f');
     ctx.fillStyle = shell;
     ctx.fillRect(sx, sy, this.width, this.height);
 
     // Armor plates
-    ctx.fillStyle = '#450a0a';
+    ctx.fillStyle = '#44205f';
     ctx.fillRect(sx + 6, sy + 8, this.width - 12, 10);
     ctx.fillRect(sx + 6, sy + 24, this.width - 12, 8);
 
-    ctx.strokeStyle = '#2f0909';
+    ctx.strokeStyle = '#ff7166';
     ctx.lineWidth = 2;
     ctx.strokeRect(sx, sy, this.width, this.height);
 
@@ -129,17 +129,17 @@ export class Boss extends Enemy {
     // Core eye
     const eyeX = sx + this.width / 2;
     const eyeY = sy + 19;
-    ctx.fillStyle = '#fef08a';
+    ctx.fillStyle = '#f4f2ed';
     ctx.beginPath();
     ctx.arc(eyeX, eyeY, 7, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = '#b91c1c';
+    ctx.fillStyle = '#c7ff4d';
     ctx.beginPath();
     ctx.arc(eyeX, eyeY, 3 * pulse, 0, Math.PI * 2);
     ctx.fill();
 
     // Jaw
-    ctx.fillStyle = '#111827';
+    ctx.fillStyle = '#09080f';
     ctx.fillRect(sx + 14, sy + 38, 28, 8);
     ctx.fillStyle = '#fca5a5';
     for (let i = 0; i < 5; i++) {
@@ -151,11 +151,11 @@ export class Boss extends Enemy {
     const barH = 4;
     ctx.fillStyle = '#0f172a';
     ctx.fillRect(sx, sy - 10, barW, barH);
-    ctx.fillStyle = '#ef4444';
+    ctx.fillStyle = '#ff7166';
     ctx.fillRect(sx, sy - 10, barW * (this.health / this.maxHealth), barH);
 
     // Render projectiles
-    ctx.fillStyle = '#fb7185';
+    ctx.fillStyle = '#ff7166';
     for (const p of this.projectiles) {
       const px = p.x - cameraX;
       const py = p.y - cameraY;
@@ -166,7 +166,7 @@ export class Boss extends Enemy {
       ctx.beginPath();
       ctx.arc(px, py, 8, 0, Math.PI * 2);
       ctx.fill();
-      ctx.fillStyle = '#fb7185';
+      ctx.fillStyle = '#ff7166';
     }
 
     ctx.restore();
