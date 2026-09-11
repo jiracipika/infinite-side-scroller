@@ -427,6 +427,31 @@ export class GameRenderer {
       tumble: camera.isReducedMotion() ? 0 : player.airbornePose,
     });
 
+    // Katana slash accent: ninja-only, drawn in the same local transform as
+    // the sprite so it stays glued to the arm. The weapon strike is the one
+    // moment lime is the correct accent — the eye must find the hit zone.
+    // Paper blade + thin lime edge, zero additive glow; gone when idle.
+    if (char.id === "ninja" && player.meleeActive) {
+      const m = Math.max(0, Math.min(1, player.meleeProgress));
+      const swing = Math.sin(m * Math.PI);
+      const len = (14 + 8 * swing) * (w / 20);
+      const ang = -0.45 - swing * 0.85;
+      const hx = w * 0.85, hy = h * 0.38 - 4 * swing;
+      ctx.strokeStyle = "#f4f2ed";
+      ctx.lineWidth = 2.2 * (w / 20);
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(hx, hy);
+      ctx.lineTo(hx + Math.cos(ang) * len, hy + Math.sin(ang) * len);
+      ctx.stroke();
+      ctx.strokeStyle = "#c7ff4d";
+      ctx.lineWidth = 0.9 * (w / 20);
+      ctx.beginPath();
+      ctx.moveTo(hx - Math.cos(ang) * 2, hy - Math.sin(ang) * 2);
+      ctx.lineTo(hx + Math.cos(ang) * len, hy + Math.sin(ang) * len);
+      ctx.stroke();
+    }
+
     if (player.wallSliding) {
       // Contact sparkle: a shimmer of chips at the wall-side edge while the
       // slide is actively scrubbing. Phase is keyed to screen.y — during a

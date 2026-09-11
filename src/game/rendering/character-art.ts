@@ -1,4 +1,5 @@
 import type { CharacterDef } from "../data/characters";
+import { drawInkNinja } from "./ink-ninja";
 
 export interface CharacterArtPose {
   stride?: number;
@@ -289,64 +290,6 @@ function drawBow(ctx: CanvasRenderingContext2D, x: number, y: number): void {
   ctx.moveTo(x, y - 8);
   ctx.lineTo(x, y + 8);
   ctx.stroke();
-}
-
-/** Ink silhouette uses the same pose solvers as the other runners. No physics changes. */
-function drawInkNinja(ctx: CanvasRenderingContext2D, width: number, height: number, pose: CharacterArtPose): void {
-  const ink = "#0a0a0f";
-  const lime = "#c7ff4d";
-  const mid = "#373044";
-  const legs = resolveLegPose(width, height, pose);
-  const arms = resolveArmPose(width, height, pose);
-  const head = resolveHeadPose(width, pose);
-  const tuck = resolveTumbleArms(pose.tumble ?? 0);
-  const cx = width / 2;
-  const hip = characterLegAnchorY(height);
-  const ribbon = pose.dashing ? 27 : pose.airborne ? 20 : 13;
-  const flutter = Math.max(-2.5, Math.min(2.5, pose.stride ?? 0));
-  const poly = (color: string, points: number[][], outlined = false) => {
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.moveTo(points[0][0], points[0][1]);
-    for (let i = 1; i < points.length; i++) ctx.lineTo(points[i][0], points[i][1]);
-    ctx.closePath();
-    ctx.fill();
-    if (outlined) {
-      ctx.strokeStyle = lime;
-      ctx.lineWidth = .7;
-      ctx.stroke();
-    }
-  };
-  // Two brush-cut scarf tails, never alpha-blended into the world.
-  poly(lime, [[cx,14],[1,11],[-ribbon,6+flutter],[-ribbon+6,12+flutter],[-ribbon-2,15],[0,14],[cx,18]]);
-  poly(lime, [[3,14],[-ribbon+3,19-flutter],[-ribbon+9,20],[-ribbon+1,25-flutter],[5,18]]);
-  // Katana on back; fixed geometry follows the body/tumble transform.
-  poly('#f4f2ed', [[2,25],[width-2,6],[width,7],[5,28]]);
-  poly(mid, [[1,25],[4,24],[7,28],[4,30]]);
-  for (const [x,y,h,bx,by] of [
-    [legs.rearLegX,legs.rearLegY,legs.rearLegH,legs.rearBootX,legs.rearBootY],
-    [legs.frontLegX,legs.frontLegY,legs.frontLegH,legs.frontBootX,legs.frontBootY],
-  ]) {
-    poly(ink, [[cx,hip-2],[x+5,y],[x+5,y+h],[bx+8,by+1],[bx+8,by+3],[bx,by+3],[x,y+h-2],[x,y]], true);
-    poly(mid, [[x+1,y+2],[x+4,y+3],[x+3,y+h-1],[x+1,y+h-2]]);
-  }
-  poly(ink, [[4,16],[cx,13],[width-4,16],[width-5,hip],[cx,hip+2],[4,hip]], true);
-  poly(mid, [[5,17],[cx,16],[width-6,19],[cx-1,hip-1],[5,hip-3]]);
-  poly(lime, [[4,hip-4],[width-5,hip-6],[width-4,hip-3],[4,hip-1]]);
-  for (const [x,y,h] of [
-    [arms.rearArmX+tuck.rearArmDx, arms.rearArmY+tuck.rearArmDy, arms.rearArmH],
-    [arms.frontArmX+tuck.frontArmDx, arms.frontArmY+tuck.frontArmDy, arms.frontArmH],
-  ]) {
-    poly(ink, [[x+3,y-1],[x+5,y+3],[x+3,y+h],[x-1,y+h+1],[x-2,y+h-3],[x,y+1]], true);
-    poly(mid, [[x,y+3],[x+3,y+4],[x+2,y+7],[x-1,y+6]]);
-  }
-  const hx = head.offsetX;
-  const hy = head.offsetY;
-  // Crown-like spikes, sloped mask and two sharp eyes replace the square head.
-  poly(ink, [[3+hx,5+hy],[2+hx,-3+hy],[8+hx,1+hy],[11+hx,-5+hy],[15+hx,1+hy],[22+hx,-2+hy],[20+hx,5+hy],[width-2+hx,8+hy],[width-4+hx,14+hy],[cx+hx,16+hy],[5+hx,12+hy]], true);
-  poly(mid, [[4+hx,5+hy],[cx+hx,8+hy],[width-3+hx,6+hy],[width-5+hx,12+hy],[cx+hx,13+hy]]);
-  poly(lime, [[7+hx,8+hy],[12+hx,10+hy],[11+hx,12+hy],[8+hx,11+hy]]);
-  poly(lime, [[15+hx,10+hy],[21+hx,7+hy],[19+hx,11+hy],[15+hx,12+hy]]);
 }
 
 /** Armored ink silhouette. Same pose solvers and collision dimensions as before. */

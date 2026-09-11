@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
-const {chromium}=createRequire(process.env.PLAYWRIGHT_PACKAGE||import.meta.url)('playwright');
 const PALETTE={lime:'#c7ff4d',violet:'#9570ff',coral:'#ff7166',black:'#09080f',deep:'#21112f',purple:'#44205f',lav:'#b885d7',lav2:'#754294',paper:'#f4f2ed'};
 const BANNED=/#(7c3aed|6d28d9|5b21b6|2e1065|fef3c7|dc2626|a3e635|bef264|65a30d|365314|1f3b0d|0284c7|e0f2fe|38bdf8|0369a1|fb7185|7f1d1d|450a0a|f97316|b91c1c|9a3412|7c2d12|78350f|fff7ed|fef08a|a7f3d0|f0abfc)/i;
 const ENEMIES=['Bat','Wisp','Mite','Skeleton','Jumper','Alien','UFO','Boss','Slime','Beetle'];
@@ -15,8 +14,9 @@ for(const e of ENEMIES){
 }
 assert.deepEqual(failures,[],'every enemy speaks the ink palette: '+failures.join('; '));
 
-const skipLive=!process.env.GAME_URL&&!process.env.PLAYWRIGHT_PACKAGE;
+const skipLive=!process.env.GAME_URL;
 if(skipLive){console.log('PASS (source audit only): every enemy render file on ink palette; live probe skipped (no GAME_URL)');process.exit(0);}
+const {chromium}=createRequire(process.env.PLAYWRIGHT_PACKAGE||import.meta.url)('playwright');
 const browser=await chromium.launch({channel:'chrome',headless:true});
 try{
  const page=await browser.newPage({viewport:{width:1280,height:720}});
