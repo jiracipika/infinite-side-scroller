@@ -28,7 +28,7 @@ import {
   paintPlatformDetail,
 } from "./textures";
 import { shadeHexColor } from "./color";
-import { INK, paintRooftopFacade, paintInkSlab, paintRoofProp, paintDashBrush } from "./ink-city";
+import { INK, paintRooftopFacade, paintInkSlab, paintRoofProp, paintDashBrush, paintInkTerrainEdge } from "./ink-city";
 
 export class GameRenderer {
   private terrainCache: TerrainCache;
@@ -234,22 +234,12 @@ export class GameRenderer {
     // Grass cap and highlight (thicker, layered for a readable ledge).
     // Graphic-novel treatment: ink outline under the bright cap so every
     // ledge reads as a bold inked contour against the dark soil body.
-    ctx.lineWidth = 9;
-    ctx.strokeStyle = "#0a0a0f";
-    for (let i = 0; i < chunk.heights.length - 1; i++) {
-      ctx.beginPath();
-      ctx.moveTo(i * 4 + offsetX, chunk.heights[i] + 2 + offsetY);
-      ctx.lineTo((i + 1) * 4 + offsetX, chunk.heights[i + 1] + 2 + offsetY);
-      ctx.stroke();
-    }
-    ctx.lineWidth = 7;
-    for (let i = 0; i < chunk.heights.length - 1; i++) {
-      ctx.strokeStyle = INK.deep;
-      ctx.beginPath();
-      ctx.moveTo(i * 4 + offsetX, chunk.heights[i] + offsetY);
-      ctx.lineTo((i + 1) * 4 + offsetX, chunk.heights[i + 1] + offsetY);
-      ctx.stroke();
-    }
+    // Segmented ink contour with varied weight + chipped bands (stage 4);
+    // replaces the uniform per-4px zigzag. Surface Y stays exact.
+    paintInkTerrainEdge(
+      ctx, chunk.heights, chunk.index, offsetX, offsetY,
+      this.backgroundDetail === "high",
+    );
 
     ctx.lineWidth = 3;
     for (let i = 0; i < chunk.heights.length - 1; i++) {

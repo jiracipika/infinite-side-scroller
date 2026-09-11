@@ -267,27 +267,32 @@ export function paintAlert(
   ctx.restore();
 }
 
-/** Three solid brush cuts, trailing the pose rather than full-screen glow. */
+/** Tapered cut-ink wedges trailing the pose; reduced-motion callers skip. */
 export function paintDashBrush(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
   height: number,
   right: boolean,
+  seed: number = 0,
 ) {
   ctx.save();
   ctx.translate(x, y);
   ctx.scale(right ? 1 : -1, 1);
   for (let i = 0; i < 3; i++) {
-    const sy = height * (0.22 + i * 0.25);
-    const len = 62 - i * 13;
+    const h = textureHash(seed * 31 + i, 71);
+    const sy = height * (0.22 + i * 0.25) + (h - 0.5) * 4;
+    const len = 62 - i * 13 + h * 14;
+    const thick = 7 - i * 1.5;
     ctx.fillStyle = i === 1 ? INK.lime : INK.violet;
     ctx.beginPath();
-    ctx.moveTo(0, sy);
-    ctx.lineTo(-len, sy + 5);
-    ctx.lineTo(-len + 20, sy);
-    ctx.lineTo(-len - 9, sy - 2);
-    ctx.lineTo(-8, sy - 4);
+    // Tapered wedge: sharp leading edge at 0, frayed tail cuts at the end.
+    ctx.moveTo(2, sy);
+    ctx.lineTo(-len, sy - thick * (0.4 + h * 0.3));
+    ctx.lineTo(-len + 14 + h * 10, sy - 2);
+    ctx.lineTo(-len - 6, sy + 3 + h * 3);
+    ctx.lineTo(-len + 18, sy + 4);
+    ctx.lineTo(-len * 0.45, sy + thick);
     ctx.closePath();
     ctx.fill();
   }
@@ -337,6 +342,48 @@ export function paintRoofProp(
       ctx.stroke();
     }
     ctx.fillRect(w / 2 - 5, -20, 5, 6);
+  }
+  ctx.restore();
+}
+
+/**
+ * Segmented ink contour for the terrain surface. Replaces the old per-4px
+ * zigzag strokes: the surface is drawn as consolidated segments with varied
+ * stroke weight and occasional skipped bands (chipped ink), while every
+ * point still sits on the exact collision height (painter offset only).
+ * Deterministic via textureHash on chunk index + segment index.
+ */
+export function paintInkTerrainEdge(
+  ctx: CanvasRenderingContext2D,
+  heights: number[],
+  chunkIndex: number,
+  offsetX: number,
+  offsetY: number,
+  detail: boolean,
+): void {
+  ctx.save();
+  const step = detail ? 12 : 20; // px of surface per segment (was 4)
+  const layers: Array<{ weight: number; color: string; lift: number }> = [
+    { weight: 9, color: INK.black, lift: 2 }, // bold ink under-lip
+    { weight: 7, color: INK.deep, lift: 0 }, // deep plate edge
+  ];
+  for (const layer of layers) {
+    let seg = 0;
+    for (let x0 = 0; x0 < heights.length * 4 - step; x0 += step, seg++) {
+      // Chipped ink: deterministically skip some segments on the inner layer.
+      if (layer.weight === 7 && textureHash(chunkIndex * 61 + seg, 83) > 0.82) continue;
+      const i0 = Math.round(x0 / 4);
+      const i1 = Math.min(heights.length - 1, Math.round((x0 + step) / 4));
+      ctx.strokeStyle = layer.color;
+      ctx.lineWidth = layer.weight * (0.75 + textureHash(chunkIndex * 13 + seg, 89) * 0.5);
+      ctx.beginPath();
+      ctx.moveTo(i0 * 4 + offsetX, heights[i0] + layer.lift + offsetY);
+      // One mid control point follows the real surface between endpoints.
+      const iMid = Math.round((i0 + i1) / 2);
+      ctx.lineTo(iMid * 4 + offsetX, heights[iMid] + layer.lift + offsetY);
+      ctx.lineTo(i1 * 4 + offsetX, heights[i1] + layer.lift + offsetY);
+      ctx.stroke();
+    }
   }
   ctx.restore();
 }

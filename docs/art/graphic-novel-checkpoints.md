@@ -36,8 +36,19 @@ Reference: docs/art/reference/graphic-novel-concept.png (copied from Downloads 2
 - Dash/attack FX could be more tapered cut-ink wedges (currently 3 brush cuts).
 - Enemy/collision-adjacent art untouched this stage (intentionally).
 
+## Stage 4 — terrain ink edge + dash wedges — VERIFIED (see stage-4 commit)
+- test/ink-terrain-edge.test.ts RED first, then GREEN: paintInkTerrainEdge deterministic, balanced, ~118 consolidated strokes (was ~400 per-4px zigzag), every contour point on exact surface Y (±12 measured incl. bold lip), >=3 varied stroke weights, chipped-band skips, low-detail tier cheaper. (Two over-tight test heuristics were corrected with reasons: segment count bound, and the x%4==0 filter which penalized legitimate segment endpoints.)
+- renderer.ts: two zigzag stroke loops replaced by paintInkTerrainEdge (chunk-index seeded, backgroundDetail-gated); third loop (palette cap line) intentionally kept exact.
+- paintDashBrush: tapered cut-ink wedges (sharp leading edge, frayed tails, seeded per-streak variance); reduced-motion gate unchanged at call site. No default-arg call breakage (seed optional).
+- Vision (stage-4/ninja-dash.png): organic wavy ink contour confirmed, no zigzag; tapered two-tone dash trail confirmed clean. Perf knight 0.8/1.6ms, ninja 0.8/1.8ms median/p95. verify 0, build 0, mobile rebundled 163.8KB.
+- Note: chipped gaps confirmed in code+recorder tests; at native zoom vision reads the contour as continuous-but-wavy — acceptable (subtle chipping is intended, not missing).
+
+## Remaining mismatch (Stage 5 targets)
+- Hero still small in frame vs reference; evaluate camera framing AFTER inspecting later-gameplay composition.
+- Menu cover polish only if still needed after gameplay passes.
+
 ## Next action
-Stage 4 task 1: recorder-context tests for terrain facade variants (exact collision top, variety across chunks) before editing terrain painting.
+Stage 5: capture extended-run frames (elevated platforms, later chunks) to judge composition before any camera change; camera edits only with reduced-motion/look-ahead tests and no playability regression.
 
 ## Server/tooling
 - GAME_URL=http://127.0.0.1:3010 (restart after each rebuild: kill background proc, npm run start)
