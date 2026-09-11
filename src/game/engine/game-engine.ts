@@ -3,7 +3,12 @@
  * Manages the game loop, updates all systems, and renders each frame.
  */
 
-import { Camera, DEFAULT_CAMERA_CONFIG, type CameraMode } from "./camera";
+import {
+  Camera,
+  DEFAULT_CAMERA_CONFIG,
+  type CameraMode,
+  WORLD_ZOOM,
+} from "./camera";
 import { paintAlert } from "../rendering/ink-city";
 import { ChunkManager } from "../world/chunk-manager";
 import { InputManager } from "../input/input";
@@ -2817,6 +2822,13 @@ export class GameEngine {
       ctx.fillStyle = rgbaToString(tint);
       ctx.fillRect(0, 0, width, height);
     }
+    // Comic-panel zoom (polish): scale the world around the hero focus so
+    // the inked hero reads bigger without moving the camera math. Zoomed
+    // out-in means fewer world columns fit — culling above is conservative.
+    ctx.save();
+    ctx.translate(width * 0.4, height * 0.6);
+    ctx.scale(WORLD_ZOOM, WORLD_ZOOM);
+    ctx.translate(-width * 0.4, -height * 0.6);
     this.renderer.drawTerrain(chunks, this.camera, this.gameTime, this.reducedMotion);
     this.renderer.drawPlatforms(chunks, this.camera, this.gameTime);
     this.renderer.drawDecorations(chunks, this.camera);
@@ -2949,12 +2961,12 @@ export class GameEngine {
     if (this.player.shieldActive) {
       const sx = this.player.x - this.camera.renderX + this.player.width / 2;
       const sy = this.player.y - this.camera.renderY + this.player.height / 2;
-      ctx.strokeStyle = "#06b6d480";
+      ctx.strokeStyle = "#8b5cf680";
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.arc(sx, sy, this.player.width * 0.8, 0, Math.PI * 2);
       ctx.stroke();
-      ctx.fillStyle = "#06b6d415";
+      ctx.fillStyle = "#8b5cf615";
       ctx.fill();
     }
 
@@ -3057,6 +3069,7 @@ export class GameEngine {
     }
 
     this.renderer.drawParticles(this.particles.getParticles(), this.camera);
+    ctx.restore();
 
     // Hit-stop accent: a faint warm flash that intensifies the freeze-frame.
     // Applied after the day/night tint so it reads as a combat beat, not

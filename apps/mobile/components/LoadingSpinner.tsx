@@ -20,7 +20,7 @@ interface LoadingSpinnerProps {
 export function LoadingSpinner({
   label = 'Loading',
   size = 40,
-  color = '#0A84FF',
+  color = '#c7ff4d',
 }: LoadingSpinnerProps) {
   const reduced = useReducedMotion();
 
@@ -167,7 +167,7 @@ interface LoadingProgressBarProps {
 export function LoadingProgressBar({
   width = 200,
   height = 3,
-  color = '#0A84FF',
+  color = '#c7ff4d',
   trackColor = 'rgba(255,255,255,0.1)',
 }: LoadingProgressBarProps) {
   const reduced = useReducedMotion();

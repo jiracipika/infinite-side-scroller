@@ -339,9 +339,9 @@ export default function GameScreen() {
           {/* WebView loading animation — shown while the game HTML loads. */}
           {!webViewReady && !webViewError && (
             <View style={styles.loadingOverlay} pointerEvents="none">
-              <LoadingSpinner label="Loading" size={48} color="#0A84FF" />
+              <LoadingSpinner label="Loading" size={48} color="#c7ff4d" />
               <View style={{ marginTop: 20 }}>
-                <LoadingProgressBar width={160} height={3} color="#0A84FF" />
+                <LoadingProgressBar width={160} height={3} color="#c7ff4d" />
               </View>
             </View>
           )}
@@ -772,7 +772,7 @@ const MenuOverlay: React.FC<{ onPlay: (seed?: number) => void; highScore: number
         accessibilityLabel="Play Endless"
         accessibilityHint="Start a new endless run"
       >
-        <LinearGradient colors={['#0A84FF', '#5E5CE6', '#BF5AF2']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.playBtnGradient}>
+        <LinearGradient colors={['#c7ff4d', '#5E5CE6', '#BF5AF2']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.playBtnGradient}>
           <Text style={styles.playBtnText}>Play Endless</Text>
           <Text style={styles.playBtnSubtext}>Jump straight into a run</Text>
         </LinearGradient>
@@ -931,10 +931,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     paddingVertical: 12,
     borderRadius: 14,
-    backgroundColor: '#0A84FF',
+    backgroundColor: '#c7ff4d',
   },
   webviewErrorRetryText: {
-    color: '#fff',
+    color: '#0a0a0f',
     fontSize: 16,
     fontWeight: '700',
   },
@@ -967,7 +967,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   movementHalfActive: {
-    backgroundColor: 'rgba(10,132,255,0.48)',
+    backgroundColor: 'rgba(199,255,77,0.48)',
   },
   movementPadDivider: {
     width: 1,
@@ -1066,7 +1066,7 @@ const styles = StyleSheet.create({
     borderRadius: SCREEN_W,
     top: -SCREEN_W * 0.32,
     right: -SCREEN_W * 0.28,
-    backgroundColor: 'rgba(10,132,255,0.22)',
+    backgroundColor: 'rgba(142,121,158,0.22)',
   },
   ambientGlowB: {
     position: 'absolute',
@@ -1108,14 +1108,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(10, 132, 255, 0.12)',
     borderWidth: 1.5,
     borderColor: 'rgba(10, 132, 255, 0.28)',
-    shadowColor: '#0A84FF',
+    shadowColor: '#c7ff4d',
     shadowOpacity: 0.3,
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 6 },
     elevation: 8,
   },
   appMarkText: {
-    color: '#0A84FF',
+    color: '#c7ff4d',
     fontSize: 46,
     fontWeight: '800',
   },
@@ -1234,10 +1234,10 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     textAlign: 'center',
     textAlignVertical: 'center',
-    color: '#0A84FF',
+    color: '#c7ff4d',
     fontSize: 13,
     fontWeight: '900',
-    backgroundColor: 'rgba(10,132,255,0.18)',
+    backgroundColor: 'rgba(142,121,158,0.18)',
   },
   menuStepTitle: {
     color: '#fff',
@@ -1258,8 +1258,8 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#0A84FF',
-    shadowColor: '#0A84FF',
+    backgroundColor: '#c7ff4d',
+    shadowColor: '#c7ff4d',
     shadowOpacity: 0.34,
     shadowRadius: 18,
     shadowOffset: { width: 0, height: 9 },

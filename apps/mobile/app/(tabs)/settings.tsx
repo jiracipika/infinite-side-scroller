@@ -79,7 +79,7 @@ export default function SettingsScreen() {
   if (!allLoaded) {
     return (
       <SafeAreaView style={[styles.container, styles.loading]} edges={['top']}>
-        <ActivityIndicator size="large" color="#0A84FF" />
+        <ActivityIndicator size="large" color="#c7ff4d" />
       </SafeAreaView>
     );
   }
@@ -117,7 +117,7 @@ export default function SettingsScreen() {
               value={masterVolume}
               onValueChange={(v) => handleSliderChange(setMasterVolume, v)}
               onSlidingComplete={handleSliderRelease}
-              minimumTrackTintColor="#0A84FF"
+              minimumTrackTintColor="#c7ff4d"
               maximumTrackTintColor="rgba(255,255,255,0.12)"
               thumbTintColor="#fff"
               accessibilityLabel="Master volume"
@@ -135,7 +135,7 @@ export default function SettingsScreen() {
               value={sfxVolume}
               onValueChange={(v) => handleSliderChange(setSfxVolume, v)}
               onSlidingComplete={handleSliderRelease}
-              minimumTrackTintColor="#0A84FF"
+              minimumTrackTintColor="#c7ff4d"
               maximumTrackTintColor="rgba(255,255,255,0.14)"
               thumbTintColor="#fff"
               accessibilityLabel="Sound effects volume"
@@ -153,7 +153,7 @@ export default function SettingsScreen() {
               value={musicVolume}
               onValueChange={(v) => handleSliderChange(setMusicVolume, v)}
               onSlidingComplete={handleSliderRelease}
-              minimumTrackTintColor="#0A84FF"
+              minimumTrackTintColor="#c7ff4d"
               maximumTrackTintColor="rgba(255,255,255,0.14)"
               thumbTintColor="#fff"
               accessibilityLabel="Music volume"
@@ -170,7 +170,7 @@ export default function SettingsScreen() {
             <Switch
               value={showFPS}
               onValueChange={(v) => handleToggle(setShowFPS, v)}
-              trackColor={{ false: 'rgba(255,255,255,0.18)', true: '#0A84FF' }}
+              trackColor={{ false: 'rgba(255,255,255,0.18)', true: '#c7ff4d' }}
               thumbColor="#fff"
               accessibilityLabel="Show frames per second"
               accessibilityHint="Toggles a performance counter during runs"
@@ -181,7 +181,7 @@ export default function SettingsScreen() {
             <Switch
               value={reducedParticles}
               onValueChange={(v) => handleToggle(setReducedParticles, v)}
-              trackColor={{ false: 'rgba(255,255,255,0.18)', true: '#0A84FF' }}
+              trackColor={{ false: 'rgba(255,255,255,0.18)', true: '#c7ff4d' }}
               thumbColor="#fff"
               accessibilityLabel="Reduced particles"
               accessibilityHint="Lowers decorative effects for smoother and calmer play"
@@ -192,7 +192,7 @@ export default function SettingsScreen() {
             <Switch
               value={largeControls}
               onValueChange={(v) => handleToggle(setLargeControls, v)}
-              trackColor={{ false: 'rgba(255,255,255,0.18)', true: '#0A84FF' }}
+              trackColor={{ false: 'rgba(255,255,255,0.18)', true: '#c7ff4d' }}
               thumbColor="#fff"
               accessibilityLabel="Large touch controls"
               accessibilityHint="Increases on-screen button sizes for easier tapping"
@@ -207,7 +207,7 @@ export default function SettingsScreen() {
             <Switch
               value={hapticsEnabled}
               onValueChange={(v) => handleToggle(setHapticsEnabled, v)}
-              trackColor={{ false: 'rgba(255,255,255,0.18)', true: '#0A84FF' }}
+              trackColor={{ false: 'rgba(255,255,255,0.18)', true: '#c7ff4d' }}
               thumbColor="#fff"
               accessibilityLabel="Haptic feedback"
               accessibilityHint="Toggles vibration feedback during gameplay"
@@ -281,7 +281,7 @@ const SettingDivider: React.FC = () => <View style={styles.divider} />;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#101014',
+    backgroundColor: '#0a0a0f',
   },
   loading: {
     alignItems: 'center',

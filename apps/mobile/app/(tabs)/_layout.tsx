@@ -12,7 +12,7 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: styles.tabBar,
-        tabBarActiveTintColor: '#0A84FF',
+        tabBarActiveTintColor: '#c7ff4d',
         tabBarInactiveTintColor: 'rgba(255,255,255,0.35)',
         tabBarLabelStyle: styles.tabLabel,
         tabBarItemStyle: styles.tabBarItem,
@@ -61,7 +61,7 @@ const styles = StyleSheet.create({
     height: Platform.OS === 'ios' ? 84 : 62,
     elevation: 0,
     // Subtle blue accent glow that bleeds upward from the bar.
-    shadowColor: '#0A84FF',
+    shadowColor: '#c7ff4d',
     shadowOpacity: 0.1,
     shadowRadius: 24,
     shadowOffset: { width: 0, height: -6 },

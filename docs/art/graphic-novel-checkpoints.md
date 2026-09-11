@@ -70,3 +70,12 @@ None — campaign per plan complete. If resumed: start from remaining polish lis
 ## Server/tooling
 - GAME_URL=http://127.0.0.1:3010 (restart after each rebuild: kill background proc, npm run start)
 - Probe: node scripts/test-fidelity-browser.mjs
+
+## Polish pass — Sep 11, 2026 — VERIFIED (all 4 remaining items)
+- Underground flat black (textures.ts): STRATA_DEPTHS extended 3→8 bands (18..560px), deep bands (>=150px) stroke #8e799e violet at boosted alpha/min-0.16 cap and 1.8w; speckle maxDepth 0.6/120→0.92/640. Vision: layered violet treatment confirmed, not flat. Legacy world-textures test (strictly decreasing alphas) kept green.
+- Shield orb/aura focal competition (renderer.ts + game-engine.ts): orb #67e8f9/#0891b2 → #c4b5fd/#7c3aed, glyph #ecfeff→#f5f3ff, player aura #06b6d4*→#8b5cf6*. Source test bans cyan in the shield case.
+- Hero prominence (camera.ts WORLD_ZOOM=1.5 + game-engine render-pass transform): save/translate(0.4w,0.6h)/scale/translate-back before drawTerrain, restore after drawParticles. Camera math, culling, chunk cache, HUD untouched. Vision progression: 1.25 "doesn't read" → 1.35 "subtle" → 1.5 = hero ~6% frame height (from ~3.5%), 70%+ area gain. Reviewer's 15-25% target = 4-6x zoom, rejected: a runner needs hazard reaction distance; 1.5 keeps coins/hazards visible to the right edge (vision-verified twice).
+- Mobile shell theme parity (apps/mobile app/(tabs) + components): #0A84FF→#c7ff4d (lime), #101014→#0a0a0f, rgba(10,132,255,*)→ink-violet rgba(142,121,158,*) (accent-alpha cases → lime rgba), white→ink text on lime buttons. New test/mobile-theme-parity.test.ts enforces: no iOS blue/#101014 anywhere in shell, tokens present, dark text on lime.
+- Gates: 605 tests green, typecheck 0, build 0, verify 0, mobile game.html 164.0 KB, live probe polish-final (render 1.1/2.5ms knight, 1.2/2.8ms ninja, 0 errors), menu probe PASS.
+- Evidence: ~/Downloads/dashverse-fidelity/polish{,2,3,-final}/
+- Vision flags deliberately not actioned: hero 15-25% zoom (breaks runner lookahead), coin-cluster gap (procedural spawn rhythm, not art), x≈945 backdrop shade shift (parallax plate boundary, low contrast by design).

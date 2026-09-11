@@ -20,9 +20,9 @@ export function textureHash(i: number, seed: number): number {
 // ── Ground texture (speckles + strata) ────────────────────────────────
 
 /** Depth (px below surface) of each stratum band, top to bottom. */
-export const STRATA_DEPTHS = [18, 48, 88] as const;
+export const STRATA_DEPTHS = [18, 48, 88, 150, 230, 320, 430, 560] as const;
 /** Stroke alpha for each matching stratum band. */
-export const STRATA_ALPHAS = [0.1, 0.07, 0.045] as const;
+export const STRATA_ALPHAS = [0.1, 0.07, 0.055, 0.048, 0.041, 0.035, 0.03, 0.025] as const;
 
 /** Column spacing for the speckle pass, high and low detail. */
 export const SPECKLE_STEP = { high: 22, low: 44 } as const;
@@ -92,8 +92,12 @@ function paintStrata(
   ctx.save();
   ctx.lineWidth = 1.4;
   for (let layer = 0; layer < STRATA_DEPTHS.length; layer++) {
-    ctx.strokeStyle = groundDark; // alpha applied per segment below
-    ctx.globalAlpha = STRATA_ALPHAS[layer];
+    // Deep bands stroke in the lighter violet ink so the deep underground
+    // keeps tonal separation instead of fading into flat black (polish).
+    const deep = layer >= 3;
+    ctx.strokeStyle = deep ? "#8e799e" : groundDark;
+    ctx.globalAlpha = deep ? Math.min(0.16, STRATA_ALPHAS[layer] * 2.4) : STRATA_ALPHAS[layer];
+    ctx.lineWidth = deep ? 1.8 : 1.4;
     ctx.beginPath();
     const step = 48;
     for (let lx = 0; lx <= heights.length * 4; lx += step) {
@@ -126,7 +130,9 @@ function paintSpeckles(
   detail: boolean,
 ): void {
   const step = detail ? SPECKLE_STEP.high : SPECKLE_STEP.low;
-  const maxDepth = Math.min(depthPx * 0.6, 120);
+  // Deep polish: cover most of the canvas depth so the underground never
+  // reads as a flat black band, but thin out with distance (rolls shrink).
+  const maxDepth = Math.min(depthPx * 0.92, 640);
   ctx.save();
   for (let lx = 12, col = 0; lx < heights.length * 4; lx += step, col++) {
     const surface = surfaceAt(heights, lx);

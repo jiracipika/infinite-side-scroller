@@ -29,7 +29,7 @@ interface ParticleConfig {
 
 const DEFAULT_CONFIG: ParticleConfig = {
   count: 12,
-  colors: ['#facc15', '#fde68a', '#fbbf24', '#0A84FF', '#5E5CE6'],
+  colors: ['#facc15', '#fde68a', '#fbbf24', '#c7ff4d', '#5E5CE6'],
   minRadius: 30,
   maxRadius: 90,
   minSize: 4,

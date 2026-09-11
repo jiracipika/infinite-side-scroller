@@ -19,6 +19,14 @@ export interface CameraConfig {
   lerpSpeed: number;
 }
 
+/**
+ * Comic-panel world zoom (polish pass, Sep 2026). Applied as a render-pass
+ * transform anchored at the hero focus point; the camera math (culling,
+ * visibility, chunk cache, HUD) is untouched. 1.25 keeps ~0.48 screen-widths
+ * of lookahead beyond the hero after zoom.
+ */
+export const WORLD_ZOOM = 1.5;
+
 export const DEFAULT_CAMERA_CONFIG: CameraConfig = {
   mode: 'auto',
   // Comic-panel framing (stage 5): hero left-of-center for lookahead,

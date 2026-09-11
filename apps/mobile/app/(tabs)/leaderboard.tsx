@@ -83,7 +83,7 @@ export default function LeaderboardScreen() {
         <SpringCard delay={60}>
           <View style={styles.bestHeroOuter}>
             <LinearGradient
-              colors={['#0A84FF', 'rgba(10,132,255,0.55)', 'rgba(10,132,255,0.15)']}
+              colors={['#c7ff4d', 'rgba(142,121,158,0.55)', 'rgba(142,121,158,0.15)']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.bestHeroGradient}
@@ -174,7 +174,7 @@ const BestStat: React.FC<{ label: string; value: string }> = ({ label, value }) 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#101014',
+    backgroundColor: '#0a0a0f',
   },
   header: {
     paddingHorizontal: 20,
@@ -263,7 +263,7 @@ const styles = StyleSheet.create({
     lineHeight: 56,
     fontWeight: '900',
     letterSpacing: -1.2,
-    textShadowColor: 'rgba(10,132,255,0.5)',
+    textShadowColor: 'rgba(142,121,158,0.5)',
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 12,
   },
@@ -356,12 +356,12 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(10,132,255,0.15)',
+    backgroundColor: 'rgba(142,121,158,0.15)',
     borderWidth: 1,
-    borderColor: 'rgba(10,132,255,0.2)',
+    borderColor: 'rgba(142,121,158,0.2)',
   },
   runRank: {
-    color: 'rgba(10,132,255,0.9)',
+    color: 'rgba(199,255,77,0.9)',
     fontSize: 13,
     fontWeight: '800',
   },

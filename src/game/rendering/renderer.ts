@@ -531,8 +531,10 @@ export class GameRenderer {
         break;
       }
       case "shield": {
-        this.drawCollectibleOrb(cx, cy, radius, "#67e8f9", "#0891b2");
-        ctx.fillStyle = "#ecfeff";
+        // Violet family: cyan read as a second focal point competing with
+        // the lavender moon burst (polish pass, Sep 2026).
+        this.drawCollectibleOrb(cx, cy, radius, "#c4b5fd", "#7c3aed");
+        ctx.fillStyle = "#f5f3ff";
         ctx.beginPath();
         ctx.moveTo(cx, cy - 6);
         ctx.lineTo(cx + 5, cy - 3);
