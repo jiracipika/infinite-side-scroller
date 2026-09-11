@@ -119,6 +119,8 @@
 .modeGrid button:global(.dash-mode-card-v2) span { margin-top: 4px; font-size: 11px; line-height: 1.25; color: #c2b5cd; }
 .modeGrid button:global(.dash-mode-card-v2) em { color: #c7ff4d; font-size: 22px; top: 7px; right: 10px; }
 .modeGrid button:global(.coop) { border-left-color: #ad83ff; }
+/* Coral #ff7166 is the deliberate COMPETE semantic accent (ranked/daily),
+   kept distinct from the reserved lime and the violet mid-hue family. */
 .modeGrid button:global(.compete) { border-left-color: #ff7166; }
 .modeGrid button:global(.customize) { border-left-color: #bba7d5; }
 .shell :global(.dash-runner-v2) { border-top: 4px solid #f4f2ed; background: #101017; }

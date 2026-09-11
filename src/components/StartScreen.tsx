@@ -463,7 +463,9 @@ const StartScreen: FC<Props> = ({
               aria-label="Open player profile"
               aria-pressed={activeView === "profile"}
             >
-              <span aria-hidden="true">●</span>
+              <span aria-hidden="true" style={{ fontStyle: "italic", fontWeight: 800, fontFamily: "'Arial Narrow', sans-serif" }}>
+                {playerName.trim() ? playerName.trim().charAt(0).toUpperCase() : "??"}
+              </span>
             </button>
           </div>
         </section>
@@ -621,12 +623,12 @@ const StartScreen: FC<Props> = ({
                 <StatBar
                   label="SPD"
                   value={selectedCharacter.speed}
-                  color="#7170ff"
+                  color="#9d82ff"
                 />
                 <StatBar
                   label="JMP"
                   value={selectedCharacter.jumpVelocity}
-                  color="#10b981"
+                  color="#c7ff4d"
                 />
                 <StatBar
                   label="HP"

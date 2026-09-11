@@ -79,3 +79,11 @@ None — campaign per plan complete. If resumed: start from remaining polish lis
 - Gates: 605 tests green, typecheck 0, build 0, verify 0, mobile game.html 164.0 KB, live probe polish-final (render 1.1/2.5ms knight, 1.2/2.8ms ninja, 0 errors), menu probe PASS.
 - Evidence: ~/Downloads/dashverse-fidelity/polish{,2,3,-final}/
 - Vision flags deliberately not actioned: hero 15-25% zoom (breaks runner lookahead), coin-cluster gap (procedural spawn rhythm, not art), x≈945 backdrop shade shift (parallax plate boundary, low contrast by design).
+
+## Menu cover polish — Sep 11, 2026 — VERIFIED (the "only if still needed" Stage-5 conditional; it was needed)
+- Vision review of menu vs new gameplay art: splash + knight portrait already on-identity; clashes = SPD/JMP stat bars (old neon #7170ff blue / #10b981 teal), undocumented coral compete edge, bare-dot profile button.
+- Fixes (TDD, test/menu-theme.test.ts RED first): SPD → ink violet #9d82ff, JMP → ink lime #c7ff4d (HP stays coral — shared health semantic with the in-game orb); coral compete edge documented in StartScreen.module.css as the deliberate COMPETE semantic accent; profile button's bare ● replaced by the player's initial (Impact italic, "??" fallback).
+- Vision re-check: bars confirmed violet/lime, profile glyph present (reads "P"), no layout breaks; menu probe PASS, mobile shell untouched this pass.
+- Gates: tests green, typecheck 0, build 0, verify 0, game.html 164.0 KB.
+- Evidence: ~/Downloads/dashverse-fidelity/menu-review (before) / menu-fixed (after).
+- Remaining known items now: NONE from the campaign list. Off-palette-but-defensible (documented, not changed): HP coral, gold coin icons, gray bank chip.
