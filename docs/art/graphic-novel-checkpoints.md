@@ -87,3 +87,10 @@ None — campaign per plan complete. If resumed: start from remaining polish lis
 - Gates: tests green, typecheck 0, build 0, verify 0, game.html 164.0 KB.
 - Evidence: ~/Downloads/dashverse-fidelity/menu-review (before) / menu-fixed (after).
 - Remaining known items now: NONE from the campaign list. Off-palette-but-defensible (documented, not changed): HP coral, gold coin icons, gray bank chip.
+
+## Menu polish round 2 — comic devices — VERIFIED (Sep 11, 2026)
+- Vision planning pass flagged: mode cards = flat stock rectangles (no comic DNA); unselected roster sprites vanish into flat dark cards.
+- Fixes (TDD, test/menu-comic-devices.test.ts RED first): mode cards get notched top-right corner (clip-path polygon 14px), halftone dot field (radial-gradient 9px grid, lime at 0.055 alpha) over the existing hatch, two-layer print-misregistration shadow (violet #3a2360 under ink #08070c). Roster cards get violet hatch wash (repeating-linear-gradient #241636/#2b1c40) so ink sprites sit on printed paper like the selected stage.
+- Tooling note: npx playwright cache was pruned mid-session — installed playwright 1.63.0 locally with --no-save; probe scripts now resolve it from repo node_modules.
+- Vision verified at desktop + phone: notch/halftone/shadow render, roster legible, no clipping; menu probe PASS (320/390/768); tests green, verify 0, game.html 164.0 KB.
+- Evidence: ~/Downloads/dashverse-fidelity/menu-round2/
