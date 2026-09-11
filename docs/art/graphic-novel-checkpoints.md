@@ -47,8 +47,15 @@ Reference: docs/art/reference/graphic-novel-concept.png (copied from Downloads 2
 - Hero still small in frame vs reference; evaluate camera framing AFTER inspecting later-gameplay composition.
 - Menu cover polish only if still needed after gameplay passes.
 
+## Stage 5 — composition + framing — VERIFIED (see stage-5 commit)
+- Extended-run capture (stage-5-composition/run-00..09, real ArrowRight input 25s+): vision critique — hero ~3% frame height, hero at ~37% X, ground line 55% leaving ~45% dead underground; recommended hero left-third + lower horizon; zoom flagged as hazard risk.
+- Decision: config-only framing change, NO zoom. camera.ts DEFAULT_CAMERA_CONFIG: focusX 0.5→0.4, horizontalFocusY 0.52→0.6 (portrait/split unchanged). TDD: test/camera-framing.test.ts RED then GREEN (focus values, left-wall clamp preserved, steady-state player screen X 450-600 → more lookahead).
+- Post-change vision (stage-5-final/ninja-idle.png): ground line 62% (target hit), underground reduced to ~38%, all upcoming terrain/collectibles/signs visible to right edge (no clipped hazard), comic-panel grammar confirmed (burst near upper third intersection, lower-third horizon). Hero at far-left in that frame is the spawn-time x=0 camera clamp, not a regression (unit test proves 40% steady state).
+- Perf unchanged (0.7/1.3ms both chars). verify 0, build 0, menu probe PASS (8 cards visible, 320/390/768 reflow), touch probe PASS (real touch jump, 6 actions, pause). Mobile rebundled.
+- Known remaining niggles (not regressions): bottom ~15% still flat black under root detail; cyan orb competes with moon burst for focus. Both acceptable; noted for possible later polish.
+
 ## Next action
-Stage 5: capture extended-run frames (elevated platforms, later chunks) to judge composition before any camera change; camera edits only with reduced-motion/look-ahead tests and no playability regression.
+Stage 6 release slice: independent diff review of stage 4+5 commits, then push and final checkpoint update.
 
 ## Server/tooling
 - GAME_URL=http://127.0.0.1:3010 (restart after each rebuild: kill background proc, npm run start)

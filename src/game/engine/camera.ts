@@ -21,8 +21,11 @@ export interface CameraConfig {
 
 export const DEFAULT_CAMERA_CONFIG: CameraConfig = {
   mode: 'auto',
-  focusX: 0.5,
-  horizontalFocusY: 0.52,
+  // Comic-panel framing (stage 5): hero left-of-center for lookahead,
+  // ground line near the lower rule-of-thirds so the inked stage anchors
+  // the frame instead of dead underground space.
+  focusX: 0.4,
+  horizontalFocusY: 0.6,
   verticalFocusY: 0.54,
   splitFocusY: 0.6,
   lerpSpeed: 0.14,
