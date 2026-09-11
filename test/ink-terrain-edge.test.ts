@@ -37,15 +37,27 @@ describe("ink terrain edge (stage 4)", () => {
   it("keeps every contour point on the exact surface Y (±2 for the ink lip)", () => {
     for (const chunkIndex of [3, 7, 11]) {
       const r = recorder();
-      paintInkTerrainEdge(r.ctx, heights, chunkIndex, 0, 0, true);
+      paintInkTerrainEdge(r.ctx, heights, chunkIndex, 40, 0, true);
       const pts = r.calls.filter((c) => c[0] === "moveTo" || c[0] === "lineTo");
       assert.ok(pts.length > 10);
       for (const c of pts) {
         const x = Number(c[1]);
         const y = Number(c[2]);
-        const idx = Math.max(0, Math.min(heights.length - 1, Math.round(x / 4)));
-        assert.ok(Math.abs(y - heights[idx]) <= 12, `y ${y} vs surface ${heights[idx]} at x ${x}`);
+        const idx = Math.max(0, Math.min(heights.length - 1, Math.round((x - 40) / 4)));
+        assert.ok(Math.abs(y - heights[idx]) <= 4, `y ${y} vs surface ${heights[idx]} at x ${x}`);
       }
+    }
+  });
+  it("covers the full chunk width including the last sample (no 8px seam)", () => {
+    for (const detail of [true, false]) {
+      const r = recorder();
+      paintInkTerrainEdge(r.ctx, heights, 7, 40, 0, detail);
+      const xs = r.calls
+        .filter((c) => c[0] === "moveTo" || c[0] === "lineTo")
+        .map((c) => Number(c[1]));
+      const maxX = Math.max(...xs);
+      const endX = (heights.length - 1) * 4 + 40;
+      assert.ok(maxX >= endX - 1, `contour ends at ${maxX}, chunk edge is ${endX} (detail=${detail})`);
     }
   });
   it("varies stroke weights and skips some bands for a chipped ink look", () => {

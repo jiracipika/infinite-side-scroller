@@ -388,7 +388,7 @@ export class GameRenderer {
     const bob = player.onGround ? Math.abs(stride) * 0.18 : -1.5;
     const sy = screen.y + bob;
     if (player.dashing && !camera.isReducedMotion()) {
-      paintDashBrush(ctx, screen.x + w / 2, sy, h, player.facingRight);
+      paintDashBrush(ctx, screen.x + w / 2, sy, h, player.facingRight, Math.floor(player.distanceTraveled / 64));
     }
 
     ctx.save();

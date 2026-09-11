@@ -14,8 +14,8 @@
 
 - Repository: `/Users/rs-mac/projects/infinite-side-scroller`.
 - Initial inspection: clean worktree, `git pull --ff-only` returned already up to date; HEAD `7eef70a`.
-- Planning status: reference inspected; saved gameplay inspected; implementation stages below NOT started.
-- NEXT: Stage 1, obtain fresh comparable live evidence before changing game code.
+- Planning status: STAGES 1-5 COMPLETE AND PUSHED (f26b553 stage1-2, 5b809da stage3, 3e67dcc stage4, f868b6e stage5). Stage 6 (independent review of 4+5, final docs, release evidence) IN PROGRESS.
+- NEXT: finish stage 6; see docs/art/graphic-novel-checkpoints.md for full per-stage evidence and remaining polish niggles.
 - Approved reference: `/Users/rs-mac/Downloads/dashverse-neon-graphic-novel-concept.png`.
 - Historical screenshot inspected: `/Users/rs-mac/Downloads/dashverse-ink-overhaul/gameplay.png`. This is saved evidence, NOT a fresh runtime verification of HEAD.
 - Previous work and constraints: `docs/NEON-OVERHAUL.md`.

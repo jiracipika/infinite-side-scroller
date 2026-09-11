@@ -54,8 +54,18 @@ Reference: docs/art/reference/graphic-novel-concept.png (copied from Downloads 2
 - Perf unchanged (0.7/1.3ms both chars). verify 0, build 0, menu probe PASS (8 cards visible, 320/390/768 reflow), touch probe PASS (real touch jump, 6 actions, pause). Mobile rebundled.
 - Known remaining niggles (not regressions): bottom ~15% still flat black under root detail; cyan orb competes with moon burst for focus. Both acceptable; noted for possible later polish.
 
+## Stage 6 — release + handoff — VERIFIED (final commit of campaign)
+- Independent review (glm-5.3, /tmp/dashverse-stage45-review.log): SPEC PASS; QUALITY REQUEST_CHANGES with 1 real blocker — 8px contour seam at chunk ends in high detail (loop bound stopped one step short). Fixed: loop now runs to full width (i1 clamps), round lineCap added. Reviewer also found dash seed param inert at call site — fixed with distance-based seed (stable per position, no frame jitter). Tests tightened per review: exact-Y ±4 with nonzero offsetX=40 case, new full-width coverage test incl. low detail tier.
+- Post-fix: full test suite green, verify 0, build 0, mobile rebundled, final probe stage-6-final (knight 0.8/1.4ms, ninja 0.7/1.4ms, 0 errors).
+- Camera change independently verified sound by reviewer (left-wall clamp exact; split/portrait only affected via focusX, fine for rightward runner; lookahead spawn window shift benign).
+- release:evidence gates all present.
+
+## Campaign complete — final state
+- 6 pushed commits: 7eef70a(pre) → f26b553(S1-2) → 5b809da(S3) → 3e67dcc(S4) → f868b6e(S5) → stage6-final(this).
+- Remaining known polish (optional future work, not regressions): bottom ~15% flat black under root detail; cyan orb vs moon-burst focal competition; hero still ~3% frame height (zoom rejected for hazard visibility); native-shell theme parity untested this campaign.
+
 ## Next action
-Stage 6 release slice: independent diff review of stage 4+5 commits, then push and final checkpoint update.
+None — campaign per plan complete. If resumed: start from remaining polish list above, or new user direction.
 
 ## Server/tooling
 - GAME_URL=http://127.0.0.1:3010 (restart after each rebuild: kill background proc, npm run start)

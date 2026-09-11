@@ -369,13 +369,16 @@ export function paintInkTerrainEdge(
   ];
   for (const layer of layers) {
     let seg = 0;
-    for (let x0 = 0; x0 < heights.length * 4 - step; x0 += step, seg++) {
+    // Loop to the full width: i1 clamps to the last sample, so the bold
+    // under-lip reaches the chunk edge (an 8px seam appeared otherwise).
+    for (let x0 = 0; x0 < heights.length * 4; x0 += step, seg++) {
       // Chipped ink: deterministically skip some segments on the inner layer.
       if (layer.weight === 7 && textureHash(chunkIndex * 61 + seg, 83) > 0.82) continue;
       const i0 = Math.round(x0 / 4);
       const i1 = Math.min(heights.length - 1, Math.round((x0 + step) / 4));
       ctx.strokeStyle = layer.color;
       ctx.lineWidth = layer.weight * (0.75 + textureHash(chunkIndex * 13 + seg, 89) * 0.5);
+      ctx.lineCap = "round";
       ctx.beginPath();
       ctx.moveTo(i0 * 4 + offsetX, heights[i0] + layer.lift + offsetY);
       // One mid control point follows the real surface between endpoints.

@@ -94,6 +94,26 @@ Screenshot output defaults to `/tmp/dashverse-menu-qa.png` and `/tmp/dashverse-t
 - Palette ratios enforced: ~70% black/purple plates, 20% violet/lavender, 10%
   lime/coral accents (bright color only on things the eye must find).
 
+## Graphic-novel fidelity campaign (2026-09-10, stages 1-5)
+
+Plan: docs/plans/graphic-novel-fidelity.md · Evidence: docs/art/graphic-novel-checkpoints.md + ~/Downloads/dashverse-fidelity/
+
+- Stage 1-2 (f26b553): render-bound capture harness (state+canvas read inside a
+  matching painted frame, unit-tested) + Ninja redrawn as filled articulated ink
+  anatomy (new ink-ninja.ts, 20x30 author scale) + katana slash accent; enemy
+  palette gate fixed to not require playwright for source audit.
+- Stage 3 (5b809da): ruined skyline (4 seeded roofline variants, windowGrid with
+  variable pitch/clustered/skipped bands) + fractured-plate moon (new ink-moon.ts,
+  9 gapped shards, gradient-free).
+- Stage 4 (3e67dcc): paintInkTerrainEdge replaces per-4px zigzag loops (consolidated
+  seeded segments, varied weight, chipped bands, exact collision Y); dash redrawn
+  as tapered cut-ink wedges.
+- Stage 5 (f868b6e): comic-panel camera framing — focusX 0.4, horizontalFocusY 0.6.
+  No zoom (vision analysis showed right-edge entity clipping); lookahead preserved
+  and vision-verified.
+- All stages TDD (RED first), full npm run verify green each time, mobile bundle
+  rebundled each time, live browser probes (art/menu/touch) passing.
+
 ## Remaining visual work
 - ~~Deliberate sun/moon treatment; scenery could display both celestial bodies.~~ DONE 2026-09-05:
   `resolveCelestialAlphas(gameTime)` (pure, RNG-free) cross-fades the sun and moon —
