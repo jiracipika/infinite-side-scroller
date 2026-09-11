@@ -17,7 +17,23 @@ export function cityBlock(index: number, layer: number) {
     width: 70 + textureHash(index, 81 + layer) * 62,
     height: 100 + textureHash(index, 91 + layer) * 220,
     antenna: textureHash(index, 71 + layer) > 0.4,
+    /** 0 flat-broken, 1 notched, 2 battered corner, 3 collapsed slab. */
+    roof: Math.floor(textureHash(index, 61 + layer) * 4),
   };
+}
+
+/** Seeded window grid: variable pitch, per-row lit clusters, some bands skipped. */
+export function windowGrid(index: number, layer: number) {
+  const pitch = 24 + Math.floor(textureHash(index, 97 + layer) * 21);
+  const rows: number[][] = [];
+  for (let row = 0; row < 7; row++) {
+    if (textureHash(index * 13 + row, 31 + layer) > 0.86) { rows.push([]); continue; }
+    const cols: number[] = [];
+    for (let col = 0; col < 4; col++)
+      if (textureHash(index * 31 + row * 3 + col, layer + 50) > 0.45) cols.push(col);
+    rows.push(cols);
+  }
+  return { pitch, rows };
 }
 
 /** World-cell indexing, not viewport wrapping: resizing never moves buildings. */
@@ -47,6 +63,19 @@ export function paintIndustrialCity(
       ctx.lineTo(x + 3, top + 12);
       ctx.lineTo(x + 12, top + 12);
       ctx.lineTo(x + 12, top);
+      // Broken roofline variants: notched bite, battered lean, collapsed slab.
+      if (b.roof === 1) {
+        ctx.lineTo(x + b.width * 0.3, top + 2);
+        ctx.lineTo(x + b.width * 0.38, top + 14);
+        ctx.lineTo(x + b.width * 0.5, top + 3);
+      } else if (b.roof === 2) {
+        ctx.lineTo(x + b.width * 0.4, top - 8);
+        ctx.lineTo(x + b.width * 0.62, top + 1);
+      } else if (b.roof === 3) {
+        ctx.lineTo(x + b.width * 0.35, top + 6);
+        ctx.lineTo(x + b.width * 0.42, top - 5);
+        ctx.lineTo(x + b.width * 0.6, top + 4);
+      }
       ctx.lineTo(x + b.width * 0.65, top + 3);
       ctx.lineTo(x + b.width * 0.65, top + 19);
       ctx.lineTo(x + b.width, top + 19);
@@ -82,11 +111,12 @@ export function paintIndustrialCity(
         }
       }
       ctx.stroke();
+      // Irregular windows: variable pitch + per-row clusters; some bands skipped.
       ctx.fillStyle = layer === 2 ? INK.purple : INK.violet;
-      for (let row = 0; row < 7; row++)
-        for (let col = 0; col < 3; col++)
-          if (textureHash(i * 31 + row * 3 + col, layer + 50) > 0.5)
-            ctx.fillRect(x + 15 + col * 18, top + 30 + row * 26, 4, 11);
+      const grid = windowGrid(i, layer);
+      for (let row = 0; row < grid.rows.length; row++)
+        for (const col of grid.rows[row])
+          ctx.fillRect(x + 15 + col * 18, top + 30 + row * grid.pitch, 4, 11);
       if (layer === 1 && i % 3 === 0) {
         ctx.fillStyle = INK.purple;
         ctx.fillRect(x - 8, top + 30, 19, 65);

@@ -14,7 +14,12 @@ function record(painter: typeof drawBackgroundSky, overrides: Partial<Background
 describe('ink world art',()=>{
   it('night sky has a large fractured polygon moon rather than a small circular light',()=>{
     const {polygons}=record(drawBackgroundSky);
-    assert.ok(polygons.some(p=>p.points.length>=10 && Math.max(...p.points.map(v=>v[0]))-Math.min(...p.points.map(v=>v[0]))>=100));
+    // Stage-3 fracture spec: multiple shard plates (not one disc), whose
+    // combined span is large; no single circular blob required.
+    const plates=polygons.filter(p=>p.points.length>=8);
+    assert.ok(plates.length>=6,`expected shard plates, got ${plates.length}`);
+    const xs=plates.flatMap(p=>p.points.map(v=>v[0]));
+    assert.ok(Math.max(...xs)-Math.min(...xs)>=100,'fractured moon must span the sky disc');
   });
   it('buildings stay world anchored instead of drifting with the clouds',()=>{
     const a=record(drawBackgroundParallax,{gameTime:1});

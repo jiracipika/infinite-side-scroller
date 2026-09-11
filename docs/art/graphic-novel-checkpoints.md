@@ -24,8 +24,20 @@ Reference: docs/art/reference/graphic-novel-concept.png (copied from Downloads 2
 - Terrain zigzag repeat; needs seeded slab variants.
 - Composition: hero small vs reference; investigate camera framing AFTER world pass (Stage 5).
 
+## Stage 3 — ruined city + fractured moon — VERIFIED (uncommitted at time of writing, see stage-3 commit)
+- TDD: test/ink-ruins.test.ts written RED first (module missing), then GREEN: cityBlock.roof variants (0-3, >=3 distinct across world), windowGrid (pitch 24-44, per-row clusters, >=4 pitches, blank bands exist), paintFracturedMoon (>=6 deterministic plates within 1.6x r of center... bounds 160px at r=80, hex/rgba fills only, save/restore balanced).
+- ink-city.ts: windowGrid() exported (seeded pitch/clusters/skipped bands) replacing the uniform 26px band loop; 4 seeded roofline variants (flat-broken/notched/battered/collapsed) in the tower outline.
+- ink-moon.ts: NEW paintFracturedMoon — 9 gapped shard plates (tone-varied lavender family), detached chips, dark seam strokes; textureHash-seeded, no gradients. background.ts drawMoon delegates to it (halo kept; old disc+cracks removed). Legacy ink-world moon assertion updated to the new fracture spec (multi-plate span >=100px, documented why).
+- Visual verification (zai vision on stage-3/ninja-idle.png): shattered-plate moon with hollow center + detached debris confirmed; battered/collapsed/stepped rooflines confirmed; irregular window rhythm with blank floors confirmed; no glitch/z-order/seam artifacts.
+- Perf: knight 0.7/1.4ms, ninja 0.9/1.7ms median/p95 (90 samples) — within budget. verify exit 0, build 0, mobile rebundled 163.5KB.
+
+## Remaining mismatch (Stage 4 targets)
+- Terrain zigzag repeat still present; needs seeded slab variants (broken slab / braced wall / distressed masonry).
+- Dash/attack FX could be more tapered cut-ink wedges (currently 3 brush cuts).
+- Enemy/collision-adjacent art untouched this stage (intentionally).
+
 ## Next action
-Stage 3 task 1: add failing ink-city determinism/world-cell tests for broken-roofline variants before touching ink-city.ts.
+Stage 4 task 1: recorder-context tests for terrain facade variants (exact collision top, variety across chunks) before editing terrain painting.
 
 ## Server/tooling
 - GAME_URL=http://127.0.0.1:3010 (restart after each rebuild: kill background proc, npm run start)

@@ -17,6 +17,7 @@
  * skies for the same seed and clock. No nondeterministic sources anywhere.
  */
 
+import { paintFracturedMoon } from "./ink-moon";
 import { DAY_CYCLE_SECONDS } from "../engine/day-cycle";
 import type { BiomeColors } from "../world/biomes";
 import { blendHex, hexToRgba } from "./color";
@@ -331,54 +332,9 @@ function drawMoon(
     ctx.arc(x, y, r * 2.4, 0, Math.PI * 2);
     ctx.fill();
   }
-  // Fractured lithograph disc. Bounded polygon work, never a blur filter.
-  ctx.fillStyle = hexToRgba("#c999ef", vis);
-  ctx.beginPath();
-  for (let i = 0; i < 18; i++) {
-    const a = i / 18 * Math.PI * 2;
-    const radius = r * (i % 3 === 0 ? 0.92 : 1);
-    const px = x + Math.cos(a) * radius;
-    const py = y + Math.sin(a) * radius;
-    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
-  }
-  ctx.closePath();
-  ctx.fill();
-  ctx.strokeStyle = hexToRgba("#311843", vis);
-  ctx.lineWidth = Math.max(3, r * 0.09);
-  ctx.beginPath();
-  ctx.moveTo(x + r * 0.2, y - r);
-  ctx.lineTo(x - r * 0.1, y - r * 0.4);
-  ctx.lineTo(x + r * 0.25, y - r * 0.12);
-  ctx.lineTo(x - r * 0.23, y + r * 0.45);
-  ctx.lineTo(x + r * 0.1, y + r);
-  ctx.moveTo(x - r * 0.95, y + r * 0.14);
-  ctx.lineTo(x - r * 0.1, y - r * 0.4);
-  ctx.stroke();
-  // Detached ink chips make the broken edge readable at small sizes.
-  ctx.fillStyle = hexToRgba("#d9b4f5", vis);
-  for (let i = 0; i < 5; i++) {
-    const a = i * 1.9 + 0.2;
-    const sx = x + Math.cos(a) * r * 1.17;
-    const sy = y + Math.sin(a) * r * 1.17;
-    ctx.beginPath();
-    ctx.moveTo(sx, sy - r * 0.06);
-    ctx.lineTo(sx + r * 0.09, sy);
-    ctx.lineTo(sx, sy + r * 0.09);
-    ctx.lineTo(sx - r * 0.04, sy);
-    ctx.closePath();
-    ctx.fill();
-  }
-  // Craters
-  ctx.fillStyle = hexToRgba("#b9a8e8", vis * 0.7);
-  ctx.beginPath();
-  ctx.arc(x - r * 0.3, y - r * 0.2, r * 0.2, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.arc(x + r * 0.25, y + r * 0.3, r * 0.14, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.arc(x + r * 0.15, y - r * 0.4, r * 0.1, 0, Math.PI * 2);
-  ctx.fill();
+  // Fractured lithograph plates (ink-moon): gapped shards, not a cracked disc.
+  paintFracturedMoon(ctx, x, y, r, vis);
+
 }
 
 // ── Parallax ───────────────────────────────────────────────────────────
