@@ -311,3 +311,22 @@ describe('color utilities', () => {
     assert.equal(hexToRgba('#ff8000', -1), 'rgba(255,128,0,0.000)');
   });
 });
+
+describe('platform texture anchoring', () => {
+  it('keeps details attached to the platform as the camera moves', () => {
+    function geometry(screenX: number): number[][] {
+      const points: number[][] = [];
+      const ctx = makeCtxStub();
+      ctx.moveTo = (x, y) => { points.push([x - screenX, y]); };
+      ctx.lineTo = (x, y) => { points.push([x - screenX, y]); };
+      paintPlatformDetail(ctx, screenX, 20, 120, '#123d46', '#0a2530', 2400);
+      return points;
+    }
+    const a = geometry(100);
+    const b = geometry(-50);
+    assert.equal(a.length, b.length);
+    a.forEach((point, i) => point.forEach((v, axis) => {
+      assert.ok(Math.abs(v - b[i][axis]) < 1e-9);
+    }));
+  });
+});

@@ -13,6 +13,7 @@ import { paintAlert } from "../rendering/ink-city";
 import { ChunkManager } from "../world/chunk-manager";
 import { InputManager } from "../input/input";
 import { Player, DEFAULT_PLAYER_CONFIG, type PowerUpTimer } from "../entities/player";
+import { registerProjectileHit } from "../combat/projectile-hit";
 import { Enemy } from "../entities/Enemy";
 import { Slime } from "../entities/Slime";
 import { Beetle } from "../entities/Beetle";
@@ -2368,13 +2369,8 @@ export class GameEngine {
             enemy.getBounds(),
           )
         ) {
+          if (!enemy.alive || !registerProjectileHit(proj, enemy)) continue;
           enemy.takeDamage(proj.damage);
-          if (proj.pierce && proj.pierce > 0) {
-            proj.pierce -= 1;
-            if (proj.pierce <= 0) proj.life = 0;
-          } else {
-            proj.life = 0;
-          }
           if (!enemy.alive) this.awardEnemyDefeat(enemy);
         }
       }

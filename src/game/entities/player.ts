@@ -60,10 +60,12 @@ export interface PlayerProjectile {
   glowColor: string;
   /**
    * Magic bolts pierce: they survive the first enemy hit instead of being
-   * destroyed. The engine decrements this on each enemy hit; when it reaches
-   * 0 the projectile is removed like a normal one.
+   * destroyed. This counts additional distinct targets: at 0, the next
+   * enemy hit consumes the projectile like a normal shot.
    */
   pierce?: number;
+  /** Targets already struck, so a piercing bolt cannot hit the same enemy twice. */
+  hitTargets?: Set<object>;
   /** Trail positions for the magic bolt visual — last N positions, newest first. */
   trail?: Array<{ x: number; y: number }>;
   /** Marks the projectile as a magic bolt so the renderer can draw its trail. */
@@ -202,6 +204,7 @@ export class Player {
     this.baseSpeed = this.config.speed;
     this.applyProgressionBonuses(this.progressionBonuses);
     this.health = this.maxHealth;
+    this.hasMagicBolt = !!char.hasMagicBolt;
     this.weaponType = this.getBaseWeaponForCharacter();
     this.weaponTimer = 0;
     this.healerRegenTimer = 0;
@@ -221,8 +224,6 @@ export class Player {
     this.meleeTimer = 0;
     this.meleeCooldown = 0;
 
-    // Magic bolt — Mage's signature enhanced projectile.
-    this.hasMagicBolt = !!char.hasMagicBolt;
   }
 
   applyProgressionBonuses(bonuses: PlayerProgressionBonuses): void {
@@ -391,7 +392,8 @@ export class Player {
     // characters. The actual enemy collision is resolved by the engine each
     // frame while meleeActive is true; here we only arm the swing.
     if (this.meleeEnabled) {
-      const wantMelee = input.isPressed("KeyC") || input.isPressed("KeyJ");
+      const wantMelee = input.isPressed("KeyC") || input.isPressed("KeyJ") ||
+        input.isDown("KeyC") || input.isDown("KeyJ");
       if (wantMelee && this.meleeCooldown <= 0 && !this.meleeActive) {
         this.meleeActive = true;
         this.meleeTimer = this.meleeMaxDuration;
@@ -420,7 +422,8 @@ export class Player {
     }
 
     // Shoot projectile (KeyZ or KeyE)
-    const wantShoot = input.isPressed("KeyZ") || input.isPressed("KeyE");
+    const wantShoot = input.isPressed("KeyZ") || input.isPressed("KeyE") ||
+      input.isDown("KeyZ") || input.isDown("KeyE");
     if (wantShoot && this.shootCooldown <= 0) {
       const shot = this.getShotProfile();
       this.projectiles.push({
@@ -665,8 +668,9 @@ export class Player {
     }
     // Award an extra life every 100 coins after progression multipliers are applied.
     if (this.coins - this.coinsAtLastLife >= 100) {
-      this.coinsAtLastLife = Math.floor(this.coins / 100) * 100;
-      this.lives++;
+      const earnedLives = Math.floor((this.coins - this.coinsAtLastLife) / 100);
+      this.coinsAtLastLife += earnedLives * 100;
+      this.lives += earnedLives;
     }
   }
 

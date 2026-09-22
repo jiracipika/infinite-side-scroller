@@ -51,15 +51,15 @@ const ControlsHint: FC<{ dismissible?: boolean }> = ({ dismissible = true }) => 
       {isTouch ? (
         <>
           <strong style={{ color: '#fff', fontSize: 12, letterSpacing: 0.4 }}>TOUCH CONTROLS</strong>
-          <span>Left side: slide to move · Right side: buttons for jump / attack / special</span>
+          <span>Left side: slide to move · Right side: buttons for jump / attack / special · hold attack to keep firing</span>
           <span style={{ opacity: 0.5 }}>Layout is adjustable in Settings</span>
         </>
       ) : (
         <>
           <strong style={{ color: '#fff', fontSize: 12, letterSpacing: 0.4 }}>KEYBOARD</strong>
           <span><Key>A</Key>/<Key>D</Key> or <Key>←</Key>/<Key>→</Key> move</span>
-          <span><Key>Space</Key> jump · Ninja / double-jump power-up: jump again in air · tap before landing to buffer</span>
-          <span><Key>Z</Key> attack</span>
+          <span><Key>Space</Key> jump · Ninja, Mage, Spirit / double-jump power-up: jump again in air · tap before landing to buffer</span>
+          <span>Hold <Key>Z</Key> shoot · Hold <Key>C</Key> melee</span>
           <span>Hold a direction + <Key>X</Key> dash · then <Key>Space</Key> dash-jump</span>
           <span><Key>V</Key> special</span>
           <span><Key>Esc</Key> pause</span>
