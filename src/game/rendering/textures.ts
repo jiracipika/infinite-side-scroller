@@ -65,6 +65,7 @@ export function paintGroundTexture(
     detail,
   } = opts;
 
+  paintRockFaces(ctx, opts);
   paintStrata(ctx, heights, chunkWorldX, chunkIndex, offsetX, offsetY, groundDark);
   paintSpeckles(
     ctx,
@@ -77,6 +78,55 @@ export function paintGroundTexture(
     groundDark,
     detail,
   );
+}
+
+/** Broad chipped facets sit beneath the fine grain, like printed rock faces.
+ * Kept deterministic and sparse in low detail; cached with the terrain.
+ */
+function paintRockFaces(ctx: CanvasRenderingContext2D, opts: GroundTextureOpts): void {
+  const { heights, chunkIndex, offsetX, offsetY, depthPx, ground, detail } = opts;
+  ctx.save();
+  const step = detail ? 42 : 84;
+  for (let lx = 8; lx < heights.length * 4 - 12; lx += step) {
+    const seed = chunkIndex * 8191 + lx;
+    const surface = surfaceAt(heights, lx);
+    const rows = detail ? 4 : 2;
+    for (let row = 0; row < rows; row++) {
+      const roll = textureHash(seed + row * 173, 503);
+      const depth = 16 + row * 62 + roll * 22;
+      if (depth + 30 > depthPx) continue;
+      const x = lx + offsetX;
+      const y = surface + depth + offsetY;
+      const width = 16 + roll * 20;
+      const height = 12 + textureHash(seed + row, 719) * 19;
+      ctx.fillStyle = row === 0 ? ground : "#8e799e";
+      ctx.globalAlpha = row === 0 ? 0.12 : 0.07;
+      ctx.beginPath();
+      ctx.moveTo(x, y + 4);
+      ctx.lineTo(x + width * 0.7, y);
+      ctx.lineTo(x + width, y + height * 0.55);
+      ctx.lineTo(x + width * 0.65, y + height);
+      ctx.lineTo(x + 3, y + height * 0.8);
+      ctx.closePath();
+      ctx.fill();
+      // Lit chipped edge; the dark bottom edge gives each face thickness.
+      ctx.globalAlpha = 0.22;
+      ctx.strokeStyle = ground;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x, y + 4);
+      ctx.lineTo(x + width * 0.7, y);
+      ctx.stroke();
+      ctx.globalAlpha = 0.3;
+      ctx.strokeStyle = "#080810";
+      ctx.beginPath();
+      ctx.moveTo(x + 3, y + height * 0.8);
+      ctx.lineTo(x + width * 0.65, y + height);
+      ctx.lineTo(x + width, y + height * 0.55);
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
 }
 
 /** Wavy horizontal strata bands that follow the surface at fixed depths. */
@@ -276,6 +326,7 @@ export function paintPlatformDetail(
   width: number,
   soilColor: string,
   keelColor: string,
+  worldX: number = x,
 ): void {
   const keelH = Math.min(9, Math.max(5, width * 0.08));
   ctx.save();
@@ -293,11 +344,22 @@ export function paintPlatformDetail(
   ctx.lineWidth = 1;
   const roots = Math.max(1, Math.floor(width / 55));
   for (let r = 0; r < roots; r++) {
-    const rx = x + 10 + textureHash(Math.round(x) * 31 + r, 88) * (width - 20);
-    const len = 3 + textureHash(Math.round(x) * 77 + r, 99) * 6;
+    const rx = x + 10 + textureHash(Math.round(worldX) * 31 + r, 88) * (width - 20);
+    const len = 3 + textureHash(Math.round(worldX) * 77 + r, 99) * 6;
     ctx.beginPath();
     ctx.moveTo(rx, y + 10 + keelH * 0.4);
-    ctx.lineTo(rx + (textureHash(Math.round(x) + r, 11) - 0.5) * 2, y + 10 + keelH * 0.4 + len);
+    ctx.lineTo(rx + (textureHash(Math.round(worldX) + r, 11) - 0.5) * 2, y + 10 + keelH * 0.4 + len);
+    ctx.stroke();
+  }
+  // Inset masonry seams and bevels keep the bright landing cap unobstructed.
+  ctx.strokeStyle = soilColor;
+  ctx.globalAlpha = 0.6;
+  for (let localX = 18; localX < width - 8; localX += 24) {
+    const chip = textureHash(Math.round(worldX) + localX, 211) * 4;
+    ctx.beginPath();
+    ctx.moveTo(x + localX, y + 4);
+    ctx.lineTo(x + localX - chip, y + 8);
+    ctx.lineTo(x + localX + 9, y + 8);
     ctx.stroke();
   }
   // Rivet highlight dots along the beam top

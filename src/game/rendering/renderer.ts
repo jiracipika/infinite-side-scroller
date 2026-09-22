@@ -318,7 +318,8 @@ export class GameRenderer {
         ctx.strokeStyle = "#0a0a0f";
         ctx.lineWidth = 1.5;
         ctx.strokeRect(screen.x, screen.y, platform.width, 10);
-        // Floating-island underside: tapered keel, root strands, rivets.
+        paintInkSlab(ctx, screen.x, screen.y, platform.width, Math.round(platform.x));
+        // Paint detail after the opaque slab so bevels and roots stay visible.
         paintPlatformDetail(
           ctx,
           screen.x,
@@ -326,8 +327,8 @@ export class GameRenderer {
           platform.width,
           colors.groundDark,
           shadeHexColor(colors.groundDark, -28),
+          platform.x,
         );
-        paintInkSlab(ctx, screen.x, screen.y, platform.width, Math.round(platform.x));
         // Small glow for moving platforms
         if (platform.moveAmp) {
           ctx.fillStyle = "rgba(255,255,255,0.08)";

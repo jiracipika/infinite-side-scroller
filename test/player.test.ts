@@ -608,3 +608,54 @@ describe('Player power-up application', () => {
     assert.equal(p.healingAuraActive, true);
   });
 });
+
+describe('Gameplay polish regressions', () => {
+  it('mage starts with a magic bolt and switching characters clears it', () => {
+    const p = new Player();
+    p.applyCharacter(getCharacterById('mage'));
+    assert.equal(p.currentWeapon, 'magicBolt');
+    const input = makeInput();
+    input.press('KeyZ');
+    p.update(DT, input, p.bottom);
+    assert.equal(p.projectiles[0].isMagicBolt, true);
+    p.applyCharacter(getCharacterById('knight'));
+    assert.equal(p.currentWeapon, 'orb');
+  });
+
+  it('awards every crossed extra-life milestone for a large pickup', () => {
+    const p = new Player();
+    p.addCoins(350);
+    assert.equal(p.lives, 5);
+    p.addCoins(49);
+    assert.equal(p.lives, 5);
+    p.addCoins(1);
+    assert.equal(p.lives, 6);
+  });
+
+  it('holding shoot repeats at cooldown and releasing stops it', () => {
+    const p = new Player();
+    const input = makeInput();
+    const ground = p.bottom;
+    input.hold('KeyZ');
+    for (let i = 0; i < 40; i++) p.update(DT, input, ground);
+    assert.equal(p.projectiles.length, 3);
+    input.release('KeyZ');
+    for (let i = 0; i < 20; i++) p.update(DT, input, ground);
+    assert.equal(p.projectiles.length, 3);
+  });
+
+  it('holding melee produces separate swings with a recovery window', () => {
+    const p = new Player();
+    p.applyCharacter(getCharacterById('knight'));
+    const input = makeInput();
+    input.hold('KeyC');
+    let swings = 0;
+    let wasActive = false;
+    for (let i = 0; i < 90; i++) {
+      p.update(DT, input, p.bottom);
+      if (p.meleeActive && !wasActive) swings++;
+      wasActive = p.meleeActive;
+    }
+    assert.ok(swings >= 3 && swings <= 5, `expected cooldown-limited swings, got ${swings}`);
+  });
+});
