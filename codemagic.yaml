@@ -11,13 +11,6 @@ workflows:
         EXPO_PUBLIC: "true"
     # Automatic APK evidence for every main-branch change. Release workflows
     # remain manual in Codemagic so credentials and store releases are explicit.
-    triggering:
-      events:
-        - push
-      branch_patterns:
-        - pattern: main
-          include: true
-      cancel_previous_builds: true
     scripts:
       - name: Install root dependencies
         script: |
