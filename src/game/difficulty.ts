@@ -19,8 +19,9 @@ export interface DifficultyConfig {
 
 /** Get difficulty config based on distance traveled */
 export function getDifficulty(distanceTraveled: number): DifficultyConfig {
-  // Primary ramp: 0→1 over first 12000 pixels
-  const t = Math.min(distanceTraveled / 12000, 1);
+  // Primary ramp: 0→1 over first 12000 pixels (lower-clamped so glitched
+  // negative distances can't push multipliers below the baseline)
+  const t = Math.min(Math.max(distanceTraveled, 0) / 12000, 1);
   // Secondary slow ramp: continues past 12000 pixels indefinitely
   const extra = Math.max(0, (distanceTraveled - 12000) / 40000);
 
