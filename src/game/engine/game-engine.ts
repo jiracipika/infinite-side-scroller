@@ -2113,6 +2113,7 @@ export class GameEngine {
       const jumpKind = this.player.consumeJumpKind();
       if (jumpKind === "ground") {
         this.particles.spawnJumpDust(this.player.centerX, this.player.bottom);
+        this.sfx.play("jump");
       } else if (jumpKind === "wall") {
         this.particles.spawnWallJumpPuff(
           this.player.centerX,
@@ -2120,9 +2121,11 @@ export class GameEngine {
           this.player.facingRight,
         );
         this.camera.shake(1.1, 0.08);
+        this.sfx.play("jump");
       } else if (jumpKind === "double") {
         this.particles.spawnAirJump(this.player.centerX, this.player.centerY);
         this.camera.shake(1.3, 0.09);
+        this.sfx.play("doubleJump");
       }
 
       // Wall-slide scuff: continuous contact feedback while sliding. Small

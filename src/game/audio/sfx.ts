@@ -17,6 +17,7 @@ export type SfxName =
   | "land"
   | "coin"
   | "powerup"
+  | "doubleJump"
   | "enemyDefeat"
   | "comboTier"
   | "damage"
@@ -28,6 +29,7 @@ export type SfxName =
 const MIN_REPEAT_INTERVAL: Partial<Record<SfxName, number>> = {
   coin: 35, // ms — allows fast pickups but caps stacking
   jump: 50,
+  doubleJump: 60,
   land: 60,
   enemyDefeat: 30,
   damage: 120,
@@ -118,6 +120,9 @@ export class SfxEngine {
     switch (name) {
       case "jump":
         this.playJump();
+        break;
+      case "doubleJump":
+        this.playDoubleJump();
         break;
       case "land":
         this.playLand();
@@ -293,6 +298,14 @@ export class SfxEngine {
       attack: 0.005,
       gain: 0.18,
     });
+  }
+
+  /** Double jump: a brighter two-tone chirp, clearly not the ground jump. */
+  private playDoubleJump(): void {
+    this.voice([
+      { type: "square", startFreq: 420, endFreq: 840, duration: 0.09, attack: 0.004, gain: 0.14 },
+      { type: "square", startFreq: 620, endFreq: 1100, duration: 0.11, attack: 0.004, gain: 0.12 },
+    ]);
   }
 
   private playLand(): void {

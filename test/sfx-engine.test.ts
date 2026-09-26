@@ -99,3 +99,11 @@ describe('SfxEngine singleton', () => {
     assert.equal(sfxEngineExists(), true);
   });
 });
+
+describe('SfxEngine: double jump tone', () => {
+  it('plays without throwing in the Node (no AudioContext) environment', () => {
+    const sfx = new SfxEngine();
+    assert.doesNotThrow(() => sfx.play('doubleJump'));
+    assert.doesNotThrow(() => sfx.play('doubleJump')); // throttle path too
+  });
+});
