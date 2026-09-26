@@ -788,6 +788,16 @@ export class GameRenderer {
             ctx.fillRect(screen.x - p.size * 1.8, screen.y - p.size / 2, p.size * 3.6, p.size);
           }
           break;
+        case "dash_ghost":
+          // Player-shaped afterimage (w×h on the particle) at ghostly alpha,
+          // or an elongated streak chip for the dash-start burst.
+          ctx.globalAlpha = alpha * 0.55;
+          {
+            const gw = p.w ?? p.size;
+            const gh = p.h ?? p.size;
+            ctx.fillRect(screen.x - gw / 2, screen.y - gh / 2, gw, gh);
+          }
+          break;
         default:
           ctx.fillRect(screen.x, screen.y, p.size, p.size);
       }

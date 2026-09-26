@@ -215,3 +215,58 @@ describe('New gameplay particle spawns', () => {
     assert.ok(total <= 20, 'reduced mode keeps counts low');
   });
 });
+
+describe('Dash FX spawns', () => {
+  let ps: ParticleSystem;
+
+  beforeEach(() => {
+    ps = new ParticleSystem();
+  });
+
+  function ghosts(): Particle[] {
+    return (ps as unknown as { particles: Particle[] }).particles.filter(
+      (p) => p.type === 'dash_ghost',
+    );
+  }
+
+  it('spawnDashGhost creates a static player-shaped afterimage', () => {
+    ps.spawnDashGhost(10, 20, 24, 32);
+    const [g] = ghosts();
+    assert.ok(g, 'ghost spawned');
+    assert.equal(g.vx, 0, 'ghost does not drift');
+    assert.equal(g.w, 24);
+    assert.equal(g.h, 32);
+  });
+
+  it('spawnDashBurst streaks kick in the dash direction', () => {
+    ps.spawnDashBurst(0, 0, true);
+    const right = ghosts();
+    assert.ok(right.length >= 3);
+    assert.ok(right.every((p) => p.vx > 0), 'facing right → streaks fly right');
+
+    const other = new ParticleSystem();
+    other.spawnDashBurst(0, 0, false);
+    const left = (other as unknown as { particles: Particle[] }).particles.filter(
+      (p) => p.type === 'dash_ghost',
+    );
+    assert.ok(left.every((p) => p.vx < 0), 'facing left → streaks fly left');
+  });
+
+  it('burst streaks are elongated along travel', () => {
+    ps.spawnDashBurst(0, 0, true);
+    assert.ok(ghosts().every((p) => (p.w ?? 0) > (p.h ?? 0)),
+      'streak width > height');
+  });
+
+  it('reduced particles trims the burst', () => {
+    ps.spawnDashBurst(0, 0, true);
+    const full = ghosts().length;
+    const reduced = new ParticleSystem();
+    reduced.setReducedParticles(true);
+    reduced.spawnDashBurst(0, 0, true);
+    const trimmed = (reduced as unknown as { particles: Particle[] }).particles.filter(
+      (p) => p.type === 'dash_ghost',
+    ).length;
+    assert.ok(trimmed < full, `reduced (${trimmed}) < full (${full})`);
+  });
+});

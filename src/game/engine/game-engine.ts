@@ -382,6 +382,9 @@ export class GameEngine {
   private meleeWasActive = false;
   /** Wall-slide dust burst cadence accumulator (seconds). */
   private wallSlideDustTimer = 0;
+  /** Dash FX state: previous-frame dash flag + afterimage cadence timer. */
+  private dashWasActive = false;
+  private dashGhostTimer = 0;
   private specialCooldownRemaining = 0;
   private specialActiveRemaining = 0;
   private specialPulseTimer = 0;
@@ -2137,6 +2140,34 @@ export class GameEngine {
       } else {
         this.wallSlideDustTimer = 0; // burst immediately on next contact
       }
+
+      // Dash FX: a streak burst on the start edge, then player-shaped
+      // afterimages on a fast cadence while the dash runs. Replaces the old
+      // single static translucent box drawn in the render pass.
+      const dashActive = this.player.dashing;
+      if (dashActive && !this.dashWasActive) {
+        this.particles.spawnDashBurst(
+          this.player.centerX,
+          this.player.centerY,
+          this.player.facingRight,
+        );
+        this.camera.shake(1.2, 0.08);
+      }
+      if (dashActive) {
+        this.dashGhostTimer -= dt;
+        if (this.dashGhostTimer <= 0) {
+          this.dashGhostTimer = 0.033;
+          this.particles.spawnDashGhost(
+            this.player.x,
+            this.player.y,
+            this.player.width,
+            this.player.height,
+          );
+        }
+      } else {
+        this.dashGhostTimer = 0;
+      }
+      this.dashWasActive = dashActive;
     }
 
     // Detect a new melee swing (false→true transition) and clear the
@@ -3042,14 +3073,8 @@ export class GameEngine {
       }
     }
 
-    // Dash trail
-    if (this.player.dashing) {
-      ctx.fillStyle = "#4488cc40";
-      const sx =
-        this.player.x - this.camera.renderX - this.player.dashDirection * 20;
-      const sy = this.player.y - this.camera.renderY;
-      ctx.fillRect(sx, sy, this.player.width, this.player.height);
-    }
+    // (Dash trail moved to particles: spawnDashGhost afterimages + burst in
+    // the update pass replace the old single static translucent box here.)
 
     // Melee swing arc — drawn as a white/cyan semi-transparent arc in front
     // of the player during the active swing window. The arc sweeps based on

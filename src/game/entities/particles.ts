@@ -13,8 +13,11 @@ export interface Particle {
   maxLife: number;
   size: number;
   color: string;
-  type: 'dust' | 'leaf' | 'snow' | 'spark' | 'jump_dust' | 'landing' | 'air_jump' | 'stomp_ring' | 'coin_sparkle' | 'enemy_death' | 'score_popup' | 'heal' | 'wall_slide';
+  type: 'dust' | 'leaf' | 'snow' | 'spark' | 'jump_dust' | 'landing' | 'air_jump' | 'stomp_ring' | 'coin_sparkle' | 'enemy_death' | 'score_popup' | 'heal' | 'wall_slide' | 'dash_ghost';
   text?: string;
+  /** Rect dims for player-shaped afterimages (dash_ghost); falls back to size. */
+  w?: number;
+  h?: number;
 }
 
 /**
@@ -227,9 +230,51 @@ export class ParticleSystem {
     }
   }
 
+  /**
+   * Player-shaped dash afterimage. Static (no velocity) and short-lived;
+   * the renderer draws it at its own w×h with ghostly alpha. Spawned on a
+   * fast cadence while the dash runs, it replaces the old single static
+   * translucent box trail.
+   */
+  spawnDashGhost(x: number, y: number, w: number, h: number): void {
+    this.particles.push({
+      x, y,
+      vx: 0, vy: 0,
+      life: 0.22,
+      maxLife: 0.22,
+      size: Math.max(w, h),
+      w, h,
+      color: '#66aaff',
+      type: 'dash_ghost',
+    });
+  }
+
+  /**
+   * Streak burst when a dash starts — elongated chips kicking in the dash
+   * direction from behind the player.
+   */
+  spawnDashBurst(x: number, y: number, facingRight: boolean): void {
+    const count = this.reducedParticles ? 3 : 7;
+    const dir = facingRight ? 1 : -1;
+    for (let i = 0; i < count; i++) {
+      this.particles.push({
+        x: x - dir * (6 + Math.random() * 8),
+        y: y + (Math.random() - 0.5) * 18,
+        vx: dir * (140 + Math.random() * 120),
+        vy: (Math.random() - 0.5) * 60,
+        life: 0.18 + Math.random() * 0.12,
+        maxLife: 0.3,
+        size: 2,
+        w: 6 + Math.random() * 6,
+        h: 2,
+        color: '#8ec5ff',
+        type: 'dash_ghost',
+      });
+    }
+  }
+
   /** Flat shock ring under a stomp — reads as impact, not landing. */
-  spawnStompRing(x: number, y: number): void {
-    // Lead stroke ring: expanding ellipse drawn by the renderer (size = radius).
+  spawnStompRing(x: number, y: number): void {    // Lead stroke ring: expanding ellipse drawn by the renderer (size = radius).
     this.particles.push({
       x, y,
       vx: 0, vy: 0,
