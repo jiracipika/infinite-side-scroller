@@ -13,7 +13,7 @@ export interface Particle {
   maxLife: number;
   size: number;
   color: string;
-  type: 'dust' | 'leaf' | 'snow' | 'spark' | 'jump_dust' | 'landing' | 'air_jump' | 'stomp_ring' | 'coin_sparkle' | 'enemy_death' | 'score_popup' | 'heal' | 'wall_slide' | 'dash_ghost';
+  type: 'dust' | 'leaf' | 'snow' | 'spark' | 'jump_dust' | 'landing' | 'air_jump' | 'stomp_ring' | 'coin_sparkle' | 'enemy_death' | 'score_popup' | 'heal' | 'wall_slide' | 'dash_ghost' | 'powerup_ring';
   text?: string;
   /** Rect dims for player-shaped afterimages (dash_ghost); falls back to size. */
   w?: number;
@@ -269,6 +269,38 @@ export class ParticleSystem {
         h: 2,
         color: '#8ec5ff',
         type: 'dash_ghost',
+      });
+    }
+  }
+
+  /**
+   * Power-up pickup celebration in the power-up's own color: one lead
+   * stroke ring (size > 10 = renderer radius) plus a small chip halo.
+   * Coins are deliberately excluded — they use spawnCoinSparkle, and a
+   * ring per coin would spam during magnet runs.
+   */
+  spawnPowerUpBurst(x: number, y: number, color: string): void {
+    this.particles.push({
+      x, y,
+      vx: 0, vy: 0,
+      life: 0.34,
+      maxLife: 0.34,
+      size: 22,
+      color,
+      type: 'powerup_ring',
+    });
+    const count = this.reducedParticles ? 4 : 8;
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI * 2 * i) / count + Math.random() * 0.25;
+      this.particles.push({
+        x, y,
+        vx: Math.cos(angle) * (80 + Math.random() * 50),
+        vy: Math.sin(angle) * (80 + Math.random() * 50),
+        life: 0.24 + Math.random() * 0.14,
+        maxLife: 0.38,
+        size: Math.random() * 2.2 + 1.4,
+        color,
+        type: 'powerup_ring',
       });
     }
   }

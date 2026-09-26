@@ -2546,44 +2546,53 @@ export class GameEngine {
           case "health":
             if (this.player.health < this.player.maxHealth) {
               this.player.heal(1);
-              this.particles.spawnScorePopup(c.x, c.y, "+1 ♥", "#22c55e");
+              this.particles.spawnPowerUpBurst(c.x + c.width / 2, c.y + c.height / 2, "#22c55e");
+            this.particles.spawnScorePopup(c.x, c.y, "+1 ♥", "#22c55e");
             } else {
-              this.particles.spawnScorePopup(c.x, c.y, "FULL!", "#86efac");
+              this.particles.spawnPowerUpBurst(c.x + c.width / 2, c.y + c.height / 2, "#86efac");
+            this.particles.spawnScorePopup(c.x, c.y, "FULL!", "#86efac");
             }
             this.sfx.play("powerup");
             break;
           case "speedBoost":
             this.player.applySpeedBoost(1.5, c.value);
+            this.particles.spawnPowerUpBurst(c.x + c.width / 2, c.y + c.height / 2, "#3b82f6");
             this.particles.spawnScorePopup(c.x, c.y, "SPEED!", "#3b82f6");
             this.sfx.play("powerup");
             break;
           case "doubleJump":
             this.player.restoreDoubleJump();
+            this.particles.spawnPowerUpBurst(c.x + c.width / 2, c.y + c.height / 2, "#a855f7");
             this.particles.spawnScorePopup(c.x, c.y, "2x JUMP!", "#a855f7");
             this.sfx.play("powerup");
             break;
           case "shield":
             this.player.applyShield(c.value * 8);
+            this.particles.spawnPowerUpBurst(c.x + c.width / 2, c.y + c.height / 2, "#06b6d4");
             this.particles.spawnScorePopup(c.x, c.y, "SHIELD!", "#06b6d4");
             this.sfx.play("powerup");
             break;
           case "magnet":
             this.player.applyMagnet(c.value);
+            this.particles.spawnPowerUpBurst(c.x + c.width / 2, c.y + c.height / 2, "#f59e0b");
             this.particles.spawnScorePopup(c.x, c.y, "MAGNET!", "#f59e0b");
             this.sfx.play("powerup");
             break;
           case "slingshot":
             this.player.equipWeapon("slingshot", c.value);
+            this.particles.spawnPowerUpBurst(c.x + c.width / 2, c.y + c.height / 2, "#f59e0b");
             this.particles.spawnScorePopup(c.x, c.y, "SLINGSHOT!", "#f59e0b");
             this.sfx.play("powerup");
             break;
           case "bow":
             this.player.equipWeapon("bow", c.value);
+            this.particles.spawnPowerUpBurst(c.x + c.width / 2, c.y + c.height / 2, "#eab308");
             this.particles.spawnScorePopup(c.x, c.y, "BOW UP!", "#eab308");
             this.sfx.play("powerup");
             break;
           case "healingAura":
             this.player.applyHealingAura(c.value);
+            this.particles.spawnPowerUpBurst(c.x + c.width / 2, c.y + c.height / 2, "#14b8a6");
             this.particles.spawnScorePopup(c.x, c.y, "HEAL AURA!", "#14b8a6");
             this.sfx.play("powerup");
             break;

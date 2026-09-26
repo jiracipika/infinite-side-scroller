@@ -788,6 +788,23 @@ export class GameRenderer {
             ctx.fillRect(screen.x - p.size * 1.8, screen.y - p.size / 2, p.size * 3.6, p.size);
           }
           break;
+        case "powerup_ring":
+          // size > 10 is the lead ring: a stroke circle expanding as it
+          // fades, in the power-up's own color; chips are round sparks.
+          if (p.size > 10) {
+            const progress = 1 - alpha;
+            ctx.globalAlpha = alpha * 0.85;
+            ctx.strokeStyle = p.color;
+            ctx.lineWidth = Math.max(1.5, p.size * 0.1);
+            ctx.beginPath();
+            ctx.arc(screen.x, screen.y, p.size * (0.65 + progress * 1.3), 0, Math.PI * 2);
+            ctx.stroke();
+          } else {
+            ctx.beginPath();
+            ctx.arc(screen.x, screen.y, p.size, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          break;
         case "dash_ghost":
           // Player-shaped afterimage (w×h on the particle) at ghostly alpha,
           // or an elongated streak chip for the dash-start burst.

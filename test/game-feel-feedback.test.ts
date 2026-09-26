@@ -270,3 +270,52 @@ describe('Dash FX spawns', () => {
     assert.ok(trimmed < full, `reduced (${trimmed}) < full (${full})`);
   });
 });
+
+describe('Power-up pickup burst', () => {
+  let ps: ParticleSystem;
+
+  beforeEach(() => {
+    ps = new ParticleSystem();
+  });
+
+  function bursts(): Particle[] {
+    return (ps as unknown as { particles: Particle[] }).particles.filter(
+      (p) => p.type === 'powerup_ring',
+    );
+  }
+
+  it('emits one lead ring plus chips in the power-up color', () => {
+    ps.spawnPowerUpBurst(0, 0, '#a855f7');
+    const all = bursts();
+    assert.equal(all.filter((p) => p.size > 10).length, 1, 'one lead ring');
+    assert.ok(all.length >= 8, 'lead + chip halo');
+    assert.ok(all.every((p) => p.color === '#a855f7'), 'uses the passed color');
+  });
+
+  it('chips spread radially outward', () => {
+    ps.spawnPowerUpBurst(0, 0, '#06b6d4');
+    const chips = bursts().filter((p) => p.size <= 10);
+    assert.ok(chips.length >= 4);
+    // Every chip must move: radial burst, no stationary debris.
+    assert.ok(chips.every((p) => Math.abs(p.vx) + Math.abs(p.vy) > 40));
+  });
+
+  it('reduced particles keeps the ring but trims chips', () => {
+    ps.spawnPowerUpBurst(0, 0, '#f59e0b');
+    const full = bursts().length;
+    const reduced = new ParticleSystem();
+    reduced.setReducedParticles(true);
+    reduced.spawnPowerUpBurst(0, 0, '#f59e0b');
+    const trimmed = (reduced as unknown as { particles: Particle[] }).particles.filter(
+      (p) => p.type === 'powerup_ring',
+    ).length;
+    assert.ok(trimmed < full, `reduced (${trimmed}) < full (${full})`);
+    assert.equal(
+      (reduced as unknown as { particles: Particle[] }).particles.filter(
+        (p) => p.type === 'powerup_ring' && p.size > 10,
+      ).length,
+      1,
+      'lead ring survives reduced mode',
+    );
+  });
+});
