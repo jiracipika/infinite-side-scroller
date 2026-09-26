@@ -11,6 +11,7 @@ import {
   Share,
   Animated,
   Vibration,
+  Platform,
   type GestureResponderEvent,
 } from 'react-native';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
@@ -35,6 +36,16 @@ import { AnimatedScore, AnimatedHeart, AnimatedHealthBar } from '../../component
 import { PressableScale } from '../../components/PressableScale';
 
 const GAME_HTML = require('../../assets/game.html');
+// Metro html assets don't resolve in Android release builds: the asset gets
+// flattened to res/raw and the WebView is handed a stub 'http://assets_game/'
+// URL, which trips ERR_CLEARTEXT_NOT_PERMITTED and the engine never loads
+// (works in dev because Metro serves the asset over localhost). The
+// patch-android.sh post-prebuild step copies game.html into
+// android/app/src/main/assets so Android can load it as a plain file:// URL.
+const GAME_SOURCE =
+  Platform.OS === 'android'
+    ? { uri: 'file:///android_asset/game.html', baseUrl: 'file:///android_asset/game.html' }
+    : GAME_HTML;
 
 const MENU_STEPS = [
   { title: 'Warm up', detail: 'Start endless and learn the rhythm.' },
@@ -315,7 +326,7 @@ export default function GameScreen() {
           <WebView
             key={webViewKey}
             ref={webViewRef}
-            source={GAME_HTML}
+            source={GAME_SOURCE}
             style={styles.webview}
             onLoadStart={() => setWebViewReady(false)}
             onMessage={handleMessage}

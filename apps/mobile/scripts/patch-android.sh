@@ -44,4 +44,21 @@ PROGUARD
   echo "Patched proguard-rules.pro with comprehensive keep rules"
 fi
 
+# Fix 3: Put the game engine HTML where the Android WebView can load it.
+# Metro html assets don't resolve in release builds: the flattened asset is
+# handed to the WebView as a stub 'http://assets_game/' URL, which trips
+# ERR_CLEARTEXT_NOT_PERMITTED and the game engine never starts. Copying it
+# into app/src/main/assets lets index.tsx load it as
+# file:///android_asset/game.html (iOS keeps the require() source).
+SRC_HTML="$DIR/../assets/game.html"
+ASSETS_DIR="$ANDROID_DIR/app/src/main/assets"
+if [ -f "$SRC_HTML" ]; then
+  mkdir -p "$ASSETS_DIR"
+  cp "$SRC_HTML" "$ASSETS_DIR/game.html"
+  echo "Copied game.html into android app assets for WebView file:// loading"
+else
+  echo "Warning: $SRC_HTML not found — run bundle-game-html.js first" >&2
+  exit 1
+fi
+
 echo "Post-prebuild patches applied successfully."
