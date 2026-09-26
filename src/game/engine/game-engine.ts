@@ -25,7 +25,7 @@ import { Jumper } from "../entities/Jumper";
 import { Boss } from "../entities/Boss";
 import { Alien } from "../entities/Alien";
 import { UFO } from "../entities/UFO";
-import { ParticleSystem } from "../entities/particles";
+import { ParticleSystem, landingIntensityFor } from "../entities/particles";
 import { GameRenderer } from "../rendering/renderer";
 import {
   resolveMagnetFieldPose,
@@ -382,8 +382,6 @@ export class GameEngine {
   private meleeWasActive = false;
   /** Wall-slide dust burst cadence accumulator (seconds). */
   private wallSlideDustTimer = 0;
-  /** Airborne state from the previous simulation step (jump-dust edge detect). */
-  private wasAirborneLastStep = false;
   private specialCooldownRemaining = 0;
   private specialActiveRemaining = 0;
   private specialPulseTimer = 0;
@@ -2094,23 +2092,34 @@ export class GameEngine {
     } else {
       this.player.update(dt, this.input, groundY, platforms);
 
-      // Landing particles + SFX
+      // Landing particles + SFX — intensity scales with fall speed so hops
+      // stay subtle and long falls land with weight.
       if (this.player.onGround && !this.wasOnGround) {
-        this.particles.spawnLanding(this.player.centerX, this.player.bottom);
+        this.particles.spawnLanding(
+          this.player.centerX,
+          this.player.bottom,
+          landingIntensityFor(this.player.lastLandingVy),
+        );
         this.sfx.play("land");
       }
 
-      // Jump dust particles — driven by the player actually leaving the
-      // ground with upward velocity (works for ground jumps, double jumps and
-      // wall jumps; independent of the consumed input edge, which the player
-      // now owns via its jump buffer).
-      const jumpPressed =
-        this.player.vy < -100 &&
-        !this.wasAirborneLastStep &&
-        !this.player.onGround;
-      this.wasAirborneLastStep = !this.player.onGround;
-      if (jumpPressed && (this.player.onGround || this.player.vy < -100)) {
+      // Jump FX — driven by the player's own jump resolution (ground / wall /
+      // double), which the engine polls here. Unlike the old leave-ground
+      // heuristic, this gives wall jumps and double jumps their own readable
+      // feedback instead of firing only ground dust.
+      const jumpKind = this.player.consumeJumpKind();
+      if (jumpKind === "ground") {
         this.particles.spawnJumpDust(this.player.centerX, this.player.bottom);
+      } else if (jumpKind === "wall") {
+        this.particles.spawnWallJumpPuff(
+          this.player.centerX,
+          this.player.centerY,
+          this.player.facingRight,
+        );
+        this.camera.shake(1.1, 0.08);
+      } else if (jumpKind === "double") {
+        this.particles.spawnAirJump(this.player.centerX, this.player.centerY);
+        this.camera.shake(1.3, 0.09);
       }
 
       // Wall-slide scuff: continuous contact feedback while sliding. Small
@@ -2300,9 +2309,14 @@ export class GameEngine {
             this.input.isDown("KeyW");
           this.player.stompBounce(wantsBoostedBounce);
           this.camera.shake(2, 0.12);
+          this.particles.spawnStompRing(
+            this.player.centerX,
+            Math.min(this.player.bottom, enemy.y + 2),
+          );
           this.particles.spawnLanding(
             this.player.centerX,
             Math.min(this.player.bottom, enemy.y + 2),
+            0.7,
           );
         } else if (this.player.dashing) {
           enemy.takeDamage(2);

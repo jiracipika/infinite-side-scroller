@@ -1,7 +1,7 @@
 /**
  * Particle system for atmospheric effects and gameplay feedback.
  * Handles dust, leaves, snow, sparks, plus gameplay particles:
- * jump dust, landing impact, coin sparkle, enemy death.
+ * jump dust, landing impact, air jumps, stomps, coin sparkle, enemy death.
  */
 
 export interface Particle {
@@ -13,8 +13,19 @@ export interface Particle {
   maxLife: number;
   size: number;
   color: string;
-  type: 'dust' | 'leaf' | 'snow' | 'spark' | 'jump_dust' | 'landing' | 'coin_sparkle' | 'enemy_death' | 'score_popup' | 'heal' | 'wall_slide';
+  type: 'dust' | 'leaf' | 'snow' | 'spark' | 'jump_dust' | 'landing' | 'air_jump' | 'stomp_ring' | 'coin_sparkle' | 'enemy_death' | 'score_popup' | 'heal' | 'wall_slide';
   text?: string;
+}
+
+/**
+ * Maps a landing fall speed (px/s, positive = downward) to a particle
+ * intensity multiplier. Hops stay subtle, terminal-velocity falls punch.
+ * Tuned so a standard jump arc (~520 px/s) lands near 1.3 and the 900 px/s
+ * terminal velocity just under the 1.9 cap.
+ */
+export function landingIntensityFor(fallVy: number): number {
+  const v = Math.max(0, fallVy);
+  return Math.max(0.6, Math.min(1.9, 0.55 + v / 700));
 }
 
 export class ParticleSystem {
@@ -51,7 +62,7 @@ export class ParticleSystem {
       p.y += p.vy * dt;
 
       // Gravity for gameplay particles
-      if (p.type === 'jump_dust' || p.type === 'landing' || p.type === 'enemy_death') {
+      if (p.type === 'jump_dust' || p.type === 'landing' || p.type === 'enemy_death' || p.type === 'stomp_ring') {
         p.vy += 200 * dt;
       }
       if (p.type === 'score_popup') {
@@ -142,12 +153,13 @@ export class ParticleSystem {
     }
   }
 
-  /** Spawn impact when player lands */
-  spawnLanding(x: number, y: number): void {
-    const count = this.reducedParticles ? 6 : 12;
+  /** Spawn impact when player lands. intensity 1 = normal jump arc. */
+  spawnLanding(x: number, y: number, intensity: number = 1): void {
+    const impact = Math.max(0.6, Math.min(1.9, intensity));
+    const count = Math.round((this.reducedParticles ? 6 : 12) * impact);
     for (let i = 0; i < count; i++) {
       const angle = (Math.PI * 2 * i) / count + Math.random() * 0.3;
-      const speed = Math.random() * 100 + 30;
+      const speed = (Math.random() * 100 + 30) * impact;
       this.particles.push({
         x,
         y,
@@ -158,6 +170,67 @@ export class ParticleSystem {
         size: Math.random() * 3 + 1,
         color: '#c4a96a',
         type: 'landing',
+      });
+    }
+  }
+
+  /**
+   * Distinct burst for the mid-air (double) jump — a flat, wide ring instead
+   * of ground dust, so the player can read that the air jump was spent.
+   */
+  spawnAirJump(x: number, y: number): void {
+    const count = this.reducedParticles ? 5 : 10;
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI * 2 * i) / count;
+      this.particles.push({
+        x: x + Math.cos(angle) * 6,
+        y: y + Math.sin(angle) * 3,
+        vx: Math.cos(angle) * (90 + Math.random() * 40),
+        vy: Math.sin(angle) * (26 + Math.random() * 18),
+        life: 0.28 + Math.random() * 0.14,
+        maxLife: 0.42,
+        size: Math.random() * 2.4 + 1.4,
+        color: '#7dd3fc',
+        type: 'air_jump',
+      });
+    }
+  }
+
+  /** Directional puff when jumping off a wall (kicks away from the wall). */
+  spawnWallJumpPuff(x: number, y: number, facingRight: boolean): void {
+    const count = this.reducedParticles ? 4 : 9;
+    // Same convention as spawnWallSlideDust: facingRight ⇔ wall on the right.
+    const away = facingRight ? -1 : 1;
+    for (let i = 0; i < count; i++) {
+      this.particles.push({
+        x: x + (facingRight ? 1 : -1) * (3 + Math.random() * 4),
+        y: y + (Math.random() - 0.5) * 10,
+        vx: away * (90 + Math.random() * 90),
+        vy: -(30 + Math.random() * 60),
+        life: 0.25 + Math.random() * 0.2,
+        maxLife: 0.45,
+        size: Math.random() * 2.6 + 1.2,
+        color: '#b8c4d4',
+        type: 'jump_dust',
+      });
+    }
+  }
+
+  /** Flat shock ring under a stomp — reads as impact, not landing. */
+  spawnStompRing(x: number, y: number): void {
+    const count = this.reducedParticles ? 6 : 12;
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI * i) / (count / 2) + Math.random() * 0.2;
+      this.particles.push({
+        x,
+        y,
+        vx: Math.cos(angle) * (130 + Math.random() * 60),
+        vy: -Math.abs(Math.sin(angle)) * (40 + Math.random() * 30),
+        life: 0.22 + Math.random() * 0.16,
+        maxLife: 0.38,
+        size: Math.random() * 2.2 + 1.4,
+        color: '#e8d49a',
+        type: 'stomp_ring',
       });
     }
   }

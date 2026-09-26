@@ -748,6 +748,16 @@ export class GameRenderer {
           ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
           ctx.restore();
           break;
+        case "air_jump":
+          // Ring chip for the mid-air jump: a horizontal dash that reads as
+          // displaced air, distinct from ground jump dust.
+          ctx.fillRect(screen.x - p.size * 1.6, screen.y - p.size / 2, p.size * 3.2, p.size);
+          break;
+        case "stomp_ring":
+          // Stomp shock chips: flat and horizontally stretched so the ring
+          // reads as a shockwave rather than falling dust.
+          ctx.fillRect(screen.x - p.size * 1.8, screen.y - p.size / 2, p.size * 3.6, p.size);
+          break;
         default:
           ctx.fillRect(screen.x, screen.y, p.size, p.size);
       }

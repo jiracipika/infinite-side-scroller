@@ -471,6 +471,10 @@ export class Player {
     }
     this.y += this.vy * dt;
 
+    // Impact speed for this step's landing FX — must be captured before the
+    // platform/ground collision branches zero out vy.
+    const preCollisionVy = this.vy;
+
     // Platform collision — one-way platforms (can jump through from below)
     let onPlatform = false;
     if (this.vy >= 0) {
@@ -500,13 +504,16 @@ export class Player {
       this.coyoteTimer = 0;
       this.hasDoubleJumped = false;
       this.airbornePose = 0; // landing clears any residual tumble
+      this.lastLandingVy = this.wasOnGround ? 0 : preCollisionVy;
     } else if (onPlatform) {
       this.onGround = true;
       this.coyoteTimer = 0;
       this.hasDoubleJumped = false;
       this.airbornePose = 0; // landing clears any residual tumble
+      this.lastLandingVy = this.wasOnGround ? 0 : preCollisionVy;
     } else {
       this.onGround = false;
+      this.lastLandingVy = 0;
     }
 
     if (!this.onGround && this.wasOnGround) this.coyoteTimer = 0; // just left ground, start coyote timer
@@ -535,6 +542,7 @@ export class Player {
       this.touchingWall = false;
       this.wallSliding = false;
       this.jumpBufferTimer = 0;
+      this.lastJumpKind = 'ground';
       return true;
     }
 
@@ -545,12 +553,14 @@ export class Player {
       this.touchingWall = false;
       this.wallSliding = false;
       this.jumpBufferTimer = 0;
+      this.lastJumpKind = 'wall';
       return true;
     }
 
     if (this.canDoubleJump && !suppressDoubleJump) {
       this.useDoubleJump();
       this.jumpBufferTimer = 0;
+      this.lastJumpKind = 'double';
       return true;
     }
 
@@ -836,6 +846,19 @@ export class Player {
 
   private _doubleJump = false;
   hasDoubleJumped = false;
+  /**
+   * Kind of the jump resolved this step ('ground' | 'wall' | 'double'), or
+   * null. The engine polls consumeJumpKind() once per step for kind-specific
+   * FX; unconsumed kinds are simply cleared on read.
+   */
+  lastJumpKind: 'ground' | 'wall' | 'double' | null = null;
+  consumeJumpKind(): 'ground' | 'wall' | 'double' | null {
+    const kind = this.lastJumpKind;
+    this.lastJumpKind = null;
+    return kind;
+  }
+  /** Downward speed captured on the step the player landed (0 otherwise). */
+  lastLandingVy = 0;
   setDoubleJump(enabled: boolean): void {
     this._doubleJump = enabled;
     this.hasDoubleJumped = false;
