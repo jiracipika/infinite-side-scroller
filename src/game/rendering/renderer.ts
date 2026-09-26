@@ -749,14 +749,44 @@ export class GameRenderer {
           ctx.restore();
           break;
         case "air_jump":
-          // Ring chip for the mid-air jump: a horizontal dash that reads as
-          // displaced air, distinct from ground jump dust.
-          ctx.fillRect(screen.x - p.size * 1.6, screen.y - p.size / 2, p.size * 3.2, p.size);
+          // size > 10 is the lead ring: a stroke circle expanding as it fades.
+          // Smaller particles are flat chips of displaced air, distinct from
+          // ground jump dust.
+          if (p.size > 10) {
+            const progress = 1 - alpha;
+            ctx.globalAlpha = alpha * 0.8;
+            ctx.strokeStyle = p.color;
+            ctx.lineWidth = Math.max(1.5, p.size * 0.1);
+            ctx.beginPath();
+            ctx.arc(screen.x, screen.y, p.size * (0.65 + progress * 1.3), 0, Math.PI * 2);
+            ctx.stroke();
+          } else {
+            ctx.fillRect(screen.x - p.size * 1.6, screen.y - p.size / 2, p.size * 3.2, p.size);
+          }
           break;
         case "stomp_ring":
-          // Stomp shock chips: flat and horizontally stretched so the ring
-          // reads as a shockwave rather than falling dust.
-          ctx.fillRect(screen.x - p.size * 1.8, screen.y - p.size / 2, p.size * 3.6, p.size);
+          // size > 10 is the lead ring: a ground-hugging stroke ellipse that
+          // widens as it fades; chips stay flat so the ring reads as a
+          // shockwave rather than falling dust.
+          if (p.size > 10) {
+            const progress = 1 - alpha;
+            ctx.globalAlpha = alpha * 0.9;
+            ctx.strokeStyle = p.color;
+            ctx.lineWidth = Math.max(2, p.size * 0.12);
+            ctx.beginPath();
+            ctx.ellipse(
+              screen.x,
+              screen.y,
+              p.size * (0.65 + progress * 1.5),
+              p.size * (0.2 + progress * 0.45),
+              0,
+              0,
+              Math.PI * 2,
+            );
+            ctx.stroke();
+          } else {
+            ctx.fillRect(screen.x - p.size * 1.8, screen.y - p.size / 2, p.size * 3.6, p.size);
+          }
           break;
         default:
           ctx.fillRect(screen.x, screen.y, p.size, p.size);

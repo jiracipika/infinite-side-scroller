@@ -179,6 +179,17 @@ export class ParticleSystem {
    * of ground dust, so the player can read that the air jump was spent.
    */
   spawnAirJump(x: number, y: number): void {
+    // Lead stroke ring: size > 10 marks it as a radius for the renderer's
+    // expanding-ring path rather than a chip.
+    this.particles.push({
+      x, y,
+      vx: 0, vy: 0,
+      life: 0.32,
+      maxLife: 0.32,
+      size: 24,
+      color: '#7dd3fc',
+      type: 'air_jump',
+    });
     const count = this.reducedParticles ? 5 : 10;
     for (let i = 0; i < count; i++) {
       const angle = (Math.PI * 2 * i) / count;
@@ -218,6 +229,16 @@ export class ParticleSystem {
 
   /** Flat shock ring under a stomp — reads as impact, not landing. */
   spawnStompRing(x: number, y: number): void {
+    // Lead stroke ring: expanding ellipse drawn by the renderer (size = radius).
+    this.particles.push({
+      x, y,
+      vx: 0, vy: 0,
+      life: 0.3,
+      maxLife: 0.3,
+      size: 28,
+      color: '#e8d49a',
+      type: 'stomp_ring',
+    });
     const count = this.reducedParticles ? 6 : 12;
     for (let i = 0; i < count; i++) {
       const angle = (Math.PI * i) / (count / 2) + Math.random() * 0.2;

@@ -169,14 +169,19 @@ describe('New gameplay particle spawns', () => {
     assert.equal(countA, countB, '99 clamps to the same count as 1.9');
   });
 
-  it('spawnAirJump emits an air_jump ring', () => {
+  it('spawnAirJump emits a lead ring plus flat chips', () => {
     ps.spawnAirJump(10, 20);
     const ring = gameplayByType('air_jump');
-    assert.ok(ring.length >= 5, 'ring has particles');
+    assert.ok(ring.length >= 6, 'ring has particles');
     assert.ok(ring.every((p) => p.color === '#7dd3fc'), 'distinct air-jump color');
-    // Flat ring: horizontal spread dominates overall.
-    const maxVx = Math.max(...ring.map((p) => Math.abs(p.vx)));
-    const maxVy = Math.max(...ring.map((p) => Math.abs(p.vy)));
+    // Exactly one lead stroke ring (size > 10 = renderer radius marker).
+    const leads = ring.filter((p) => p.size > 10);
+    assert.equal(leads.length, 1, 'one lead ring particle');
+    assert.equal(leads[0].vx, 0, 'lead ring does not drift');
+    // Chips spread horizontally overall.
+    const chips = ring.filter((p) => p.size <= 10);
+    const maxVx = Math.max(...chips.map((p) => Math.abs(p.vx)));
+    const maxVy = Math.max(...chips.map((p) => Math.abs(p.vy)));
     assert.ok(maxVx > maxVy, `ring spreads horizontally (maxVx ${maxVx} > maxVy ${maxVy})`);
   });
 
@@ -187,11 +192,14 @@ describe('New gameplay particle spawns', () => {
     assert.ok(puff.every((p) => p.vx < 0), 'puff moves away from a right wall');
   });
 
-  it('spawnStompRing emits an outward stomp_ring', () => {
+  it('spawnStompRing emits a lead ellipse plus outward chips', () => {
     ps.spawnStompRing(0, 0);
     const ring = gameplayByType('stomp_ring');
-    assert.ok(ring.length >= 6, 'ring has particles');
-    assert.ok(ring.every((p) => p.vy <= 0), 'ring stays flat (no downward spray)');
+    assert.ok(ring.length >= 7, 'ring has particles');
+    const leads = ring.filter((p) => p.size > 10);
+    assert.equal(leads.length, 1, 'one lead ring particle');
+    assert.ok(ring.filter((p) => p.size <= 10).every((p) => p.vy <= 0),
+      'chips stay flat (no downward spray)');
   });
 
   it('new spawns respect reducedParticles', () => {
