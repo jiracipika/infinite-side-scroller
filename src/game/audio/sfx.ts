@@ -12,6 +12,17 @@
  * when many events fire in the same frame (e.g. burst of coin pickups).
  */
 
+/**
+ * Maps a landing particle intensity (see landingIntensityFor, 0.6–1.9) to an
+ * audio gain scale (0.7–1.3): soft landings sit under, terminal-velocity
+ * thumps punch over. Pure so tests can validate the curve without audio.
+ */
+export function landingGainScale(intensity: number): number {
+  const t = Math.max(0.6, Math.min(1.9, intensity));
+  const scale = Math.max(0.7, Math.min(1.3, 0.7 + ((t - 0.6) / 1.3) * 0.6));
+  return Math.round(scale * 100) / 100; // avoid fp drift (1.9-0.6 !== 1.3)
+}
+
 export type SfxName =
   | "jump"
   | "land"
@@ -43,6 +54,8 @@ export class SfxEngine {
   private _sfxVolume = 0.8;
   private _enabled = true;
   private lastPlayed: Partial<Record<SfxName, number>> = {};
+  /** Per-call loudness multiplier (0.2–1.5), set by play() around the switch. */
+  private gainScale = 1;
   /** Hard cap of simultaneously active voices to protect the audio thread. */
   private activeVoices = 0;
   private readonly MAX_VOICES = 16;
@@ -101,7 +114,7 @@ export class SfxEngine {
     return this.ctx !== null && this.ctx.state === "running";
   }
 
-  play(name: SfxName): void {
+  play(name: SfxName, gainScale: number = 1): void {
     if (!this._enabled || this._sfxVolume <= 0) return;
     if (!this.ensureContext()) return;
 
@@ -117,7 +130,11 @@ export class SfxEngine {
     if (this.activeVoices >= this.MAX_VOICES) return;
     this.activeVoices++;
 
-    switch (name) {
+    // Per-call loudness scale (e.g. weighted landings). Scoped to this
+    // synchronous switch, then reset so later calls are unaffected.
+    this.gainScale = Math.max(0.2, Math.min(1.5, gainScale));
+    try {
+      switch (name) {
       case "jump":
         this.playJump();
         break;
@@ -154,6 +171,9 @@ export class SfxEngine {
       case "click":
         this.playClick();
         break;
+      }
+    } finally {
+      this.gainScale = 1;
     }
   }
 
@@ -217,7 +237,7 @@ export class SfxEngine {
       }
       const gain = this.ctx.createGain();
       gain.gain.setValueAtTime(0, startAt);
-      const peak = clamp01(tone.gain * this._sfxVolume);
+      const peak = clamp01(tone.gain * this._sfxVolume * this.gainScale);
       gain.gain.linearRampToValueAtTime(peak, startAt + tone.attack);
       gain.gain.exponentialRampToValueAtTime(
         0.0001,
@@ -263,7 +283,7 @@ export class SfxEngine {
     const startAt = this.ctx.currentTime;
     gain.gain.setValueAtTime(0, startAt);
     gain.gain.linearRampToValueAtTime(
-      clamp01(opts.gain * this._sfxVolume),
+      clamp01(opts.gain * this._sfxVolume * this.gainScale),
       startAt + 0.005,
     );
     gain.gain.exponentialRampToValueAtTime(0.0001, startAt + opts.duration);

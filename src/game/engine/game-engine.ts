@@ -32,7 +32,7 @@ import {
   resolveSpeedLinesPose,
   powerFxIntensity,
 } from "../rendering/power-fx";
-import { getSfxEngine, type SfxEngine } from "../audio";
+import { getSfxEngine, landingGainScale, type SfxEngine } from "../audio";
 import { getMusicEngine, type MusicEngine } from "../audio";
 import { getBiomeAt, getLevelBiome, type BiomeConfig } from "../world/biomes";
 import { getDifficulty } from "../difficulty";
@@ -2098,12 +2098,13 @@ export class GameEngine {
       // Landing particles + SFX — intensity scales with fall speed so hops
       // stay subtle and long falls land with weight.
       if (this.player.onGround && !this.wasOnGround) {
+        const landingIntensity = landingIntensityFor(this.player.lastLandingVy);
         this.particles.spawnLanding(
           this.player.centerX,
           this.player.bottom,
-          landingIntensityFor(this.player.lastLandingVy),
+          landingIntensity,
         );
-        this.sfx.play("land");
+        this.sfx.play("land", landingGainScale(landingIntensity));
       }
 
       // Jump FX — driven by the player's own jump resolution (ground / wall /

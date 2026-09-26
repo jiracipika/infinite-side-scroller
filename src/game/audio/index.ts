@@ -2,7 +2,7 @@
  * Audio barrel export.
  */
 
-export { SfxEngine, type SfxName } from "./sfx";
+export { SfxEngine, landingGainScale, type SfxName } from "./sfx";
 export { MusicEngine } from "./music";
 
 /**

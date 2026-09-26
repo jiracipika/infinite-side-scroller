@@ -11,7 +11,7 @@ import assert from 'node:assert/strict';
  * The actual sound synthesis is exercised in browser E2E, not here.
  */
 
-import { SfxEngine, getSfxEngine, sfxEngineExists } from '@/game/audio/index';
+import { SfxEngine, getSfxEngine, sfxEngineExists, landingGainScale } from '@/game/audio/index';
 
 describe('SfxEngine', () => {
   let sfx: SfxEngine;
@@ -105,5 +105,27 @@ describe('SfxEngine: double jump tone', () => {
     const sfx = new SfxEngine();
     assert.doesNotThrow(() => sfx.play('doubleJump'));
     assert.doesNotThrow(() => sfx.play('doubleJump')); // throttle path too
+  });
+});
+
+describe('landingGainScale + per-call gain scale', () => {
+  it('maps landing intensity to a 0.7–1.3 gain scale', () => {
+    assert.equal(landingGainScale(0.6), 0.7, 'softest landing floor');
+    assert.equal(landingGainScale(1.9), 1.3, 'terminal-velocity ceiling');
+    const mid = landingGainScale(1.25);
+    assert.ok(mid > 0.7 && mid < 1.3, 'mid intensity between bounds');
+    // Out-of-range intensities clamp to the same bounds.
+    assert.equal(landingGainScale(0), 0.7);
+    assert.equal(landingGainScale(99), 1.3);
+    assert.equal(landingGainScale(-5), 0.7);
+  });
+
+  it('play() with a gain scale degrades safely without AudioContext', () => {
+    const sfx = new SfxEngine();
+    assert.doesNotThrow(() => sfx.play('land', 1.3));
+    assert.doesNotThrow(() => sfx.play('land', 0.2));
+    assert.doesNotThrow(() => sfx.play('land', 99)); // clamped
+    // Subsequent calls revert to unity scale without throwing.
+    assert.doesNotThrow(() => sfx.play('jump'));
   });
 });
