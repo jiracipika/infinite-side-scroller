@@ -208,12 +208,16 @@ const LevelCompleteScreen: FC<Props> = ({ level, result, onNext, onRetry, onBack
         <StatRow label="Enemies Defeated" value={`${result.enemiesDefeated}`} color="#FF453A" delay={0.85} />
       </motion.div>
 
-      {/* Buttons */}
+      {/* Buttons — hierarchy is explicit: ONE dominant primary action
+          (Next when advancing is possible, Retry otherwise), secondary in
+          support, Levels always tertiary. data-primary-action pins the
+          contract for tests. */}
       {showButtons && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+          data-primary-action={canAdvance ? 'next' : 'retry'}
           style={{ display: 'flex', gap: 10, width: '100%' }}
         >
           <motion.button
@@ -235,9 +239,10 @@ const LevelCompleteScreen: FC<Props> = ({ level, result, onNext, onRetry, onBack
             whileTap={{ scale: 0.95 }}
             aria-label="Retry this level"
             style={{
-              flex: 1, padding: 14, borderRadius: 12,
+              flex: canAdvance ? 1 : 1.5, padding: 14, borderRadius: 12,
               background: biome.accent, border: 'none',
-              color: '#000', fontSize: 15, fontWeight: 700, cursor: 'pointer',
+              color: '#000', fontSize: canAdvance ? 15 : 16, fontWeight: 700, cursor: 'pointer',
+              boxShadow: canAdvance ? 'none' : `0 0 18px ${biome.accent}55`,
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
             }}
           >
@@ -250,9 +255,10 @@ const LevelCompleteScreen: FC<Props> = ({ level, result, onNext, onRetry, onBack
               whileTap={{ scale: 0.95 }}
               aria-label="Play next level"
               style={{
-                flex: 1, padding: 14, borderRadius: 12,
+                flex: 1.5, padding: 14, borderRadius: 12,
                 background: 'linear-gradient(135deg, #30D158, #0A84FF)', border: 'none',
-                color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer',
+                color: '#fff', fontSize: 16, fontWeight: 700, cursor: 'pointer',
+                boxShadow: '0 0 18px rgba(48,209,88,0.35)',
                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
               }}
             >

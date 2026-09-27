@@ -134,11 +134,14 @@ const debugBlock = workflows['android-debug']
 if (debugBlock) {
   requireInBlock(debugBlock, 'android-debug', 'assembleRelease')
   requireInBlock(debugBlock, 'android-debug', 'outputs/apk/release/*.apk')
-  requireInBlock(debugBlock, 'android-debug', 'triggering:')
-  requireInBlock(debugBlock, 'android-debug', '- push')
-  requireInBlock(debugBlock, 'android-debug', 'pattern: main')
-  requireInBlock(debugBlock, 'android-debug', 'include: true')
-  requireInBlock(debugBlock, 'android-debug', 'cancel_previous_builds: true')
+  // 2579775 disabled push-triggered Codemagic builds to save build minutes;
+  // local gradle builds (ADATA toolchain) are the daily evidence path. The
+  // manual-only contract is pinned here so a stray auto-trigger cannot
+  // sneak back in and silently start burning minutes on every push.
+  assert(!debugBlock.includes('- push'),
+    'android-debug must NOT auto-trigger on push (build-minutes policy, 2579775)')
+  assert(!debugBlock.includes('cancel_previous_builds: true'),
+    'android-debug must not carry push-trigger build cancellation (manual workflow)')
 }
 
 if (failures.length > 0) {

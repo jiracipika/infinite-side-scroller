@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, type FC } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ADVENTURE_LEVELS, TIME_ATTACK_LEVELS, COIN_RUSH_LEVELS, GAUNTLET_LEVELS, type LevelConfig } from '@/game/data/levels';
+import { rateLevelDifficulty } from '@/game/level-difficulty';
 import {
   loadProgress,
   type LevelProgress,
@@ -123,6 +124,35 @@ const LevelCard: FC<{
               : `${level.targetDistance}m`}
         {level.boss && ' · 👑'}
       </div>
+
+      {/* Difficulty — know before you go (pure authored-data rating). */}
+      {(() => {
+        const rating = rateLevelDifficulty(level);
+        return (
+          <div
+            aria-label={`Difficulty ${rating.tier} of 3, ${rating.label.toLowerCase()}`}
+            style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+          >
+            <div style={{ display: 'flex', gap: 3 }}>
+              {[1, 2, 3].map(d => (
+                <span key={d} style={{
+                  width: d === rating.tier ? 10 : 6,
+                  height: 5,
+                  borderRadius: 3,
+                  background: d <= rating.tier ? biome.accent : 'rgba(255,255,255,0.18)',
+                  opacity: locked ? 0.15 : 1,
+                }} />
+              ))}
+            </div>
+            <span style={{
+              fontSize: 8.5, fontWeight: 800, letterSpacing: 0.8,
+              color: locked ? 'rgba(255,255,255,0.15)' : biome.accent,
+            }}>
+              {rating.label}
+            </span>
+          </div>
+        );
+      })()}
 
       {/* Best score */}
       {prog.bestScore > 0 && (
