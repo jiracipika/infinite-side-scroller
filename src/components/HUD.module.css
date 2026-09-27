@@ -21,6 +21,13 @@
    ════════════════════════════════════════════════════════════════════ */
 
 /* ── Panel cluster container ─────────────────────────────────────── */
+.hudRow {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 8px;
+}
+
 .cluster {
   display: flex;
   flex-direction: column;
@@ -61,6 +68,7 @@
 .heartsPanel {
   composes: panel;
   border-top: 2px solid #ff7166;
+  gap: 5px;
 }
 
 /* Empty heart socket — clear outline against the panel body. */
@@ -127,6 +135,7 @@
   line-height: 1.05;
   font-family: Impact, "Arial Narrow", sans-serif;
   font-style: italic;
+  font-size: 32px;
   text-shadow: 2px 3px 0 #09080f, -1px -1px 0 #09080f;
   transform-origin: center bottom;
 }
@@ -335,3 +344,63 @@
 .fpsGood { color: #c7ff4d; }
 .fpsOk   { color: #ffd60a; }
 .fpsBad  { color: #ff7166; }
+
+/* On phones, give the status corners their own top row and move the score
+   stack below them. This avoids squeezing the score between health and the
+   pause button, especially when power-ups are active or the safe area grows. */
+@media (max-width: 640px) {
+  .hudRow {
+    grid-template-columns: minmax(0, 1fr) auto;
+    row-gap: 3px;
+  }
+
+  .cluster {
+    flex-direction: row;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  .centerCol {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-self: center;
+    padding-top: 1px;
+  }
+
+  .score {
+    font-size: 28px;
+  }
+
+  .levelBlock {
+    width: min(120px, 34vw);
+  }
+
+  .rightCol {
+    margin-right: 38px;
+    gap: 3px;
+  }
+
+  .biomeCaption {
+    font-size: 9px;
+  }
+
+  .fpsCol {
+    font-size: 8px;
+  }
+}
+
+@media (max-width: 380px) {
+  .rightCol {
+    margin-right: 34px;
+  }
+
+  .heartsPanel {
+    gap: 3px;
+  }
+
+  .levelBlock {
+    width: min(104px, 32vw);
+  }
+}

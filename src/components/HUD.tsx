@@ -113,14 +113,13 @@ const HUD: FC<Props> = ({ stats, settings }) => {
           paddingRight: 'calc(env(safe-area-inset-right, 0px) + 16px)',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+        <div className={styles.hudRow}>
 
           {/* ── Left cluster: Hearts + Coins + Lives + Power-ups ── */}
           <div className={styles.cluster} style={{ animation: 'fadeSlideUp 0.4s ease both' }}>
             {/* Hearts — coral danger panel */}
             <div
               className={styles.heartsPanel}
-              style={{ gap: 5 }}
               aria-label={`Health: ${filledHearts} of ${totalHearts} hearts${isLowHealth ? ', low health' : ''}`}
               role="status"
             >
@@ -178,7 +177,6 @@ const HUD: FC<Props> = ({ stats, settings }) => {
               key={scoreFlash ? 'flash' : 'idle'}
               aria-label={`${stats.score.toLocaleString()} points`}
               className={`${styles.score} ${scoreFlash ? styles.scorePop : ''}`}
-              style={{ fontSize: 32 }}
             >
               <span aria-hidden="true">{stats.score.toLocaleString()}</span>
             </div>

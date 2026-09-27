@@ -152,11 +152,18 @@ assert(
   tsx.includes('pointer-events-none'),
   'HUD overlay must stay pointer-events-none so the touch play area stays clear',
 );
-// Compact on short viewports: score must remain a single readable size, and
-// panel padding must stay tight (no oversized chrome).
+// Responsive layout keeps the score and status clusters readable on phones.
 assert(
-  /fontSize: 32/.test(tsx),
-  'score should stay at the compact 32px display size',
+  /className=\{styles\.hudRow\}/.test(tsx) && css.includes('.hudRow {'),
+  'HUD should use a named layout container so it can reflow on narrow screens',
+);
+assert(
+  /@media \(max-width: 640px\)/.test(css) && /grid-template-columns: minmax\(0, 1fr\) auto/.test(css),
+  'mobile HUD should place the status corners above a centered score stack',
+);
+assert(
+  /font-size: 28px/.test(css) && /font-size: 32px/.test(css),
+  'score should scale down slightly on narrow screens while retaining its desktop display size',
 );
 assert(
   /padding: 3px 9px/.test(css),
