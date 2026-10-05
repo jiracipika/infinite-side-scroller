@@ -61,4 +61,37 @@ else
   exit 1
 fi
 
+# Fix 4: Restore release signing (clean prebuilds wipe BOTH halves:
+# the gitignored keystore.properties and the signingConfigs.release
+# block the template never had — the signed build.gradle is force-added
+# at HEAD for exactly this restore; see build-farm BUILD-MATRIX.md).
+KS="$ANDROID_DIR/keystore.properties"
+SECRETS="/Volumes/ADATA/mobile-setup/build-farm/keys/secrets.csv"
+if [ ! -f "$KS" ] && [ -f "$SECRETS" ]; then
+  # secrets.csv has NO header row — first line IS data. Never head/cat
+  # the file (prints credentials); grep the app row and split quietly.
+  line="$(grep '^dashverse-release.jks|' "$SECRETS" | head -1)"
+  if [ -n "$line" ]; then
+    sf="${line%%|*}"; rest="${line#*|}"; kal="${rest%%|*}"; pw="${rest#*|}"
+    umask 077
+    printf 'storeFile=/Volumes/ADATA/mobile-setup/build-farm/keys/%s\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
+      "$sf" "$pw" "$kal" "$pw" > "$KS"
+    chmod 600 "$KS"
+    echo "Restored keystore.properties (600) — storeFile=.../$sf keyAlias=$kal"
+  else
+    echo "Warning: no dashverse row in secrets.csv — release falls back to debug signing" >&2
+  fi
+fi
+
+BG="$ANDROID_DIR/app/build.gradle"
+if grep -q "Caution! In production" "$BG" && ! grep -q "keystorePropertiesFile" "$BG"; then
+  recorded="$(git -C "$DIR/../../" show HEAD:apps/mobile/android/app/build.gradle 2>/dev/null)"
+  if printf '%s' "$recorded" | grep -q "keystorePropertiesFile"; then
+    printf '%s' "$recorded" > "$BG"
+    echo "Restored signingConfigs.release block from HEAD (template build.gradle replaced)"
+  else
+    echo "Warning: HEAD build.gradle lacks signing block — re-force-add after template bump" >&2
+  fi
+fi
+
 echo "Post-prebuild patches applied successfully."
