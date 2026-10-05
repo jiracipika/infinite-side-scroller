@@ -24,3 +24,29 @@ idempotent artifact).
 
 **Next steps:** mobile APK + AVD evidence (agent lane), locked-level
 "how to unlock" affordance audit, biome preview art per GLM-NEXT-SLICE.
+
+## 2026-10-05 — CampaignGoal day 3
+
+**Commits:** 9bb7132 (visible how-to-unlock copy on locked level cards),
+b837897 (patch-android.sh Fix 4 — auto-restores release signing halves
+after clean prebuild; end-to-end tested), 5d9cd8d (authored biome preview
+stripes + ControlsHint on level select), 66d8523 (overflow-at-390 +
+keyboard focus-order QA pins), cff47b6 (GLM-NEXT-SLICE marked COMPLETE).
+
+**What improved:** GLM-NEXT-SLICE is fully consumed — locked cards now say
+HOW to unlock (matches the 5d9cd8d biome identity work), level select has
+authored per-biome stripe gradients instead of generic placeholders, and
+the rendered-QA bar (Playwright, 8 contracts) is part of the evidence
+ladder. 768 tests green; verify + build + release:evidence all pass.
+
+**Mobile:** game.html proved byte-identical across the UI slices (engine
+is UI-independent), so the 2026-10-05 farm-signed APK (79MB) already
+contains today's menu work. Boot + gameplay screencaps refreshed at
+/Volumes/ADATA/mobile-setup/evidence/.
+
+**Build farm:** BUILD-MATRIX.md now documents the secrets.csv no-header
+rule (never head/cat; grep '^<app>-release.jks|') and Dashverse's signing
+auto-restore.
+
+**Next steps:** roadmap exhausted — new work needs a fresh brief (terrain
+variety, SFX pass, and daily-run leaderboards are the visible candidates).
