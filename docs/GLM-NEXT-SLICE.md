@@ -1,12 +1,29 @@
 # GLM Next Slice — Infinite Side Scroller
 
-Status: implementation-ready handoff
-Status updated: 2026-09-02 — wall-slide FX IMPLEMENTED (see Completed, slice D).
+Status: COMPLETE — the Recommended slice below is fully implemented.
+Status updated: 2026-10-05 — level-select/run-start experience done end to
+end (see Completed, slice F); rendered-browser QA bar verified 0 violations
+and pinned. NEW work needs a fresh brief (user playtest notes or new spec).
 Owner: GLM 5.2/5.3 polish lane
 Priority: P2 premium visual/product polish; no correctness emergency
 
 ## Completed
 
+- 2026-10-05 (slice F): Level-select/run-start experience — the whole
+  Recommended slice. Difficulty meter + results action hierarchy
+  (354366e); locked cards: visible how-to-unlock copy (was hover-tooltip
+  only — touch never saw it), aria + not-clickable + beyond-color states
+  pinned (9bb7132); authored biome preview — `getLevelBiomeIdentity()` in
+  the biomes registry drives per-card ground-colored stripe gradients +
+  biome-name aria, `mixed` composes "Shifting Worlds" multi-stop
+  (5d9cd8d); ControlsHint mounted on level select (canonical touch verb
+  set) + run-start loadout affordances pinned (5d9cd8d). Rendered-browser
+  QA (Playwright/Chromium, 1280px + 390px): 22 checks across
+  start/level-select/results — one primary action, no horizontal overflow,
+  focus order, aria labels, reduced-motion, locked-not-clickable — 0
+  violations; overflow + focus-order bars pinned by
+  scripts/test-viewport-focus-a11y.mjs (66d8523). 768 tests; verify +
+  build + release:evidence green throughout.
 - 2026-09-05 (slice E): Single-celestial sky hand-off + disclosure a11y.
   resolveCelestialAlphas(gameTime) cross-fades sun/moon (sum of alphas ≤ 1 at
   every phase — the "both bodies visible" bug is structurally impossible);
