@@ -42,7 +42,8 @@ export type PowerUpType =
   | "magnet"
   | "slingshot"
   | "bow"
-  | "healingAura";
+  | "healingAura"
+  | "coinDoubler";
 
 export interface PowerUpTimer {
   type: PowerUpType;
@@ -130,6 +131,9 @@ export class Player {
 
   // Speed boost
   speedBoostTimer = 0;
+
+  // Coin doubler — coins and coin score worth 2× while active
+  coinDoublerTimer = 0;
 
   private config: PlayerConfig;
   private baseSpeed: number;
@@ -289,6 +293,10 @@ export class Player {
     if (this.speedBoostTimer > 0) {
       this.speedBoostTimer -= dt;
       if (this.speedBoostTimer <= 0) this.config.speed = this.baseSpeed;
+    }
+    if (this.coinDoublerTimer > 0) {
+      this.coinDoublerTimer -= dt;
+      if (this.coinDoublerTimer <= 0) this.coinDoublerTimer = 0;
     }
     // (Jump buffer decay lives next to the press read below — it must freeze
     // while dashing, which the dash early-return would otherwise skip.)
@@ -662,8 +670,9 @@ export class Player {
   }
 
   addCoins(amount: number): void {
+    const doubled = this.coinDoublerTimer > 0 ? amount * 2 : amount;
     const total =
-      amount * this.progressionBonuses.coinMultiplier +
+      doubled * this.progressionBonuses.coinMultiplier +
       this.coinFractionRemainder;
     const gained = Math.max(0, Math.floor(total));
     this.coinFractionRemainder = Math.max(0, total - gained);
@@ -706,6 +715,11 @@ export class Player {
   applySpeedBoost(multiplier: number, duration: number = 5): void {
     this.config.speed = this.baseSpeed * multiplier;
     this.speedBoostTimer = duration;
+  }
+
+  /** Coins and coin score are worth 2× for `duration` seconds. */
+  applyCoinDoubler(duration: number = 8): void {
+    this.coinDoublerTimer = duration;
   }
 
   applyShield(duration: number = 8): void {
@@ -796,6 +810,8 @@ export class Player {
       result.push({ type: this.weaponType === "bow" ? "bow" : "slingshot", remaining: this.weaponTimer });
     if (this.healingAuraTimer > 0)
       result.push({ type: "healingAura", remaining: this.healingAuraTimer });
+    if (this.coinDoublerTimer > 0)
+      result.push({ type: "coinDoubler", remaining: this.coinDoublerTimer });
     return result;
   }
 

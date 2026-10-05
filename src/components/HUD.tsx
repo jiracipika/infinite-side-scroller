@@ -319,6 +319,7 @@ const POWER_UP_EMOJI: Record<string, string> = {
   slingshot: '\u{1F3AF}',        // 🎯 — must match the emoji the engine pushes
   bow: '\u{1F3F9}',              // 🏹
   healingAura: '\u{1F49A}',      // 💚
+  coinDoubler: '\u{1FA99}',      // 🪙 — must match the emoji the engine pushes
 };
 
 /**
@@ -333,6 +334,7 @@ const POWER_UP_MAX_DURATION: Record<string, number> = {
   slingshot: 10,
   bow: 10,
   healingAura: 10,
+  coinDoubler: 8,
 };
 
 /**

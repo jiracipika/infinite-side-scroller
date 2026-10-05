@@ -15,6 +15,7 @@ export type CollectibleType =
   | 'slingshot'
   | 'bow'
   | 'healingAura'
+  | 'coinDoubler'
   | 'portal';
 
 export interface Collectible {
@@ -71,6 +72,7 @@ export function createCollectible(
     slingshot: { w: 20, h: 20, value: 10 },
     bow: { w: 20, h: 20, value: 12 },
     healingAura: { w: 20, h: 20, value: 9 },
+    coinDoubler: { w: 20, h: 20, value: 8 },
     portal: { w: 34, h: 48, value: 1 },
   };
   const s = sizes[type];
@@ -105,6 +107,7 @@ export function spawnCollectiblesForChunk(
     else if (typeRoll > 0.78) type = 'health';
     else if (typeRoll > 0.73) type = 'speedBoost';
     else if (typeRoll > 0.68) type = 'doubleJump';
+    else if (typeRoll > 0.66) type = 'coinDoubler';
 
     const count = type === 'coin' ? 3 + Math.floor(rng(base + g * 10 + 4) * 4) : 1;
 

@@ -2555,7 +2555,12 @@ export class GameEngine {
               c.x + c.width / 2,
               c.y + c.height / 2,
             );
-            this.particles.spawnScorePopup(c.x, c.y, "+10", "#fbbf24");
+            this.particles.spawnScorePopup(
+              c.x,
+              c.y,
+              this.player.coinDoublerTimer > 0 ? "+20" : "+10",
+              "#fbbf24",
+            );
             this.sfx.play("coin");
             break;
           case "health":
@@ -2591,6 +2596,12 @@ export class GameEngine {
             this.player.applyMagnet(c.value);
             this.particles.spawnPowerUpBurst(c.x + c.width / 2, c.y + c.height / 2, "#f59e0b");
             this.particles.spawnScorePopup(c.x, c.y, "MAGNET!", "#f59e0b");
+            this.sfx.play("powerup");
+            break;
+          case "coinDoubler":
+            this.player.applyCoinDoubler(c.value);
+            this.particles.spawnPowerUpBurst(c.x + c.width / 2, c.y + c.height / 2, "#fbbf24");
+            this.particles.spawnScorePopup(c.x, c.y, "2× COINS!", "#fbbf24");
             this.sfx.play("powerup");
             break;
           case "slingshot":
@@ -2777,6 +2788,7 @@ export class GameEngine {
     if (this.player.shieldActive) powerUps.push("🛡️");
     if (this.player.magnetActive) powerUps.push("🧲");
     if (this.player.speedBoostTimer > 0) powerUps.push("⚡");
+    if (this.player.coinDoublerTimer > 0) powerUps.push("🪙");
     if (
       this.player.currentWeapon === "slingshot" &&
       this.player.hasWeaponPickup

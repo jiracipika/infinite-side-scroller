@@ -560,6 +560,26 @@ export class GameRenderer {
         ctx.fillRect(cx + 2, cy + 1, 4, 3);
         break;
       }
+      case "coinDoubler": {
+        // Gold orb with a twin-coin glyph — two stacked coins, "×2" at a glance.
+        this.drawCollectibleOrb(cx, cy, radius, "#fef08a", "#d97706");
+        ctx.strokeStyle = "#78350f";
+        ctx.lineWidth = 1.6;
+        ctx.fillStyle = "#fbbf24";
+        for (const [ox, oy] of [[-3.5, 1.5], [3.5, -1.5]] as const) {
+          ctx.beginPath();
+          ctx.arc(cx + ox, cy + oy, 3.4, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+        }
+        ctx.strokeStyle = "#fffbeb";
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(cx - 1.5, cy - 4.5);
+        ctx.lineTo(cx + 1.5, cy - 4.5);
+        ctx.stroke();
+        break;
+      }
       case "slingshot": {
         this.drawCollectibleOrb(cx, cy, radius, "#fed7aa", "#d97706");
         ctx.strokeStyle = "#21112f";

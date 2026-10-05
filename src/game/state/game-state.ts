@@ -15,7 +15,8 @@ export type PowerUpType =
   | 'magnet'
   | 'slingshot'
   | 'bow'
-  | 'healingAura';
+  | 'healingAura'
+  | 'coinDoubler';
 
 export interface PowerUpTimerEntry {
   type: PowerUpType;
