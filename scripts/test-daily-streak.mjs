@@ -85,4 +85,14 @@ describe('markDailyChallengePlayed retention contract (source scan)', () => {
     assert.match(start, /getDailyStreak/);
     assert.match(start, /day streak/);
   });
+
+  test('daily memos re-derive the ISO day so the card survives UTC-midnight rollover', () => {
+    const start = readFileSync(new URL('../src/components/StartScreen.tsx', import.meta.url), 'utf8');
+    assert.match(start, /const \[isoDay, setIsoDay\] = useState\(\(\) => getTodayIsoDay\(\)\)/);
+    assert.match(start, /setIsoDay\(\(current\) => \(current === now \? current : now\)\)/);
+    assert.match(start, /hasPlayedDailyChallenge\(activeSlotId, isoDay\)/);
+    assert.match(start, /getDailyStreak\(activeSlotId, isoDay\)/);
+    assert.ok(!start.includes('hasPlayedDailyChallenge(activeSlotId, getTodayIsoDay())'),
+      'day must come from the rollover-aware state, not a mount-time capture');
+  });
 });

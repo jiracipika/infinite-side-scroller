@@ -133,6 +133,18 @@ const StartScreen: FC<Props> = ({
     setSelectedChar(loadSelectedCharacter());
   }, []);
 
+  // The daily card must flip to "Daily Done" and keep the streak honest even
+  // when the menu sits open across UTC midnight — re-derive the ISO day on a
+  // short tick and feed it into the daily memos.
+  const [isoDay, setIsoDay] = useState(() => getTodayIsoDay());
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      const now = getTodayIsoDay();
+      setIsoDay((current) => (current === now ? current : now));
+    }, 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
   // Mouse-tracking parallax for dramatic depth
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -350,12 +362,12 @@ const StartScreen: FC<Props> = ({
     [activeSlotId, saveSlots],
   );
   const dailyUsed = useMemo(
-    () => hasPlayedDailyChallenge(activeSlotId, getTodayIsoDay()),
-    [activeSlotId],
+    () => hasPlayedDailyChallenge(activeSlotId, isoDay),
+    [activeSlotId, isoDay],
   );
   const dailyStreak = useMemo(
-    () => getDailyStreak(activeSlotId, getTodayIsoDay()),
-    [activeSlotId],
+    () => getDailyStreak(activeSlotId, isoDay),
+    [activeSlotId, isoDay],
   );
   const runSummary = useMemo(() => summarizeRunHistory(runHistory), [runHistory]);
 

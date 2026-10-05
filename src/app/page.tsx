@@ -5,6 +5,7 @@ import { GameEngine, type CameraMode } from '@/game';
 import { resolveReducedMotion } from '@/game/state/game-state';
 import { useGameStore } from '@/components/GameStore';
 import { loadSelectedCharacter } from '@/game/data/characters';
+import { getDailySeed } from '@/lib/daily-seed';
 import StartScreen from '@/components/StartScreen';
 import PauseMenu from '@/components/PauseMenu';
 import GameOverScreen from '@/components/GameOverScreen';
@@ -140,15 +141,6 @@ interface NetOverlayStats {
   enemyVersion: number;
   encounterChunk: number;
   authoritativeDistance: number;
-}
-
-function getDailySeed(dayIso: string): number {
-  let hash = 2166136261;
-  for (let i = 0; i < dayIso.length; i++) {
-    hash ^= dayIso.charCodeAt(i);
-    hash = Math.imul(hash, 16777619);
-  }
-  return Math.abs(hash % 900000) + 100000;
 }
 
 export default function Home() {
