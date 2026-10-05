@@ -4,11 +4,13 @@ import { useState, useEffect, useMemo, type FC } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ADVENTURE_LEVELS, TIME_ATTACK_LEVELS, COIN_RUSH_LEVELS, GAUNTLET_LEVELS, type LevelConfig } from '@/game/data/levels';
 import { rateLevelDifficulty } from '@/game/level-difficulty';
+import { getLevelBiomeIdentity } from '@/game/world/biomes';
 import {
   loadProgress,
   type LevelProgress,
   type LevelProgressMap,
 } from '@/lib/level-progress';
+import ControlsHint from './ControlsHint';
 
 interface Props {
   onLevelSelect: (level: LevelConfig) => void;
@@ -16,13 +18,46 @@ interface Props {
   onEndlessPlay: () => void;
 }
 
-const BIOME_COLORS: Record<string, { bg: string; accent: string; emoji: string }> = {
-  forest:  { bg: 'rgba(48,209,88,0.08)',  accent: '#30D158', emoji: '🌲' },
-  desert:  { bg: 'rgba(255,159,10,0.08)', accent: '#FF9F0A', emoji: '🏜️' },
-  ice:     { bg: 'rgba(90,200,250,0.08)',  accent: '#5AC8FA', emoji: '❄️' },
-  volcano: { bg: 'rgba(255,69,58,0.08)',   accent: '#FF453A', emoji: '🌋' },
-  mixed:   { bg: 'rgba(191,90,242,0.08)',  accent: '#BF5AF2', emoji: '🌈' },
+/** Local motif glyph per level biome id (palette itself comes from the
+ *  authored registry via getLevelBiomeIdentity — never hardcode colors here). */
+const BIOME_EMOJI: Record<string, string> = {
+  forest: '🌲',
+  desert: '🏜️',
+  ice: '❄️',
+  volcano: '🌋',
+  mixed: '🌈',
 };
+
+interface BiomeSkin {
+  bg: string;
+  accent: string;
+  emoji: string;
+  stripe: string;
+  name: string;
+}
+
+/** Card skins keyed by level biome id, derived from the AUTHORED biome
+ *  registry — the same BIOMES palette the engine announces via
+ *  `dashverse-biome` title cards — so every card previews the biome it
+ *  actually runs. Only the emoji motif is local. */
+const BIOME_COLORS: Record<string, BiomeSkin> = {
+  forest: skinFromRegistry('forest'),
+  desert: skinFromRegistry('desert'),
+  ice: skinFromRegistry('ice'),
+  volcano: skinFromRegistry('volcano'),
+  mixed: skinFromRegistry('mixed'),
+};
+
+function skinFromRegistry(levelBiome: LevelConfig['biome']): BiomeSkin {
+  const identity = getLevelBiomeIdentity(levelBiome);
+  return {
+    bg: `${identity.ground}14`,
+    accent: identity.accent,
+    stripe: identity.stripe,
+    name: identity.name,
+    emoji: BIOME_EMOJI[levelBiome] ?? BIOME_EMOJI.forest,
+  };
+}
 
 function ensureDefault(progress: LevelProgressMap, id: number): LevelProgress {
   if (!progress[id]) {
@@ -48,7 +83,7 @@ const LevelCard: FC<{
       onClick={locked ? undefined : onClick}
       disabled={locked}
       title={locked ? 'Earn at least 1 star on the previous level to unlock' : undefined}
-      aria-label={`${level.name}${locked ? ', locked — earn a star on the previous level to unlock' : `, ${prog.stars} of 3 stars`}${isNext ? ', next up' : ''}`}
+      aria-label={`${level.name}, ${biome.name} biome${locked ? ', locked — earn a star on the previous level to unlock' : `, ${prog.stars} of 3 stars`}${isNext ? ', next up' : ''}`}
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.03, duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
@@ -69,6 +104,21 @@ const LevelCard: FC<{
         minWidth: 0,
       }}
     >
+      {/* Authored biome preview — stripe in the registry's ground → platform
+          palette (same source as the in-run dashverse-biome title cards). */}
+      <div
+        aria-hidden="true"
+        style={{
+          height: 4,
+          width: '100%',
+          borderRadius: 2,
+          background: biome.stripe,
+          boxShadow: `0 0 10px ${biome.accent}66`,
+          opacity: locked ? 0.15 : 1,
+          marginBottom: 2,
+        }}
+      />
+
       {/* Background emoji */}
       <div style={{ position: 'absolute', top: -4, right: -4, fontSize: 36, opacity: locked ? 0.03 : 0.08, pointerEvents: 'none' }}>
         {biome.emoji}
@@ -400,6 +450,12 @@ const LevelSelectScreen: FC<Props> = ({ onLevelSelect, onBack, onEndlessPlay }) 
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Controls preview — what this run will be played with (touch-adaptive:
+          canonical touch set on coarse pointers, keyboard map otherwise).
+          Always rendered (dismissible={false}) so the level area explains the
+          controls before launch, not after. */}
+      <ControlsHint dismissible={false} />
 
       {/* Expose completion handler for parent */}
       <div data-level-complete-handler style={{ display: 'none' }} />

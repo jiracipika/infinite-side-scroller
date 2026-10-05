@@ -51,8 +51,8 @@ const ControlsHint: FC<{ dismissible?: boolean }> = ({ dismissible = true }) => 
       {isTouch ? (
         <>
           <strong style={{ color: '#fff', fontSize: 12, letterSpacing: 0.4 }}>TOUCH CONTROLS</strong>
-          <span>Left side: slide to move · Right side: buttons for jump / attack / special · hold attack to keep firing</span>
-          <span style={{ opacity: 0.5 }}>Layout is adjustable in Settings</span>
+          <span>Left side: slide pad to move · Right side: buttons for jump / attack / melee / dash / special / carry teammate · Pause sits top-right</span>
+          <span>Hold attack to keep firing · Layout is adjustable in Settings</span>
         </>
       ) : (
         <>

@@ -3,6 +3,12 @@
  * Each biome defines colors, features, and decoration probabilities.
  */
 
+import {
+  deriveBiomeIdentity,
+  deriveMixedIdentity,
+  type LevelBiomeIdentity,
+} from '../level-biome-identity';
+
 export enum BiomeType {
   Grassland = 'grassland',
   Forest = 'forest',
@@ -188,6 +194,22 @@ const LEVEL_BIOME_TYPES: Record<Exclude<LevelBiomeId, 'mixed'>, BiomeType> = {
 export function getLevelBiome(levelBiome: LevelBiomeId): BiomeConfig | null {
   if (levelBiome === 'mixed') return null;
   return BIOMES[LEVEL_BIOME_TYPES[levelBiome]];
+}
+
+/**
+ * Authored visual identity for a finite level's biome, for menu preview
+ * surfaces (level-select cards, continue banner, results). Derived from this
+ * SAME registry the engine dispatches via `dashverse-biome`, so what the
+ * menu previews is what the run renders. `mixed` intentionally has no single
+ * config; its identity composes the shifting-sequence stripe from
+ * BIOME_ORDER's authored ground colors.
+ */
+export function getLevelBiomeIdentity(levelBiome: LevelBiomeId): LevelBiomeIdentity {
+  const shifting = (): LevelBiomeIdentity =>
+    deriveMixedIdentity(BIOME_ORDER.map((type) => BIOMES[type]));
+  if (levelBiome === 'mixed') return shifting();
+  const config = getLevelBiome(levelBiome);
+  return config ? deriveBiomeIdentity(levelBiome, config) : shifting();
 }
 
 /**
