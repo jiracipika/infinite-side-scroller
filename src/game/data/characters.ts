@@ -199,6 +199,27 @@ export const CHARACTERS: CharacterDef[] = [
     height: 33,
     specialName: 'Verdant Sanctuary', specialCooldown: 15, specialColor: '#2dd4bf',
   },
+  {
+    id: 'cherry',
+    name: 'Cherry',
+    description: 'Gothic charmer with a cherry parasol',
+    ability: 'Starts with a double jump and quick parasol bonks',
+    unlockCost: 450,
+    bodyColor: '#2a1f33',
+    outlineColor: '#180f20',
+    eyeColor: '#ff5d73',
+    speed: 1.12,
+    jumpVelocity: 1.12,
+    maxHealth: 3,
+    width: 22,
+    height: 32,
+    hasMelee: true,
+    meleeCooldown: 0.3,
+    meleeDamage: 1,
+    meleeRange: 42,
+    meleeDuration: 0.16,
+    specialName: 'Cherry Bomb', specialCooldown: 9, specialColor: '#e5304a',
+  },
 ];
 
 export const DEFAULT_CHARACTER = CHARACTERS[0];

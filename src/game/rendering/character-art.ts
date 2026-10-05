@@ -1,5 +1,6 @@
 import type { CharacterDef } from "../data/characters";
 import { drawInkNinja } from "./ink-ninja";
+import { drawInkCherry } from "./ink-cherry";
 
 export interface CharacterArtPose {
   stride?: number;
@@ -375,6 +376,12 @@ export function drawCharacterArt(
 
   if (char.id === "knight") {
     drawInkKnight(ctx, width, height, pose);
+    ctx.restore();
+    return;
+  }
+
+  if (char.id === "cherry") {
+    drawInkCherry(ctx, width, height, pose);
     ctx.restore();
     return;
   }

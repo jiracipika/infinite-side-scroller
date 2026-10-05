@@ -881,7 +881,8 @@ export class Player {
   }
 
   private hasInnateDoubleJump(): boolean {
-    return this.characterId === "ninja" || this.characterId === "mage" || this.characterId === "spirit";
+    return this.characterId === "ninja" || this.characterId === "mage"
+      || this.characterId === "spirit" || this.characterId === "cherry";
   }
 
   private getBaseWeaponForCharacter(): WeaponType {

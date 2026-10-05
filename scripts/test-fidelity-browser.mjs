@@ -14,15 +14,46 @@ const viewport = { width: Number(process.env.ART_WIDTH || 1280), height: Number(
 assert.ok(Number.isFinite(viewport.width) && viewport.width > 0 && Number.isFinite(viewport.height) && viewport.height > 0);
 const reducedMotion = process.env.ART_REDUCED_MOTION === '1' ? 'reduce' : 'no-preference';
 const report = { url: process.env.GAME_URL || 'http://127.0.0.1:3010', reducedMotion, viewport, dpr: 1, runs: [] };
-const browser = await chromium.launch({ channel: 'chrome', headless: true });
+const browser = await chromium.launch({
+  headless: true,
+  // 'chrome' when system Chrome exists; unset falls back to playwright's
+  // own cached chromium (PLAYWRIGHT_PACKAGE decides the driver install).
+  ...(process.env.PLAYWRIGHT_CHANNEL ? { channel: process.env.PLAYWRIGHT_CHANNEL } : {}),
+});
 try {
-  for (const character of ['knight', 'ninja']) {
+  for (const character of ['knight', 'ninja', 'cherry']) {
     const page = await browser.newPage({ viewport, deviceScaleFactor: 1, reducedMotion });
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
     await page.goto(report.url);
-    await page.getByRole('button', { name: 'Open character select', exact: true }).click();
-    await page.getByRole('button', { name: character === 'ninja' ? 'Ninja' : 'Knight', exact: true }).click();
+    if (character === 'cherry') {
+      // Cherry is shop-locked, and the StartScreen fallback resets locked
+      // selections: unlock her inside any existing save slot before app
+      // boot (only fields that are already there are touched), persist the
+      // selection, then skip the select UI entirely.
+      await page.addInitScript(() => {
+        try {
+          // Seed a minimal slot record — loadSaveSlots() normalizes it
+          // against the defaults, and cherry in unlockedCharacterIds
+          // (plus the persisted selection) survives the fallback effect.
+          localStorage.setItem('iss-save-slots-v1', JSON.stringify([
+            {
+              id: 'slot1', name: 'QA', createdAt: 0, updatedAt: 0,
+              bankCoins: 5000, spentCoins: 0, lifetimeCoinsCollected: 0,
+              bestScore: 0, bestDistance: 0, bestCombo: 0, bestKills: 0, totalRuns: 0,
+              unlockedUpgradeIds: [], unlockedCharacterIds: ['cherry'], checkpoint: null,
+            },
+          ]));
+          localStorage.setItem('iss-active-save-slot-v1', 'slot1');
+          localStorage.setItem('selectedCharacter', 'cherry');
+        } catch {}
+      });
+      await page.goto(report.url);
+      await page.reload();
+    } else {
+      await page.getByRole('button', { name: 'Open character select', exact: true }).click();
+      await page.getByRole('button', { name: character === 'ninja' ? 'Ninja' : 'Knight', exact: true }).click();
+    }
     await page.getByRole('button', { name: /Play Endless/ }).click();
     await page.evaluate(() => {
       const canvas = document.querySelector('canvas');
