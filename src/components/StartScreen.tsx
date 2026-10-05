@@ -41,6 +41,7 @@ import {
   loadSaveSlots,
   purchaseCharacter,
   purchaseUpgrade,
+  redeemCoinCode,
   renameSaveSlot,
   resetSaveSlot,
   setActiveSaveSlotId,
@@ -295,6 +296,31 @@ const StartScreen: FC<Props> = ({
     saveLeaderboardName(safeName);
     saveLeaderboardAvatarId(avatarId);
     onPlayDailyChallenge();
+  };
+
+  // Secret coin-code reveal: five taps on the bank pill within 3 seconds.
+  const bankTapTimes = useRef<number[]>([]);
+  const [showCodeInput, setShowCodeInput] = useState(false);
+  const [redeemCode, setRedeemCode] = useState("");
+  const handleBankPillTap = () => {
+    const now = Date.now();
+    const recent = [...bankTapTimes.current.filter((t) => now - t < 3000), now];
+    bankTapTimes.current = recent;
+    if (recent.length >= 5) {
+      bankTapTimes.current = [];
+      setShowCodeInput((open) => !open);
+    }
+  };
+  const handleRedeemCode = () => {
+    const result = redeemCoinCode(activeSlotId, redeemCode);
+    setSaveSlots(result.slots);
+    if (result.ok) {
+      setProgressionMessage(`Code redeemed: +${result.coinsGranted} coins!`);
+      setRedeemCode("");
+      setShowCodeInput(false);
+    } else {
+      setProgressionMessage(result.reason ?? "Unknown code");
+    }
   };
 
   const handleLeaderboardToggle = () => {
@@ -608,10 +634,47 @@ const StartScreen: FC<Props> = ({
                 <p className="dash-eyebrow">YOUR RUNNER / LOADOUT</p>
                 <h2>{selectedCharacter.name}</h2>
               </div>
-              <span className="dash-subtle-pill-v2">
+              <span
+                className="dash-subtle-pill-v2"
+                role="button"
+                tabIndex={0}
+                aria-label="Bank coins"
+                onClick={handleBankPillTap}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") handleBankPillTap(); }}
+              >
                 Bank: {activeSlot?.bankCoins ?? 0}c
               </span>
             </div>
+            {showCodeInput && (
+              <div className="dash-section-title-row-v2" style={{ gap: 8 }}>
+                <input
+                  value={redeemCode}
+                  onChange={(e) => setRedeemCode(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") handleRedeemCode(); }}
+                  placeholder="Have a code?"
+                  aria-label="Redeem coin code"
+                  maxLength={24}
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    background: "#141019",
+                    border: "1px solid #3a2c42",
+                    borderRadius: 10,
+                    color: "#f4f2ed",
+                    padding: "8px 12px",
+                    fontSize: 13,
+                  }}
+                />
+                <button
+                  type="button"
+                  className="dash-subtle-pill-v2"
+                  onClick={handleRedeemCode}
+                  disabled={!redeemCode.trim()}
+                >
+                  Redeem
+                </button>
+              </div>
+            )}
             <p className="dash-panel-subtitle">{selectedCharacter.description} · {selectedCharacter.ability}</p>
             <div className="dash-runner-body-v2 dash-character-hero-v3">
               <div

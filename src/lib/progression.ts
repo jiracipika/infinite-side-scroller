@@ -260,6 +260,32 @@ function withUpdatedSlot(slotId: SaveSlotId, updater: (slot: SaveSlot) => SaveSl
   return updated;
 }
 
+/**
+ * Secret coin codes — a personal-game cheat, not a security boundary: the
+ * codes ship in the client bundle on purpose. Revealed in the UI by tapping
+ * the character panel's bank pill five times quickly. Case-insensitive,
+ * whitespace-tolerant, repeatable (no per-slot redemption ledger — the point
+ * is letting the player try every character).
+ */
+export const COIN_REDEEM_CODES: Record<string, number> = {
+  CHERRYBOMB: 2000,
+};
+
+export function redeemCoinCode(
+  slotId: SaveSlotId,
+  code: string,
+): { ok: boolean; reason?: string; coinsGranted?: number; slots: SaveSlot[] } {
+  const normalized = code.trim().toUpperCase();
+  const amount = COIN_REDEEM_CODES[normalized];
+  if (!amount) return { ok: false, reason: 'Unknown code', slots: loadSaveSlots() };
+  const next = withUpdatedSlot(slotId, (current) => ({
+    ...current,
+    updatedAt: now(),
+    bankCoins: current.bankCoins + amount,
+  }));
+  return { ok: true, coinsGranted: amount, slots: next };
+}
+
 export function renameSaveSlot(slotId: SaveSlotId, name: string): SaveSlot[] {
   const safe = name.trim().slice(0, 18) || `Save ${slotId.slice(-1)}`;
   return withUpdatedSlot(slotId, (slot) => ({ ...slot, name: safe, updatedAt: now() }));
