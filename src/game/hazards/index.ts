@@ -2,6 +2,12 @@
  * Hazards - Spikes and falling platforms
  */
 
+import {
+  generatePatternLayout,
+  rollSpikeWidth,
+  type BiomeSpawnProfile,
+} from '../spawn-patterns';
+
 /** Interpolate terrain height from heights array at an arbitrary localX */
 function getInterpolatedHeight(heights: number[], localX: number): number {
   const idx = Math.floor(localX / 4);
@@ -30,20 +36,47 @@ export interface Hazard {
   originalY?: number;
 }
 
-/** Spawn hazards for a chunk */
+/**
+ * Spawn hazards for a chunk.
+ *
+ * With a `profile` (biome run-variety), spike positions come from the
+ * per-biome pattern layout (scatter / cluster / rhythm / wide-single
+ * archetypes) and spike widths from the per-biome window; the chunk-0 safe
+ * zone is enforced inside the layout. Without a profile the legacy behavior
+ * is preserved byte-for-byte (pinned by tests).
+ */
 export function spawnHazardsForChunk(
   chunkId: number,
   platforms: { x: number; y: number; width: number }[],
   heights: number[],
   chunkWorldX: number,
-  rng: (seed: number) => number
+  rng: (seed: number) => number,
+  profile?: BiomeSpawnProfile
 ): Hazard[] {
   const hazards: Hazard[] = [];
   const base = chunkId * 9999;
   const startSafeZoneEnd = 760;
 
   // Spikes on ground (every chunk has a chance)
-  if (rng(base + 200) > 0.4) {
+  if (profile) {
+    if (rng(base + 200) > 1 - profile.spikeChunkChance) {
+      const safeEnd = chunkId === 0 ? startSafeZoneEnd : 0;
+      const layout = generatePatternLayout(profile, rng, base + 211, { safeZoneEnd: safeEnd });
+      for (const group of layout.groups) {
+        for (const slot of group) {
+          const groundY = getInterpolatedHeight(heights, slot.x);
+          hazards.push({
+            type: 'spike',
+            x: chunkWorldX + slot.x,
+            y: groundY - 12,
+            width: rollSpikeWidth(profile, rng, base + 212 + slot.x, slot.wide),
+            height: 12,
+            chunkId,
+          });
+        }
+      }
+    }
+  } else if (rng(base + 200) > 0.4) {
     const spikeCount = 1 + Math.floor(rng(base + 201) * 3);
     for (let i = 0; i < spikeCount; i++) {
       const localX = rng(base + i * 30 + 202) * 700 + 50;

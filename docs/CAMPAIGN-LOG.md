@@ -50,3 +50,18 @@ auto-restore.
 
 **Next steps:** roadmap exhausted — new work needs a fresh brief (terrain
 variety, SFX pass, and daily-run leaderboards are the visible candidates).
+
+**Run-variety slice (same day, evening):** picked up the "terrain variety"
+candidate the bounded way — runs now PLAY differently per biome with zero
+geometry changes (classification: **Better**). New pure module
+src/game/spawn-patterns.ts authors 8 per-biome spawn profiles resolved from
+the existing biome identities (level biome ids + endless registry names):
+pattern archetypes (scatter / CLUSTER / RHYTHM string / WIDE-SINGLE spike
+bands), per-biome spike width windows (desert wide-but-rare, sky narrow
+hop-rhythm), spike-chunk cadence, and enemy density multipliers. Fairness
+pinned per profile × seed in test/spawn-patterns.test.ts: inter-group gap
+≥150px reaction floor, band span ≤120px, widths within [24,48], chunk-0
+safe zone intact, legacy no-profile spawner byte-identical. 777 tests
+(+17); verify + build + release:evidence green; game.html regenerated —
+APK rebuild is the operator's cycle. Commit: see git log "per-biome
+run-variety".

@@ -3,6 +3,7 @@
  */
 
 import type { EnemyType } from './Enemy';
+import type { BiomeSpawnProfile } from '../spawn-patterns';
 
 export type CollectibleType =
   | 'coin'
@@ -150,6 +151,10 @@ export function spawnCollectiblesForChunk(
 /** Spawn enemies for a chunk.
  *  Enemies are placed on ground terrain by default (using terrainHeights).
  *  If platforms are available, some enemies (bats, ranged types) can be placed on them.
+ *
+ *  With a `profile` (biome run-variety), the per-chunk enemy count scales by
+ *  profile.enemyCountMult (clamped to [0.5, 1.5] in the authored data);
+ *  placement logic is untouched.
  */
 export function spawnEnemiesForChunk(
   chunkId: number,
@@ -158,10 +163,12 @@ export function spawnEnemiesForChunk(
   terrainHeights?: number[],
   chunkWorldX?: number,
   progressionLevel: number = Math.max(0, Math.floor(((chunkWorldX ?? chunkId * 800) / 2500))),
+  profile?: BiomeSpawnProfile,
 ): { type: EnemyType; x: number; y: number; chunkId: number }[] {
   const enemies: { type: EnemyType; x: number; y: number; chunkId: number }[] = [];
   const base = chunkId * 7777;
-  const count = 2 + Math.floor(rng(base + 100) * 4) + Math.min(3, Math.floor(progressionLevel / 2));
+  let count = 2 + Math.floor(rng(base + 100) * 4) + Math.min(3, Math.floor(progressionLevel / 2));
+  if (profile) count = Math.round(count * profile.enemyCountMult);
   const enemyPool: EnemyType[] = ['slime', 'beetle'];
   if (progressionLevel >= 1) enemyPool.push('wisp');
   if (progressionLevel >= 1) enemyPool.push('jumper');

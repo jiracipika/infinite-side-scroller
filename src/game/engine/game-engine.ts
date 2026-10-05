@@ -42,6 +42,7 @@ import {
   spawnEnemiesForChunk,
 } from "../entities/Collectibles";
 import { spawnHazardsForChunk, renderHazard, type Hazard } from "../hazards";
+import { profileForBiomeName, profileForLevelBiome } from "../spawn-patterns";
 import { getCharacterById } from "../data/characters";
 import type { Platform as PlatformData } from "../world/chunk";
 import { PerformanceProfiler } from "./performance-profiler";
@@ -1606,6 +1607,14 @@ export class GameEngine {
       const plats = chunk.platforms;
       const chunkWorldX = chunk.worldX;
 
+      // Run-variety: the active biome's spawn profile drives spike pattern
+      // layouts (scatter/cluster/rhythm/wide-single), spike width windows and
+      // enemy density. Level mode keys off the authored level biome; the
+      // endless world keys off each chunk's shifting biome.
+      const spawnProfile = this.levelConfig
+        ? profileForLevelBiome(this.levelConfig.biome)
+        : profileForBiomeName(chunk.biome.name);
+
       // Enemies — densityMult: 0.6 at start → 1.0 at primary ramp → up to ~1.8 later
       const progressionLevel = Math.max(0, Math.floor(chunkWorldX / 2500));
       const enemySpawns = spawnEnemiesForChunk(
@@ -1615,6 +1624,7 @@ export class GameEngine {
         chunk.heights,
         chunkWorldX,
         progressionLevel,
+        spawnProfile,
       );
 
       // Apply level config filtering: restrict enemy types and density if a level is active.
@@ -1715,6 +1725,7 @@ export class GameEngine {
         chunk.heights,
         chunkWorldX,
         (s) => this.seededRng(s),
+        spawnProfile,
       );
       // In level mode, apply hazard density scaling.
       let adjustedHazards = newHazards;

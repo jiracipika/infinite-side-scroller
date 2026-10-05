@@ -3,11 +3,38 @@
 Status: COMPLETE — the Recommended slice below is fully implemented.
 Status updated: 2026-10-05 — level-select/run-start experience done end to
 end (see Completed, slice F); rendered-browser QA bar verified 0 violations
-and pinned. NEW work needs a fresh brief (user playtest notes or new spec).
+and pinned. Follow-on run-variety slice delivered same day (slice G —
+per-biome spawner patterns). NEW work needs a fresh brief (user playtest
+notes or new spec).
 Owner: GLM 5.2/5.3 polish lane
 Priority: P2 premium visual/product polish; no correctness emergency
 
 ## Completed
+
+- 2026-10-05 (slice G): Run-variety — per-biome obstacle/spawner patterns
+  with NO geometry/physics/camera changes. Classification: **Better** —
+  deepens the existing run loop; nothing here is New-bet territory. New
+  pure module src/game/spawn-patterns.ts authors 8 BiomeSpawnProfiles
+  (grassland, forest, desert, rocky, dark_caves, sky, lava, mixed) resolved
+  from the EXISTING biome identities: level mode keys off LevelConfig.biome
+  (profileForLevelBiome — ice→sky, volcano→lava), the endless world keys off
+  each chunk's registry biome name (profileForBiomeName). Per biome: spike
+  width windows (desert [32,48] wide-but-rare vs sky [24,32] narrow),
+  spike-chunk cadence (dark_caves/lava 0.7 vs desert 0.5), enemy-count
+  multipliers (0.9 sky … 1.1 lava/dark_caves), and four pattern archetypes —
+  scatter, CLUSTER (2-3 tight spikes, ≤120px span = one jumpable band),
+  RHYTHM (fixed-cadence string), WIDE-SINGLE (one wide obstacle mid-chunk).
+  Fairness pinned for every profile × 300 seeds in
+  test/spawn-patterns.test.ts (17 checks): consecutive groups ≥
+  MIN_GROUP_GAP 150px (~0.54s reaction at 280px/s base speed), group span ≤
+  MAX_GROUP_SPAN 120px, spike widths within [24,48], rhythm cadence ≥ 150px,
+  chunk-0 safe zone intact, and the legacy no-profile spawner path
+  byte-identical. Wiring: hazards/index.ts (pattern-layout spikes +
+  per-biome widths), entities/Collectibles.ts (enemy count multiplier),
+  engine spawnChunkEntities (per-chunk profile resolution). Falling-platform
+  rates and platform/terrain generation deliberately untouched. 777 tests;
+  verify + build + release:evidence green; mobile game.html regenerated
+  (173.7KB — APK cycle left to the operator).
 
 - 2026-10-05 (slice F): Level-select/run-start experience — the whole
   Recommended slice. Difficulty meter + results action hierarchy
