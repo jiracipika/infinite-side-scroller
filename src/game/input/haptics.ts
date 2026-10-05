@@ -6,7 +6,7 @@
  * moments where mobile juice matters most: getting hit, low-health tension,
  * coin pickups, combo milestones, and death.
  *
- * This module owns two things:
+ * This module owns three things:
  *
  *  1. A pure resolver (`resolveHapticPattern`) that maps a gameplay event to a
  *     `navigator.vibrate` pattern (number | number[]). Pure so it can be unit
@@ -15,6 +15,9 @@
  *     snapshots and fires the right pattern through `navigator.vibrate`,
  *     gracefully no-oping on browsers without the Vibration API (desktop
  *     Safari/Firefox, iOS Safari — which silently ignores vibrate()).
+ *  3. A gamepad bridge (`resolveRumbleEffect` + fan-out inside `fireHaptic`)
+ *     that expresses the same events as dual-rumble on connected controllers,
+ *     whose pads lack the Vibration API entirely.
  *
  * Design notes:
  *  - All event patterns are short (≤ 60ms total) so they never feel laggy or
@@ -85,6 +88,101 @@ export function resolveHapticPattern(
   return HAPTIC_PATTERNS[event] ?? 0;
 }
 
+/* ------------------------------------------------------------------ */
+/* Gamepad rumble — the same events, felt through the controller.       */
+/*                                                                      */
+/* Desktop pads have no Vibration API; they expose the Gamepad          */
+/* Haptics Actuator (dual-rumble) instead. The bridge below keeps the   */
+/* event vocabulary single-sourced: durations are DERIVED from          */
+/* HAPTIC_PATTERNS so a retuned phone pattern retunes the pad with it,  */
+/* while strong/weak magnitudes are authored per event character        */
+/* (damage = heavy-thump low motor, coin = light high-motor tick).      */
+/* ------------------------------------------------------------------ */
+
+export interface GamepadRumbleEffect {
+  durationMs: number;
+  /** Low-frequency motor 0..1 — the big weights. */
+  strongMagnitude: number;
+  /** High-frequency motor 0..1 — the fine buzz. */
+  weakMagnitude: number;
+}
+
+const RUMBLE_MAGNITUDES: Record<HapticEvent, { strong: number; weak: number }> = {
+  damage: { strong: 1.0, weak: 0.4 },
+  heal: { strong: 0.25, weak: 0.35 },
+  'low-health': { strong: 0.7, weak: 0.3 },
+  coin: { strong: 0.1, weak: 0.5 },
+  'combo-milestone': { strong: 0.5, weak: 0.8 },
+  'combo-break': { strong: 0.35, weak: 0.2 },
+  death: { strong: 1.0, weak: 0.6 },
+  'extra-life': { strong: 0.4, weak: 0.7 },
+  'power-up': { strong: 0.3, weak: 0.6 },
+};
+
+function patternTotalMs(pattern: number | number[]): number {
+  if (typeof pattern === 'number') return pattern;
+  return pattern.reduce((sum, ms) => sum + ms, 0);
+}
+
+/**
+ * Pure resolver: gameplay event -> dual-rumble effect parameters.
+ * Returns `0` when feedback is suppressed (disabled or unknown event), so
+ * callers can gate without re-implementing the guard. Durations come from
+ * HAPTIC_PATTERNS; magnitudes are bounded to [0, 1] as the API requires.
+ */
+export function resolveRumbleEffect(
+  event: HapticEvent,
+  enabled: boolean = true,
+): GamepadRumbleEffect | 0 {
+  if (!enabled) return 0;
+  const magnitudes = RUMBLE_MAGNITUDES[event];
+  if (!magnitudes) return 0;
+  return {
+    durationMs: patternTotalMs(HAPTIC_PATTERNS[event] ?? 0),
+    strongMagnitude: Math.max(0, Math.min(1, magnitudes.strong)),
+    weakMagnitude: Math.max(0, Math.min(1, magnitudes.weak)),
+  };
+}
+
+interface DualRumbleActuator {
+  playEffect(
+    type: 'dual-rumble',
+    params: { duration: number; strongMagnitude: number; weakMagnitude: number },
+  ): Promise<string> | undefined;
+}
+
+/**
+ * Fire a rumble on every connected controller. Safe no-op on browsers
+ * without the Gamepad API, pads without an actuator, or when disabled.
+ * Never awaited — rumble is fire-and-forget by design.
+ */
+export function fireGamepadRumble(event: HapticEvent, enabled: boolean = true): void {
+  if (!enabled) return;
+  if (typeof navigator === 'undefined' || typeof navigator.getGamepads !== 'function') return;
+  const effect = resolveRumbleEffect(event, true);
+  if (effect === 0) return;
+  try {
+    for (const gamepad of navigator.getGamepads()) {
+      if (!gamepad?.connected) continue;
+      const actuator = (gamepad as Gamepad & { vibrationActuator?: DualRumbleActuator })
+        .vibrationActuator;
+      if (actuator && typeof actuator.playEffect === 'function') {
+        try {
+          void actuator.playEffect('dual-rumble', {
+            duration: effect.durationMs,
+            strongMagnitude: effect.strongMagnitude,
+            weakMagnitude: effect.weakMagnitude,
+          });
+        } catch {
+          /* Some actuators reject unsupported effects; keep the run smooth. */
+        }
+      }
+    }
+  } catch {
+    // Some embedded webviews expose getGamepads but reject access.
+  }
+}
+
 /**
  * True when the Vibration API is available *and* the document is visible.
  * We suppress haptics when the tab is hidden (pause/switch) so a backgrounded
@@ -98,10 +196,14 @@ function hapticsAvailable(): boolean {
 
 /**
  * Fire a single haptic event. Safe to call from anywhere (engine, UI, tests).
- * No-ops on unsupported browsers or when the document is hidden.
+ * No-ops on unsupported browsers or when the document is hidden. Fans out to
+ * BOTH feedback channels: the Vibration API (phones) and dual-rumble on any
+ * connected gamepad, so a controller player feels the same consequences.
  */
 export function fireHaptic(event: HapticEvent, enabled: boolean = true): void {
-  if (!enabled || !hapticsAvailable()) return;
+  if (!enabled) return;
+  fireGamepadRumble(event, true);
+  if (!hapticsAvailable()) return;
   const pattern = resolveHapticPattern(event, true);
   if (pattern === 0) return;
   try {
