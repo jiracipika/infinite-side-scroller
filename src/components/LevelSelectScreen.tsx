@@ -125,6 +125,18 @@ const LevelCard: FC<{
         {level.boss && ' · 👑'}
       </div>
 
+      {/* Locked — the unlock condition as visible copy. The title tooltip is
+          hover-only (never shown on touch devices), and the 🔒 glyph alone
+          doesn't say HOW, so the condition is also stated on the card
+          (kept in sync with the aria-label copy). */}
+      {locked && (
+        <div style={{
+          fontSize: 9, fontWeight: 600, color: 'rgba(255,255,255,0.35)', lineHeight: 1.3,
+        }}>
+          Earn a star on the previous level to unlock
+        </div>
+      )}
+
       {/* Difficulty — know before you go (pure authored-data rating). */}
       {(() => {
         const rating = rateLevelDifficulty(level);
