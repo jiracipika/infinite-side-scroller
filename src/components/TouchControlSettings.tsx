@@ -1,7 +1,7 @@
 'use client';
 
 import type { FC } from 'react';
-import { getSfxEngine } from '@/game/audio';
+import { playUiClick, playUiClickOnAdjustKey } from '@/game/audio';
 import type {
   TouchControlLayout,
   TouchControlSize,
@@ -66,7 +66,8 @@ const TouchControlSettings: FC = () => {
           onChange={(event) => {
             setSettings({ touchControlOpacity: Number(event.target.value) });
           }}
-          onPointerUp={() => getSfxEngine().play('click')}
+          onPointerUp={playUiClick}
+          onKeyUp={playUiClickOnAdjustKey}
         />
         <span className="ios-footnote" style={{ color: 'var(--ios-label3)' }}>
           Controls stay readable at the minimum setting.
@@ -107,7 +108,7 @@ function SegmentedRow<T extends string>({
             aria-pressed={value === option.id}
             onClick={() => {
               onChange(option.id);
-              getSfxEngine().play('click');
+              playUiClick();
             }}
             style={{ height: 36, paddingInline: 7, fontSize: 12 }}
           >

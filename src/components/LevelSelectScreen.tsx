@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ADVENTURE_LEVELS, TIME_ATTACK_LEVELS, COIN_RUSH_LEVELS, GAUNTLET_LEVELS, type LevelConfig } from '@/game/data/levels';
 import { rateLevelDifficulty } from '@/game/level-difficulty';
 import { getLevelBiomeIdentity } from '@/game/world/biomes';
+import { playUiClick } from '@/game/audio';
 import {
   loadProgress,
   type LevelProgress,
@@ -311,6 +312,21 @@ const LevelSelectScreen: FC<Props> = ({ onLevelSelect, onBack, onEndlessPlay }) 
   );
   const starsTotal = currentLevels.length * 3;
 
+  // Click feedback wrappers — level cards pass through unlocked clicks only
+  // (locked cards are disabled), so a sound always means "a run is starting".
+  const handleBack = () => {
+    playUiClick();
+    onBack();
+  };
+  const handleEndlessPlay = () => {
+    playUiClick();
+    onEndlessPlay();
+  };
+  const handlePickLevel = (level: LevelConfig) => {
+    playUiClick();
+    onLevelSelect(level);
+  };
+
   const tabs = [
     { id: 'adventure' as const, label: 'Adventure', icon: '🏰' },
     { id: 'endless' as const, label: 'Endless', icon: '♾️' },
@@ -331,7 +347,7 @@ const LevelSelectScreen: FC<Props> = ({ onLevelSelect, onBack, onEndlessPlay }) 
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
         <motion.button
-          onClick={onBack}
+          onClick={handleBack}
           whileTap={{ scale: 0.9 }}
           aria-label="Back to main menu"
           style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', fontSize: 18 }}
@@ -355,7 +371,7 @@ const LevelSelectScreen: FC<Props> = ({ onLevelSelect, onBack, onEndlessPlay }) 
       {/* Continue banner — one obvious next level */}
       {tab !== 'endless' && continueLevel && (
         <motion.button
-          onClick={() => onLevelSelect(continueLevel)}
+          onClick={() => handlePickLevel(continueLevel)}
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           whileHover={{ scale: 1.01 }}
@@ -389,7 +405,10 @@ const LevelSelectScreen: FC<Props> = ({ onLevelSelect, onBack, onEndlessPlay }) 
           return (
             <motion.button
               key={t.id}
-              onClick={() => setTab(t.id)}
+              onClick={() => {
+                playUiClick();
+                setTab(t.id);
+              }}
               whileTap={{ scale: 0.95 }}
               role="tab"
               aria-selected={active}
@@ -412,7 +431,7 @@ const LevelSelectScreen: FC<Props> = ({ onLevelSelect, onBack, onEndlessPlay }) 
       <AnimatePresence mode="wait">
         {tab === 'endless' ? (
           <motion.div key="endless" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.25 }}>
-            <EndlessCard onClick={onEndlessPlay} />
+            <EndlessCard onClick={handleEndlessPlay} />
           </motion.div>
         ) : (
           <motion.div
@@ -442,7 +461,7 @@ const LevelSelectScreen: FC<Props> = ({ onLevelSelect, onBack, onEndlessPlay }) 
                     prog={p}
                     index={i}
                     isNext={continueLevel?.id === level.id}
-                    onClick={() => onLevelSelect(level)}
+                    onClick={() => handlePickLevel(level)}
                   />
                 );
               })}

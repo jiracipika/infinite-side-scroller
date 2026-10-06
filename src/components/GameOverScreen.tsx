@@ -7,6 +7,7 @@ import { loadSelectedCharacter } from '@/game/data/characters';
 import { type NewRecords } from './GameStore';
 import { resolveGameOverKey } from './game-over-keys';
 import { fireHaptic } from '@/game/input/haptics';
+import { playUiClick } from '@/game/audio';
 import { recordRun } from '@/lib/run-history';
 import { shareRunResult, type ShareRunOutcome } from '@/lib/share-run';
 
@@ -73,16 +74,28 @@ const GameOverScreen: FC<Props> = ({ stats, newRecords, hapticsEnabled = true, o
   const displayCoins    = useCountUp(stats.coins,                   550, 520);
   const displayMaxCombo = useCountUp(stats.maxCombo ?? 0,            500, 600);
   const displayKills    = useCountUp(stats.enemiesDefeated ?? 0,     500, 680);
+  // Wrapped so the click sounds on BOTH input paths: the touch handlers
+  // below preventDefault (killing the synthesized click event), so desktop
+  // fires via onClick and touch via onTouchEnd.
+  const restart = () => {
+    playUiClick();
+    onRestart();
+  };
+  const quit = () => {
+    playUiClick();
+    onQuit();
+  };
   const handleRestartTouch = (e: TouchEvent<HTMLButtonElement>) => {
     e.preventDefault();
-    onRestart();
+    restart();
   };
   const handleQuitTouch = (e: TouchEvent<HTMLButtonElement>) => {
     e.preventDefault();
-    onQuit();
+    quit();
   };
   const handleShare = async () => {
     if (isSharing) return;
+    playUiClick();
     setIsSharing(true);
     setShareStatus('');
     try {
@@ -333,7 +346,7 @@ const GameOverScreen: FC<Props> = ({ stats, newRecords, hapticsEnabled = true, o
             <button
               type="button"
               className="ios-btn-primary ios-btn-shimmer"
-              onClick={onRestart}
+              onClick={restart}
               onTouchEnd={handleRestartTouch}
               onContextMenu={(e) => e.preventDefault()}
               style={{ fontSize: 17 }}
@@ -357,7 +370,7 @@ const GameOverScreen: FC<Props> = ({ stats, newRecords, hapticsEnabled = true, o
               <button
                 type="button"
                 className="ios-btn-gray"
-                onClick={onQuit}
+                onClick={quit}
                 onTouchEnd={handleQuitTouch}
                 onContextMenu={(e) => e.preventDefault()}
                 aria-label="Return to main menu"

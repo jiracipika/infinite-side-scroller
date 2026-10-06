@@ -35,7 +35,9 @@ export type SfxName =
   | "shieldBreak"
   | "gameOver"
   | "levelComplete"
-  | "click";
+  | "click"
+  | "redeemSuccess"
+  | "redeemReject";
 
 const MIN_REPEAT_INTERVAL: Partial<Record<SfxName, number>> = {
   coin: 35, // ms — allows fast pickups but caps stacking
@@ -45,6 +47,8 @@ const MIN_REPEAT_INTERVAL: Partial<Record<SfxName, number>> = {
   enemyDefeat: 30,
   damage: 120,
   click: 80,
+  redeemSuccess: 150,
+  redeemReject: 150,
 };
 
 export class SfxEngine {
@@ -170,6 +174,12 @@ export class SfxEngine {
         break;
       case "click":
         this.playClick();
+        break;
+      case "redeemSuccess":
+        this.playRedeemSuccess();
+        break;
+      case "redeemReject":
+        this.playRedeemReject();
         break;
       }
     } finally {
@@ -427,6 +437,23 @@ export class SfxEngine {
       attack: 0.001,
       gain: 0.08,
     });
+  }
+
+  /** Secret coin code accepted — short ascending chime (E5 → B5 → E6). */
+  private playRedeemSuccess(): void {
+    this.voice([
+      { type: "triangle", startFreq: 659, duration: 0.08, attack: 0.003, gain: 0.14 },
+      { type: "triangle", startFreq: 988, duration: 0.12, attack: 0.003, gain: 0.15 },
+      { type: "triangle", startFreq: 1319, duration: 0.18, attack: 0.003, gain: 0.16 },
+    ]);
+  }
+
+  /** Secret coin code rejected — short low buzz of detuned saws. */
+  private playRedeemReject(): void {
+    this.voice([
+      { type: "sawtooth", startFreq: 150, endFreq: 110, duration: 0.10, attack: 0.003, gain: 0.14 },
+      { type: "sawtooth", startFreq: 75, endFreq: 55, duration: 0.16, attack: 0.003, gain: 0.12 },
+    ]);
   }
 }
 

@@ -15,7 +15,10 @@ describe('LevelSelectScreen continue/next UX contract', () => {
 
   test('continue banner renders only for level tabs and links to continueLevel', () => {
     assert.match(src, /tab !== 'endless' && continueLevel/);
-    assert.match(src, /onClick=\{\(\) => onLevelSelect\(continueLevel\)\}/);
+    // The banner dispatches through handlePickLevel, which adds the UI click
+    // and still routes to onLevelSelect — the link guarantee is the routing.
+    assert.match(src, /onClick=\{\(\) => handlePickLevel\(continueLevel\)\}/);
+    assert.match(src, /const handlePickLevel = \(level: LevelConfig\) => \{\s*\n\s*playUiClick\(\);\s*\n\s*onLevelSelect\(level\);/);
     assert.match(src, /aria-label=\{`Continue: \$\{continueLevel\.name\}`\}/);
   });
 

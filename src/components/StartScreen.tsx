@@ -10,7 +10,12 @@ import {
   type ReactNode,
 } from "react";
 import { useGameStore } from "./GameStore";
-import { getSfxEngine } from "@/game/audio";
+import {
+  playUiClick,
+  playUiClickOnAdjustKey,
+  playRedeemSuccess,
+  playRedeemReject,
+} from "@/game/audio";
 import {
   CHARACTERS,
   saveSelectedCharacter,
@@ -225,6 +230,7 @@ const StartScreen: FC<Props> = ({
   }, [onlineScope, showLeaderboard]);
 
   const handlePlay = () => {
+    playUiClick();
     setActiveSaveSlotId(activeSlotId);
     clearPendingContinueSlot();
     const safeName = sanitizeLeaderboardName(playerName);
@@ -285,12 +291,14 @@ const StartScreen: FC<Props> = ({
 
   const handleSplitScreen = () => {
     if (!onPlaySplitScreen) return;
+    playUiClick();
     const seed = seedInput.trim() ? parseInt(seedInput, 10) : undefined;
     onPlaySplitScreen(seed);
   };
 
   const handleDailyChallengeClick = () => {
     if (!onPlayDailyChallenge) return;
+    playUiClick();
     const safeName = sanitizeLeaderboardName(playerName);
     setPlayerName(safeName);
     saveLeaderboardName(safeName);
@@ -315,15 +323,18 @@ const StartScreen: FC<Props> = ({
     const result = redeemCoinCode(activeSlotId, redeemCode);
     setSaveSlots(result.slots);
     if (result.ok) {
+      playRedeemSuccess();
       setProgressionMessage(`Code redeemed: +${result.coinsGranted} coins!`);
       setRedeemCode("");
       setShowCodeInput(false);
     } else {
+      playRedeemReject();
       setProgressionMessage(result.reason ?? "Unknown code");
     }
   };
 
   const handleLeaderboardToggle = () => {
+    playUiClick();
     if (!showLeaderboard) {
       setLeaderboard(loadLeaderboard());
       setOnlineScope("global");
@@ -489,7 +500,10 @@ const StartScreen: FC<Props> = ({
             </button>
             <button
               className={`dash-icon-action-v2 ${styles.iconAction} ${activeView === "character" ? "is-active" : ""}`}
-              onClick={() => setActiveView("character")}
+              onClick={() => {
+                playUiClick();
+                setActiveView("character");
+              }}
               aria-label="Open character select"
               aria-pressed={activeView === "character"}
             >
@@ -497,7 +511,10 @@ const StartScreen: FC<Props> = ({
             </button>
             <button
               className={`dash-icon-action-v2 ${styles.iconAction} ${activeView === "profile" ? "is-active" : ""}`}
-              onClick={() => setActiveView("profile")}
+              onClick={() => {
+                playUiClick();
+                setActiveView("profile");
+              }}
               aria-label="Open player profile"
               aria-pressed={activeView === "profile"}
             >
@@ -525,7 +542,10 @@ const StartScreen: FC<Props> = ({
               {onLevelSelect && (
                 <button
                   className="dash-mode-card-v2 solo"
-                  onClick={onLevelSelect}
+                  onClick={() => {
+                    playUiClick();
+                    onLevelSelect();
+                  }}
                 >
                   <small>Solo</small>
                   <b>Adventure</b>
@@ -537,7 +557,10 @@ const StartScreen: FC<Props> = ({
               className="dash-mode-card-v2 coop"
               aria-expanded={showMultiplayer}
               aria-controls="samesifi-panel"
-              onClick={() => setShowMultiplayer((v) => !v)}
+              onClick={() => {
+                playUiClick();
+                setShowMultiplayer((v) => !v);
+              }}
             >
               <small>Co-op</small>
               <b>{showMultiplayer ? "Hide Wi-Fi" : "Same-Wi-Fi"}</b>
@@ -587,6 +610,7 @@ const StartScreen: FC<Props> = ({
               aria-expanded={showRunHistory}
               aria-controls="run-lab-panel"
               onClick={() => {
+                playUiClick();
                 if (!showRunHistory) {
                   setRunHistory(loadRunHistory());
                   schedulePanelReveal("run-lab-panel");
@@ -603,7 +627,10 @@ const StartScreen: FC<Props> = ({
               className="dash-mode-card-v2 customize"
               aria-expanded={showProgression}
               aria-controls="saves-shop-panel"
-              onClick={() => setShowProgression((v) => !v)}
+              onClick={() => {
+                playUiClick();
+                setShowProgression((v) => !v);
+              }}
             >
               <small>Customize</small>
               <b>{showProgression ? "Hide Shop" : "Saves + Shop"}</b>
@@ -615,6 +642,7 @@ const StartScreen: FC<Props> = ({
               aria-expanded={showSettings}
               aria-controls="settings-panel"
               onClick={() => {
+                playUiClick();
                 if (!showSettings) schedulePanelReveal("settings-panel");
                 setShowSettings((s) => !s);
               }}
@@ -1280,7 +1308,7 @@ const CameraModeRow: FC<{
             }
             onClick={() => {
               onChange(mode.id);
-              getSfxEngine().play("click");
+              playUiClick();
             }}
             style={{ height: 34, fontSize: 13 }}
           >
@@ -1381,8 +1409,12 @@ const SliderRow: FC<{
       value={value}
       onChange={(e) => {
         onChange(parseFloat(e.target.value));
-        getSfxEngine().play("click");
       }}
+      /* Clicks stay DISCRETE: pointer drags and key adjusts fire many
+         change events in a row, so the click sounds on release / keyup
+         instead of on every onChange step. */
+      onPointerUp={playUiClick}
+      onKeyUp={playUiClickOnAdjustKey}
     />
   </div>
 );
@@ -1406,7 +1438,7 @@ const IOSToggle: FC<{ checked: boolean; onChange: (v: boolean) => void }> = ({
     className="ios-toggle-track"
     onClick={() => {
       onChange(!checked);
-      getSfxEngine().play("click");
+      playUiClick();
     }}
     style={{ background: checked ? "var(--ios-green)" : "var(--ios-fill)" }}
     role="switch"

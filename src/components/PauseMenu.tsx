@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, type FC } from 'react';
 import { useGameStore } from './GameStore';
-import { getSfxEngine } from '@/game/audio';
+import { playUiClick, playUiClickOnAdjustKey } from '@/game/audio';
 import { resolvePauseKey } from './pause-keys';
 import {
   getPauseConfirmationCopy,
@@ -120,10 +120,12 @@ const PauseMenu: FC<Props> = ({ onResume, onRestart, onQuit }) => {
 
   const confirmCopy = confirmation ? getPauseConfirmationCopy(confirmation) : null;
   const cancelConfirmation = () => {
+    playUiClick();
     lastKeyRef.current = null;
     setConfirmation(null);
   };
   const runConfirmedAction = () => {
+    playUiClick();
     if (confirmation === 'restart') onRestart();
     if (confirmation === 'quit') onQuit();
   };
@@ -279,7 +281,10 @@ const PauseMenu: FC<Props> = ({ onResume, onRestart, onQuit }) => {
             >
               <button
                 className="ios-action-row ios-action-row-bold"
-                onClick={onResume}
+                onClick={() => {
+                  playUiClick();
+                  onResume();
+                }}
                 style={{ animation: 'rowSlideIn 0.3s ease 0.2s both' }}
               >
                 Cancel
@@ -335,7 +340,10 @@ const ActionRow: FC<ActionRowProps> = ({
       muted       ? 'ios-action-row-label'       : '',
       destructive ? 'ios-action-row-destructive' : '',
     ].join(' ')}
-    onClick={onClick}
+    onClick={() => {
+      playUiClick();
+      onClick();
+    }}
     style={{
       display: 'flex',
       alignItems: 'center',
@@ -388,8 +396,11 @@ const SettingsPanel: FC = () => {
             value={settings.masterVolume}
             onChange={(e) => {
               setSettings({ masterVolume: parseFloat(e.target.value) });
-              getSfxEngine().play('click');
             }}
+            /* Discrete clicks only — drags fire many change events, so the
+               click sounds on release / adjust-key keyup instead. */
+            onPointerUp={playUiClick}
+            onKeyUp={playUiClickOnAdjustKey}
           />
         </div>
 
@@ -412,8 +423,9 @@ const SettingsPanel: FC = () => {
             value={settings.musicVolume}
             onChange={(e) => {
               setSettings({ musicVolume: parseFloat(e.target.value) });
-              getSfxEngine().play('click');
             }}
+            onPointerUp={playUiClick}
+            onKeyUp={playUiClickOnAdjustKey}
           />
         </div>
 
@@ -483,7 +495,7 @@ const CameraModeRow: FC<{
             className={value === mode.id ? 'ios-btn-primary' : 'ios-btn-secondary'}
             onClick={() => {
               onChange(mode.id);
-              getSfxEngine().play('click');
+              playUiClick();
             }}
             style={{ height: 34, fontSize: 13 }}
           >
@@ -518,7 +530,7 @@ const ReducedMotionRow: FC<{
             className={value === opt.id ? 'ios-btn-primary' : 'ios-btn-secondary'}
             onClick={() => {
               onChange(opt.id);
-              getSfxEngine().play('click');
+              playUiClick();
             }}
             style={{ height: 34, fontSize: 13 }}
           >
@@ -540,7 +552,7 @@ const IOSToggle: FC<{ checked: boolean; onChange: (v: boolean) => void }> = ({ c
     className="ios-toggle-track"
     onClick={() => {
       onChange(!checked);
-      getSfxEngine().play('click');
+      playUiClick();
     }}
     style={{ background: checked ? 'var(--ios-green)' : 'var(--ios-fill)' }}
     role="switch"
