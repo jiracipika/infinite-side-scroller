@@ -36,3 +36,4 @@ yarn-error.log*
 next-env.d.ts
 graphify-out/
 design/cherry/preview/bundle.js
+design/roster/preview/bundle.js
