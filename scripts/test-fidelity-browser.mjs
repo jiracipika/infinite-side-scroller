@@ -21,38 +21,37 @@ const browser = await chromium.launch({
   ...(process.env.PLAYWRIGHT_CHANNEL ? { channel: process.env.PLAYWRIGHT_CHANNEL } : {}),
 });
 try {
-  for (const character of ['knight', 'ninja', 'cherry']) {
+  // Every roster character gets real rendered frames per action. Shop-locked
+  // ids are unlocked through a seeded minimal save slot before app boot.
+  const LOCKED = new Set(['mage', 'ranger', 'cyborg', 'spirit', 'healer', 'cherry']);
+  for (const character of ['knight', 'ninja', 'tank', 'mage', 'ranger', 'cyborg', 'spirit', 'healer', 'cherry']) {
     const page = await browser.newPage({ viewport, deviceScaleFactor: 1, reducedMotion });
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
     await page.goto(report.url);
-    if (character === 'cherry') {
-      // Cherry is shop-locked, and the StartScreen fallback resets locked
-      // selections: unlock her inside any existing save slot before app
-      // boot (only fields that are already there are touched), persist the
-      // selection, then skip the select UI entirely.
-      await page.addInitScript(() => {
+    if (LOCKED.has(character)) {
+      // Locked characters, and the StartScreen fallback that resets locked
+      // selections: unlock inside a minimal slot record (loadSaveSlots()
+      // normalizes the rest), persist the selection, then skip the select
+      // UI entirely.
+      await page.addInitScript((char) => {
         try {
-          // Seed a minimal slot record — loadSaveSlots() normalizes it
-          // against the defaults, and cherry in unlockedCharacterIds
-          // (plus the persisted selection) survives the fallback effect.
           localStorage.setItem('iss-save-slots-v1', JSON.stringify([
             {
               id: 'slot1', name: 'QA', createdAt: 0, updatedAt: 0,
               bankCoins: 5000, spentCoins: 0, lifetimeCoinsCollected: 0,
               bestScore: 0, bestDistance: 0, bestCombo: 0, bestKills: 0, totalRuns: 0,
-              unlockedUpgradeIds: [], unlockedCharacterIds: ['cherry'], checkpoint: null,
+              unlockedUpgradeIds: [], unlockedCharacterIds: [char], checkpoint: null,
             },
           ]));
           localStorage.setItem('iss-active-save-slot-v1', 'slot1');
-          localStorage.setItem('selectedCharacter', 'cherry');
+          localStorage.setItem('selectedCharacter', char);
         } catch {}
-      });
-      await page.goto(report.url);
+      }, character);
       await page.reload();
     } else {
       await page.getByRole('button', { name: 'Open character select', exact: true }).click();
-      await page.getByRole('button', { name: character === 'ninja' ? 'Ninja' : 'Knight', exact: true }).click();
+      await page.getByRole('button', { name: character[0].toUpperCase() + character.slice(1), exact: true }).click();
     }
     await page.getByRole('button', { name: /Play Endless/ }).click();
     await page.evaluate(() => {
@@ -95,11 +94,16 @@ try {
     captures.push(write(jump, 'jump'));
     await page.keyboard.up('Space');
     await page.keyboard.up('ArrowRight');
-    await page.keyboard.down('KeyC');
-    const combat = check(await capture('combat'), 'combat');
-    assert.equal(combat.meleeActive, true);
-    captures.push(write(combat, 'combat'));
-    await page.keyboard.up('KeyC');
+    // Ranged characters (mage/ranger/spirit/healer) never raise meleeActive —
+    // their KeyC shot has no dedicated render flag, so only melee kits get
+    // the combat capture.
+    if (['knight', 'ninja', 'tank', 'cyborg', 'cherry'].includes(character)) {
+      await page.keyboard.down('KeyC');
+      const combat = check(await capture('combat'), 'combat');
+      assert.equal(combat.meleeActive, true);
+      captures.push(write(combat, 'combat'));
+      await page.keyboard.up('KeyC');
+    }
     await page.keyboard.down('ShiftLeft');
     const dash = check(await capture('dash'), 'dash');
     assert.equal(dash.dashing, true);

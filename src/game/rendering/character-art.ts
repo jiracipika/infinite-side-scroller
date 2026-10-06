@@ -1,6 +1,8 @@
 import type { CharacterDef } from "../data/characters";
 import { drawInkNinja } from "./ink-ninja";
 import { drawInkCherry } from "./ink-cherry";
+import { drawInkTank, drawInkMage, drawInkRanger, drawInkCyborg, drawInkSpirit, drawInkHealer } from "./ink-roster";
+import { inkMaterials } from "./ink-kit";
 
 export interface CharacterArtPose {
   stride?: number;
@@ -382,6 +384,23 @@ export function drawCharacterArt(
 
   if (char.id === "cherry") {
     drawInkCherry(ctx, width, height, pose);
+    ctx.restore();
+    return;
+  }
+
+  // Roster uplift: every character now has bespoke ink anatomy. The mat set
+  // tints each character's ink materials from its roster identity colors.
+  const rosterInk: Record<string, typeof drawInkTank | undefined> = {
+    tank: drawInkTank,
+    mage: drawInkMage,
+    ranger: drawInkRanger,
+    cyborg: drawInkCyborg,
+    spirit: drawInkSpirit,
+    healer: drawInkHealer,
+  };
+  const rosterDraw = rosterInk[char.id];
+  if (rosterDraw) {
+    rosterDraw(ctx, width, height, pose, inkMaterials(char.bodyColor, char.outlineColor));
     ctx.restore();
     return;
   }
