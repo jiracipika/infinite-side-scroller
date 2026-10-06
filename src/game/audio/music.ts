@@ -1,10 +1,13 @@
 /**
  * Procedural music engine — zero-asset background music via the Web Audio API.
  *
- * Layered generative soundtrack: a warm pad chords progression (Am–F–C–G),
- * a sine bass, and a pentatonic arpeggio whose density — plus hi-hat ticks —
- * scale with run intensity. All sounds are synthesised at runtime with
- * oscillators and gain envelopes, so there are no audio files to download.
+ * Layered generative soundtrack that grows from moody to FULL 8-BIT ANTHEM
+ * as the run heats up: a warm pad chords progression (Am–F–C–G), a bass that
+ * switches from sine pulses to a driving square walk, a pentatonic arpeggio,
+ * a COMPOSED square-wave lead melody (the 8-bit hook), kick/snare/hat drums,
+ * and a tempo that ramps 120 → ~158 BPM with intensity. All sounds are
+ * synthesised at runtime with oscillators and gain envelopes, so there are
+ * no audio files to download.
  *
  * The engine is SSR-safe (guards every access to AudioContext) and lazily
  * creates its context on first use, which satisfies browser autoplay policies
@@ -13,10 +16,13 @@
  *
  * Volume is masterVolume × musicVolume from the existing GameSettings sliders.
  * The layer mix is driven by setIntensity() each frame from run distance:
- *   pad      — always (when playing)
- *   bass     — intensity > 0.15
- *   arpeggio — intensity > 0.35 (probability scales up to ~0.85)
- *   hi-hat   — intensity > 0.7
+ *   pad        — always (when playing)
+ *   bass       — intensity > 0.15 (square walk eighths above 0.6)
+ *   lead       — intensity > 0.45 (authored square melody, the hype hook)
+ *   snare      — intensity > 0.5 (backbeat on 2 and 4)
+ *   kick       — intensity > 0.55 (downbeats)
+ *   arpeggio   — intensity > 0.35 (probability scales up to ~0.85)
+ *   hi-hat     — intensity > 0.7 (off-eighths)
  */
 
 /** Chord of the four-bar loop, expressed in MIDI note numbers. */
@@ -35,12 +41,31 @@ const PROGRESSION: ProgressionChord[] = [
   { bassMidi: 43, padMidis: [55, 59, 62], scaleMidis: [55, 59, 62, 67, 71, 74, 79, 83] }, // G
 ];
 
+/**
+ * The 8-bit lead hook: an AUTHORED melody (not a random walk) over the
+ * progression — two four-bar phrases, 8 eighths per bar, 0 = rest. First
+ * pass stays mid-register and groovy; the answer phrase jumps an octave
+ * for the hype peak. Chord tones on the strong eighths, rests on the off.
+ */
+const LEAD_MELODY: number[][] = [
+  [69, 0, 72, 76, 0, 72, 69, 67], // Am
+  [65, 0, 69, 72, 0, 69, 65, 64], // F
+  [64, 0, 67, 72, 0, 76, 72, 67], // C
+  [62, 0, 67, 71, 0, 74, 71, 67], // G
+  [81, 79, 76, 79, 81, 0, 84, 81], // Am (answer, octave up)
+  [77, 76, 72, 76, 77, 0, 81, 77], // F
+  [76, 72, 67, 72, 76, 0, 79, 84], // C
+  [74, 71, 67, 71, 74, 0, 74, 79], // G
+];
+
 const midiToHz = (midi: number): number => 440 * 2 ** ((midi - 69) / 12);
 
 /** Conductor timing — scheduler runs on a coarse timer, audio on the clock. */
 const TICK_MS = 100;
 const LOOKAHEAD_SEC = 0.3;
-const EIGHTH_SEC = 0.25; // 120 BPM
+/** Eighth-note duration range: 0.25s (120 BPM) → 0.19s (~158 BPM) at full intensity. */
+const EIGHTH_SLOW_SEC = 0.25;
+const EIGHTH_FAST_SEC = 0.19;
 const BAR_EIGHTHS = 8;
 
 export class MusicEngine {
@@ -71,6 +96,16 @@ export class MusicEngine {
 
   get intensity(): number {
     return this._intensity;
+  }
+
+  /** Eighth-note duration shrinks as intensity rises — the track speeds up. */
+  private eighthDuration(): number {
+    return EIGHTH_SLOW_SEC - (EIGHTH_SLOW_SEC - EIGHTH_FAST_SEC) * this._intensity;
+  }
+
+  /** Readable tempo for tests/UI: 120 BPM calm → ~158 BPM at full hype. */
+  get tempoBpm(): number {
+    return Math.round(30 / this.eighthDuration());
   }
 
   get enabled(): boolean {
@@ -231,7 +266,7 @@ export class MusicEngine {
     while (this.nextNoteTime < this.ctx.currentTime + LOOKAHEAD_SEC) {
       this.scheduleEighth(this.eighthIndex, this.nextNoteTime);
       this.eighthIndex++;
-      this.nextNoteTime += EIGHTH_SEC;
+      this.nextNoteTime += this.eighthDuration();
     }
   }
 
@@ -240,17 +275,23 @@ export class MusicEngine {
     const pos = index % BAR_EIGHTHS;
     const chord = PROGRESSION[bar % PROGRESSION.length];
     const intensity = this._intensity;
+    const eighth = this.eighthDuration();
+    const barDur = eighth * BAR_EIGHTHS;
 
     // Bar downbeat — pad chord + bass root.
     if (pos === 0) {
       for (const midi of chord.padMidis) {
-        this.pad(midiToHz(midi), t);
+        this.pad(midiToHz(midi), t, barDur);
       }
-      if (intensity > 0.15) this.bass(midiToHz(chord.bassMidi), t, 0.5);
+      if (intensity > 0.15) this.bass(midiToHz(chord.bassMidi), t, 0.5, 1, intensity > 0.6);
     }
     // Half-bar bass pulse keeps momentum without clutter.
     if (pos === 4 && intensity > 0.15) {
-      this.bass(midiToHz(chord.bassMidi), t, 0.4, 0.8);
+      this.bass(midiToHz(chord.bassMidi), t, 0.4, 0.8, intensity > 0.6);
+    }
+    // Hype bass: walking eighths on 2 and 6 (root, then octave jump).
+    if (intensity > 0.6 && (pos === 2 || pos === 6)) {
+      this.bass(midiToHz(chord.bassMidi + (pos === 6 ? 12 : 0)), t, eighth * 0.8, 0.7, true);
     }
 
     // Arpeggio pluck — probability and brightness scale with intensity.
@@ -267,7 +308,23 @@ export class MusicEngine {
       }
     }
 
-    // Off-eighth hi-hats only in the high-intensity mix.
+    // The composed square-wave hook — the 8-bit anthem rides on top once
+    // the run is properly heated.
+    if (intensity > 0.45) {
+      const phrase = LEAD_MELODY[bar % LEAD_MELODY.length];
+      const midi = phrase[pos];
+      if (midi > 0) {
+        this.lead(midiToHz(midi), t, eighth * 0.92, 0.4 + intensity * 0.6);
+      }
+    }
+
+    // Drums: snare backbeat, kick downbeats, off-eighth hats on top.
+    if (intensity > 0.5 && (pos === 2 || pos === 6)) {
+      this.snare(t);
+    }
+    if (intensity > 0.55 && (pos === 0 || pos === 4)) {
+      this.kick(t);
+    }
     if (intensity > 0.7 && pos % 2 === 1) {
       this.hat(t);
     }
@@ -275,8 +332,8 @@ export class MusicEngine {
 
   // ── Voices ──────────────────────────────────────────────────
 
-  /** Soft sustained pad tone into the lowpass bus. */
-  private pad(freq: number, t: number): void {
+  /** Soft sustained pad tone into the lowpass bus. Bar length is tempo-aware. */
+  private pad(freq: number, t: number, barDur: number): void {
     if (!this.ctx || !this.padFilter) return;
     const osc = this.ctx.createOscillator();
     osc.type = "triangle";
@@ -284,28 +341,93 @@ export class MusicEngine {
     const gain = this.ctx.createGain();
     gain.gain.setValueAtTime(0, t);
     gain.gain.linearRampToValueAtTime(0.05, t + 0.6);
-    gain.gain.setValueAtTime(0.05, t + EIGHTH_SEC * BAR_EIGHTHS - 0.5);
-    gain.gain.linearRampToValueAtTime(0, t + EIGHTH_SEC * BAR_EIGHTHS);
+    gain.gain.setValueAtTime(0.05, t + barDur - 0.5);
+    gain.gain.linearRampToValueAtTime(0, t + barDur);
     osc.connect(gain);
     gain.connect(this.padFilter);
     osc.start(t);
-    osc.stop(t + EIGHTH_SEC * BAR_EIGHTHS + 0.05);
+    osc.stop(t + barDur + 0.05);
   }
 
-  /** Sine bass note with a fast attack. */
-  private bass(freq: number, t: number, duration: number, gainScale = 1): void {
+  /** Bass note — sine when calm, square when the hype bass walks. */
+  private bass(freq: number, t: number, duration: number, gainScale = 1, square = false): void {
     if (!this.ctx || !this.masterGain) return;
     const osc = this.ctx.createOscillator();
-    osc.type = "sine";
+    osc.type = square ? "square" : "sine";
     osc.frequency.setValueAtTime(freq, t);
     const gain = this.ctx.createGain();
     gain.gain.setValueAtTime(0, t);
-    gain.gain.linearRampToValueAtTime(0.12 * gainScale, t + 0.02);
+    gain.gain.linearRampToValueAtTime((square ? 0.08 : 0.12) * gainScale, t + 0.02);
     gain.gain.exponentialRampToValueAtTime(0.0001, t + duration);
     osc.connect(gain);
     gain.connect(this.masterGain);
     osc.start(t);
     osc.stop(t + duration + 0.02);
+  }
+
+  /**
+   * The 8-bit lead: a bright square with a sub-octave square doubling for
+   * thickness — the classic two-pulse chiptune lead.
+   */
+  private lead(freq: number, t: number, duration: number, gainScale: number): void {
+    if (!this.ctx || !this.masterGain) return;
+    const voice = (f: number, peak: number) => {
+      if (!this.ctx) return;
+      const osc = this.ctx.createOscillator();
+      osc.type = "square";
+      osc.frequency.setValueAtTime(f, t);
+      const gain = this.ctx.createGain();
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(peak, t + 0.005);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + duration);
+      osc.connect(gain);
+      gain.connect(this.masterGain!);
+      osc.start(t);
+      osc.stop(t + duration + 0.02);
+    };
+    voice(freq, 0.045 * gainScale);
+    voice(freq / 2, 0.02 * gainScale);
+  }
+
+  /** Kick: a fast sine pitch-drop on the downbeats. */
+  private kick(t: number): void {
+    if (!this.ctx || !this.masterGain) return;
+    const osc = this.ctx.createOscillator();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(150, t);
+    osc.frequency.exponentialRampToValueAtTime(45, t + 0.1);
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(0.26, t);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.13);
+    osc.connect(gain);
+    gain.connect(this.masterGain);
+    osc.start(t);
+    osc.stop(t + 0.15);
+  }
+
+  /** Snare: a bandpassed noise crack on the backbeat. */
+  private snare(t: number): void {
+    if (!this.ctx || !this.masterGain) return;
+    const length = Math.floor(this.ctx.sampleRate * 0.09);
+    const buffer = this.ctx.createBuffer(1, length, this.ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < length; i++) {
+      data[i] = Math.random() * 2 - 1;
+    }
+    const src = this.ctx.createBufferSource();
+    src.buffer = buffer;
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = "bandpass";
+    filter.frequency.value = 1800;
+    filter.Q.value = 0.8;
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(0.09, t);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.09);
+    src.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.masterGain);
+    src.start(t);
+    src.stop(t + 0.1);
   }
 
   /** Short triangle pluck for the arpeggio layer. */
