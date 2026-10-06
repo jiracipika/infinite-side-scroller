@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import "./globals.css";
 import { GameStoreProvider } from "@/components/GameStore";
+import ServiceWorkerRegistrar from "@/components/ServiceWorkerRegistrar";
 
 export const metadata: Metadata = {
   title: "Dashverse",
@@ -42,6 +43,7 @@ export default function RootLayout({
         <GameStoreProvider>
           {children}
         </GameStoreProvider>
+        <ServiceWorkerRegistrar />
       </body>
     </html>
   );
