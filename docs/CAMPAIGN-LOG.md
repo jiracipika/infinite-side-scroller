@@ -65,3 +65,51 @@ safe zone intact, legacy no-profile spawner byte-identical. 777 tests
 (+17); verify + build + release:evidence green; game.html regenerated —
 APK rebuild is the operator's cycle. Commit: see git log "per-biome
 run-variety".
+
+## Day 4 — 2026-10-06
+
+**Morning round (pre-window):** SFX gap-fill 9e521fd — redeemSuccess/
+redeemReject synths wired at the React boundary (the CHERRYBOMB field was
+silent), shared playUiClick/playUiClickOnAdjustKey helpers, all gating
+engine-side, sliders click on pointerUp/keyup (no drag spam); 944 tests;
+survey correction: UI clicks already existed via getSfxEngine().play —
+a narrow `sfx\.play` grep misses them. Farm APK 83MB rebuilt @ 9e521fd
+(coin doubler + crimson court + court baddies + chiptune engine),
+emulator boot + mid-run evidence in /Volumes/ADATA/mobile-setup/evidence/
+dashverse-2026-10-06-*.png.
+
+**Afternoon double + chime (3 commits, 946 tests, verify/build/
+release:evidence EXIT:0 on the combined tree):** 069788d SFX finish —
+every secondary surface answers (roster chips, shop, multiplayer Host/
+Join, save-slot grid, board scope tabs, ghost Race, Run Lab, achievements,
+LevelCompleteScreen, SplitScreenMode, ControlsHint); bank-pill 5-tap
+secret asserted silent. aab0e8a PWA OFFLINE (the day's NEW bet): hand-
+written sw.js, NETWORK-FIRST for the HTML doc + /_next/static chunks,
+deny-by-default allowlist (api/cross-origin pass through), one-visit
+install precache (load-bearing: first-visit requests fire before SW
+control), versioned cache + activate purge + skipWaiting/claim, styled
+"SIGNAL LOST" offline page; LIVE invalidation proof (real v2-bump deploy
+in test: caches=v2 only, fresh network hits; 3 runtime bugs caught pre-
+ship); production verified (sw.js max-age=0 must-revalidate, offline.html
+200). a8d136e purchase chime (SfxName #15): square E6 strike → triangle
+B5 ring — a descending fourth specifically so it can't duplicate the coin
+pitches; wired on buy-success only (failures stay click).
+
+**Durable gotcha:** the WEB game bundle is the /_next/static chunk set —
+apps/mobile/assets/game.html is the RN WebView asset and is NOT served by
+the web origin (pinned by contract in verify-offline-sw.mjs). Purchase
+chime changed game.html (+214 bytes) → fresh farm APK rebuild running at
+EOD.
+
+**P/B/N classifications:** SFX finish Better-completion; PWA offline NEW
+(one isolated bet, strict invalidation bar — network-first makes stale-
+serves structurally impossible online); purchase chime Better-completion
+(Proven arcade convention).
+
+**Overnight (parallel session, certified):** chiptune 4a8b37d, AdSense
+759fca0, crimson court 609a8c4 + court baddies 14fe000 + roster uplift
+f238a64 + coin doubler 6d1006c + secret code 2a7867a.
+
+**Next steps:** human playtest for feel passes; candidates noted: dedicated
+haptics audit for new surfaces, service-worker cache-size ceiling tuning
+(80-asset cap), multiplayer/leaderboard auth if ever needed.
