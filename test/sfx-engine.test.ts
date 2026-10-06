@@ -58,6 +58,7 @@ describe('SfxEngine', () => {
       sfx.play('gameOver');
       sfx.play('redeemSuccess');
       sfx.play('redeemReject');
+      sfx.play('purchase');
     });
   });
 
@@ -136,13 +137,13 @@ describe('landingGainScale + per-call gain scale', () => {
 describe('SfxName inventory (source contract)', () => {
   const src = readFileSync(new URL('../src/game/audio/sfx.ts', import.meta.url), 'utf8');
 
-  it('pins the full 14-sound inventory', () => {
+  it('pins the full 15-sound inventory', () => {
     const union = src.match(/export type SfxName =([\s\S]*?);/)![1];
     const names = [...union.matchAll(/\| "(\w+)"/g)].map((m) => m[1]);
-    assert.equal(names.length, 14, `expected 14 SfxName entries, found ${names.length}`);
+    assert.equal(names.length, 15, `expected 15 SfxName entries, found ${names.length}`);
     assert.deepEqual([...names].sort(), [
       'click', 'coin', 'comboTier', 'damage', 'doubleJump', 'enemyDefeat',
-      'gameOver', 'jump', 'land', 'levelComplete', 'powerup',
+      'gameOver', 'jump', 'land', 'levelComplete', 'powerup', 'purchase',
       'redeemReject', 'redeemSuccess', 'shieldBreak',
     ].sort());
   });
@@ -255,6 +256,26 @@ describe('SfxEngine browser-path dispatch (fake AudioContext)', () => {
     assert.equal(oscillators.length, 1);
     assert.equal(oscillators[0].type, 'square');
     assert.equal(oscillators[0].startFreq, 660);
+  });
+
+  it('purchase dispatches the two-hit register ring', () => {
+    sfx.play('purchase');
+    assert.equal(oscillators.length, 2, 'bright two-hit chime');
+    assert.equal(oscillators[0].type, 'square', 'high strike is square');
+    assert.equal(oscillators[0].startFreq, 1319, 'E6 strike');
+    assert.equal(oscillators[1].type, 'triangle', 'lower ring is triangle');
+    assert.equal(oscillators[1].startFreq, 988, 'B5 ring');
+  });
+
+  it('purchase takes a distinct synth path from coin, redeemSuccess and comboTier', () => {
+    const snapshot = () => JSON.stringify(oscillators);
+    sfx.play('purchase');
+    const purchase = snapshot();
+    for (const other of ['coin', 'redeemSuccess', 'comboTier'] as const) {
+      oscillators.length = 0;
+      sfx.play(other);
+      assert.notEqual(purchase, snapshot(), `purchase must not sound like ${other}`);
+    }
   });
 
   it('plays nothing when disabled', () => {

@@ -99,3 +99,12 @@ export function playRedeemReject(): void {
     /* audio must never break an interaction */
   }
 }
+
+/** Shop purchase succeeded — the register rings (short two-hit chime). */
+export function playPurchase(): void {
+  try {
+    getSfxEngine().play("purchase");
+  } catch {
+    /* audio must never break an interaction */
+  }
+}

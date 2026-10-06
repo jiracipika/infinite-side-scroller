@@ -15,6 +15,7 @@ import {
   playUiClickOnAdjustKey,
   playRedeemSuccess,
   playRedeemReject,
+  playPurchase,
 } from "@/game/audio";
 import {
   CHARACTERS,
@@ -386,16 +387,25 @@ const StartScreen: FC<Props> = ({
     const result = purchaseCharacter(activeSlotId, characterId);
     setSaveSlots(result.slots);
     if (result.ok) {
+      // The register rings — a real buy earns the purchase chime, not a click.
+      playPurchase();
       setSelectedChar(characterId);
       saveSelectedCharacter(characterId);
+    } else {
+      playUiClick();
     }
     setProgressionMessage(result.ok ? "Character unlocked" : (result.reason ?? "Unlock failed"));
   };
 
   const handleBuyUpgrade = (upgradeId: string) => {
-    playUiClick();
     const result = purchaseUpgrade(activeSlotId, upgradeId);
     setSaveSlots(result.slots);
+    if (result.ok) {
+      // The register rings — a real buy earns the purchase chime, not a click.
+      playPurchase();
+    } else {
+      playUiClick();
+    }
     setProgressionMessage(
       result.ok ? "Upgrade purchased" : (result.reason ?? "Purchase failed"),
     );
@@ -757,11 +767,13 @@ const StartScreen: FC<Props> = ({
                     type="button"
                     className={`dash-character-chip-v2 dash-character-card-v3 ${selectedChar === c.id ? "is-active" : ""}`}
                     onClick={() => {
-                      playUiClick();
                       if (!unlocked) {
+                        // Buy path: the handler rings the register on success,
+                        // clicks on failure — never both.
                         handleBuyCharacter(c.id);
                         return;
                       }
+                      playUiClick();
                       setSelectedChar(c.id);
                       saveSelectedCharacter(c.id);
                     }}

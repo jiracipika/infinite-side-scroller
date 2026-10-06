@@ -37,7 +37,8 @@ export type SfxName =
   | "levelComplete"
   | "click"
   | "redeemSuccess"
-  | "redeemReject";
+  | "redeemReject"
+  | "purchase";
 
 const MIN_REPEAT_INTERVAL: Partial<Record<SfxName, number>> = {
   coin: 35, // ms — allows fast pickups but caps stacking
@@ -49,6 +50,7 @@ const MIN_REPEAT_INTERVAL: Partial<Record<SfxName, number>> = {
   click: 80,
   redeemSuccess: 150,
   redeemReject: 150,
+  purchase: 150,
 };
 
 export class SfxEngine {
@@ -180,6 +182,9 @@ export class SfxEngine {
         break;
       case "redeemReject":
         this.playRedeemReject();
+        break;
+      case "purchase":
+        this.playPurchase();
         break;
       }
     } finally {
@@ -453,6 +458,20 @@ export class SfxEngine {
     this.voice([
       { type: "sawtooth", startFreq: 150, endFreq: 110, duration: 0.10, attack: 0.003, gain: 0.14 },
       { type: "sawtooth", startFreq: 75, endFreq: 55, duration: 0.16, attack: 0.003, gain: 0.12 },
+    ]);
+  }
+
+  /**
+   * Shop purchase succeeded — the register rings. A bright two-hit chime:
+   * a high square strike (E6) answered by a lower triangle ring (B5), the
+   * ka-ching drawer drop. Deliberately distinct from redeemSuccess (a
+   * three-note ascending triangle) and from coin/comboTier, so the shop's
+   * biggest reward moment never sounds like a plain click or a pickup.
+   */
+  private playPurchase(): void {
+    this.voice([
+      { type: "square", startFreq: 1319, duration: 0.06, attack: 0.002, gain: 0.15 },
+      { type: "triangle", startFreq: 988, duration: 0.16, attack: 0.002, gain: 0.16 },
     ]);
   }
 }

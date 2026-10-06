@@ -24,6 +24,9 @@
 //      SplitScreenMode exit/restart rows, ControlsHint dismiss
 //   9. The bank pill's 5-tap secret stays SILENT — no click sound may
 //      telegraph the hidden gesture
+//  10. Real buys ring the register: handleBuyCharacter and handleBuyUpgrade
+//      SUCCESS branches play the purchase chime (never the plain click),
+//      while failure / can't-afford branches keep the plain click
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -53,7 +56,7 @@ const splitScreen = read('src/components/SplitScreenMode.tsx');
 const controlsHint = read('src/components/ControlsHint.tsx');
 
 // 1. Shared UI helpers exist in the audio barrel
-for (const helper of ['playUiClick', 'playRedeemSuccess', 'playRedeemReject', 'playUiClickOnAdjustKey']) {
+for (const helper of ['playUiClick', 'playRedeemSuccess', 'playRedeemReject', 'playPurchase', 'playUiClickOnAdjustKey']) {
   assert(
     new RegExp(`export function ${helper}\\(`).test(audioBarrel),
     `audio barrel must export ${helper}`,
@@ -62,7 +65,8 @@ for (const helper of ['playUiClick', 'playRedeemSuccess', 'playRedeemReject', 'p
 assert(
   audioBarrel.includes('getSfxEngine().play("click")') &&
     audioBarrel.includes('getSfxEngine().play("redeemSuccess")') &&
-    audioBarrel.includes('getSfxEngine().play("redeemReject")'),
+    audioBarrel.includes('getSfxEngine().play("redeemReject")') &&
+    audioBarrel.includes('getSfxEngine().play("purchase")'),
   'UI helpers must route through the shared SfxEngine singleton',
 );
 
@@ -145,19 +149,49 @@ for (const handler of ['handleSelectSaveSlot', 'handleContinueFromSlot', 'handle
     `${handler} must answer with a click`,
   );
 }
+// 10. Real buys ring the register — success plays the purchase chime INSTEAD
+//     of the plain click; failure keeps the click. (Disabled buttons above
+//     already keep can't-afford/owned taps silent.)
 assert(
-  /const handleBuyUpgrade = \(upgradeId: string\) => \{\s*\n\s*playUiClick\(\);/.test(startScreen),
-  'shop Buy must answer with a click via handleBuyUpgrade',
+  /const handleBuyUpgrade = \(upgradeId: string\) => \{\s*\n\s*const result = purchaseUpgrade\(activeSlotId, upgradeId\);/.test(startScreen),
+  'shop Buy must route through purchaseUpgrade in handleBuyUpgrade',
 );
 assert(
   /disabled=\{owned \|\| !canAfford\}/.test(startScreen),
   'shop Buy must stay disabled when owned/unaffordable (no click, no sound)',
 );
-// Roster chips: one click per tap on BOTH branches — the chip onClick sounds
-// first, then routes to the buy handler or the select path.
+const buyUpgradeBlock = startScreen.match(/const handleBuyUpgrade = \(upgradeId: string\) => \{[\s\S]*?\n  \};/);
+assert(buyUpgradeBlock !== null, 'StartScreen must keep the handleBuyUpgrade boundary');
+if (buyUpgradeBlock) {
+  const block = buyUpgradeBlock[0];
+  const okBranch = block.slice(0, block.indexOf('} else {'));
+  const failBranch = block.slice(block.indexOf('} else {'));
+  assert(okBranch.includes('playPurchase'), 'shop Buy success must ring the register (playPurchase)');
+  assert(!okBranch.includes('playUiClick'), 'shop Buy success must NOT answer with the plain click');
+  assert(failBranch.includes('playUiClick'), 'shop Buy failure keeps the plain click');
+  assert(!failBranch.includes('playPurchase'), 'shop Buy failure must NOT ring the register');
+}
 assert(
-  /onClick=\{\(\) => \{\s*\n\s*playUiClick\(\);\s*\n\s*if \(!unlocked\) \{\s*\n\s*handleBuyCharacter\(c\.id\);/.test(startScreen),
-  'character roster chips must click on tap, whether selecting or buying',
+  /const handleBuyCharacter = \(characterId: string\) => \{\s*\n\s*const result = purchaseCharacter\(activeSlotId, characterId\);/.test(startScreen),
+  'roster buys must route through purchaseCharacter in handleBuyCharacter',
+);
+const buyCharBlock = startScreen.match(/const handleBuyCharacter = \(characterId: string\) => \{[\s\S]*?\n  \};/);
+assert(buyCharBlock !== null, 'StartScreen must keep the handleBuyCharacter boundary');
+if (buyCharBlock) {
+  const block = buyCharBlock[0];
+  const okBranch = block.slice(0, block.indexOf('} else {'));
+  const failBranch = block.slice(block.indexOf('} else {'));
+  assert(okBranch.includes('playPurchase'), 'character buy success must ring the register (playPurchase)');
+  assert(!okBranch.includes('playUiClick'), 'character buy success must NOT answer with the plain click');
+  assert(failBranch.includes('playUiClick'), 'character buy failure keeps the plain click');
+  assert(!failBranch.includes('playPurchase'), 'character buy failure must NOT ring the register');
+}
+// Roster chips: unlocked taps stay a plain select click; locked taps route to
+// the buy handler with NO pre-click — the handler alone decides the sound
+// (register on success, click on failure), so a buy never double-fires.
+assert(
+  /onClick=\{\(\) => \{\s*\n\s*if \(!unlocked\) \{[\s\S]{0,200}?handleBuyCharacter\(c\.id\);/.test(startScreen),
+  'character roster chips must route locked taps straight to the buy handler (no pre-click)',
 );
 assert(
   /playUiClick\(\);\s*\n\s*setAvatarId\(preset\.id\);/.test(startScreen),
@@ -229,8 +263,8 @@ assert(
   'bank pill keeps its tap counter wired (silently)',
 );
 
-// The engine itself still owns the two new synth voices
-for (const sound of ['redeemSuccess', 'redeemReject']) {
+// The engine itself still owns the synth voices for the boundary helpers
+for (const sound of ['redeemSuccess', 'redeemReject', 'purchase']) {
   assert(sfxSource.includes(`case "${sound}":`), `sfx.ts must dispatch ${sound}`);
 }
 
@@ -249,6 +283,7 @@ console.log(
   `UI SFX wiring verified: shared helpers gated through SfxEngine, ${clickSites} playUiClick references across ` +
   'start/game-over/level-select/pause/touch-settings surfaces plus roster chips, shop buy, multiplayer host/join, ' +
   'save slots, board tabs + clear + ghost race, run lab, avatar presets, achievements modal, level-complete and ' +
-  'split-screen rows; redeem success+reject chimes wired at the React boundary; disabled buy/race/redeem inputs stay ' +
-  'silent; the bank-pill 5-tap secret stays silent; sliders click discretely on release.',
+  'split-screen rows; redeem success+reject chimes wired at the React boundary; real buys (character unlock, shop ' +
+  'upgrade) ring the purchase chime on success while failures keep the plain click; disabled buy/race/redeem inputs ' +
+  'stay silent; the bank-pill 5-tap secret stays silent; sliders click discretely on release.',
 );
