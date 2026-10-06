@@ -2,6 +2,10 @@ import type { CharacterDef } from "../data/characters";
 import { drawInkNinja } from "./ink-ninja";
 import { drawInkCherry } from "./ink-cherry";
 import { drawInkTank, drawInkMage, drawInkRanger, drawInkCyborg, drawInkSpirit, drawInkHealer } from "./ink-roster";
+import {
+  drawInkVelvet, drawInkEmber, drawInkRosalia, drawInkMarionette,
+  drawInkDorian, drawInkOnyx, drawInkMortimer, drawInkGrimshaw,
+} from "./ink-crimson";
 import { inkMaterials } from "./ink-kit";
 
 export interface CharacterArtPose {
@@ -397,6 +401,14 @@ export function drawCharacterArt(
     cyborg: drawInkCyborg,
     spirit: drawInkSpirit,
     healer: drawInkHealer,
+    velvet: drawInkVelvet,
+    ember: drawInkEmber,
+    rosalia: drawInkRosalia,
+    marionette: drawInkMarionette,
+    dorian: drawInkDorian,
+    onyx: drawInkOnyx,
+    mortimer: drawInkMortimer,
+    grimshaw: drawInkGrimshaw,
   };
   const rosterDraw = rosterInk[char.id];
   if (rosterDraw) {

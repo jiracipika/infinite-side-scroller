@@ -312,8 +312,8 @@ describe('Player double jump', () => {
     assert.equal(p.canDoubleJump, false);
   });
 
-  it('ninja, mage, and spirit have innate double jump', () => {
-    for (const id of ['ninja', 'mage', 'spirit']) {
+  it('ninja, mage, spirit, cherry, and marionette have innate double jump', () => {
+    for (const id of ['ninja', 'mage', 'spirit', 'cherry', 'marionette']) {
       const p = new Player();
       p.applyCharacter(getCharacterById(id));
       assert.equal(p.canDoubleJump, true, `${id} should have innate double jump`);

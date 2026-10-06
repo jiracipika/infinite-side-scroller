@@ -21,12 +21,15 @@ describe('knockbackResistance character data', () => {
     );
   });
 
-  it('Cyborg is the only character with non-zero resistance', () => {
+  it('Only the bruisers resist knockback — Cyborg strongest, Onyx next', () => {
     const resistant = CHARACTERS.filter(
       (c) => (c.knockbackResistance ?? 0) > 0,
     );
-    assert.equal(resistant.length, 1, 'only Cyborg should resist knockback');
-    assert.equal(resistant[0].id, 'cyborg');
+    assert.deepEqual(
+      resistant.map((c) => c.id),
+      ['cyborg', 'onyx'],
+      'only Cyborg (0.5) and Onyx (0.3) should resist knockback',
+    );
   });
 
   it('all knockbackResistance values are in [0, 1] range', () => {

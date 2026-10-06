@@ -23,8 +23,10 @@ const browser = await chromium.launch({
 try {
   // Every roster character gets real rendered frames per action. Shop-locked
   // ids are unlocked through a seeded minimal save slot before app boot.
-  const LOCKED = new Set(['mage', 'ranger', 'cyborg', 'spirit', 'healer', 'cherry']);
-  for (const character of ['knight', 'ninja', 'tank', 'mage', 'ranger', 'cyborg', 'spirit', 'healer', 'cherry']) {
+  const LOCKED = new Set(['mage', 'ranger', 'cyborg', 'spirit', 'healer', 'cherry',
+    'velvet', 'ember', 'rosalia', 'marionette', 'dorian', 'onyx', 'mortimer', 'grimshaw']);
+  for (const character of ['knight', 'ninja', 'tank', 'mage', 'ranger', 'cyborg', 'spirit', 'healer', 'cherry',
+    'velvet', 'ember', 'rosalia', 'marionette', 'dorian', 'onyx', 'mortimer', 'grimshaw']) {
     const page = await browser.newPage({ viewport, deviceScaleFactor: 1, reducedMotion });
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
@@ -96,8 +98,9 @@ try {
     await page.keyboard.up('ArrowRight');
     // Ranged characters (mage/ranger/spirit/healer) never raise meleeActive —
     // their KeyC shot has no dedicated render flag, so only melee kits get
-    // the combat capture.
-    if (['knight', 'ninja', 'tank', 'cyborg', 'cherry'].includes(character)) {
+    // the combat capture. The whole crimson court carries melee props.
+    if (['knight', 'ninja', 'tank', 'cyborg', 'cherry',
+      'velvet', 'ember', 'rosalia', 'marionette', 'dorian', 'onyx', 'mortimer', 'grimshaw'].includes(character)) {
       await page.keyboard.down('KeyC');
       const combat = check(await capture('combat'), 'combat');
       assert.equal(combat.meleeActive, true);
