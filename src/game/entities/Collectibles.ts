@@ -43,6 +43,14 @@ const ENEMY_HEIGHTS: Record<string, number> = {
   alien: 34,
   ufo: 28,
   boss: 64,
+  velvet: 33,
+  ember: 32,
+  rosalia: 33,
+  marionette: 32,
+  dorian: 34,
+  onyx: 35,
+  mortimer: 34,
+  grimshaw: 34,
 };
 
 const ENEMY_WIDTHS: Record<string, number> = {
@@ -56,6 +64,14 @@ const ENEMY_WIDTHS: Record<string, number> = {
   alien: 26,
   ufo: 58,
   boss: 56,
+  velvet: 22,
+  ember: 22,
+  rosalia: 23,
+  marionette: 21,
+  dorian: 24,
+  onyx: 26,
+  mortimer: 23,
+  grimshaw: 25,
 };
 
 /** Create a collectible */
@@ -177,9 +193,18 @@ export function spawnEnemiesForChunk(
   if (progressionLevel >= 1) enemyPool.push('jumper');
   if (progressionLevel >= 2) enemyPool.push('skeleton');
   if (progressionLevel >= 2) enemyPool.push('mite');
+  // The crimson court comes for you as the run deepens.
+  if (progressionLevel >= 2) enemyPool.push('velvet');
   if (progressionLevel >= 3) enemyPool.push('alien');
   if (progressionLevel >= 3) enemyPool.push('bat');
+  if (progressionLevel >= 3) enemyPool.push('ember');
+  if (progressionLevel >= 3) enemyPool.push('marionette');
   if (progressionLevel >= 4) enemyPool.push('ufo');
+  if (progressionLevel >= 4) enemyPool.push('dorian');
+  if (progressionLevel >= 4) enemyPool.push('rosalia');
+  if (progressionLevel >= 5) enemyPool.push('mortimer');
+  if (progressionLevel >= 5) enemyPool.push('onyx');
+  if (progressionLevel >= 6) enemyPool.push('grimshaw');
   const advancedPool = enemyPool.filter((t) => t !== 'slime' && t !== 'beetle');
 
   for (let i = 0; i < count; i++) {
@@ -192,15 +217,17 @@ export function spawnEnemiesForChunk(
       type = enemyPool[Math.min(enemyPool.length - 1, Math.floor(roll * enemyPool.length))];
     }
 
-    // Place on platform if available and enemy type benefits from it
-    if (platforms.length > 0 && (type === 'bat' || type === 'wisp' || type === 'ufo' || rng(base + i * 20 + 104) < 0.3)) {
+    // Place on platform if available and enemy type benefits from it.
+    // (velvet hovers like the wisp; the rest of the court walks.)
+    const floats = type === 'bat' || type === 'wisp' || type === 'ufo' || type === 'velvet';
+    if (platforms.length > 0 && (floats || rng(base + i * 20 + 104) < 0.3)) {
       const platIdx = Math.floor(rng(base + i * 20 + 101) * platforms.length);
       if (platIdx < platforms.length) {
         const plat = platforms[platIdx];
         enemies.push({
           type,
           x: plat.x + rng(base + i * 20 + 103) * Math.max(1, plat.width - (ENEMY_WIDTHS[type] ?? 28)),
-          y: type === 'ufo' ? plat.y - 140 : type === 'wisp' ? plat.y - 72 : plat.y - (ENEMY_HEIGHTS[type] ?? 30),
+          y: type === 'ufo' ? plat.y - 140 : type === 'wisp' || type === 'velvet' ? plat.y - 72 : plat.y - (ENEMY_HEIGHTS[type] ?? 30),
           chunkId,
         });
         continue;
@@ -218,7 +245,7 @@ export function spawnEnemiesForChunk(
       enemies.push({
         type,
         x: chunkWorldX + x,
-        y: type === 'ufo' ? groundY - 165 : type === 'wisp' ? groundY - 95 : groundY - (ENEMY_HEIGHTS[type] ?? 30),
+        y: type === 'ufo' ? groundY - 165 : type === 'wisp' || type === 'velvet' ? groundY - 95 : groundY - (ENEMY_HEIGHTS[type] ?? 30),
         chunkId,
       });
     }

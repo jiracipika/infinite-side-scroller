@@ -3,11 +3,17 @@ import {createRequire} from 'node:module';
 const PALETTE={lime:'#c7ff4d',violet:'#9570ff',coral:'#ff7166',black:'#09080f',deep:'#21112f',purple:'#44205f',lav:'#b885d7',lav2:'#754294',paper:'#f4f2ed'};
 const BANNED=/#(7c3aed|6d28d9|5b21b6|2e1065|fef3c7|dc2626|a3e635|bef264|65a30d|365314|1f3b0d|0284c7|e0f2fe|38bdf8|0369a1|fb7185|7f1d1d|450a0a|f97316|b91c1c|9a3412|7c2d12|78350f|fff7ed|fef08a|a7f3d0|f0abfc)/i;
 const ENEMIES=['Bat','Wisp','Mite','Skeleton','Jumper','Alien','UFO','Boss','Slime','Beetle'];
+// The crimson court baddies reuse their playable characters' ink art, so
+// these files carry the court's identity accents (same hexes the hero cast
+// renders with). Licensed ONLY for these files; everything else stays strict.
+const COURT=['Velvet','Ember','Rosalia','Marionette','Dorian','Onyx','Mortimer','Grimshaw'];
+const COURT_OK=new Set(['#d81e4f','#ff5a3c','#e63950','#ff3d6e','#d62839','#ff2e2e','#ff6b4a','#dc2626']);
 const failures=[];
-for(const e of ENEMIES){
+for(const e of [...ENEMIES,...COURT,'court']){
  const src=(await import('node:fs')).readFileSync(new URL(`../src/game/entities/${e}.ts`,import.meta.url),'utf8');
  const colors=[...src.matchAll(/'#([0-9a-f]{6})'|"#([0-9a-f]{6})"/gi)].map(m=>m[1]||m[2]);
- const banned=colors.filter(c=>BANNED.test('#'+c));
+ const isCourt=e==='court'||COURT.includes(e);
+ const banned=colors.filter(c=>!(isCourt&&COURT_OK.has('#'+c.toLowerCase()))&&BANNED.test('#'+c));
  if(banned.length)failures.push(`${e}: banned palette ${banned.join(',')}`);
  const grounded=['Slime','Beetle','Mite','Jumper','Alien','Boss'];
  if(grounded.includes(e)&&!colors.some(c=>c.toLowerCase()===PALETTE.black.slice(1)))failures.push(`${e}: missing ink base`);

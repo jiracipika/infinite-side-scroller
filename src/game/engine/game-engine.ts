@@ -25,6 +25,14 @@ import { Jumper } from "../entities/Jumper";
 import { Boss } from "../entities/Boss";
 import { Alien } from "../entities/Alien";
 import { UFO } from "../entities/UFO";
+import { Velvet } from "../entities/Velvet";
+import { Ember } from "../entities/Ember";
+import { Rosalia } from "../entities/Rosalia";
+import { Marionette } from "../entities/Marionette";
+import { Dorian } from "../entities/Dorian";
+import { Onyx } from "../entities/Onyx";
+import { Mortimer } from "../entities/Mortimer";
+import { Grimshaw } from "../entities/Grimshaw";
 import { ParticleSystem, landingIntensityFor } from "../entities/particles";
 import { GameRenderer } from "../rendering/renderer";
 import {
@@ -805,6 +813,30 @@ export class GameEngine {
         break;
       case "boss":
         enemy = new Boss(snapshot.x, snapshot.y, 0);
+        break;
+      case "velvet":
+        enemy = new Velvet(snapshot.x, snapshot.y, 0);
+        break;
+      case "ember":
+        enemy = new Ember(snapshot.x, snapshot.y, 0);
+        break;
+      case "rosalia":
+        enemy = new Rosalia(snapshot.x, snapshot.y, 0);
+        break;
+      case "marionette":
+        enemy = new Marionette(snapshot.x, snapshot.y, 0);
+        break;
+      case "dorian":
+        enemy = new Dorian(snapshot.x, snapshot.y, 0);
+        break;
+      case "onyx":
+        enemy = new Onyx(snapshot.x, snapshot.y, 0);
+        break;
+      case "mortimer":
+        enemy = new Mortimer(snapshot.x, snapshot.y, 0);
+        break;
+      case "grimshaw":
+        enemy = new Grimshaw(snapshot.x, snapshot.y, 0);
         break;
       default:
         return null;
@@ -1683,6 +1715,30 @@ export class GameEngine {
             break;
           case "boss":
             enemy = new Boss(spawn.x, spawn.y, spawn.chunkId);
+            break;
+          case "velvet":
+            enemy = new Velvet(spawn.x, spawn.y, spawn.chunkId);
+            break;
+          case "ember":
+            enemy = new Ember(spawn.x, spawn.y, spawn.chunkId);
+            break;
+          case "rosalia":
+            enemy = new Rosalia(spawn.x, spawn.y, spawn.chunkId);
+            break;
+          case "marionette":
+            enemy = new Marionette(spawn.x, spawn.y, spawn.chunkId);
+            break;
+          case "dorian":
+            enemy = new Dorian(spawn.x, spawn.y, spawn.chunkId);
+            break;
+          case "onyx":
+            enemy = new Onyx(spawn.x, spawn.y, spawn.chunkId);
+            break;
+          case "mortimer":
+            enemy = new Mortimer(spawn.x, spawn.y, spawn.chunkId);
+            break;
+          case "grimshaw":
+            enemy = new Grimshaw(spawn.x, spawn.y, spawn.chunkId);
             break;
           default:
             continue;
