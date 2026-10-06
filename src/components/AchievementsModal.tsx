@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, type FC } from 'react';
+import { playUiClick } from '@/game/audio';
 import ACHIEVEMENTS, {
   loadUnlockedAchievements,
   loadLifetimeStats,
@@ -218,7 +219,14 @@ export default function AchievementsModal({ onClose }: Props) {
 
           {/* Footer */}
           <div style={{ padding: '14px', borderTop: '0.5px solid var(--ios-separator)', flexShrink: 0 }}>
-            <button className="ios-btn-gray" onClick={onClose} style={{ width: '100%' }}>
+            <button
+              className="ios-btn-gray"
+              onClick={() => {
+                playUiClick();
+                onClose();
+              }}
+              style={{ width: '100%' }}
+            >
               Close
             </button>
           </div>

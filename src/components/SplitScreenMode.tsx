@@ -6,6 +6,7 @@ import TouchControls from './TouchControls';
 import { loadSelectedCharacter } from '@/game/data/characters';
 import { MP_TICK_MS } from '@/game/multiplayer/config';
 import { useGameStore } from './GameStore';
+import { playUiClick } from '@/game/audio';
 import type { TouchControlLayout, TouchControlSize } from '@/game/state/game-state';
 
 interface LocalStats {
@@ -206,10 +207,24 @@ const SplitScreenMode: FC<Props> = ({ seed, onExit }) => {
               gap: 10,
             }}
           >
-            <button className="ios-btn-gray" style={{ height: 42, fontSize: 13 }} onClick={onExit}>
+            <button
+              className="ios-btn-gray"
+              style={{ height: 42, fontSize: 13 }}
+              onClick={() => {
+                playUiClick();
+                onExit();
+              }}
+            >
               Exit
             </button>
-            <button className="ios-btn-primary" style={{ height: 42, fontSize: 13 }} onClick={restartBoth}>
+            <button
+              className="ios-btn-primary"
+              style={{ height: 42, fontSize: 13 }}
+              onClick={() => {
+                playUiClick();
+                restartBoth();
+              }}
+            >
               Restart
             </button>
             <KeyboardLegend title="Left" keys="W A S D / E / Q / F" />
@@ -265,10 +280,24 @@ const SplitScreenMode: FC<Props> = ({ seed, onExit }) => {
           WebkitBackdropFilter: 'blur(12px)',
         }}
       >
-        <button className="ios-btn-gray" style={{ height: 38, fontSize: 14, flex: 1 }} onClick={onExit}>
+        <button
+          className="ios-btn-gray"
+          style={{ height: 38, fontSize: 14, flex: 1 }}
+          onClick={() => {
+            playUiClick();
+            onExit();
+          }}
+        >
           Exit Split
         </button>
-        <button className="ios-btn-primary" style={{ height: 38, fontSize: 14, flex: 1 }} onClick={restartBoth}>
+        <button
+          className="ios-btn-primary"
+          style={{ height: 38, fontSize: 14, flex: 1 }}
+          onClick={() => {
+            playUiClick();
+            restartBoth();
+          }}
+        >
           Restart Both
         </button>
       </div>
@@ -457,7 +486,14 @@ const PaneDeadOverlay: FC<{ onRestart: () => void }> = ({ onRestart }) => (
       }}
     >
       <div style={{ marginBottom: 6, fontWeight: 700 }}>Down!</div>
-      <button className="ios-btn-primary" style={{ height: 34, fontSize: 12, minWidth: 104 }} onClick={onRestart}>
+      <button
+        className="ios-btn-primary"
+        style={{ height: 34, fontSize: 12, minWidth: 104 }}
+        onClick={() => {
+          playUiClick();
+          onRestart();
+        }}
+      >
         Restart
       </button>
     </div>

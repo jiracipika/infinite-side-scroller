@@ -16,6 +16,14 @@
 //   5. GameOverScreen / LevelSelectScreen / PauseMenu action rows click
 //   6. Sliders click DISCRETELY — on pointer release / adjust-key keyup,
 //      never inside onChange (which fires per drag step and would spam)
+//   7. Second-row surfaces click too: roster chips (select AND buy),
+//      shop Buy, multiplayer Host/Join, save-slot grid (pick, continue,
+//      rename, reset), leaderboard scope tabs + Clear + ghost Race,
+//      Run Lab Clear, avatar presets, Achievements opener + modal Close
+//   8. Screen stragglers: LevelCompleteScreen Levels/Retry/Next,
+//      SplitScreenMode exit/restart rows, ControlsHint dismiss
+//   9. The bank pill's 5-tap secret stays SILENT — no click sound may
+//      telegraph the hidden gesture
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -39,6 +47,10 @@ const gameOver = read('src/components/GameOverScreen.tsx');
 const levelSelect = read('src/components/LevelSelectScreen.tsx');
 const pauseMenu = read('src/components/PauseMenu.tsx');
 const touchSettings = read('src/components/TouchControlSettings.tsx');
+const achievementsModal = read('src/components/AchievementsModal.tsx');
+const levelComplete = read('src/components/LevelCompleteScreen.tsx');
+const splitScreen = read('src/components/SplitScreenMode.tsx');
+const controlsHint = read('src/components/ControlsHint.tsx');
 
 // 1. Shared UI helpers exist in the audio barrel
 for (const helper of ['playUiClick', 'playRedeemSuccess', 'playRedeemReject', 'playUiClickOnAdjustKey']) {
@@ -114,9 +126,108 @@ for (const [name, src] of [['StartScreen', startScreen], ['PauseMenu', pauseMenu
 }
 
 // Components never bypass the helper with a direct engine call
-for (const [name, src] of [['StartScreen', startScreen], ['GameOverScreen', gameOver], ['LevelSelectScreen', levelSelect], ['PauseMenu', pauseMenu], ['TouchControlSettings', touchSettings]]) {
+for (const [name, src] of [['StartScreen', startScreen], ['GameOverScreen', gameOver], ['LevelSelectScreen', levelSelect], ['PauseMenu', pauseMenu], ['TouchControlSettings', touchSettings], ['AchievementsModal', achievementsModal], ['LevelCompleteScreen', levelComplete], ['SplitScreenMode', splitScreen], ['ControlsHint', controlsHint]]) {
   assert(!src.includes('getSfxEngine'), `${name} must use the shared UI helpers, not the engine singleton directly`);
 }
+
+// 7. Second-row surfaces click through the shared helper
+assert(
+  /const handleHostMultiplayer = \(\) => \{\s*\n\s*if \(!onPlayMultiplayer\) return;\s*\n\s*playUiClick\(\);/.test(startScreen),
+  'Host Room must answer with a click (after its bail-out guard)',
+);
+assert(
+  /const handleJoinMultiplayer = \(\) => \{\s*\n\s*if \(!onPlayMultiplayer\) return;\s*\n\s*playUiClick\(\);/.test(startScreen),
+  'Join Room must answer with a click (after its bail-out guard)',
+);
+for (const handler of ['handleSelectSaveSlot', 'handleContinueFromSlot', 'handleRenameSlot', 'handleResetSlot']) {
+  assert(
+    new RegExp(`const ${handler} = \\(slotId: SaveSlotId\\) => \\{\\s*\\n\\s*playUiClick\\(\\);`).test(startScreen),
+    `${handler} must answer with a click`,
+  );
+}
+assert(
+  /const handleBuyUpgrade = \(upgradeId: string\) => \{\s*\n\s*playUiClick\(\);/.test(startScreen),
+  'shop Buy must answer with a click via handleBuyUpgrade',
+);
+assert(
+  /disabled=\{owned \|\| !canAfford\}/.test(startScreen),
+  'shop Buy must stay disabled when owned/unaffordable (no click, no sound)',
+);
+// Roster chips: one click per tap on BOTH branches — the chip onClick sounds
+// first, then routes to the buy handler or the select path.
+assert(
+  /onClick=\{\(\) => \{\s*\n\s*playUiClick\(\);\s*\n\s*if \(!unlocked\) \{\s*\n\s*handleBuyCharacter\(c\.id\);/.test(startScreen),
+  'character roster chips must click on tap, whether selecting or buying',
+);
+assert(
+  /playUiClick\(\);\s*\n\s*setAvatarId\(preset\.id\);/.test(startScreen),
+  'avatar preset picks must answer with a click',
+);
+assert(
+  /playUiClick\(\);\s*\n\s*setShowAchievements\(true\);/.test(startScreen),
+  'the Achievements opener must answer with a click',
+);
+assert(
+  /playUiClick\(\);\s*\n\s*setOnlineScope\(scope\);/.test(startScreen),
+  'leaderboard scope tabs (global/weekly/daily) must answer with a click',
+);
+assert(
+  /playUiClick\(\);\s*\n\s*clearLeaderboard\(\);/.test(startScreen),
+  'leaderboard Clear must answer with a click',
+);
+assert(
+  /playUiClick\(\);\s*\n\s*clearRunHistory\(\);/.test(startScreen),
+  'Run Lab Clear must answer with a click',
+);
+assert(
+  /playUiClick\(\);\s*\n\s*void handlePlayOnlineGhost\(entry\.id\);/.test(startScreen),
+  'ghost Race buttons must answer with a click',
+);
+assert(
+  /disabled=\{loadingReplayId === entry\.id\}/.test(startScreen),
+  'ghost Race stays disabled while its replay loads (no double click)',
+);
+assert(
+  achievementsModal.includes('playUiClick') &&
+    /onClick=\{\(\) => \{\s*\n\s*playUiClick\(\);\s*\n\s*onClose\(\);/.test(achievementsModal),
+  'AchievementsModal Close must answer with a click',
+);
+
+// 8. Screen stragglers: LevelCompleteScreen, SplitScreenMode, ControlsHint
+for (const action of ['onBack', 'onRetry', 'onNext']) {
+  assert(
+    new RegExp(`playUiClick\\(\\);\\s*\\n\\s*${action}\\(\\);`).test(levelComplete),
+    `LevelCompleteScreen ${action} button must answer with a click`,
+  );
+}
+for (const action of ['onExit', 'restartBoth', 'onRestart']) {
+  const hits = (splitScreen.match(new RegExp(`playUiClick\\(\\);\\s*\\n\\s*${action}\\(\\);`, 'g')) || []).length;
+  const expected = action === 'onExit' || action === 'restartBoth' ? 2 : 1;
+  assert(
+    hits >= expected,
+    `SplitScreenMode ${action} must answer with a click on every row (found ${hits}, need ${expected})`,
+  );
+}
+assert(
+  /const dismiss = \(\) => \{\s*\n\s*playUiClick\(\);/.test(controlsHint),
+  'ControlsHint dismiss must answer with a click',
+);
+
+// 9. The bank pill's 5-tap secret stays SILENT — a click here would
+//    telegraph the hidden gesture to anyone watching/listening.
+const bankPillBlock = startScreen.match(/const handleBankPillTap = \(\) => \{[\s\S]*?\n  \};/);
+assert(bankPillBlock !== null, 'StartScreen must keep the handleBankPillTap boundary');
+if (bankPillBlock) {
+  const block = bankPillBlock[0];
+  assert(
+    !block.includes('playUiClick') && !block.includes('playRedeemSuccess') && !block.includes('playRedeemReject'),
+    'bank pill 5-tap counter must never sound — the gesture stays secret',
+  );
+}
+assert(
+  startScreen.includes('onClick={handleBankPillTap}'),
+  'bank pill keeps its tap counter wired (silently)',
+);
 
 // The engine itself still owns the two new synth voices
 for (const sound of ['redeemSuccess', 'redeemReject']) {
@@ -128,11 +239,16 @@ if (failures > 0) {
   process.exit(1);
 }
 
-const clickSites = [startScreen, gameOver, levelSelect, pauseMenu, touchSettings]
+const clickSites = [
+  startScreen, gameOver, levelSelect, pauseMenu, touchSettings,
+  achievementsModal, levelComplete, splitScreen, controlsHint,
+]
   .map((src) => (src.match(/playUiClick/g) || []).length)
   .reduce((a, b) => a + b, 0);
 console.log(
   `UI SFX wiring verified: shared helpers gated through SfxEngine, ${clickSites} playUiClick references across ` +
-  'start/game-over/level-select/pause/touch-settings surfaces, redeem success+reject chimes wired at the React boundary, ' +
-  'disabled redeem input stays silent, sliders click discretely on release.',
+  'start/game-over/level-select/pause/touch-settings surfaces plus roster chips, shop buy, multiplayer host/join, ' +
+  'save slots, board tabs + clear + ghost race, run lab, avatar presets, achievements modal, level-complete and ' +
+  'split-screen rows; redeem success+reject chimes wired at the React boundary; disabled buy/race/redeem inputs stay ' +
+  'silent; the bank-pill 5-tap secret stays silent; sliders click discretely on release.',
 );

@@ -243,6 +243,7 @@ const StartScreen: FC<Props> = ({
 
   const handleHostMultiplayer = () => {
     if (!onPlayMultiplayer) return;
+    playUiClick();
     const seed = seedInput.trim() ? parseInt(seedInput, 10) : undefined;
     const safeName = sanitizeLeaderboardName(playerName);
     if (!safeName) {
@@ -257,6 +258,7 @@ const StartScreen: FC<Props> = ({
 
   const handleJoinMultiplayer = () => {
     if (!onPlayMultiplayer) return;
+    playUiClick();
     const safeName = sanitizeLeaderboardName(playerName);
     const code = roomCode.trim().toUpperCase();
     if (!safeName) {
@@ -343,11 +345,13 @@ const StartScreen: FC<Props> = ({
   };
 
   const handleSelectSaveSlot = (slotId: SaveSlotId) => {
+    playUiClick();
     setActiveSlot(slotId);
     setActiveSaveSlotId(slotId);
   };
 
   const handleContinueFromSlot = (slotId: SaveSlotId) => {
+    playUiClick();
     const slot = saveSlots.find((s) => s.id === slotId);
     if (!slot?.checkpoint) {
       setProgressionMessage("No saved checkpoint in that slot");
@@ -359,6 +363,7 @@ const StartScreen: FC<Props> = ({
   };
 
   const handleRenameSlot = (slotId: SaveSlotId) => {
+    playUiClick();
     const slot = saveSlots.find((s) => s.id === slotId);
     if (!slot) return;
     const next = window.prompt("Rename save slot", slot.name)?.trim();
@@ -368,6 +373,7 @@ const StartScreen: FC<Props> = ({
   };
 
   const handleResetSlot = (slotId: SaveSlotId) => {
+    playUiClick();
     const confirmed = window.confirm(
       "Reset this save slot? This clears coins, upgrades, and checkpoint.",
     );
@@ -387,6 +393,7 @@ const StartScreen: FC<Props> = ({
   };
 
   const handleBuyUpgrade = (upgradeId: string) => {
+    playUiClick();
     const result = purchaseUpgrade(activeSlotId, upgradeId);
     setSaveSlots(result.slots);
     setProgressionMessage(
@@ -750,6 +757,7 @@ const StartScreen: FC<Props> = ({
                     type="button"
                     className={`dash-character-chip-v2 dash-character-card-v3 ${selectedChar === c.id ? "is-active" : ""}`}
                     onClick={() => {
+                      playUiClick();
                       if (!unlocked) {
                         handleBuyCharacter(c.id);
                         return;
@@ -781,7 +789,10 @@ const StartScreen: FC<Props> = ({
               </div>
               <button
                 className="dash-text-button-v2"
-                onClick={() => setShowAchievements(true)}
+                onClick={() => {
+                  playUiClick();
+                  setShowAchievements(true);
+                }}
               >
                 Achievements {achieveCount}/{ACHIEVEMENTS.length}
               </button>
@@ -824,6 +835,7 @@ const StartScreen: FC<Props> = ({
                   key={preset.id}
                   className={`dash-avatar-button-v2 ${avatarId === preset.id ? "is-active" : ""}`}
                   onClick={() => {
+                    playUiClick();
                     setAvatarId(preset.id);
                     saveLeaderboardAvatarId(preset.id);
                   }}
@@ -927,6 +939,7 @@ const StartScreen: FC<Props> = ({
                   <button
                     aria-label="Clear all run history"
                     onClick={() => {
+                      playUiClick();
                       clearRunHistory();
                       setRunHistory([]);
                     }}
@@ -970,6 +983,7 @@ const StartScreen: FC<Props> = ({
               <span>Local records</span>
               <button
                 onClick={() => {
+                  playUiClick();
                   clearLeaderboard();
                   setLeaderboard([]);
                 }}
@@ -1007,7 +1021,10 @@ const StartScreen: FC<Props> = ({
                   <button
                     key={scope}
                     className={onlineScope === scope ? "is-active" : ""}
-                    onClick={() => setOnlineScope(scope)}
+                    onClick={() => {
+                      playUiClick();
+                      setOnlineScope(scope);
+                    }}
                   >
                     {scope}
                   </button>
@@ -1031,6 +1048,7 @@ const StartScreen: FC<Props> = ({
                       entry.hasReplay && onPlayOnlineGhostRace ? (
                         <button
                           onClick={() => {
+                            playUiClick();
                             void handlePlayOnlineGhost(entry.id);
                           }}
                           disabled={loadingReplayId === entry.id}

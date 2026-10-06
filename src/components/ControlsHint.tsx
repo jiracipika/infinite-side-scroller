@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, type FC } from 'react';
+import { playUiClick } from '@/game/audio';
 
 /**
  * Compact controls explainer for the start screen.
@@ -25,6 +26,7 @@ const ControlsHint: FC<{ dismissible?: boolean }> = ({ dismissible = true }) => 
   if (dismissible && dismissed) return null;
 
   const dismiss = () => {
+    playUiClick();
     setDismissed(true);
     try { localStorage.setItem('dash-controls-hint-dismissed', '1'); } catch {}
   };

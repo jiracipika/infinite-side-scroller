@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import type { LevelConfig } from '@/game/data/levels';
 import { BIOME_COLORS } from './LevelSelectScreen';
 import { calcStars } from '@/lib/level-progress';
+import { playUiClick } from '@/game/audio';
 import { resolveLevelCompleteKey } from './level-complete-keys';
 
 interface LevelResult {
@@ -221,7 +222,10 @@ const LevelCompleteScreen: FC<Props> = ({ level, result, onNext, onRetry, onBack
           style={{ display: 'flex', gap: 10, width: '100%' }}
         >
           <motion.button
-            onClick={onBack}
+            onClick={() => {
+              playUiClick();
+              onBack();
+            }}
             whileTap={{ scale: 0.95 }}
             aria-label="Back to level select"
             style={{
@@ -235,7 +239,10 @@ const LevelCompleteScreen: FC<Props> = ({ level, result, onNext, onRetry, onBack
             <kbd className="ios-kbd-hint" aria-hidden="true">Esc</kbd>
           </motion.button>
           <motion.button
-            onClick={onRetry}
+            onClick={() => {
+              playUiClick();
+              onRetry();
+            }}
             whileTap={{ scale: 0.95 }}
             aria-label="Retry this level"
             style={{
@@ -251,7 +258,10 @@ const LevelCompleteScreen: FC<Props> = ({ level, result, onNext, onRetry, onBack
           </motion.button>
           {onNext && stars >= 1 && (
             <motion.button
-              onClick={onNext}
+              onClick={() => {
+                playUiClick();
+                onNext();
+              }}
               whileTap={{ scale: 0.95 }}
               aria-label="Play next level"
               style={{
