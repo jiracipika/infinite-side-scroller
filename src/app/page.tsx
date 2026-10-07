@@ -3,6 +3,7 @@ import { useEffect, useCallback, useRef, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { GameEngine, type CameraMode } from '@/game';
 import { resolveReducedMotion } from '@/game/state/game-state';
+import { fireHaptic } from '@/game/input/haptics';
 import { useGameStore } from '@/components/GameStore';
 import { loadSelectedCharacter } from '@/game/data/characters';
 import { getDailySeed } from '@/lib/daily-seed';
@@ -243,9 +244,13 @@ export default function Home() {
   const onStatsRef = useRef(updateStats);
   const onGameOverRef = useRef(gameOver);
   const onLevelCompleteRef = useRef(goToLevelComplete);
+  // The engine boot effect below closes over this ref (not the setting) so a
+  // mid-session haptics toggle is honored — callbacks are created once.
+  const hapticsEnabledRef = useRef(settings.hapticsEnabled);
   onStatsRef.current = updateStats;
   onGameOverRef.current = gameOver;
   onLevelCompleteRef.current = goToLevelComplete;
+  hapticsEnabledRef.current = settings.hapticsEnabled;
   multiplayerSessionRef.current = multiplayerSession;
   multiplayerNoticeRef.current = multiplayerNotice;
 
@@ -365,6 +370,8 @@ export default function Home() {
         // Directly update state since this is called from the game loop
         setLevelResult(result);
         onLevelCompleteRef.current();
+        // Milestone buzz — the level-complete fanfare felt, not just heard.
+        fireHaptic('milestone', hapticsEnabledRef.current);
         // Persist level progress (stars, best score, unlocks) via the
         // shared module so the LevelSelectScreen always reads the same data.
         recordLevelResult(level, result.score);

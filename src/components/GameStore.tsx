@@ -9,6 +9,7 @@ import {
   loadLifetimeStats, saveLifetimeStats, loadUnlockedAchievements,
   saveUnlockedAchievements, checkNewAchievements,
 } from '@/lib/achievements';
+import { fireHaptic } from '@/game/input/haptics';
 
 export interface NewRecords {
   score: boolean;
@@ -134,6 +135,10 @@ function reducer(state: State, action: Action): State {
       const newIds = checkNewAchievements(prevUnlocked, updated);
       if (newIds.length > 0) {
         saveUnlockedAchievements([...prevUnlocked, ...newIds]);
+        // Unlock buzz — the milestone triple, alongside the persisted unlock.
+        // fireHaptic is a safe no-op outside the browser; a StrictMode
+        // double-dispatch merely restarts the same pattern.
+        fireHaptic('milestone', state.settings.hapticsEnabled);
       }
 
       return { ...state, gameState: 'gameover', stats: { ...state.stats, highScore: hs }, newRecords };

@@ -20,12 +20,17 @@
  *     whose pads lack the Vibration API entirely.
  *
  * Design notes:
- *  - All event patterns are short (≤ 60ms total) so they never feel laggy or
+ *  - All event patterns are short (≤ 100ms total) so they never feel laggy or
  *    block the next input. Death is the one longer, dramatic exception.
  *  - Low-health uses a repeating two-pulse heartbeat; it is retriggered (not
  *    looped) so it stops the instant health recovers.
  *  - The resolver returns `0` for "no vibration" rather than null, so callers
  *    can pass it straight to `navigator.vibrate` without a null check.
+ *  - Beyond gameplay, the module carries a small UI vocabulary — `success`,
+ *    `error`, `milestone` — for the consequence moments OUTSIDE the run
+ *    (purchase / redeem outcomes, level complete, achievements, records).
+ *    Deliberately NOT wired to plain button clicks: buzzing every tap is
+ *    annoying; only results buzz.
  */
 
 import { useEffect, useRef } from 'react';
@@ -44,7 +49,10 @@ export type HapticEvent =
   | 'combo-break' // combo window expired
   | 'death' // run ended
   | 'extra-life' // picked up a 1-up
-  | 'power-up'; // picked up a power-up
+  | 'power-up' // picked up a power-up
+  | 'success' // UI confirmation — purchase / coin-code redeem went through
+  | 'error' // UI rejection — purchase / redeem failed
+  | 'milestone'; // meta victory — level complete, achievement, record broken
 
 /**
  * Vibration patterns (milliseconds). `navigator.vibrate` alternates
@@ -67,6 +75,14 @@ export const HAPTIC_PATTERNS: Record<HapticEvent, number | number[]> = {
   death: [60, 50, 40, 50, 30, 60, 120],
   'extra-life': [12, 40, 12, 40, 24],
   'power-up': [10, 24, 16],
+  // UI confirmations — a light double-tick (tick...TICK), kin of `heal` but
+  // doubled so a shop buy reads as "done" and not as incidental feedback.
+  success: [10, 30, 20],
+  // Rejections — one heavier buzz, unmistakably "no" next to the coin tick.
+  error: 45,
+  // Meta victories — rising triple (da-da-DUM), the combo-milestone shape
+  // stretched slightly longer because these fire once, not every 10x combo.
+  milestone: [12, 26, 12, 26, 24],
 };
 
 /**
@@ -117,6 +133,9 @@ const RUMBLE_MAGNITUDES: Record<HapticEvent, { strong: number; weak: number }> =
   death: { strong: 1.0, weak: 0.6 },
   'extra-life': { strong: 0.4, weak: 0.7 },
   'power-up': { strong: 0.3, weak: 0.6 },
+  success: { strong: 0.3, weak: 0.7 }, // light + bright, like extra-life
+  error: { strong: 0.75, weak: 0.25 }, // heavy low-motor thump
+  milestone: { strong: 0.6, weak: 0.8 }, // celebratory, like combo-milestone
 };
 
 function patternTotalMs(pattern: number | number[]): number {

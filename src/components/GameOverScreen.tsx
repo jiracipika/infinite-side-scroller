@@ -190,9 +190,17 @@ const GameOverScreen: FC<Props> = ({ stats, newRecords, hapticsEnabled = true, o
 
   // Death haptic — one long dramatic pattern when the game-over sheet appears.
   // Fires once on mount only; safe no-op on browsers without Vibration API.
+  // When the run broke any record (score, distance, coins, combo, kills — the
+  // "you beat your ghost" moment), a milestone triple follows after the death
+  // pattern settles: navigator.vibrate replaces any running pattern, so the
+  // celebration must be delayed to stay a distinct, felt beat.
   useEffect(() => {
     fireHaptic('death', hapticsEnabled);
-  }, [hapticsEnabled]);
+    if (recordCount > 0) {
+      const t = window.setTimeout(() => fireHaptic('milestone', hapticsEnabled), 700);
+      return () => window.clearTimeout(t);
+    }
+  }, [hapticsEnabled, recordCount]);
 
   return (
     <div

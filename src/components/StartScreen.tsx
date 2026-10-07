@@ -17,6 +17,7 @@ import {
   playRedeemReject,
   playPurchase,
 } from "@/game/audio";
+import { fireHaptic } from "@/game/input/haptics";
 import {
   CHARACTERS,
   saveSelectedCharacter,
@@ -104,7 +105,9 @@ const StartScreen: FC<Props> = ({
   onPlayOnlineGhostRace,
   initialRoomCode,
 }) => {
-  const { stats } = useGameStore();
+  // settings.hapticsEnabled gates the consequence buzzes below (buy / redeem
+  // outcomes) through the shared fireHaptic gate, same flag as gameplay.
+  const { stats, settings } = useGameStore();
   const [seedInput, setSeedInput] = useState("");
   const [showSettings, setShowSettings] = useState(false);
   const [showMultiplayer, setShowMultiplayer] = useState(false);
@@ -327,11 +330,13 @@ const StartScreen: FC<Props> = ({
     setSaveSlots(result.slots);
     if (result.ok) {
       playRedeemSuccess();
+      fireHaptic("success", settings.hapticsEnabled);
       setProgressionMessage(`Code redeemed: +${result.coinsGranted} coins!`);
       setRedeemCode("");
       setShowCodeInput(false);
     } else {
       playRedeemReject();
+      fireHaptic("error", settings.hapticsEnabled);
       setProgressionMessage(result.reason ?? "Unknown code");
     }
   };
@@ -389,10 +394,12 @@ const StartScreen: FC<Props> = ({
     if (result.ok) {
       // The register rings — a real buy earns the purchase chime, not a click.
       playPurchase();
+      fireHaptic("success", settings.hapticsEnabled);
       setSelectedChar(characterId);
       saveSelectedCharacter(characterId);
     } else {
       playUiClick();
+      fireHaptic("error", settings.hapticsEnabled);
     }
     setProgressionMessage(result.ok ? "Character unlocked" : (result.reason ?? "Unlock failed"));
   };
@@ -403,8 +410,10 @@ const StartScreen: FC<Props> = ({
     if (result.ok) {
       // The register rings — a real buy earns the purchase chime, not a click.
       playPurchase();
+      fireHaptic("success", settings.hapticsEnabled);
     } else {
       playUiClick();
+      fireHaptic("error", settings.hapticsEnabled);
     }
     setProgressionMessage(
       result.ok ? "Upgrade purchased" : (result.reason ?? "Purchase failed"),

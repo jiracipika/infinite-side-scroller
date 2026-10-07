@@ -99,6 +99,58 @@ describe('resolveHapticPattern', () => {
   });
 });
 
+describe('UI consequence vocabulary (success / error / milestone)', () => {
+  // The three UI patterns: success = light double-tick, error = single heavier
+  // buzz, milestone = rising triple. Shapes matter more than exact ms — these
+  // are what players learn to tell apart.
+  it('success is a light double-tick (two bursts, three segments)', () => {
+    const p = resolveHapticPattern('success', true);
+    assert.ok(Array.isArray(p), 'success should be a segmented pattern');
+    assert.equal(p.length, 3, 'double-tick = vibrate,pause,vibrate (3 segments)');
+    assert.ok(p[0] <= 15 && p[2] <= 25, 'both ticks stay light');
+    assert.ok(p[1] >= 20, 'ticks are separated by a felt pause');
+    assert.deepEqual(p, HAPTIC_PATTERNS.success);
+  });
+
+  it('error is a single heavier buzz (one burst, no segments)', () => {
+    const p = resolveHapticPattern('error', true);
+    assert.equal(typeof p, 'number', 'error must be one plain buzz');
+    const comboBreak = resolveHapticPattern('combo-break', true) as number;
+    assert.ok((p as number) > comboBreak, 'error buzz must read heavier than a combo-break');
+    assert.ok((p as number) <= 60, 'but stays short enough to never feel laggy');
+  });
+
+  it('milestone is a rising triple (three bursts, five segments)', () => {
+    const p = resolveHapticPattern('milestone', true);
+    assert.ok(Array.isArray(p), 'milestone should be a segmented pattern');
+    assert.equal(p.length, 5, 'triple = vibrate,pause,vibrate,pause,vibrate (5 segments)');
+    assert.ok(p[4] > p[0], 'triple should rise (da-da-DUM)');
+    assert.deepEqual(p, HAPTIC_PATTERNS.milestone);
+  });
+
+  it('success and milestone stay shorter than death (drama budget)', () => {
+    const total = (p: number | number[]) =>
+      typeof p === 'number' ? p : p.reduce((a, b) => a + b, 0);
+    const death = total(resolveHapticPattern('death', true));
+    assert.ok(total(resolveHapticPattern('success', true)) < death);
+    assert.ok(total(resolveHapticPattern('milestone', true)) < death);
+  });
+
+  it('the settings gate suppresses all three (0 when disabled)', () => {
+    assert.equal(resolveHapticPattern('success', false), 0);
+    assert.equal(resolveHapticPattern('error', false), 0);
+    assert.equal(resolveHapticPattern('milestone', false), 0);
+  });
+
+  it('fireHaptic is a safe no-op for the new events outside the browser', () => {
+    // Node has no navigator.vibrate — the real SSR/unsupported-browser path.
+    assert.doesNotThrow(() => fireHaptic('success'));
+    assert.doesNotThrow(() => fireHaptic('error'));
+    assert.doesNotThrow(() => fireHaptic('milestone'));
+    assert.doesNotThrow(() => fireHaptic('success', false));
+  });
+});
+
 describe('fireHaptic (no-op outside browser)', () => {
   it('does not throw when navigator/vibrate are unavailable', () => {
     // In the Node test runner there is no navigator.vibrate, so this is the
