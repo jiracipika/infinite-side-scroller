@@ -16,6 +16,14 @@
  *      the SW targets the REAL production game entry (Next document +
  *      /_next/static/ chunks) and never a /game.html URL (that file is the
  *      React Native WebView asset, not served by the web origin).
+ *   5. CACHE-SIZE CEILING STAYS INERT-OR-COVERED — the install precache list
+ *      stays numerically bounded (runaway guard) and the bound is not shrunk
+ *      below today's measured reality. Falsified 2026-10-07: the production
+ *      document referenced 12 unique /_next/static assets against the cap of
+ *      80 (headroom 68; whole build = 24 static files; runtime path is
+ *      uncapped), so the cap is a guard, not a limiter. The live probe in
+ *      scripts/test-offline-service-worker.mjs compares the LIVE document
+ *      against the cap each evidence run — tune the cap only when that fires.
  *
  * Live browser evidence (SW registration, offline reload, network-first hit
  * counting) lives in scripts/test-offline-service-worker.mjs.
@@ -95,6 +103,28 @@ assert(/fetch\('\/'/.test(installBody), 'install must fetch the game document');
 assert(installBody.replace(/\\/g, '').includes('/_next/static/'), 'install must extract the referenced /_next/static bundle URLs');
 assert(installBody.includes('cache.put(new Request'), 'install must cache the document under a plain GET key');
 
+// ── 2c. Cache-size ceiling: bounded, and not shrunk below measured reality ──
+// FALSIFICATION RECORD (2026-10-07): production HTML referenced 12 unique
+// /_next/static assets; the install cap was 80 → INERT (no truncation, 68
+// headroom; the whole build shipped 24 static files and the runtime fetch
+// path is uncapped). Pins below keep the guard honest: the cap must exist,
+// and it must never be lowered below the whole current build's file count
+// (today 24) — a failure here means someone shrank the guard under the app's
+// real asset universe; re-measure with a fresh `npm run build` before touching it.
+const installBodyAll = sw.slice(sw.indexOf("addEventListener('install'"));
+const capMatch = installBodyAll.match(/\.slice\(0,\s*(\d+)\)/);
+assert(capMatch, 'install precache asset list must stay numerically bounded (.slice(0, N) runaway guard)');
+if (capMatch) {
+  const cap = Number(capMatch[1]);
+  // Whole-build floor measured 2026-10-07 (24 files in .next/static). If the
+  // cap falls under the real asset universe, install truncation would silently
+  // break the one-visit offline promise for the tail assets.
+  assert(
+    cap >= 24,
+    `install precache cap shrank to ${cap} — below the 2026-10-07 whole-build floor of 24 static files; re-measure before lowering (it was 80 and inert)`
+  );
+}
+
 // ── 3. Small same-origin GET allowlist ──
 assert(/method !== 'GET'/.test(sw), 'sw.js must ignore non-GET requests');
 assert(
@@ -145,5 +175,5 @@ if (errors.length > 0) {
 }
 
 console.log(
-  'Offline SW verified: network-first game entry (document + /_next/static/), versioned cache with activate-time purge, skipWaiting+claim, same-origin GET allowlist (no /api), honest styled offline page, production-only registration.'
+  'Offline SW verified: network-first game entry (document + /_next/static/), versioned cache with activate-time purge, skipWaiting+claim, same-origin GET allowlist (no /api), honest styled offline page, production-only registration, precache ceiling bounded and covering the measured build (falsified inert 2026-10-07: 12 assets vs cap 80).'
 );

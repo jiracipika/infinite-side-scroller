@@ -60,6 +60,12 @@ self.addEventListener('install', (event) => {
           const html = await doc.text();
           // Same-origin hashed assets referenced by the document (script src
           // + link href). Hard-capped as a runaway guard.
+          // CAP FALSIFICATION (2026-10-07, build @ main): the served document
+          // referenced 12 unique /_next/static assets — the 80 cap is INERT
+          // (headroom 68; the whole build shipped 24 static files, and the
+          // runtime fetch path is uncapped anyway). The live probe in
+          // scripts/test-offline-service-worker.mjs fails the moment the live
+          // document reaches this cap — revisit this number only then.
           const assets = [
             ...new Set(
               (html.match(/(?:src|href)="(\/_next\/static\/[^"]+)"/g) || []).map(

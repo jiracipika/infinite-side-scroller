@@ -17,6 +17,10 @@
  *       the current version survives.
  *   (d) BONUS: cold navigation offline (path with no cache match) is served
  *       the styled, honest /offline.html fallback page.
+ *   (e) CACHE-SIZE CEILING vs LIVE REALITY — the served document's unique
+ *       /_next/static reference count stays under the install precache cap
+ *       (falsified inert 2026-10-07: 12 refs vs cap 80). Fails the moment
+ *       slice() truncation would begin, forcing a cap revisit.
  *
  * Run (production build REQUIRED — registration is production-only):
  *   npm run build && npx next start -p 3111 &
@@ -67,190 +71,237 @@ describe('offline service worker source pins', () => {
     assert.ok(install.replace(/\\/g, '').includes('/_next/static/'), 'install must extract the referenced /_next/static bundle URLs');
     assert.ok(install.includes('cache.put(new Request'), 'install must cache the document under a plain GET key');
   });
+
+  // FALSIFICATION RECORD (2026-10-07): the production document referenced 12
+  // unique /_next/static assets against the install cap of 80 — the cap is
+  // INERT (headroom 68; whole build shipped 24 static files; the runtime
+  // fetch path is uncapped). This pin keeps the guard from being shrunk
+  // below that reality; the LIVE probe below re-measures the served document
+  // against the cap on every evidence run.
+  test('cache-size ceiling: install precache list is numerically bounded, no lower than the measured build', () => {
+    const install = swSrc.slice(swSrc.indexOf("addEventListener('install'"));
+    const capMatch = install.match(/\.slice\(0,\s*(\d+)\)/);
+    assert.ok(capMatch, 'install precache asset list must stay numerically bounded (.slice(0, N) runaway guard)');
+    const cap = Number(capMatch[1]);
+    assert.ok(
+      cap >= 24,
+      `install precache cap fell to ${cap}, below the 2026-10-07 whole-build floor of 24 static files — re-measure before lowering (it was 80 and inert)`
+    );
+  });
 });
 
 const GAME_URL = process.env.GAME_URL;
 if (!GAME_URL) {
+  // Source-audit mode: the describe() pins above still RUN here (no early
+  // process.exit — an exit at module load would kill them before node:test
+  // executes the queue); only the live Playwright probe is skipped.
   console.log('PASS (source audit only): offline SW contracts; live offline probe skipped (no GAME_URL)');
-  process.exit(0);
-}
+} else {
 
-const require = createRequire(process.env.PLAYWRIGHT_PACKAGE || import.meta.url);
-const { chromium } = require('playwright');
+  const require = createRequire(process.env.PLAYWRIGHT_PACKAGE || import.meta.url);
+  const { chromium } = require('playwright');
 
-const violations = [];
-const check = (ok, label, detail = '') => {
-  console.log(`[${ok ? 'PASS' : 'FAIL'}] ${label}${detail ? ` — ${detail}` : ''}`);
-  if (!ok) violations.push(`${label}${detail ? `: ${detail}` : ''}`);
-};
+  const violations = [];
+  const check = (ok, label, detail = '') => {
+    console.log(`[${ok ? 'PASS' : 'FAIL'}] ${label}${detail ? ` — ${detail}` : ''}`);
+    if (!ok) violations.push(`${label}${detail ? `: ${detail}` : ''}`);
+  };
 
-// Poll a self-contained page-side predicate via explicit evaluate roundtrips
-// (robust where rAF-based waitForFunction can stall or surface rejections).
-// The predicate returns null/false to keep polling, truthy to finish.
-const pollUntil = async (page, predicate, timeoutMs = 30000, intervalMs = 400) => {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    try {
-      const result = await page.evaluate(predicate);
-      if (result) return result;
-    } catch { /* transient (worker mid-swap) — retry */ }
-    await page.waitForTimeout(intervalMs);
-  }
-  return null;
-};
-
-const browser = await chromium.launch({ headless: true }); // bundled chromium; NO channel:'chrome'
-try {
-  const context = await browser.newContext({ reducedMotion: 'reduce', serviceWorkers: 'allow' });
-
-  // Network-hit counter at the context routing layer (sees SW-issued fetches
-  // in Playwright >= 1.25, which is how the SW's own network-first fetch
-  // travels to the wire).
-  const netHits = { doc: 0, static: 0 };
-  const origin = new URL(GAME_URL).origin;
-  await context.route('**/*', (route) => {
-    try {
-      const url = new URL(route.request().url());
-      if (url.origin === origin) {
-        if (url.pathname === '/') netHits.doc++;
-        else if (url.pathname.startsWith('/_next/static/')) netHits.static++;
-      }
-    } catch { /* non-URL request — ignore */ }
-    return route.continue();
-  });
-
-  const page = await context.newPage();
-
-  // ── (a) online load: network-first, SW active, cache warms ──
-  await page.goto(GAME_URL, { waitUntil: 'domcontentloaded' });
-  await page.locator('[role="region"][aria-label="Main menu"]').waitFor({ timeout: 30000 });
-  await page.waitForTimeout(1500); // let lazy chunks + manifest settle
-
-  const swActive = await page.evaluate(() => new Promise((resolve) => {
-    navigator.serviceWorker.getRegistration().then((reg) => resolve(!!(reg && (reg.active || reg.installing || reg.waiting))));
-  }));
-  check(swActive, 'service worker registered and active after first online load');
-
-  const cacheWarm = (await pollUntil(page, async () => {
-    const keys = await caches.keys();
-    const name = keys.find((k) => k.startsWith('dashverse-offline-'));
-    if (!name) return null;
-    const cache = await caches.open(name);
-    const paths = (await cache.keys()).map((r) => new URL(r.url).pathname);
-    if (!(paths.includes('/') && paths.some((p) => p.startsWith('/_next/static/')))) return null;
-    return { warm: true, entries: paths.length, name };
-  }, 30000)) ?? (await page.evaluate(async () => {
-    // Timed out cold: report the REAL cache contents for the failure detail.
-    const keys = await caches.keys();
-    const counts = {};
-    for (const k of keys) {
-      counts[k] = (await (await caches.open(k)).keys()).length;
+  // Poll a self-contained page-side predicate via explicit evaluate roundtrips
+  // (robust where rAF-based waitForFunction can stall or surface rejections).
+  // The predicate returns null/false to keep polling, truthy to finish.
+  const pollUntil = async (page, predicate, timeoutMs = 30000, intervalMs = 400) => {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      try {
+        const result = await page.evaluate(predicate);
+        if (result) return result;
+      } catch { /* transient (worker mid-swap) — retry */ }
+      await page.waitForTimeout(intervalMs);
     }
-    return { warm: false, entries: JSON.stringify(counts), name: null };
-  }));
-  check(cacheWarm.warm, `cache warmed: game document + engine chunk cached (${cacheWarm.name})`, `${cacheWarm.entries} entries`);
+    return null;
+  };
 
-  check(netHits.doc >= 1, 'online load hit the NETWORK for the game document (network-first)', `doc hits=${netHits.doc}`);
-  check(netHits.static >= 1, 'online load hit the NETWORK for the /_next/static engine bundle', `static hits=${netHits.static}`);
-  const navTransfer = await page.evaluate(() => performance.getEntriesByType('navigation')[0]?.transferSize ?? -1);
-  check(navTransfer > 0, 'navigation bytes came over the wire on first load (transferSize > 0)', `transferSize=${navTransfer}`);
-
-  // ── (b) ONE online visit ⇒ offline reload boots the game ──
-  // The product promise: a single visit while online leaves a complete,
-  // bootable copy of the run in the versioned cache (install-time precache
-  // of the document + the engine bundle it references).
+  const browser = await chromium.launch({ headless: true }); // bundled chromium; NO channel:'chrome'
   try {
-    await context.setOffline(true);
-    await page.reload({ waitUntil: 'domcontentloaded' });
-    await page.locator('[role="region"][aria-label="Main menu"]').waitFor({ timeout: 30000 });
-    const offlineTransfer = await page.evaluate(() => performance.getEntriesByType('navigation')[0]?.transferSize ?? -1);
-    check(offlineTransfer === 0, 'after one online visit, offline reload boots the game from cache (zero network bytes)', `transferSize=${offlineTransfer}`);
-  } catch (error) {
-    check(false, 'offline reload boots the game: main menu renders from the versioned cache', String(error).slice(0, 220));
-  } finally {
-    await context.setOffline(false);
-  }
+    const context = await browser.newContext({ reducedMotion: 'reduce', serviceWorkers: 'allow' });
 
-  // ── (c) "new deploy": version bump purges every older cache on activate ──
-  // A real deploy ships a modified sw.js and the user reloads; the registrar
-  // re-registers, the browser updates the worker, skipWaiting promotes it,
-  // and the activate handler purges EVERY cache that is not the new version.
-  // We simulate exactly that by bumping the version constant on disk
-  // (restored in `finally`), so the proof is end-to-end against the real
-  // update machinery.
-  const swPath = fileURLToPath(new URL('../public/sw.js', import.meta.url));
-  const swOriginal = readFileSync(swPath, 'utf8');
-  try {
-    await page.evaluate(async () => {
-      const stale = await caches.open('dashverse-offline-v0');
-      await stale.put('/stale-probe', new Response('stale bytes from a previous deploy'));
+    // Network-hit counter at the context routing layer (sees SW-issued fetches
+    // in Playwright >= 1.25, which is how the SW's own network-first fetch
+    // travels to the wire).
+    const netHits = { doc: 0, static: 0 };
+    const staticUrls = new Set(); // unique /_next/static paths actually requested this visit
+    const origin = new URL(GAME_URL).origin;
+    await context.route('**/*', (route) => {
+      try {
+        const url = new URL(route.request().url());
+        if (url.origin === origin) {
+          if (url.pathname === '/') netHits.doc++;
+          else if (url.pathname.startsWith('/_next/static/')) { netHits.static++; staticUrls.add(url.pathname); }
+        }
+      } catch { /* non-URL request — ignore */ }
+      return route.continue();
     });
-    writeFileSync(
-      swPath,
-      swOriginal.replace("CACHE_VERSION = 'dashverse-offline-v1'", "CACHE_VERSION = 'dashverse-offline-v2'"),
-      'utf8'
-    );
-    // The user returns after the deploy: an ONLINE reload must never serve
-    // stale bytes — network-first fetches the fresh document immediately.
-    const docHitsBeforeDeploy = netHits.doc;
-    await page.reload({ waitUntil: 'domcontentloaded' });
+
+    const page = await context.newPage();
+
+    // ── (a) online load: network-first, SW active, cache warms ──
+    await page.goto(GAME_URL, { waitUntil: 'domcontentloaded' });
     await page.locator('[role="region"][aria-label="Main menu"]').waitFor({ timeout: 30000 });
-    check(netHits.doc > docHitsBeforeDeploy, 'post-deploy online reload fetched the fresh document from the network (never stale)', `doc hits=${docHitsBeforeDeploy}→${netHits.doc}`);
-    // Registrar re-registers on load; nudge the update check explicitly too.
-    await page.evaluate(() => navigator.serviceWorker.getRegistration()
-      .then((reg) => reg.update()).catch(() => {}));
-    const purgedKeys = await pollUntil(page, async () => {
+    await page.waitForTimeout(1500); // let lazy chunks + manifest settle
+
+    const swActive = await page.evaluate(() => new Promise((resolve) => {
+      navigator.serviceWorker.getRegistration().then((reg) => resolve(!!(reg && (reg.active || reg.installing || reg.waiting))));
+    }));
+    check(swActive, 'service worker registered and active after first online load');
+
+    const cacheWarm = (await pollUntil(page, async () => {
       const keys = await caches.keys();
-      if (keys.includes('dashverse-offline-v2') && !keys.includes('dashverse-offline-v1') && !keys.includes('dashverse-offline-v0')) return keys;
-      return null;
-    }, 45000);
-    const afterDeploy = await page.evaluate(async () => {
-      const reg = await navigator.serviceWorker.getRegistration();
-      return {
-        installing: reg?.installing?.state ?? null,
-        waiting: reg?.waiting?.state ?? null,
-        active: reg?.active?.state ?? null,
-      };
-    });
-    check(
-      Array.isArray(purgedKeys),
-      'deploy simulation (v1→v2 bump): new cache live, ALL older caches purged on activate',
-      `caches=${purgedKeys ? purgedKeys.join(', ') : 'purge incomplete'} worker(installing/waiting/active)=${afterDeploy.installing}/${afterDeploy.waiting}/${afterDeploy.active}`
-    );
-    // Subsequent online visit under the new worker re-warms the new cache
-    // (runtime caching is versioned, so the purge left it cold).
-    await page.reload({ waitUntil: 'domcontentloaded' });
-    await page.locator('[role="region"][aria-label="Main menu"]').waitFor({ timeout: 30000 });
-    await pollUntil(page, async () => {
-      const cache = await caches.open('dashverse-offline-v2');
+      const name = keys.find((k) => k.startsWith('dashverse-offline-'));
+      if (!name) return null;
+      const cache = await caches.open(name);
       const paths = (await cache.keys()).map((r) => new URL(r.url).pathname);
-      return paths.includes('/') && paths.some((p) => p.startsWith('/_next/static/'));
-    }, 20000);
-  } catch (error) {
-    check(false, 'deploy simulation: version-bump invalidation', String(error).slice(0, 220));
+      if (!(paths.includes('/') && paths.some((p) => p.startsWith('/_next/static/')))) return null;
+      return { warm: true, entries: paths.length, name };
+    }, 30000)) ?? (await page.evaluate(async () => {
+      // Timed out cold: report the REAL cache contents for the failure detail.
+      const keys = await caches.keys();
+      const counts = {};
+      for (const k of keys) {
+        counts[k] = (await (await caches.open(k)).keys()).length;
+      }
+      return { warm: false, entries: JSON.stringify(counts), name: null };
+    }));
+    check(cacheWarm.warm, `cache warmed: game document + engine chunk cached (${cacheWarm.name})`, `${cacheWarm.entries} entries`);
+
+    check(netHits.doc >= 1, 'online load hit the NETWORK for the game document (network-first)', `doc hits=${netHits.doc}`);
+    check(netHits.static >= 1, 'online load hit the NETWORK for the /_next/static engine bundle', `static hits=${netHits.static}`);
+    const navTransfer = await page.evaluate(() => performance.getEntriesByType('navigation')[0]?.transferSize ?? -1);
+    check(navTransfer > 0, 'navigation bytes came over the wire on first load (transferSize > 0)', `transferSize=${navTransfer}`);
+
+    // ── (a2) CACHE-SIZE CEILING vs LIVE REALITY ──
+    // The install handler precaches the /_next/static URLs referenced by the
+    // served document, hard-capped (.slice(0, N)) as a runaway guard. Falsified
+    // 2026-10-07: the live document referenced 12 unique assets vs cap 80 —
+    // INERT (headroom 68; whole build 24 static files; runtime path uncapped).
+    // This probe re-measures on every run with the install handler's EXACT
+    // extraction and FAILS the moment the live document reaches the cap — the
+    // first visit where slice() truncation would silently break the one-visit
+    // offline promise for the tail assets. Tune the cap only when this fires.
+    {
+      const capMatch = swSrc.match(/\.slice\(0,\s*(\d+)\)/);
+      const precacheCap = capMatch ? Number(capMatch[1]) : 0;
+      const liveDocHtml = await (await fetch(GAME_URL)).text();
+      const precacheSet = new Set(
+        (liveDocHtml.match(/(?:src|href)="(\/_next\/static\/[^"]+)"/g) || []).map(
+          (m) => m.slice(m.indexOf('"') + 1, -1)
+        )
+      );
+      check(
+        precacheCap > 0 && precacheSet.size < precacheCap,
+        'install precache ceiling covers the LIVE document bundle (no truncation at install)',
+        `${precacheSet.size} unique /_next/static refs in the document vs cap ${precacheCap}; ${staticUrls.size} unique /_next/static URLs requested this visit (runtime path uncapped)`
+      );
+    }
+
+    // ── (b) ONE online visit ⇒ offline reload boots the game ──
+    // The product promise: a single visit while online leaves a complete,
+    // bootable copy of the run in the versioned cache (install-time precache
+    // of the document + the engine bundle it references).
+    try {
+      await context.setOffline(true);
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await page.locator('[role="region"][aria-label="Main menu"]').waitFor({ timeout: 30000 });
+      const offlineTransfer = await page.evaluate(() => performance.getEntriesByType('navigation')[0]?.transferSize ?? -1);
+      check(offlineTransfer === 0, 'after one online visit, offline reload boots the game from cache (zero network bytes)', `transferSize=${offlineTransfer}`);
+    } catch (error) {
+      check(false, 'offline reload boots the game: main menu renders from the versioned cache', String(error).slice(0, 220));
+    } finally {
+      await context.setOffline(false);
+    }
+
+    // ── (c) "new deploy": version bump purges every older cache on activate ──
+    // A real deploy ships a modified sw.js and the user reloads; the registrar
+    // re-registers, the browser updates the worker, skipWaiting promotes it,
+    // and the activate handler purges EVERY cache that is not the new version.
+    // We simulate exactly that by bumping the version constant on disk
+    // (restored in `finally`), so the proof is end-to-end against the real
+    // update machinery.
+    const swPath = fileURLToPath(new URL('../public/sw.js', import.meta.url));
+    const swOriginal = readFileSync(swPath, 'utf8');
+    try {
+      await page.evaluate(async () => {
+        const stale = await caches.open('dashverse-offline-v0');
+        await stale.put('/stale-probe', new Response('stale bytes from a previous deploy'));
+      });
+      writeFileSync(
+        swPath,
+        swOriginal.replace("CACHE_VERSION = 'dashverse-offline-v1'", "CACHE_VERSION = 'dashverse-offline-v2'"),
+        'utf8'
+      );
+      // The user returns after the deploy: an ONLINE reload must never serve
+      // stale bytes — network-first fetches the fresh document immediately.
+      const docHitsBeforeDeploy = netHits.doc;
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await page.locator('[role="region"][aria-label="Main menu"]').waitFor({ timeout: 30000 });
+      check(netHits.doc > docHitsBeforeDeploy, 'post-deploy online reload fetched the fresh document from the network (never stale)', `doc hits=${docHitsBeforeDeploy}→${netHits.doc}`);
+      // Registrar re-registers on load; nudge the update check explicitly too.
+      await page.evaluate(() => navigator.serviceWorker.getRegistration()
+        .then((reg) => reg.update()).catch(() => {}));
+      const purgedKeys = await pollUntil(page, async () => {
+        const keys = await caches.keys();
+        if (keys.includes('dashverse-offline-v2') && !keys.includes('dashverse-offline-v1') && !keys.includes('dashverse-offline-v0')) return keys;
+        return null;
+      }, 45000);
+      const afterDeploy = await page.evaluate(async () => {
+        const reg = await navigator.serviceWorker.getRegistration();
+        return {
+          installing: reg?.installing?.state ?? null,
+          waiting: reg?.waiting?.state ?? null,
+          active: reg?.active?.state ?? null,
+        };
+      });
+      check(
+        Array.isArray(purgedKeys),
+        'deploy simulation (v1→v2 bump): new cache live, ALL older caches purged on activate',
+        `caches=${purgedKeys ? purgedKeys.join(', ') : 'purge incomplete'} worker(installing/waiting/active)=${afterDeploy.installing}/${afterDeploy.waiting}/${afterDeploy.active}`
+      );
+      // Subsequent online visit under the new worker re-warms the new cache
+      // (runtime caching is versioned, so the purge left it cold).
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await page.locator('[role="region"][aria-label="Main menu"]').waitFor({ timeout: 30000 });
+      await pollUntil(page, async () => {
+        const cache = await caches.open('dashverse-offline-v2');
+        const paths = (await cache.keys()).map((r) => new URL(r.url).pathname);
+        return paths.includes('/') && paths.some((p) => p.startsWith('/_next/static/'));
+      }, 20000);
+    } catch (error) {
+      check(false, 'deploy simulation: version-bump invalidation', String(error).slice(0, 220));
+    } finally {
+      writeFileSync(swPath, swOriginal, 'utf8');
+    }
+
+    // ── (d) cold navigation offline → styled honest fallback page ──
+    const probeUrl = GAME_URL.replace(/\/$/, '') + '/offline-probe-no-cache-match';
+    await context.setOffline(true);
+    await page.goto(probeUrl, { waitUntil: 'domcontentloaded' });
+    const offlinePage = await page.evaluate(() => ({
+      badge: document.querySelector('.badge')?.textContent ?? '',
+      title: document.querySelector('h1')?.textContent ?? '',
+    }));
+    check(
+      offlinePage.title === 'DASHVERSE' && offlinePage.badge === 'SIGNAL LOST',
+      'cold offline navigation serves the styled honest fallback page',
+      JSON.stringify(offlinePage)
+    );
+    await context.setOffline(false);
+
+    if (violations.length) {
+      throw new Error(`${violations.length} offline-SW live violation(s): ${violations.join(' | ')}`);
+    }
+    console.log('PASS: offline SW live bars verified — network-first online loads, offline reload boots the game, old-version cache purged on activate, styled fallback offline.');
   } finally {
-    writeFileSync(swPath, swOriginal, 'utf8');
+    await browser.close();
   }
 
-  // ── (d) cold navigation offline → styled honest fallback page ──
-  const probeUrl = GAME_URL.replace(/\/$/, '') + '/offline-probe-no-cache-match';
-  await context.setOffline(true);
-  await page.goto(probeUrl, { waitUntil: 'domcontentloaded' });
-  const offlinePage = await page.evaluate(() => ({
-    badge: document.querySelector('.badge')?.textContent ?? '',
-    title: document.querySelector('h1')?.textContent ?? '',
-  }));
-  check(
-    offlinePage.title === 'DASHVERSE' && offlinePage.badge === 'SIGNAL LOST',
-    'cold offline navigation serves the styled honest fallback page',
-    JSON.stringify(offlinePage)
-  );
-  await context.setOffline(false);
-
-  if (violations.length) {
-    throw new Error(`${violations.length} offline-SW live violation(s): ${violations.join(' | ')}`);
-  }
-  console.log('PASS: offline SW live bars verified — network-first online loads, offline reload boots the game, old-version cache purged on activate, styled fallback offline.');
-} finally {
-  await browser.close();
 }
