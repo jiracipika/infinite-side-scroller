@@ -113,3 +113,49 @@ f238a64 + coin doubler 6d1006c + secret code 2a7867a.
 **Next steps:** human playtest for feel passes; candidates noted: dedicated
 haptics audit for new surfaces, service-worker cache-size ceiling tuning
 (80-asset cap), multiplayer/leaderboard auth if ever needed.
+
+## Day 5 — 2026-10-07 (FINAL campaign day)
+
+**Lanes:** 39dee4b service-worker precache-cap falsification (honest
+no-op on the number): the install handler's `.slice(0, 80)` is INERT —
+a production document references exactly 12 unique /_next/static assets
+(whole build ships 24), so no truncation is possible today; the cap is
+now pinned so it gets revisited when the app grows
+(verify-offline-sw.mjs section 2c: cap must exist and never shrink
+below the 24-asset whole-build floor; test-offline-service-worker.mjs
+live probe fails the first visit where refs ≥ cap and reports
+refs-vs-cap). BONUS REAL BUG fixed: the offline-SW suite's source pins
+were DEAD CODE — process.exit(0) on the no-GAME_URL path killed the
+module before node:test executed the queue, so the pre-existing pins
+never ran in npm test (proven by a planted failing canary exiting 0);
+restructured into an else block, all 5 pins now genuinely execute and a
+failing pin fails the run. Parallel session shipped 37a0034
+(consequences-buzz haptics: success/error/milestone patterns for buys,
+redemptions, unlocks, level completes, delayed record milestone) — our
+haptics-audit lane became an honest no-op audit confirming the shipped
+work meets the bar (run-start, bank-pill secret, save-slot ops,
+leaderboard toggle correctly silent).
+
+**Verification:** npm run verify + build + release:evidence all EXIT 0
+(875 tests); live deploy verified — production sw.js byte-matches local,
+live probe PASS (12 refs vs cap 80). Finding: the production URL was
+recorded nowhere in the repo (found via the vercel.app convention).
+
+**Mobile:** dashverse-2026-10-07.apk (83 MB) rebuilt from 37a0034,
+release-signed, AVD boot + mid-run evidence in
+/Volumes/ADATA/mobile-setup/evidence/dashverse-2026-10-07-*.png.
+Honest finding: the embedded game.html is byte-identical to the Oct 6
+APK — the haptics call sites are web-layer only (src/game/input/
+haptics.ts is imported by nothing inside src/game), so the WebView
+payload did not change. Pitch-therapy gates: typecheck:mobile +
+bundle:android:smoke both EXIT 0.
+
+**P/B/N classifications:** SW-cap falsification Better (infra
+robustness, decided by measurement); haptics audit no-op (sibling's
+commit was already the Better). No New bets today — day-4's PWA offline
+bet stands validated in production.
+
+**Next steps:** human playtest for feel; SW cap auto-revisit is pinned;
+mobile payload parity check (web-layer haptics invisible in the WebView
+shell) is a candidate for a future mobile-native slice if the user
+wants haptics in the app build.
