@@ -102,6 +102,17 @@ mustContain(mobileSettings, /usePersistedSetting\('musicVolume', 0\.6\)/, 'mobil
 mustContain(mobileSettings, /label="Music Volume" value=\{\`\$\{Math\.round\(musicVolume \* 100\)\}%\`\}/, 'mobile Music Volume slider row')
 mustNotContain(mobileSettings, /No music tracks yet/, 'stale "no music tracks" placeholder')
 
+// ── 10. Song form + menu ambience ───────────────────────────────
+mustContain(musicSource, /export function formSlotForBar/, 'pure 16-bar form mapping (formSlotForBar)')
+mustContain(musicSource, /BRIDGE_PROGRESSION: ProgressionChord\[\]/, 'bridge progression (F–G–Am–E)')
+mustContain(musicSource, /BRIDGE_MELODY: number\[\]\[\]/, 'authored bridge melody')
+mustContain(musicSource, /isFillBar/, 'snare fills on section seams')
+mustContain(musicSource, /private crash\(t: number\)/, 'crash voice on section downbeats')
+mustContain(musicSource, /createStereoPanner/, 'stereo placement (panned voices)')
+mustContain(musicSource, /setScene\s*\(\s*scene:\s*"menu"\s*\|\s*"run"\s*\)/, 'menu/run scene switch')
+mustContain(pageSource, /music\.setScene\(state === "playing" \? "run" : "menu"\)/, 'React drives the menu/run scene')
+mustContain(pageSource, /state === "menu" \|\| state === "levelselect"\) music\.start\(\)/, 'menu ambience starts on menu surfaces only')
+
 // ── Report ──────────────────────────────────────────────────────
 if (errors.length > 0) {
   console.error('verify:music FAILED')

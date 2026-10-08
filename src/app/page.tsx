@@ -2,6 +2,7 @@
 import { useEffect, useCallback, useRef, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { GameEngine, type CameraMode } from '@/game';
+import { getMusicEngine } from '@/game/audio';
 import { resolveReducedMotion } from '@/game/state/game-state';
 import { fireHaptic } from '@/game/input/haptics';
 import { useGameStore } from '@/components/GameStore';
@@ -461,6 +462,17 @@ export default function Home() {
   // (below) re-asserts the correct state after autoplay-policy unlocks.
   useEffect(() => {
     gameRef.current?.setMusicPlaying(state === "playing");
+  }, [state]);
+
+  // Menu ambience: the same soundtrack idles as a mellow loop under the menu
+  // surfaces (start screen, level select). Runs switch the mix back to the
+  // full anthem; pause and game over stay silent so stings read clearly.
+  // Before the first user gesture the AudioContext is still suspended, so
+  // this is a silent no-op that satisfies autoplay policy.
+  useEffect(() => {
+    const music = getMusicEngine();
+    music.setScene(state === "playing" ? "run" : "menu");
+    if (state === "menu" || state === "levelselect") music.start();
   }, [state]);
 
   // Protect solo runs from background-tab deaths. Mobile app switches, phone

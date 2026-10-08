@@ -23,6 +23,17 @@
  *   kick       — intensity > 0.55 (downbeats)
  *   arpeggio   — intensity > 0.35 (probability scales up to ~0.85)
  *   hi-hat     — intensity > 0.7 (off-eighths)
+ *
+ * The track is a 16-bar SONG FORM — 8-bar verse (the authored hook), a
+ * 4-bar bridge lift (F–G–Am–E), then the verse's first phrase again — with
+ * snare fills rolling into each section seam and a crash on the new
+ * section's downbeat. The kick pumps the pad bus (sidechain separation),
+ * lead/arp/hat/crash sit across the stereo field, and the last eighth of
+ * each phrase walks the bass into the next chord's root.
+ *
+ * setScene("menu") idles the same soundtrack as a mellow ambience under the
+ * menus (pads + bass + sparse arp; no hook, no drums) so starting a run
+ * ignites the anthem the menu was teasing.
  */
 
 /** Chord of the four-bar loop, expressed in MIDI note numbers. */
@@ -58,6 +69,29 @@ const LEAD_MELODY: number[][] = [
   [74, 71, 67, 71, 74, 0, 74, 79], // G
 ];
 
+/**
+ * The bridge hook: a four-bar climb over F–G–Am that peaks on the high A,
+ * then the E chord drags it back down the dominant to hand off to the verse.
+ */
+const BRIDGE_MELODY: number[][] = [
+  [65, 0, 69, 72, 74, 72, 69, 65], // F
+  [67, 0, 71, 74, 76, 74, 71, 67], // G
+  [69, 72, 76, 0, 81, 0, 76, 72], // Am (the peak)
+  [76, 0, 80, 76, 74, 71, 68, 0], // E (dominant descent)
+];
+
+/**
+ * The bridge lift: IV–V–i–V (F–G–Am–E) — a four-bar harmonic rise that
+ * pulls back into the home progression. The E chord borrows G# from the
+ * harmonic minor for a proper dominant-edge resolve.
+ */
+const BRIDGE_PROGRESSION: ProgressionChord[] = [
+  { bassMidi: 41, padMidis: [53, 57, 60], scaleMidis: [53, 57, 60, 65, 69, 72, 77] }, // F
+  { bassMidi: 43, padMidis: [55, 59, 62], scaleMidis: [55, 59, 62, 67, 71, 74, 79] }, // G
+  { bassMidi: 45, padMidis: [57, 60, 64], scaleMidis: [57, 60, 64, 69, 72, 76, 81] }, // Am
+  { bassMidi: 40, padMidis: [56, 59, 64], scaleMidis: [56, 59, 64, 68, 71, 76, 80] }, // E
+];
+
 const midiToHz = (midi: number): number => 440 * 2 ** ((midi - 69) / 12);
 
 /** Conductor timing — scheduler runs on a coarse timer, audio on the clock. */
@@ -68,15 +102,78 @@ const EIGHTH_SLOW_SEC = 0.25;
 const EIGHTH_FAST_SEC = 0.19;
 const BAR_EIGHTHS = 8;
 
+/**
+ * Song form: 8 bars of the verse (the authored hook), 4 bars of bridge,
+ * 4 bars of the verse's first phrase — then the cycle repeats. The last
+ * bar of each section rolls a snare fill; the new section opens with a
+ * crash once the anthem is fully lit.
+ */
+const FORM_BARS = 16;
+const BRIDGE_START = 8;
+const A2_START = 12;
+
+/** Fixed intensity of the menu ambience — pads + bass + sparse arp, no hook. */
+const MENU_INTENSITY = 0.38;
+
+/** Stereo placement (−1 left .. +1 right); centre voices skip the panner. */
+const LEAD_PAN = 0.2;
+const ARP_PAN = -0.35;
+const HAT_PAN = 0.3;
+const CRASH_PAN = -0.15;
+
+/** What one bar of the 16-bar form contributes to the schedule. */
+export interface FormSlot {
+  chord: ProgressionChord;
+  melodyBar: number[];
+  isFillBar: boolean;
+  isSectionDownbeat: boolean;
+}
+
+/**
+ * Pure bar → form mapping (exported for the arrangement tests). Form bar
+ * 0-7 = verse, 8-11 = bridge, 12-15 = the verse's first phrase again.
+ */
+export function formSlotForBar(bar: number): FormSlot {
+  const formBar = ((bar % FORM_BARS) + FORM_BARS) % FORM_BARS;
+  if (formBar < BRIDGE_START) {
+    return {
+      chord: PROGRESSION[formBar % PROGRESSION.length],
+      melodyBar: LEAD_MELODY[formBar],
+      isFillBar: formBar === 7,
+      isSectionDownbeat: false,
+    };
+  }
+  if (formBar < A2_START) {
+    const bridgeBar = formBar - BRIDGE_START;
+    return {
+      chord: BRIDGE_PROGRESSION[bridgeBar],
+      melodyBar: BRIDGE_MELODY[bridgeBar],
+      isFillBar: formBar === 11,
+      isSectionDownbeat: formBar === BRIDGE_START,
+    };
+  }
+  const a2Bar = formBar - A2_START;
+  return {
+    chord: PROGRESSION[a2Bar],
+    melodyBar: LEAD_MELODY[a2Bar],
+    isFillBar: false,
+    isSectionDownbeat: a2Bar === 0,
+  };
+}
+
 export class MusicEngine {
   private ctx: AudioContext | null = null;
   /** masterVolume × musicVolume — the only gain audibility rides on. */
   private masterGain: GainNode | null = null;
   /** Warmth filter for the pad bus. */
   private padFilter: BiquadFilterNode | null = null;
+  /** Pad-only gain node — the kick pumps it for sidechain separation. */
+  private padBus: GainNode | null = null;
   private _masterVolume = 0.7;
   private _musicVolume = 0.6;
   private _intensity = 0;
+  /** Which mix the soundtrack is in: "menu" idles low, "run" follows intensity. */
+  private _scene: "menu" | "run" = "run";
   /** Player intent: start() requested. Audibility also requires a live ctx. */
   private _playing = false;
   private _enabled = true;
@@ -126,6 +223,23 @@ export class MusicEngine {
   /** 0..1 run intensity — gates the bass/arp/hat layers. */
   setIntensity(intensity: number): void {
     this._intensity = clamp01(intensity);
+  }
+
+  /**
+   * Select the mix: "run" follows setIntensity, "menu" pins a mellow
+   * ambience (pads + bass + sparse arp — the hook and drums stay dark).
+   */
+  setScene(scene: "menu" | "run"): void {
+    this._scene = scene;
+  }
+
+  get scene(): "menu" | "run" {
+    return this._scene;
+  }
+
+  /** Layer intensity actually used for scheduling this tick. */
+  private effectiveIntensity(): number {
+    return this._scene === "menu" ? MENU_INTENSITY : this._intensity;
   }
 
   /**
@@ -203,6 +317,7 @@ export class MusicEngine {
       this.ctx = null;
       this.masterGain = null;
       this.padFilter = null;
+      this.padBus = null;
     }
   }
 
@@ -236,7 +351,10 @@ export class MusicEngine {
       this.padFilter.type = "lowpass";
       this.padFilter.frequency.value = 1100;
       this.padFilter.Q.value = 0.4;
-      this.padFilter.connect(this.masterGain);
+      this.padBus = this.ctx.createGain();
+      this.padBus.gain.value = 1;
+      this.padFilter.connect(this.padBus);
+      this.padBus.connect(this.masterGain);
       return true;
     } catch {
       this.ctx = null;
@@ -273,8 +391,9 @@ export class MusicEngine {
   private scheduleEighth(index: number, t: number): void {
     const bar = Math.floor(index / BAR_EIGHTHS);
     const pos = index % BAR_EIGHTHS;
-    const chord = PROGRESSION[bar % PROGRESSION.length];
-    const intensity = this._intensity;
+    const slot = formSlotForBar(bar);
+    const chord = slot.chord;
+    const intensity = this.effectiveIntensity();
     const eighth = this.eighthDuration();
     const barDur = eighth * BAR_EIGHTHS;
 
@@ -292,6 +411,12 @@ export class MusicEngine {
     // Hype bass: walking eighths on 2 and 6 (root, then octave jump).
     if (intensity > 0.6 && (pos === 2 || pos === 6)) {
       this.bass(midiToHz(chord.bassMidi + (pos === 6 ? 12 : 0)), t, eighth * 0.8, 0.7, true);
+    }
+    // Walk-up: the last eighth of a phrase leans on the NEXT chord's root
+    // so each section seam pulls forward instead of resetting.
+    if (intensity > 0.6 && pos === 7 && bar % 4 === 3) {
+      const next = formSlotForBar(bar + 1).chord;
+      this.bass(midiToHz(next.bassMidi), t, eighth * 0.7, 0.55, true);
     }
 
     // Arpeggio pluck — probability and brightness scale with intensity.
@@ -311,19 +436,25 @@ export class MusicEngine {
     // The composed square-wave hook — the 8-bit anthem rides on top once
     // the run is properly heated.
     if (intensity > 0.45) {
-      const phrase = LEAD_MELODY[bar % LEAD_MELODY.length];
-      const midi = phrase[pos];
+      const midi = slot.melodyBar[pos];
       if (midi > 0) {
         this.lead(midiToHz(midi), t, eighth * 0.92, 0.4 + intensity * 0.6);
       }
     }
 
-    // Drums: snare backbeat, kick downbeats, off-eighth hats on top.
-    if (intensity > 0.5 && (pos === 2 || pos === 6)) {
+    // Drums: snare backbeat, kick downbeats, off-eighth hats on top. The
+    // last bar of each section rolls a full snare fill; the new section
+    // opens with a crash once the anthem is lit.
+    const backbeat = intensity > 0.5 && (pos === 2 || pos === 6);
+    const fillRoll = slot.isFillBar && intensity > 0.6;
+    if (backbeat || fillRoll) {
       this.snare(t);
     }
     if (intensity > 0.55 && (pos === 0 || pos === 4)) {
       this.kick(t);
+    }
+    if (intensity > 0.55 && slot.isSectionDownbeat && pos === 0) {
+      this.crash(t);
     }
     if (intensity > 0.7 && pos % 2 === 1) {
       this.hat(t);
@@ -381,7 +512,7 @@ export class MusicEngine {
       gain.gain.linearRampToValueAtTime(peak, t + 0.005);
       gain.gain.exponentialRampToValueAtTime(0.0001, t + duration);
       osc.connect(gain);
-      gain.connect(this.masterGain!);
+      this.connectPanned(gain, LEAD_PAN);
       osc.start(t);
       osc.stop(t + duration + 0.02);
     };
@@ -389,7 +520,7 @@ export class MusicEngine {
     voice(freq / 2, 0.02 * gainScale);
   }
 
-  /** Kick: a fast sine pitch-drop on the downbeats. */
+  /** Kick: a fast sine pitch-drop on the downbeats, pumping the pad bus. */
   private kick(t: number): void {
     if (!this.ctx || !this.masterGain) return;
     const osc = this.ctx.createOscillator();
@@ -403,6 +534,54 @@ export class MusicEngine {
     gain.connect(this.masterGain);
     osc.start(t);
     osc.stop(t + 0.15);
+    // Sidechain pump: duck the pads under the kick so it punches through.
+    if (this.padBus) {
+      const bus = this.padBus.gain;
+      bus.cancelScheduledValues(t);
+      bus.setValueAtTime(bus.value, t);
+      bus.linearRampToValueAtTime(0.45, t + 0.02);
+      bus.linearRampToValueAtTime(1, t + 0.28);
+    }
+  }
+
+  /**
+   * Route a voice through the stereo field when the browser supports it;
+   * centre voices (bass/kick/snare/pad) connect straight to the master.
+   */
+  private connectPanned(node: AudioNode, pan: number): void {
+    if (!this.ctx || !this.masterGain) return;
+    if (typeof this.ctx.createStereoPanner === "function") {
+      const panner = this.ctx.createStereoPanner();
+      panner.pan.value = pan;
+      node.connect(panner);
+      panner.connect(this.masterGain);
+      return;
+    }
+    node.connect(this.masterGain);
+  }
+
+  /** Crash: a long bright noise wash marking a new section of the form. */
+  private crash(t: number): void {
+    if (!this.ctx || !this.masterGain) return;
+    const length = Math.floor(this.ctx.sampleRate * 0.9);
+    const buffer = this.ctx.createBuffer(1, length, this.ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < length; i++) {
+      data[i] = Math.random() * 2 - 1;
+    }
+    const src = this.ctx.createBufferSource();
+    src.buffer = buffer;
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = "highpass";
+    filter.frequency.value = 3800;
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(0.06, t);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.85);
+    src.connect(filter);
+    filter.connect(gain);
+    this.connectPanned(gain, CRASH_PAN);
+    src.start(t);
+    src.stop(t + 0.9);
   }
 
   /** Snare: a bandpassed noise crack on the backbeat. */
@@ -441,7 +620,7 @@ export class MusicEngine {
     gain.gain.linearRampToValueAtTime(peak, t + 0.01);
     gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
     osc.connect(gain);
-    gain.connect(this.masterGain);
+    this.connectPanned(gain, ARP_PAN);
     osc.start(t);
     osc.stop(t + 0.24);
   }
@@ -465,7 +644,7 @@ export class MusicEngine {
     gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.04);
     src.connect(filter);
     filter.connect(gain);
-    gain.connect(this.masterGain);
+    this.connectPanned(gain, HAT_PAN);
     src.start(t);
     src.stop(t + 0.05);
   }
