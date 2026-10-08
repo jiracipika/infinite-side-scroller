@@ -16,6 +16,7 @@ function paint(pose: CharacterArtPose = {}, width = 22, height = 32) {
     beginPath() { points = []; }, closePath() {},
     moveTo(x: number, y: number) { points.push([x, y]); },
     lineTo(x: number, y: number) { points.push([x, y]); },
+    arc(x: number, y: number) { points.push([x, y]); },
     fill() { polygons.push({ color: this.fillStyle, points: [...points] }); }, stroke() { strokes.push(this.strokeStyle); },
   };
   const cherry = getCharacterById('cherry');
@@ -99,6 +100,32 @@ describe('graphic-novel cherry shared art', () => {
     }
   });
 
+  it('wears her cherry-print front with pierced stems and white earbuds', () => {
+    const { polygons, strokes } = paint();
+    // 7 print motifs + the collar charm's ring: every motif hangs a fruit
+    // pair (arc fills → single-point polygons) from a pierced stem junction.
+    const torsoFruits = polygons.filter(p => p.color === '#e5304a' && p.points.length === 1
+      && p.points[0][1] > 15 && p.points[0][1] < 27);
+    assert.ok(torsoFruits.length >= 14, `cherry print covers the front (got ${torsoFruits.length} fruit)`);
+    assert.ok(strokes.includes('#cdd6e4'), 'every stem junction carries a steel piercing ring');
+    assert.ok(polygons.some(p => p.color === '#f4f4f8'), 'white earbuds sit over the side locks');
+  });
+
+  it('keeps the print sewn to the garment: motifs move with the bodice and hem', () => {
+    const motif = (pose: CharacterArtPose) => paint(pose).polygons
+      .filter(p => p.color === '#e5304a' && p.points.length === 1)
+      .map(p => p.points[0][0]);
+    assert.notDeepEqual(motif({ dashing: true }), motif({}), 'print rides the dash lean');
+    assert.notDeepEqual(motif({ airborne: true }), motif({}), 'print lifts off the ground airborne');
+    const skirtIdle = paint().polygons
+      .filter(p => p.color === '#e5304a' && p.points.length === 1 && p.points[0][1] > 22)
+      .map(p => p.points[0][0]);
+    const skirtRun = paint({ stride: 2 }).polygons
+      .filter(p => p.color === '#e5304a' && p.points.length === 1 && p.points[0][1] > 22)
+      .map(p => p.points[0][0]);
+    assert.notDeepEqual(skirtRun, skirtIdle, 'skirt motifs sway with the hem');
+  });
+
   it('still reads at the character-select chip size', () => {
     // CharacterSprite renders a 28×28 idle portrait for the roster grid.
     const frame = paint({}, 28, 28);
@@ -119,7 +146,10 @@ describe('cherry roster entry', () => {
     const ids = CHARACTERS.map(c => c.id);
     assert.equal(ids.filter(id => id === 'cherry').length, 1);
     const cherry = getCharacterById('cherry');
-    assert.equal(cherry.name, 'Cherry');
+    assert.equal(cherry.name, 'Ansley');
+    assert.equal(cherry.description, 'a cutie pie :)');
+    assert.match(cherry.description.toLowerCase(), /cutie pie/, 'she is a cutie pie :)');
+    assert.ok(!cherry.description.toLowerCase().includes('gothic'), 'no gothic in the description');
     assert.equal(cherry.hasMelee, true, 'parasol bonks are her melee');
     assert.equal(cherry.meleeDamage, 1, 'quick light bonks, ninja-tier damage');
     assert.ok(cherry.unlockCost > 0, 'unlocked via the coin shop');

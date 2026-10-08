@@ -3,9 +3,10 @@ import type { CharacterArtPose } from './character-art';
 type Point = readonly [number, number];
 
 /**
- * Inked anatomy authored at Cherry's real 22×32 collision size. Cherry-goth
- * DNA: deep cherry-red twin-tails, near-black gothic lolita dress, pale skin,
- * and the accent budget spent on hair, eyes, the collar charm, and her
+ * Inked anatomy authored at Ansley's real 22×32 collision size. Cutie-pie
+ * cherry DNA: deep cherry-red twin-tails, near-black dress with a cherry-print
+ * front (pierced stems, naturally), pale skin, white earbuds with a trailing
+ * cord, and the accent budget spent on hair, eyes, the collar charm, and her
  * closed parasol. Same drawing-only contract as the ninja: local joints never
  * write back to Player/physics, filled bent limbs, no closed neon contours.
  */
@@ -45,6 +46,29 @@ export function drawInkCherry(
   };
   const shift = (points: readonly Point[], x = lean, y = lift): Point[] =>
     points.map(([px, py]) => [px + x, py + y]);
+  const fruit = (color: string, x: number, y: number, r = .58) => {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(x * sx, y * sy, r * Math.min(sx, sy), 0, Math.PI * 2);
+    ctx.fill();
+  };
+  const ring = (color: string, x: number, y: number, r = .34, weight = .3) => {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = weight * Math.min(sx, sy);
+    ctx.beginPath();
+    ctx.arc(x * sx, y * sy, r * Math.min(sx, sy), 0, Math.PI * 2);
+    ctx.stroke();
+  };
+  // One cherry-print motif: a fruit pair hung from a stem junction threaded
+  // through a steel piercing ring.
+  const cherryPair = (mx: number, my: number, dx = 0, dy = 0) => {
+    const x = mx + dx, y = my + dy;
+    mark(stem, [[x - .55, y + .05], [x, y - .5]], .4);
+    mark(stem, [[x + .55, y + .15], [x, y - .5]], .4);
+    fruit(cherry, x - .55, y + .35);
+    fruit(cherry, x + .55, y + .45);
+    ring('#cdd6e4', x, y - .5);
+  };
 
   // Twin-tails: two distinct ribbon locks streaming back and drooping with
   // the wind, each tapering to a point. Reach is bounded so the sprite never
@@ -126,10 +150,23 @@ export function drawInkCherry(
   mark(edge, shift([[9, 17], [13, 18.5]]), .35);
   mark(edge, shift([[9, 18.5], [13, 17]]), .35);
 
-  // Cherry charm at the collar: two fruit + a green stem.
+  // Cherry-print front: fruit pairs scattered over the bodice and skirt so
+  // she IS the cherry print. Skirt motifs sway with the hem, keeping the
+  // print sewn to the garment instead of sliding over it.
+  cherryPair(8.2, 16.9, lean, lift);
+  cherryPair(13.6, 16.9, lean, lift);
+  cherryPair(10.9, 18.8, lean, lift);
+  const hemShift = (mx: number) => sway * (mx - 11) * .07 + (mx > 11 ? .6 : -.6) * flare;
+  cherryPair(6.1, 23.2, hemShift(6.1), -flare * .25);
+  cherryPair(15.9, 23.3, hemShift(15.9), -flare * .25);
+  cherryPair(9.3, 24.8, hemShift(9.3), -flare * .25);
+  cherryPair(12.7, 25.1, hemShift(12.7), -flare * .25);
+
+  // Cherry charm at the collar: two fruit + a green stem, pierced like the print.
   poly(cherry, shift([[10.2, 21.5], [11.2, 21.5], [11.2, 22.5], [10.2, 22.5]]));
   poly(cherry, shift([[11.8, 22], [12.8, 22], [12.8, 23], [11.8, 23]]));
   mark(stem, shift([[10.7, 21.3], [12.3, 21.8]], 0), .45);
+  ring('#cdd6e4', 11.5 + lean, 21.55 + lift, .3, .28);
 
   leg(frontKnee, frontFoot, false);
   arm([15 + lean, 16 + lift], frontElbow, frontHand, false);
@@ -143,6 +180,14 @@ export function drawInkCherry(
   poly('#ff5d73', shift([[8.4, 8.4], [11.2, 9.6], [10.8, 10.8], [9.2, 10.2]]));
   poly('#ff5d73', shift([[13, 9.4], [16.2, 8.2], [15.6, 10.6], [13.4, 10.6]]));
   mark(ink, shift([[9, 12.2], [11.5, 12.7], [13.5, 12.2]]), .5);
+
+  // Earbuds with a trailing cord — she runs to the chiptune. White buds sit
+  // over the side locks; the front cord drapes to the collar, drawn before
+  // the parasol so the parasol still owns its draw-last guarantee.
+  fruit('#f4f4f8', 5.7 + lean, 10.1 + lift, .5);
+  fruit('#f4f4f8', 16.7 + lean, 9.9 + lift, .5);
+  mark(edge, [[16.7 + lean, 10.4 + lift], [15.7 + lean, 13.5 + lift], [14.5 + lean, 15.9 + lift]], .32);
+  mark(edge, [[5.7 + lean, 10.5 + lift], [6.4 + lean, 13.2 + lift]], .28);
 
   // Parasol, drawn LAST so nothing occludes it: the closed cherry-red canopy
   // rides up-forward on her shoulder, clear of the streaming hair. Melee

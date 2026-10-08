@@ -31,6 +31,7 @@ function paint(characterId: string, pose: CharacterArtPose = {}, width?: number,
     beginPath() { points = []; }, closePath() {},
     moveTo(x: number, y: number) { points.push([x, y]); },
     lineTo(x: number, y: number) { points.push([x, y]); },
+    arc(x: number, y: number) { points.push([x, y]); },
     fill() { polygons.push({ color: this.fillStyle, points: [...points] }); },
     stroke() { strokes.push(this.strokeStyle); },
   };

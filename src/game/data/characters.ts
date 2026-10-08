@@ -201,8 +201,8 @@ export const CHARACTERS: CharacterDef[] = [
   },
   {
     id: 'cherry',
-    name: 'Cherry',
-    description: 'Gothic charmer with a cherry parasol',
+    name: 'Ansley',
+    description: 'a cutie pie :)',
     ability: 'Starts with a double jump and quick parasol bonks',
     unlockCost: 450,
     bodyColor: '#2a1f33',
@@ -220,7 +220,7 @@ export const CHARACTERS: CharacterDef[] = [
     meleeDuration: 0.16,
     specialName: 'Cherry Bomb', specialCooldown: 9, specialColor: '#e5304a',
   },
-  // The crimson court — Cherry's red-and-black gothic family, four women
+  // The crimson court — Ansley's red-and-black family, four women
   // and four men, each with bespoke ink anatomy (ink-crimson.ts).
   {
     id: 'velvet',

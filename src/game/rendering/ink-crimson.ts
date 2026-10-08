@@ -2,12 +2,12 @@ import type { CharacterArtPose } from './character-art';
 import { inkPoseTerms, makeInkHelpers, type InkMaterials, type Point } from './ink-kit';
 
 /**
- * The crimson court — Cherry's red-and-black gothic family (velvet, ember,
+ * The crimson court — Ansley's red-and-black family (velvet, ember,
  * rosalia, marionette, dorian, onyx, mortimer, grimshaw). Same drawing-only
  * contract as ink-roster: filled bent limbs, broken contours, one accent
  * budget per character, every pose parameter must move the silhouette, and
  * the signature prop is drawn LAST sweeping through the melee arc like
- * Cherry's parasol.
+ * Ansley's parasol.
  */
 
 type Draw = (ctx: CanvasRenderingContext2D, width: number, height: number, pose: CharacterArtPose, mat: InkMaterials) => void;

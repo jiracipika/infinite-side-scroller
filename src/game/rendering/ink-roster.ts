@@ -291,7 +291,7 @@ export const drawInkRanger: Draw = (ctx, width, height, pose, mat) => {
   poly(leaf, shift([[8.6, 8.2], [11.2, 9.2], [10.8, 10.4], [9, 9.8]]));
   poly(leaf, shift([[12.6, 9.2], [15.2, 8.2], [14.6, 10.2], [13, 10.2]]));
 
-  // Bow, drawn last: arc through the melee swing like Cherry's parasol.
+  // Bow, drawn last: arc through the melee swing like Ansley's parasol.
   let bowHand: Point = [16 + stride * 0.6 + lean, 20 + lift];
   let bowTip: Point = [19.5, 26];
   if (pose.dashing) { bowHand = [8 + lean, 19]; bowTip = [2, 24]; }
