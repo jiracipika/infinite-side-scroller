@@ -7,6 +7,7 @@ import {
   drawInkDorian, drawInkOnyx, drawInkMortimer, drawInkGrimshaw,
 } from "./ink-crimson";
 import { inkMaterials } from "./ink-kit";
+import { drawCharacterSheet, ensureCharacterSheetsLoading } from "./sprite-sheet";
 
 export interface CharacterArtPose {
   stride?: number;
@@ -343,6 +344,14 @@ export function drawCharacterArt(
   height: number,
   pose: CharacterArtPose = {},
 ): void {
+  // Sprite-sheet lane: hand-painted Aseprite strips take over per character
+  // once their image has loaded; procedural ink stays the fallback and the
+  // test surface. The sheet carries its own tumble frame, so the procedural
+  // canvas rotation further down is intentionally skipped on this path.
+  ensureCharacterSheetsLoading();
+  if (drawCharacterSheet(ctx, char.id, width, height, pose)) {
+    return;
+  }
   const stride = Math.max(-2.5, Math.min(2.5, pose.stride ?? 0));
   const dark = shade(char.outlineColor, -24);
   const light = shade(char.bodyColor, 28);
