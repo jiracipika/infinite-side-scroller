@@ -1,0 +1,257 @@
+{
+  "knight": {
+    "frameWidth": 145,
+    "frameHeight": 111,
+    "originX": 80,
+    "originY": 34,
+    "density": 2,
+    "bodyWidth": 24,
+    "bodyHeight": 32,
+    "idleBounds": {
+      "left": -18,
+      "top": 0.5,
+      "right": 31,
+      "bottom": 32.5
+    }
+  },
+  "ninja": {
+    "frameWidth": 108,
+    "frameHeight": 91,
+    "originX": 45,
+    "originY": 29,
+    "density": 2,
+    "bodyWidth": 20,
+    "bodyHeight": 30,
+    "idleBounds": {
+      "left": -12.5,
+      "top": -3.5,
+      "right": 20,
+      "bottom": 30
+    }
+  },
+  "tank": {
+    "frameWidth": 86,
+    "frameHeight": 76,
+    "originX": 15,
+    "originY": 1,
+    "density": 2,
+    "bodyWidth": 28,
+    "bodyHeight": 36,
+    "idleBounds": {
+      "left": 1,
+      "top": 2.5,
+      "right": 28.5,
+      "bottom": 36
+    }
+  },
+  "mage": {
+    "frameWidth": 74,
+    "frameHeight": 77,
+    "originX": 12,
+    "originY": 7,
+    "density": 2,
+    "bodyWidth": 22,
+    "bodyHeight": 34,
+    "idleBounds": {
+      "left": 1.5,
+      "top": -1.5,
+      "right": 21.5,
+      "bottom": 34
+    }
+  },
+  "ranger": {
+    "frameWidth": 90,
+    "frameHeight": 78,
+    "originX": 28,
+    "originY": 12,
+    "density": 2,
+    "bodyWidth": 22,
+    "bodyHeight": 32,
+    "idleBounds": {
+      "left": -9,
+      "top": 0,
+      "right": 20.5,
+      "bottom": 32
+    }
+  },
+  "cyborg": {
+    "frameWidth": 82,
+    "frameHeight": 71,
+    "originX": 13,
+    "originY": 3,
+    "density": 2,
+    "bodyWidth": 24,
+    "bodyHeight": 33,
+    "idleBounds": {
+      "left": 1.5,
+      "top": 1.5,
+      "right": 21.5,
+      "bottom": 33
+    }
+  },
+  "spirit": {
+    "frameWidth": 77,
+    "frameHeight": 68,
+    "originX": 9,
+    "originY": 1,
+    "density": 2,
+    "bodyWidth": 21,
+    "bodyHeight": 33,
+    "idleBounds": {
+      "left": -3.5,
+      "top": 1.5,
+      "right": 23.5,
+      "bottom": 30.5
+    }
+  },
+  "healer": {
+    "frameWidth": 75,
+    "frameHeight": 69,
+    "originX": 13,
+    "originY": 1,
+    "density": 2,
+    "bodyWidth": 23,
+    "bodyHeight": 33,
+    "idleBounds": {
+      "left": 1,
+      "top": 1.5,
+      "right": 23.5,
+      "bottom": 33
+    }
+  },
+  "cherry": {
+    "frameWidth": 94,
+    "frameHeight": 82,
+    "originX": 30,
+    "originY": 16,
+    "density": 2,
+    "bodyWidth": 22,
+    "bodyHeight": 32,
+    "idleBounds": {
+      "left": -8,
+      "top": 1.5,
+      "right": 23.5,
+      "bottom": 32
+    }
+  },
+  "velvet": {
+    "frameWidth": 81,
+    "frameHeight": 73,
+    "originX": 16,
+    "originY": 4,
+    "density": 2,
+    "bodyWidth": 22,
+    "bodyHeight": 33,
+    "idleBounds": {
+      "left": 1.5,
+      "top": 1,
+      "right": 19,
+      "bottom": 33.5
+    }
+  },
+  "ember": {
+    "frameWidth": 78,
+    "frameHeight": 73,
+    "originX": 16,
+    "originY": 7,
+    "density": 2,
+    "bodyWidth": 22,
+    "bodyHeight": 32,
+    "idleBounds": {
+      "left": -0.5,
+      "top": 0.5,
+      "right": 19.5,
+      "bottom": 32
+    }
+  },
+  "rosalia": {
+    "frameWidth": 74,
+    "frameHeight": 71,
+    "originX": 13,
+    "originY": 2,
+    "density": 2,
+    "bodyWidth": 23,
+    "bodyHeight": 33,
+    "idleBounds": {
+      "left": 2,
+      "top": 1.5,
+      "right": 19.5,
+      "bottom": 33.5
+    }
+  },
+  "marionette": {
+    "frameWidth": 69,
+    "frameHeight": 70,
+    "originX": 12,
+    "originY": 4,
+    "density": 2,
+    "bodyWidth": 21,
+    "bodyHeight": 32,
+    "idleBounds": {
+      "left": 2,
+      "top": 0.5,
+      "right": 17.5,
+      "bottom": 32
+    }
+  },
+  "dorian": {
+    "frameWidth": 77,
+    "frameHeight": 77,
+    "originX": 12,
+    "originY": 5,
+    "density": 2,
+    "bodyWidth": 24,
+    "bodyHeight": 34,
+    "idleBounds": {
+      "left": 2,
+      "top": 0.5,
+      "right": 24,
+      "bottom": 34.5
+    }
+  },
+  "onyx": {
+    "frameWidth": 86,
+    "frameHeight": 83,
+    "originX": 15,
+    "originY": 8,
+    "density": 2,
+    "bodyWidth": 26,
+    "bodyHeight": 35,
+    "idleBounds": {
+      "left": 0.5,
+      "top": -0.5,
+      "right": 23,
+      "bottom": 36.5
+    }
+  },
+  "mortimer": {
+    "frameWidth": 80,
+    "frameHeight": 87,
+    "originX": 12,
+    "originY": 16,
+    "density": 2,
+    "bodyWidth": 23,
+    "bodyHeight": 34,
+    "idleBounds": {
+      "left": 2,
+      "top": 4,
+      "right": 23,
+      "bottom": 34.5
+    }
+  },
+  "grimshaw": {
+    "frameWidth": 89,
+    "frameHeight": 90,
+    "originX": 13,
+    "originY": 19,
+    "density": 2,
+    "bodyWidth": 25,
+    "bodyHeight": 34,
+    "idleBounds": {
+      "left": 2.5,
+      "top": -1.5,
+      "right": 23,
+      "bottom": 34.5
+    }
+  }
+}

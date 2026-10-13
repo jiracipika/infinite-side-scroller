@@ -352,6 +352,17 @@ export function drawCharacterArt(
   if (drawCharacterSheet(ctx, char.id, width, height, pose)) {
     return;
   }
+  drawCharacterInkArt(ctx, char, width, height, pose);
+}
+
+/** Original character designs, also the source artwork for the pixel sheets. */
+export function drawCharacterInkArt(
+  ctx: CanvasRenderingContext2D,
+  char: CharacterDef,
+  width: number,
+  height: number,
+  pose: CharacterArtPose = {},
+): void {
   const stride = Math.max(-2.5, Math.min(2.5, pose.stride ?? 0));
   const dark = shade(char.outlineColor, -24);
   const light = shade(char.bodyColor, 28);
