@@ -118,18 +118,27 @@ workflows:
       - apps/mobile/ios/*.xcarchive
 
   release-both:
-    name: Release Android + iOS
-    max_build_duration: 90
+    name: "One-click: Build iOS (TestFlight) + Android (Play)"
+    # Manual-start only (no push triggers — store releases are explicit).
+    max_build_duration: 120
+    instance_type: mac_mini_m2
     environment:
       node: 22
       xcode: latest
       groups:
         - android_keystore_credentials
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.dashverse.app
+        # Account-level groups (attach in Codemagic UI → Environment variables):
+        #   app_store_connect — ASC issuer/key + DIST_CERT_PRIVATE_KEY (base64 PEM
+        #     of the team distribution cert; same cert as repfinder — key is
+        #     team-wide, the recipe below mints a com.dashverse.app profile).
+        #   google_play — GCLOUD_SERVICE_ACCOUNT_CREDENTIALS (fastlane supply).
+        # Upload steps self-skip when a group is missing, so builds still work
+        # before the groups are attached.
       vars:
         EXPO_PUBLIC: "true"
+        BUNDLE_ID: "com.dashverse.app"
+        PACKAGE_NAME: "com.dashverse.app"
+        PLAY_TRACK: "internal"
     scripts:
       - name: Install root dependencies
         script: |
@@ -159,15 +168,72 @@ workflows:
             echo "No Android keystore env found; building unsigned release bundle. Configure android_keystore_credentials before store release."
             ./gradlew bundleRelease
           fi
+      - name: Upload AAB to Play testing track
+        script: |
+          if [ -n "${GCLOUD_SERVICE_ACCOUNT_CREDENTIALS:-}" ]; then
+            set -e
+            echo "$GCLOUD_SERVICE_ACCOUNT_CREDENTIALS" > /tmp/play-sa.json
+            fastlane supply \
+              --package_name "$PACKAGE_NAME" \
+              --json_key /tmp/play-sa.json \
+              --track "$PLAY_TRACK" \
+              --skip_upload_metadata \
+              --skip_upload_images \
+              --skip_upload_screenshots \
+              --aab apps/mobile/android/app/build/outputs/bundle/release/app-release.aab
+            rm -f /tmp/play-sa.json
+          else
+            echo "google_play env group not attached — skipping Play upload (build artifacts only)."
+          fi
+      - name: Set up iOS code signing
+        script: |
+          # Custom signing (repfinder recipe): the managed ios_signing block only
+          # consumes profiles from the team store and fails when none exist for
+          # the bundle id. fetch-signing-files --create mints a fresh app_store
+          # profile for com.dashverse.app via the ASC API and binds it to the
+          # team distribution cert. = form is required for --private-key /
+          # --certificate-key (values start with dashes). Never echo the key.
+          if [ -z "${APP_STORE_CONNECT_ISSUER_ID:-}" ]; then
+            echo "app_store_connect env group not attached — skipping iOS signing (Android-only release)."
+            exit 0
+          fi
+          set -e
+          export DIST_CERT_KEY="$(echo "$DIST_CERT_PRIVATE_KEY" | base64 --decode | awk '/BEGIN/{f=1} f{print}')"
+          app-store-connect fetch-signing-files \
+            "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --issuer-id="$APP_STORE_CONNECT_ISSUER_ID" \
+            --key-id="$APP_STORE_CONNECT_KEY_IDENTIFIER" \
+            --private-key="$APP_STORE_CONNECT_PRIVATE_KEY" \
+            --certificate-key="$DIST_CERT_KEY" \
+            --create
+          xcode-project use-profiles
       - name: Install CocoaPods
         script: |
           cd apps/mobile/ios
           pod install
       - name: Build iOS IPA
         script: |
+          if [ -z "${APP_STORE_CONNECT_ISSUER_ID:-}" ]; then
+            echo "No ASC env — skipping iOS build."
+            exit 0
+          fi
           xcode-project build-ipa \
             --workspace apps/mobile/ios/Dashverse.xcworkspace \
             --scheme Dashverse
+      - name: Publish IPA to TestFlight
+        script: |
+          if [ -z "${APP_STORE_CONNECT_ISSUER_ID:-}" ]; then
+            echo "No ASC env — skipping TestFlight upload."
+            exit 0
+          fi
+          ipa=$(ls build/ios/ipa/*.ipa | head -1)
+          app-store-connect publish \
+            --issuer-id="$APP_STORE_CONNECT_ISSUER_ID" \
+            --key-id="$APP_STORE_CONNECT_KEY_IDENTIFIER" \
+            --private-key="$APP_STORE_CONNECT_PRIVATE_KEY" \
+            --wait-for-processing \
+            "$ipa"
     artifacts:
       - apps/mobile/android/app/build/outputs/bundle/release/*.aab
       - build/ios/ipa/*.ipa

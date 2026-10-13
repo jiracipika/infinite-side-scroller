@@ -1,0 +1,29 @@
+# Dashverse closed-testing tester list
+# One line per tester. Paste into Play Console → Closed testing → Testers,
+# or (better for 20+) create a Google Group with these members and add the
+# group's address as a single email — it counts once per member.
+#
+# Play requirement for new personal accounts: 20 opted-in testers, 14 days,
+# before production access.
+#
+# emails below are placeholders — replace:
+tester1@example.com
+tester2@example.com
+tester3@example.com
+tester4@example.com
+tester5@example.com
+tester6@example.com
+tester7@example.com
+tester8@example.com
+tester9@example.com
+tester10@example.com
+tester11@example.com
+tester12@example.com
+tester13@example.com
+tester14@example.com
+tester15@example.com
+tester16@example.com
+tester17@example.com
+tester18@example.com
+tester19@example.com
+tester20@example.com

@@ -111,15 +111,39 @@ for (const name of ['android-debug', 'android-release', 'release-both']) {
   requireInBlock(block, name, './gradlew')
 }
 
-for (const name of ['ios-release', 'release-both']) {
+for (const name of ['ios-release']) {
   const block = workflows[name]
   if (!block) continue
   requireInBlock(block, name, 'xcode: latest')
+  // Managed signing is fine for the standalone iOS workflow.
   requireInBlock(block, name, 'ios_signing:')
   requireInBlock(block, name, `bundle_identifier: ${iosBundleId}`)
   requireInBlock(block, name, 'pod install')
   requireInBlock(block, name, 'xcode-project build-ipa')
   requireInBlock(block, name, 'build/ios/ipa/*.ipa')
+}
+
+const releaseBoth = workflows['release-both']
+if (releaseBoth) {
+  requireInBlock(releaseBoth, 'release-both', 'xcode: latest')
+  // release-both pins the repfinder-proven custom signing: the managed
+  // ios_signing block only consumes profiles already in the team store and
+  // fails when none exist for the bundle id ("team store lacks profiles").
+  // fetch-signing-files --create mints a com.dashverse.app profile via the
+  // ASC API and binds it to the team distribution cert. Upload steps must
+  // self-skip when the env groups are not attached.
+  requireInBlock(releaseBoth, 'release-both', `BUNDLE_ID: "${iosBundleId}"`)
+  requireInBlock(releaseBoth, 'release-both', 'app-store-connect fetch-signing-files')
+  requireInBlock(releaseBoth, 'release-both', '--type IOS_APP_STORE')
+  requireInBlock(releaseBoth, 'release-both', 'xcode-project use-profiles')
+  requireInBlock(releaseBoth, 'release-both', 'pod install')
+  requireInBlock(releaseBoth, 'release-both', 'xcode-project build-ipa')
+  requireInBlock(releaseBoth, 'release-both', 'build/ios/ipa/*.ipa')
+  requireInBlock(releaseBoth, 'release-both', 'fastlane supply')
+  requireInBlock(releaseBoth, 'release-both', 'app-store-connect publish')
+  requireInBlock(releaseBoth, 'release-both', 'skipping Play upload')
+  requireInBlock(releaseBoth, 'release-both', 'skipping iOS signing')
+  assert(!releaseBoth.includes('ios_signing:'), 'release-both must not use the managed ios_signing block (team-store profile failure)')
 }
 
 const releaseBlock = workflows['android-release']
