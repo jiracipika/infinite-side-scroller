@@ -40,10 +40,12 @@ import {
 } from "@/lib/leaderboard";
 import {
   SHOP_UPGRADES,
+  characterArtStyle,
   clearPendingContinueSlot,
   getDailyStreak,
   getTodayIsoDay,
   hasPlayedDailyChallenge,
+  inkStyleUnlocked,
   loadActiveSaveSlotId,
   loadSaveSlots,
   purchaseCharacter,
@@ -52,10 +54,13 @@ import {
   renameSaveSlot,
   resetSaveSlot,
   setActiveSaveSlotId,
+  setCharacterArtStyle,
   setPendingContinueSlot,
+  ROUNDS_TO_UNLOCK_INK_STYLE,
   type SaveSlot,
   type SaveSlotId,
 } from "@/lib/progression";
+import { characterHasSheet, setPreferredArtStyle } from "@/game/rendering/sprite-sheet";
 import {
   clearRunHistory,
   loadRunHistory,
@@ -420,6 +425,26 @@ const StartScreen: FC<Props> = ({
     );
   };
 
+  // Art-style alternative: swap the selected character between the painted
+  // pixel sheets and the original procedural ink painter. Applies instantly —
+  // the renderer consults the shared preference module on its next draw.
+  const handleSetArtStyle = (characterId: string, style: "pixel" | "ink") => {
+    const result = setCharacterArtStyle(activeSlotId, characterId, style);
+    setSaveSlots(result.slots);
+    if (result.ok) {
+      setPreferredArtStyle(characterId, style);
+      playUiClick();
+      fireHaptic("success", settings.hapticsEnabled);
+    } else {
+      fireHaptic("error", settings.hapticsEnabled);
+    }
+    setProgressionMessage(
+      result.ok
+        ? (style === "ink" ? "Ink style equipped" : "Pixel style equipped")
+        : (result.reason ?? "Style change failed"),
+    );
+  };
+
   const activeSlot = useMemo(
     () => saveSlots.find((s) => s.id === activeSlotId) ?? null,
     [activeSlotId, saveSlots],
@@ -765,6 +790,46 @@ const StartScreen: FC<Props> = ({
                   color="#f87171"
                 />
               </div>
+            </div>
+            <div className="dash-panel-heading-row with-margin" style={{ alignItems: "center", gap: 8 }}>
+              <span>Art style</span>
+              {(() => {
+                const inkUnlocked = activeSlot ? inkStyleUnlocked(activeSlot, selectedChar) : false;
+                const current = activeSlot ? characterArtStyle(activeSlot, selectedChar) : "pixel";
+                if (!characterHasSheet(selectedChar)) {
+                  return <small className="dash-subtle-pill-v2">Pixel sheets incoming</small>;
+                }
+                if (!inkUnlocked) {
+                  const done = activeSlot?.roundsByCharacter[selectedChar] ?? 0;
+                  const remaining = Math.max(0, ROUNDS_TO_UNLOCK_INK_STYLE - done);
+                  return (
+                    <small
+                      className="dash-subtle-pill-v2"
+                      title={`Finish ${ROUNDS_TO_UNLOCK_INK_STYLE} runs with ${selectedCharacter.name} to unlock the original ink style`}
+                    >
+                      🔒 Ink style — {remaining} more run{remaining === 1 ? "" : "s"}
+                    </small>
+                  );
+                }
+                return (
+                  <span style={{ display: "inline-flex", gap: 6 }}>
+                    <button
+                      type="button"
+                      className={`dash-subtle-pill-v2 ${current === "pixel" ? "is-active" : ""}`}
+                      onClick={() => handleSetArtStyle(selectedChar, "pixel")}
+                    >
+                      Pixel
+                    </button>
+                    <button
+                      type="button"
+                      className={`dash-subtle-pill-v2 ${current === "ink" ? "is-active" : ""}`}
+                      onClick={() => handleSetArtStyle(selectedChar, "ink")}
+                    >
+                      Ink
+                    </button>
+                  </span>
+                );
+              })()}
             </div>
             <div className="dash-character-grid-v2 dash-character-roster-v3">
               {CHARACTERS.map((c) => {

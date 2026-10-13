@@ -44,13 +44,27 @@ export interface SaveSlot {
   bestDistance: number;
   /** Best combo (x) reached in a single run on this slot. */
   bestCombo: number;
-  /** Most enemies defeated in a single run on this slot. */
+  /** Most enemies defeated in a single run on a slot. */
   bestKills: number;
   totalRuns: number;
   unlockedUpgradeIds: string[];
   unlockedCharacterIds: string[];
+  /** Completed runs per character id — drives the ink-style unlock. */
+  roundsByCharacter: Record<string, number>;
+  /** Chosen art style per character id; absent = the default pixel sheets. */
+  artStyleByCharacter: Record<string, CharacterArtStyle>;
   checkpoint: RunCheckpoint | null;
 }
+
+/**
+ * Art-style alternatives: every character renders from the hand-painted pixel
+ * sheets by default; the original procedural ink painter becomes a per-
+ * character alternative after ROUNDS_TO_UNLOCK_INK_STYLE completed runs with
+ * that character.
+ */
+export type CharacterArtStyle = 'pixel' | 'ink';
+
+export const ROUNDS_TO_UNLOCK_INK_STYLE = 2;
 
 export interface ShopUpgrade {
   id: string;
@@ -116,6 +130,8 @@ function createSlot(id: SaveSlotId, label: string): SaveSlot {
     totalRuns: 0,
     unlockedUpgradeIds: [],
     unlockedCharacterIds: [...BASE_CHARACTER_IDS],
+    roundsByCharacter: {},
+    artStyleByCharacter: {},
     checkpoint: null,
   };
 }
@@ -174,8 +190,32 @@ function normalizeSlot(value: unknown, fallback: SaveSlot): SaveSlot {
     totalRuns: Number.isFinite(s.totalRuns) ? Math.max(0, Math.floor(Number(s.totalRuns))) : fallback.totalRuns,
     unlockedUpgradeIds: unlocked,
     unlockedCharacterIds: unlockedCharacters,
+    roundsByCharacter: normalizeCountRecord(s.roundsByCharacter),
+    artStyleByCharacter: normalizeStyleRecord(s.artStyleByCharacter),
     checkpoint: normalizeCheckpoint(s.checkpoint),
   };
+}
+
+function normalizeCountRecord(value: unknown): Record<string, number> {
+  if (!value || typeof value !== 'object') return {};
+  const out: Record<string, number> = {};
+  for (const [id, n] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof id === 'string' && id && Number.isFinite(n)) {
+      out[id] = Math.max(0, Math.floor(Number(n)));
+    }
+  }
+  return out;
+}
+
+function normalizeStyleRecord(value: unknown): Record<string, CharacterArtStyle> {
+  if (!value || typeof value !== 'object') return {};
+  const out: Record<string, CharacterArtStyle> = {};
+  for (const [id, style] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof id === 'string' && id && (style === 'pixel' || style === 'ink')) {
+      out[id] = style;
+    }
+  }
+  return out;
 }
 
 export function loadSaveSlots(): SaveSlot[] {
@@ -312,6 +352,7 @@ export function clearSlotCheckpoint(slotId: SaveSlotId): SaveSlot[] {
 export function addRunRewards(
   slotId: SaveSlotId,
   run: { coins: number; score: number; distance: number; maxCombo?: number; enemiesDefeated?: number },
+  characterId?: string,
 ): SaveSlot[] {
   const earnedCoins = Math.max(0, Math.floor(run.coins));
   const runCombo = Number.isFinite(run.maxCombo) ? Math.max(0, Math.floor(run.maxCombo as number)) : 0;
@@ -322,12 +363,47 @@ export function addRunRewards(
     bankCoins: slot.bankCoins + earnedCoins,
     lifetimeCoinsCollected: slot.lifetimeCoinsCollected + earnedCoins,
     totalRuns: slot.totalRuns + 1,
+    roundsByCharacter: characterId
+      ? { ...slot.roundsByCharacter, [characterId]: (slot.roundsByCharacter[characterId] ?? 0) + 1 }
+      : slot.roundsByCharacter,
     bestScore: Math.max(slot.bestScore, Math.max(0, Math.floor(run.score))),
     bestDistance: Math.max(slot.bestDistance, Math.max(0, Math.floor(run.distance))),
     bestCombo: Math.max(slot.bestCombo, runCombo),
     bestKills: Math.max(slot.bestKills, runKills),
     checkpoint: null,
   }));
+}
+
+/** The ink (procedural) alternative unlocks after N completed runs with that character. */
+export function inkStyleUnlocked(slot: SaveSlot, characterId: string): boolean {
+  return (slot.roundsByCharacter[characterId] ?? 0) >= ROUNDS_TO_UNLOCK_INK_STYLE;
+}
+
+/** Chosen style for a character; defaults to the pixel sheets. */
+export function characterArtStyle(slot: SaveSlot, characterId: string): CharacterArtStyle {
+  return slot.artStyleByCharacter[characterId] ?? 'pixel';
+}
+
+export function setCharacterArtStyle(
+  slotId: SaveSlotId,
+  characterId: string,
+  style: CharacterArtStyle,
+): { ok: boolean; reason?: string; slots: SaveSlot[] } {
+  if (style !== 'pixel' && style !== 'ink') {
+    return { ok: false, reason: 'Unknown style', slots: loadSaveSlots() };
+  }
+  const slots = loadSaveSlots();
+  const slot = slots.find((s) => s.id === slotId);
+  if (!slot) return { ok: false, reason: 'Missing slot', slots };
+  if (style === 'ink' && !inkStyleUnlocked(slot, characterId)) {
+    return { ok: false, reason: 'Ink style not unlocked yet', slots };
+  }
+  const updated = withUpdatedSlot(slotId, (s) => ({
+    ...s,
+    updatedAt: now(),
+    artStyleByCharacter: { ...s.artStyleByCharacter, [characterId]: style },
+  }));
+  return { ok: true, slots: updated };
 }
 
 

@@ -29,10 +29,12 @@ import { MP_INPUT_BUFFER_SIZE, MP_INTERPOLATION_DELAY_MS, MP_P2P_INTERPOLATION_D
 import {
   addRunRewards,
   buildProgressionBonuses,
+  characterArtStyle,
   clearPendingContinueSlot,
   clearSlotCheckpoint,
   getTodayIsoDay,
   hasPlayedDailyChallenge,
+  inkStyleUnlocked,
   loadActiveSaveSlotId,
   loadSaveSlots,
   markDailyChallengePlayed,
@@ -40,6 +42,7 @@ import {
   takePendingContinueSlot,
   type SaveSlotId,
 } from "@/lib/progression";
+import { setPreferredArtStyle } from '@/game/rendering/sprite-sheet';
 import {
   issueRunToken,
   submitRunScore,
@@ -1649,6 +1652,16 @@ export default function Home() {
     };
   }, [applyProgressionFromSlot, multiplayerSession, splitScreenSeed, state]);
 
+  // Art-style preference drives the renderer's sheet-vs-ink choice; re-applied
+  // on state transitions so a style toggled in the menus takes effect on the
+  // next run without a reload. Idempotent by construction.
+  useEffect(() => {
+    const slotId = activeSaveSlotRef.current || loadActiveSaveSlotId();
+    const slot = loadSaveSlots().find((s) => s.id === slotId);
+    const characterId = loadSelectedCharacter();
+    if (slot) setPreferredArtStyle(characterId, characterArtStyle(slot, characterId));
+  }, [state]);
+
   const previousStateRef = useRef(state);
   useEffect(() => {
     const prev = previousStateRef.current;
@@ -1659,13 +1672,21 @@ export default function Home() {
       splitScreenSeed === null
     ) {
       const slotId = activeSaveSlotRef.current || loadActiveSaveSlotId();
+      const runCharacterId = loadSelectedCharacter();
+      const slotBeforeRun = loadSaveSlots().find((s) => s.id === slotId);
+      const inkWasUnlocked = slotBeforeRun ? inkStyleUnlocked(slotBeforeRun, runCharacterId) : false;
       addRunRewards(slotId, {
         coins: stats.coins,
         score: stats.score,
         distance: Math.round(stats.distance),
         maxCombo: stats.maxCombo ?? 0,
         enemiesDefeated: stats.enemiesDefeated ?? 0,
-      });
+      }, runCharacterId);
+      // Ink-style unlock moment: same milestone buzz as an achievement.
+      const slotAfterRun = loadSaveSlots().find((s) => s.id === slotId);
+      if (!inkWasUnlocked && slotAfterRun && inkStyleUnlocked(slotAfterRun, runCharacterId)) {
+        fireHaptic('milestone', hapticsEnabledRef.current);
+      }
       if (runModeRef.current === "daily") {
         markDailyChallengePlayed(slotId, getTodayIsoDay());
       }

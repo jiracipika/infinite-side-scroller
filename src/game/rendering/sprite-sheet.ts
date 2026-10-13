@@ -41,6 +41,26 @@ export function characterSheetReady(id: string): boolean {
   return images.has(id);
 }
 
+/** True when a painted strip ships for this character (drives the style toggle UI). */
+export function characterHasSheet(id: string): boolean {
+  return Object.prototype.hasOwnProperty.call(CHARACTER_SHEETS, id);
+}
+
+// Art-style preference: the ink (procedural) alternative unlocks per character
+// through progression; when preferred, drawCharacterSheet declines so the
+// procedural painter takes over. Module-level because the renderer path is
+// synchronous and both the game page and the menus share one document.
+const inkPreferred = new Set<string>();
+
+export function setPreferredArtStyle(characterId: string, style: 'pixel' | 'ink'): void {
+  if (style === 'ink') inkPreferred.add(characterId);
+  else inkPreferred.delete(characterId);
+}
+
+export function preferredArtStyle(characterId: string): 'pixel' | 'ink' {
+  return inkPreferred.has(characterId) ? 'ink' : 'pixel';
+}
+
 /**
  * Draw the character's sheet frame into the local 0..width / 0..height box.
  * The renderer's transform (facing flip, screen placement, bob) already wraps
@@ -58,6 +78,7 @@ export function drawCharacterSheet(
 ): boolean {
   const img = images.get(characterId);
   if (!img) return false;
+  if (inkPreferred.has(characterId)) return false; // ink alternative unlocked + chosen
   const frame = sheetFrameForPose(pose);
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(img, frame * 32, 0, 32, 32, -(height - width) / 2, 0, height, height);
