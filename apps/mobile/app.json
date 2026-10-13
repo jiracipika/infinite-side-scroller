@@ -19,6 +19,7 @@
     "android": {
       "package": "com.dashverse.app",
       "versionCode": 2,
+      "permissions": ["android.permission.INTERNET", "android.permission.VIBRATE"],
       "adaptiveIcon": {
         "backgroundColor": "#0b0813",
         "foregroundImage": "./assets/android-icon-foreground.png",
