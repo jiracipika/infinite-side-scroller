@@ -1,10 +1,10 @@
-import { CHARACTER_SHEETS } from './character-sheets-data';
+import { CHARACTER_SHEETS, CHARACTER_SHEET_LAYOUTS } from './character-sheets-data';
 import type { CharacterArtPose } from './character-art';
 
 /**
- * Sprite-sheet lane of the art overhaul: hand-painted Aseprite strips replace
+ * Sprite-sheet lane: pixel strips baked from the original character designs replace
  * the procedural ink painters per character, activated purely by asset
- * presence. A strip is 192x32 — six 32x32 frames in the fixed order
+ * presence. A strip holds six frames with a shared body origin, in the order
  * idle, run, air, dash, melee, tumble (mirrors design/sheet pose taxonomy).
  * Until the data-URL image finishes loading — or for characters with no
  * sheet at all — drawCharacterArt falls back to the procedural painter,
@@ -24,15 +24,31 @@ export function sheetFrameForPose(pose: CharacterArtPose): number {
 
 const images = new Map<string, HTMLImageElement>();
 let loadStarted = false;
+const listeners = new Map<string, Set<() => void>>();
+
+function notifyCharacterArtChanged(id: string): void {
+  listeners.get(id)?.forEach(listener => listener());
+}
+
+/** Menu canvases redraw when their image loads or their equipped style changes. */
+export function subscribeCharacterArt(id: string, listener: () => void): () => void {
+  const subscribers = listeners.get(id) ?? new Set<() => void>();
+  subscribers.add(listener);
+  listeners.set(id, subscribers);
+  return () => {
+    subscribers.delete(listener);
+    if (subscribers.size === 0) listeners.delete(id);
+  };
+}
 
 /** Kick one-shot async loads for every embedded sheet. Idempotent, never throws. */
 export function ensureCharacterSheetsLoading(): void {
   if (loadStarted) return;
-  loadStarted = true;
   if (typeof Image === 'undefined') return; // node/test or SSR context
+  loadStarted = true;
   for (const [id, src] of Object.entries(CHARACTER_SHEETS)) {
     const img = new Image();
-    img.onload = () => { images.set(id, img); };
+    img.onload = () => { images.set(id, img); notifyCharacterArtChanged(id); };
     img.src = src;
   }
 }
@@ -53,8 +69,10 @@ export function characterHasSheet(id: string): boolean {
 const inkPreferred = new Set<string>();
 
 export function setPreferredArtStyle(characterId: string, style: 'pixel' | 'ink'): void {
+  const previous = preferredArtStyle(characterId);
   if (style === 'ink') inkPreferred.add(characterId);
   else inkPreferred.delete(characterId);
+  if (previous !== style) notifyCharacterArtChanged(characterId);
 }
 
 export function preferredArtStyle(characterId: string): 'pixel' | 'ink' {
@@ -65,9 +83,9 @@ export function preferredArtStyle(characterId: string): 'pixel' | 'ink' {
  * Draw the character's sheet frame into the local 0..width / 0..height box.
  * The renderer's transform (facing flip, screen placement, bob) already wraps
  * this call. Returns false (drawing nothing) when the sheet is absent or not
- * loaded yet, so the caller falls back to the procedural painter. The square
- * frame is drawn at height×height centered on the narrower hitbox: the
- * silhouette may overhang the collision box — pixels, never physics.
+ * loaded yet, so the caller falls back to the procedural painter. The sheet's
+ * authored body origin stays aligned with the collision box in every pose;
+ * capes, hair and weapons overhang it, just like the original ink masters.
  */
 export function drawCharacterSheet(
   ctx: CanvasRenderingContext2D,
@@ -80,7 +98,15 @@ export function drawCharacterSheet(
   if (!img) return false;
   if (inkPreferred.has(characterId)) return false; // ink alternative unlocked + chosen
   const frame = sheetFrameForPose(pose);
+  const layout = CHARACTER_SHEET_LAYOUTS[characterId];
+  if (!layout) return false;
+  const scaleX = width / layout.bodyWidth / layout.density;
+  const scaleY = height / layout.bodyHeight / layout.density;
+  ctx.save();
   ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(img, frame * 32, 0, 32, 32, -(height - width) / 2, 0, height, height);
+  ctx.drawImage(img, frame * layout.frameWidth, 0, layout.frameWidth, layout.frameHeight,
+    -layout.originX * scaleX, -layout.originY * scaleY,
+    layout.frameWidth * scaleX, layout.frameHeight * scaleY);
+  ctx.restore();
   return true;
 }

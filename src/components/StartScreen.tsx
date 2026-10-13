@@ -460,6 +460,12 @@ const StartScreen: FC<Props> = ({
   const runSummary = useMemo(() => summarizeRunHistory(runHistory), [runHistory]);
 
   useEffect(() => {
+    for (const character of CHARACTERS) {
+      setPreferredArtStyle(character.id, activeSlot ? characterArtStyle(activeSlot, character.id) : "pixel");
+    }
+  }, [activeSlot]);
+
+  useEffect(() => {
     if (!activeSlot) return;
     const selected = CHARACTERS.find((c) => c.id === selectedChar);
     if (!selected) return;
