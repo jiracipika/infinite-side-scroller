@@ -34,7 +34,6 @@ import {
   clearSlotCheckpoint,
   getTodayIsoDay,
   hasPlayedDailyChallenge,
-  inkStyleUnlocked,
   loadActiveSaveSlotId,
   loadSaveSlots,
   markDailyChallengePlayed,
@@ -1673,8 +1672,6 @@ export default function Home() {
     ) {
       const slotId = activeSaveSlotRef.current || loadActiveSaveSlotId();
       const runCharacterId = loadSelectedCharacter();
-      const slotBeforeRun = loadSaveSlots().find((s) => s.id === slotId);
-      const inkWasUnlocked = slotBeforeRun ? inkStyleUnlocked(slotBeforeRun, runCharacterId) : false;
       addRunRewards(slotId, {
         coins: stats.coins,
         score: stats.score,
@@ -1682,11 +1679,6 @@ export default function Home() {
         maxCombo: stats.maxCombo ?? 0,
         enemiesDefeated: stats.enemiesDefeated ?? 0,
       }, runCharacterId);
-      // Ink-style unlock moment: same milestone buzz as an achievement.
-      const slotAfterRun = loadSaveSlots().find((s) => s.id === slotId);
-      if (!inkWasUnlocked && slotAfterRun && inkStyleUnlocked(slotAfterRun, runCharacterId)) {
-        fireHaptic('milestone', hapticsEnabledRef.current);
-      }
       if (runModeRef.current === "daily") {
         markDailyChallengePlayed(slotId, getTodayIsoDay());
       }

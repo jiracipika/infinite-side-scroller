@@ -49,22 +49,20 @@ export interface SaveSlot {
   totalRuns: number;
   unlockedUpgradeIds: string[];
   unlockedCharacterIds: string[];
-  /** Completed runs per character id — drives the ink-style unlock. */
+  /** Completed runs per character id — per-character run history. */
   roundsByCharacter: Record<string, number>;
-  /** Chosen art style per character id; absent = the default pixel sheets. */
+  /** Chosen art style per character id; absent = the original ink painters. */
   artStyleByCharacter: Record<string, CharacterArtStyle>;
   checkpoint: RunCheckpoint | null;
 }
 
 /**
- * Art-style alternatives: every character renders from the hand-painted pixel
- * sheets by default; the original procedural ink painter becomes a per-
- * character alternative after ROUNDS_TO_UNLOCK_INK_STYLE completed runs with
- * that character.
+ * Art-style alternatives: the original procedural ink painters are every
+ * character's default identity; the hand-painted pixel sheets are a freely
+ * switchable alternative (characters that ship a sheet — see
+ * characterHasSheet).
  */
 export type CharacterArtStyle = 'pixel' | 'ink';
-
-export const ROUNDS_TO_UNLOCK_INK_STYLE = 2;
 
 export interface ShopUpgrade {
   id: string;
@@ -374,14 +372,9 @@ export function addRunRewards(
   }));
 }
 
-/** The ink (procedural) alternative unlocks after N completed runs with that character. */
-export function inkStyleUnlocked(slot: SaveSlot, characterId: string): boolean {
-  return (slot.roundsByCharacter[characterId] ?? 0) >= ROUNDS_TO_UNLOCK_INK_STYLE;
-}
-
-/** Chosen style for a character; defaults to the pixel sheets. */
+/** Chosen style for a character; defaults to the original ink painters. */
 export function characterArtStyle(slot: SaveSlot, characterId: string): CharacterArtStyle {
-  return slot.artStyleByCharacter[characterId] ?? 'pixel';
+  return slot.artStyleByCharacter[characterId] ?? 'ink';
 }
 
 export function setCharacterArtStyle(
@@ -395,9 +388,6 @@ export function setCharacterArtStyle(
   const slots = loadSaveSlots();
   const slot = slots.find((s) => s.id === slotId);
   if (!slot) return { ok: false, reason: 'Missing slot', slots };
-  if (style === 'ink' && !inkStyleUnlocked(slot, characterId)) {
-    return { ok: false, reason: 'Ink style not unlocked yet', slots };
-  }
   const updated = withUpdatedSlot(slotId, (s) => ({
     ...s,
     updatedAt: now(),

@@ -2,13 +2,14 @@ import { CHARACTER_SHEETS } from './character-sheets-data';
 import type { CharacterArtPose } from './character-art';
 
 /**
- * Sprite-sheet lane of the art overhaul: hand-painted Aseprite strips replace
- * the procedural ink painters per character, activated purely by asset
- * presence. A strip is 192x32 — six 32x32 frames in the fixed order
+ * Sprite-sheet lane of the art overhaul: hand-painted Aseprite strips are a
+ * per-character alternative to the original ink painters (which are the
+ * default identity), activated purely by asset presence plus the player's
+ * style choice. A strip is 192x32 — six 32x32 frames in the fixed order
  * idle, run, air, dash, melee, tumble (mirrors design/sheet pose taxonomy).
- * Until the data-URL image finishes loading — or for characters with no
- * sheet at all — drawCharacterArt falls back to the procedural painter,
- * which stays the test surface and the graceful-degradation path.
+ * Until the data-URL image finishes loading — or whenever ink is preferred —
+ * drawCharacterSheet declines and the procedural painter draws, which stays
+ * the test surface and the graceful-degradation path.
  */
 export const SHEET_FRAME = { idle: 0, run: 1, air: 2, dash: 3, melee: 4, tumble: 5 } as const;
 
@@ -46,19 +47,19 @@ export function characterHasSheet(id: string): boolean {
   return Object.prototype.hasOwnProperty.call(CHARACTER_SHEETS, id);
 }
 
-// Art-style preference: the ink (procedural) alternative unlocks per character
-// through progression; when preferred, drawCharacterSheet declines so the
-// procedural painter takes over. Module-level because the renderer path is
-// synchronous and both the game page and the menus share one document.
-const inkPreferred = new Set<string>();
+// Art-style preference: the original ink painters are the default identity;
+// characters that ship a painted sheet may opt into it per character. Module-
+// level because the renderer path is synchronous and both the game page and
+// the menus share one document.
+const pixelPreferred = new Set<string>();
 
 export function setPreferredArtStyle(characterId: string, style: 'pixel' | 'ink'): void {
-  if (style === 'ink') inkPreferred.add(characterId);
-  else inkPreferred.delete(characterId);
+  if (style === 'pixel') pixelPreferred.add(characterId);
+  else pixelPreferred.delete(characterId);
 }
 
 export function preferredArtStyle(characterId: string): 'pixel' | 'ink' {
-  return inkPreferred.has(characterId) ? 'ink' : 'pixel';
+  return pixelPreferred.has(characterId) ? 'pixel' : 'ink';
 }
 
 /**
@@ -78,7 +79,7 @@ export function drawCharacterSheet(
 ): boolean {
   const img = images.get(characterId);
   if (!img) return false;
-  if (inkPreferred.has(characterId)) return false; // ink alternative unlocked + chosen
+  if (pixelPreferred.has(characterId)) return false; // painted sheets opted out — ink painter draws
   const frame = sheetFrameForPose(pose);
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(img, frame * 32, 0, 32, 32, -(height - width) / 2, 0, height, height);

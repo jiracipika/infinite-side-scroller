@@ -4,13 +4,11 @@ import assert from 'node:assert/strict';
 import {
   addRunRewards,
   characterArtStyle,
-  inkStyleUnlocked,
   loadActiveSaveSlotId,
   loadSaveSlots,
   resetSaveSlot,
   setActiveSaveSlotId,
   setCharacterArtStyle,
-  ROUNDS_TO_UNLOCK_INK_STYLE,
   type SaveSlotId,
 } from '@/lib/progression';
 import {
@@ -27,7 +25,7 @@ const MEMORY: Record<string, string> = {};
 const localStorageStub = {
   getItem: (key: string): string | null => MEMORY[key] ?? null,
   setItem: (key: string, value: string): void => { MEMORY[key] = value; },
-  removeItem: (key: string): void => { delete MEMORY[key]; },
+  removeItem: (key: string, ): void => { delete MEMORY[key]; },
   clear: (): void => { for (const k of Object.keys(MEMORY)) delete MEMORY[k]; },
 };
 
@@ -48,19 +46,10 @@ const slot = (id: SaveSlotId = 'slot1') => {
   return found;
 };
 
-// ── Ink-style unlock progression ─────────────────────────────────────
+// ── Per-character run history ─────────────────────────────────────────
 
-describe('ink-style unlock', () => {
+describe('per-character run history', () => {
   beforeEach(freshStorage);
-
-  it('starts locked and unlocks at the round threshold', () => {
-    const s = slot();
-    assert.equal(inkStyleUnlocked(s, 'ninja'), false);
-    addRunRewards('slot1', { coins: 0, score: 0, distance: 0 }, 'ninja');
-    assert.equal(inkStyleUnlocked(slot(), 'ninja'), ROUNDS_TO_UNLOCK_INK_STYLE <= 1);
-    addRunRewards('slot1', { coins: 0, score: 0, distance: 0 }, 'ninja');
-    assert.equal(inkStyleUnlocked(slot(), 'ninja'), true);
-  });
 
   it('counts rounds per character, not globally', () => {
     addRunRewards('slot1', { coins: 0, score: 0, distance: 0 }, 'ninja');
@@ -68,7 +57,6 @@ describe('ink-style unlock', () => {
     const s = slot();
     assert.equal(s.roundsByCharacter['ninja'], 1);
     assert.equal(s.roundsByCharacter['knight'], 1);
-    assert.equal(inkStyleUnlocked(s, 'knight'), ROUNDS_TO_UNLOCK_INK_STYLE <= 1);
   });
 
   it('stays backward compatible when a run ships no character id', () => {
@@ -89,7 +77,8 @@ describe('ink-style unlock', () => {
     const s = slot();
     assert.deepEqual(s.roundsByCharacter, {});
     assert.deepEqual(s.artStyleByCharacter, {});
-    assert.equal(characterArtStyle(s, 'knight'), 'pixel');
+    // Original identity: absent preference means the ink painters.
+    assert.equal(characterArtStyle(s, 'knight'), 'ink');
   });
 });
 
@@ -98,21 +87,20 @@ describe('ink-style unlock', () => {
 describe('character art style choice', () => {
   beforeEach(freshStorage);
 
-  it('rejects ink before the unlock and accepts it after', () => {
-    assert.equal(setCharacterArtStyle('slot1', 'ninja', 'ink').ok, false);
-    assert.equal(characterArtStyle(slot(), 'ninja'), 'pixel');
-    addRunRewards('slot1', { coins: 0, score: 0, distance: 0 }, 'ninja');
-    addRunRewards('slot1', { coins: 0, score: 0, distance: 0 }, 'ninja');
+  it('defaults to the original ink painters', () => {
+    assert.equal(characterArtStyle(slot(), 'ninja'), 'ink');
+  });
+
+  it('accepts ink immediately and remembers the choice', () => {
     assert.equal(setCharacterArtStyle('slot1', 'ninja', 'ink').ok, true);
     assert.equal(characterArtStyle(slot(), 'ninja'), 'ink');
   });
 
-  it('always allows switching back to pixel', () => {
-    addRunRewards('slot1', { coins: 0, score: 0, distance: 0 }, 'knight');
-    addRunRewards('slot1', { coins: 0, score: 0, distance: 0 }, 'knight');
-    assert.equal(setCharacterArtStyle('slot1', 'knight', 'ink').ok, true);
+  it('always allows switching to pixel and back', () => {
     assert.equal(setCharacterArtStyle('slot1', 'knight', 'pixel').ok, true);
     assert.equal(characterArtStyle(slot(), 'knight'), 'pixel');
+    assert.equal(setCharacterArtStyle('slot1', 'knight', 'ink').ok, true);
+    assert.equal(characterArtStyle(slot(), 'knight'), 'ink');
   });
 
   it('rejects unknown styles and missing slots', () => {
@@ -125,12 +113,12 @@ describe('character art style choice', () => {
 // ── Renderer preference plumbing ─────────────────────────────────────
 
 describe('sprite-sheet art-style preference', () => {
-  it('defaults to pixel and honors the ink switch', () => {
-    assert.equal(preferredArtStyle('ninja'), 'pixel');
-    setPreferredArtStyle('ninja', 'ink');
+  it('defaults to ink and honors the pixel switch', () => {
     assert.equal(preferredArtStyle('ninja'), 'ink');
     setPreferredArtStyle('ninja', 'pixel');
     assert.equal(preferredArtStyle('ninja'), 'pixel');
+    setPreferredArtStyle('ninja', 'ink');
+    assert.equal(preferredArtStyle('ninja'), 'ink');
   });
 
   it('keeps the pose→frame mapping stable', () => {

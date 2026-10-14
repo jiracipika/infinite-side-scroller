@@ -3,7 +3,9 @@ import {createRequire} from 'node:module';
 import {mkdirSync,writeFileSync} from 'node:fs';
 const {chromium}=createRequire(process.env.PLAYWRIGHT_PACKAGE||import.meta.url)('playwright');
 const out=process.env.ART_SCREENSHOTS||'/tmp/dashverse-art';mkdirSync(out,{recursive:true});
-const browser=await chromium.launch({channel:'chrome',headless:true});
+// Bundled chromium by default; set PLAYWRIGHT_CHANNEL=chrome for the Chrome channel.
+const channel=process.env.PLAYWRIGHT_CHANNEL||undefined;
+const browser=await chromium.launch(channel?{channel,headless:true}:{headless:true});
 try {
  const page=await browser.newPage({viewport:{width:1280,height:720}});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));

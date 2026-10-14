@@ -45,7 +45,6 @@ import {
   getDailyStreak,
   getTodayIsoDay,
   hasPlayedDailyChallenge,
-  inkStyleUnlocked,
   loadActiveSaveSlotId,
   loadSaveSlots,
   purchaseCharacter,
@@ -56,7 +55,6 @@ import {
   setActiveSaveSlotId,
   setCharacterArtStyle,
   setPendingContinueSlot,
-  ROUNDS_TO_UNLOCK_INK_STYLE,
   type SaveSlot,
   type SaveSlotId,
 } from "@/lib/progression";
@@ -794,38 +792,25 @@ const StartScreen: FC<Props> = ({
             <div className="dash-panel-heading-row with-margin" style={{ alignItems: "center", gap: 8 }}>
               <span>Art style</span>
               {(() => {
-                const inkUnlocked = activeSlot ? inkStyleUnlocked(activeSlot, selectedChar) : false;
-                const current = activeSlot ? characterArtStyle(activeSlot, selectedChar) : "pixel";
+                const current = activeSlot ? characterArtStyle(activeSlot, selectedChar) : "ink";
                 if (!characterHasSheet(selectedChar)) {
                   return <small className="dash-subtle-pill-v2">Pixel sheets incoming</small>;
                 }
-                if (!inkUnlocked) {
-                  const done = activeSlot?.roundsByCharacter[selectedChar] ?? 0;
-                  const remaining = Math.max(0, ROUNDS_TO_UNLOCK_INK_STYLE - done);
-                  return (
-                    <small
-                      className="dash-subtle-pill-v2"
-                      title={`Finish ${ROUNDS_TO_UNLOCK_INK_STYLE} runs with ${selectedCharacter.name} to unlock the original ink style`}
-                    >
-                      🔒 Ink style — {remaining} more run{remaining === 1 ? "" : "s"}
-                    </small>
-                  );
-                }
                 return (
                   <span style={{ display: "inline-flex", gap: 6 }}>
-                    <button
-                      type="button"
-                      className={`dash-subtle-pill-v2 ${current === "pixel" ? "is-active" : ""}`}
-                      onClick={() => handleSetArtStyle(selectedChar, "pixel")}
-                    >
-                      Pixel
-                    </button>
                     <button
                       type="button"
                       className={`dash-subtle-pill-v2 ${current === "ink" ? "is-active" : ""}`}
                       onClick={() => handleSetArtStyle(selectedChar, "ink")}
                     >
                       Ink
+                    </button>
+                    <button
+                      type="button"
+                      className={`dash-subtle-pill-v2 ${current === "pixel" ? "is-active" : ""}`}
+                      onClick={() => handleSetArtStyle(selectedChar, "pixel")}
+                    >
+                      Pixel
                     </button>
                   </span>
                 );
