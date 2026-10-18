@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, type FC } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import { ADVENTURE_LEVELS, TIME_ATTACK_LEVELS, COIN_RUSH_LEVELS, GAUNTLET_LEVELS, type LevelConfig } from '@/game/data/levels';
 import { rateLevelDifficulty } from '@/game/level-difficulty';
 import { getLevelBiomeIdentity } from '@/game/world/biomes';

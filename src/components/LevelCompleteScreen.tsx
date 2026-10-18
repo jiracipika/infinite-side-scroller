@@ -1,7 +1,7 @@
 'use client';
 
 import { type FC, useEffect, useRef, useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import type { LevelConfig } from '@/game/data/levels';
 import { BIOME_COLORS } from './LevelSelectScreen';
 import { calcStars } from '@/lib/level-progress';

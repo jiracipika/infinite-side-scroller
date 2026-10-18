@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useCallback, useRef, useState } from 'react';
-import { AnimatePresence } from 'framer-motion';
+import { AnimatePresence } from 'motion/react';
 import { GameEngine, type CameraMode } from '@/game';
 import { getMusicEngine } from '@/game/audio';
 import { resolveReducedMotion } from '@/game/state/game-state';
