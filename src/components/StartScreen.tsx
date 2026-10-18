@@ -24,6 +24,7 @@ import {
   loadSelectedCharacter,
 } from "@/game/data/characters";
 import CharacterSprite from "./CharacterSprite";
+import MotionStagger from "./MotionStagger";
 import AchievementsModal from "./AchievementsModal";
 import ACHIEVEMENTS, { loadUnlockedAchievements } from "@/lib/achievements";
 import {
@@ -493,6 +494,7 @@ const StartScreen: FC<Props> = ({
 
       <main className="dash-menu-stage dash-menu-stage-v2">
         <section className={`dash-command-panel dash-hero-v2 ${styles.heroPanel}`}>
+          <MotionStagger delay={0}>
           <div className="dash-topbar-v2">
             <div className="dash-brand-v2">
               <div>
@@ -506,17 +508,21 @@ const StartScreen: FC<Props> = ({
               <span /> Ready
             </div>
           </div>
+          </MotionStagger>
 
           <InkCover />
+          <MotionStagger delay={0.08}>
           <p className="dash-hero-lede">
             One more jump. One more world. Make this run count.
           </p>
+          </MotionStagger>
 
           <details className={styles.controlsDisclosure}>
             <summary>How to play</summary>
             <ControlsHint dismissible={false} />
           </details>
 
+          <MotionStagger delay={0.16}>
           <div className="dash-quick-stats-v2">
             <span>
               <small>Best</small>
@@ -535,7 +541,9 @@ const StartScreen: FC<Props> = ({
               <b>{selectedCharacter.name}</b>
             </span>
           </div>
+          </MotionStagger>
 
+          <MotionStagger delay={0.24}>
           <div className={`dash-primary-row-v2 ${styles.primaryRow}`}>
             <button
               className={`dash-play-button-v2 ${styles.playCta}`}
@@ -572,6 +580,7 @@ const StartScreen: FC<Props> = ({
               </span>
             </button>
           </div>
+          </MotionStagger>
         </section>
 
         <section
