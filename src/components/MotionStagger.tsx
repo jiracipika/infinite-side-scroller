@@ -18,14 +18,14 @@ export default function MotionStagger({
   delay?: number;
 }) {
   const reduced = useReducedMotion();
-  if (reduced) {
-    return <div>{children}</div>;
-  }
+  // Keep the same Motion node through hydration. Swapping an initially-hidden
+  // motion.div for a plain div left its server-rendered opacity:0 inline style
+  // on reduced-motion clients (the Play button and title stayed invisible).
   return (
     <motion.div
-      initial={{ opacity: 0, y: 14 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ type: "spring", bounce: 0.25, duration: 0.6, delay }}
+      initial={reduced ? false : { opacity: 0, transform: "translateY(14px)" }}
+      animate={{ opacity: 1, transform: "translateY(0px)" }}
+      transition={reduced ? { duration: 0 } : { type: "spring", bounce: 0.25, duration: 0.6, delay }}
     >
       {children}
     </motion.div>

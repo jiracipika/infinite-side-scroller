@@ -29,11 +29,14 @@ let loadStarted = false;
 /** Kick one-shot async loads for every embedded sheet. Idempotent, never throws. */
 export function ensureCharacterSheetsLoading(): void {
   if (loadStarted) return;
-  loadStarted = true;
   if (typeof Image === 'undefined') return; // node/test or SSR context
+  loadStarted = true;
   for (const [id, src] of Object.entries(CHARACTER_SHEETS)) {
     const img = new Image();
-    img.onload = () => { images.set(id, img); };
+    img.onload = () => {
+      images.set(id, img);
+      if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') window.dispatchEvent(new Event('dashverse-art-change'));
+    };
     img.src = src;
   }
 }
@@ -56,6 +59,7 @@ const pixelPreferred = new Set<string>();
 export function setPreferredArtStyle(characterId: string, style: 'pixel' | 'ink'): void {
   if (style === 'pixel') pixelPreferred.add(characterId);
   else pixelPreferred.delete(characterId);
+  if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') window.dispatchEvent(new Event('dashverse-art-change'));
 }
 
 export function preferredArtStyle(characterId: string): 'pixel' | 'ink' {
@@ -79,7 +83,7 @@ export function drawCharacterSheet(
 ): boolean {
   const img = images.get(characterId);
   if (!img) return false;
-  if (pixelPreferred.has(characterId)) return false; // painted sheets opted out — ink painter draws
+  if (!pixelPreferred.has(characterId)) return false; // Ink is the default; sheets are explicitly opt-in.
   const frame = sheetFrameForPose(pose);
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(img, frame * 32, 0, 32, 32, -(height - width) / 2, 0, height, height);

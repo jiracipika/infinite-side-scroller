@@ -1,13 +1,11 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 
 import { CHARACTERS, getCharacterById } from '@/game/data/characters';
 import { drawCharacterArt, type CharacterArtPose } from '@/game/rendering/character-art';
 
 const UPLIFTED = ['tank', 'mage', 'ranger', 'cyborg', 'spirit', 'healer'] as const;
 
-const ROSTER_SRC = readFileSync(new URL('../src/game/rendering/ink-roster.ts', import.meta.url), 'utf8');
 
 interface PaintResult {
   polygons: Array<{ color: string; points: number[][] }>;
@@ -118,12 +116,13 @@ describe('roster uplift — bespoke ink anatomy for the shared-body six', () => 
     }
   });
 
-  it('identity anchors stay pinned in the roster art source', () => {
-    assert.match(ROSTER_SRC, /ember = '#f97316'/, 'tank visor ember');
-    assert.match(ROSTER_SRC, /rune = '#fde68a'/, 'mage star rune');
-    assert.match(ROSTER_SRC, /leaf = '#4ade80'/, 'ranger eye leaf');
-    assert.match(ROSTER_SRC, /cyan = '#22d3ee'/, 'cyborg visor cyan');
-    assert.match(ROSTER_SRC, /ctx\.globalAlpha = 0\.62/, 'spirit spectral tail translucency');
-    assert.match(ROSTER_SRC, /mint = '#5eead4'/, 'healer lantern mint');
+  it('identity colors belong to the live painter, with an opaque spectral body', () => {
+    // Assert actual draw output, not the now-historical source file.
+    for (const [id, color] of [['tank','#f97316'],['mage','#fde68a'],['ranger','#4ade80'],
+      ['cyborg','#22d3ee'],['spirit','#ede9fe'],['healer','#5eead4']]) {
+      const frame = paint(id);
+      assert.ok(frame.polygons.some(p => p.color === color) || frame.strokes.includes(color), `${id}: ${color}`);
+      assert.equal(frame.alpha, 1);
+    }
   });
 });

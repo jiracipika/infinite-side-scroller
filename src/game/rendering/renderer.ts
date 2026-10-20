@@ -8,6 +8,7 @@ import { Chunk, CHUNK_WIDTH } from "../world/chunk";
 import { Player } from "../entities/player";
 import { getCharacterById } from "../data/characters";
 import { drawCharacterArt } from "./character-art";
+import { advanceCharacterMotion, createCharacterMotion, type CharacterMotionState } from "./character-motion";
 import { Particle } from "../entities/particles";
 import {
   getBlendedBiomeColors,
@@ -40,6 +41,7 @@ export class GameRenderer {
   private backgroundDetail: BackgroundDetail = "high";
   /** Static world override for finite levels; null = shifting endless biomes. */
   private worldBiomeOverride: BiomeConfig | null = null;
+  private characterMotion = new WeakMap<Player, CharacterMotionState>();
 
   constructor(ctx: CanvasRenderingContext2D) {
     this.ctx = ctx;
@@ -384,10 +386,14 @@ export class GameRenderer {
     const char = getCharacterById(player.characterId);
     const w = player.width;
     const h = player.height;
-    const moving = Math.abs(player.vx) > 30;
-    const stride = Math.sin(player.distanceTraveled * 0.22) * (moving ? 2.4 : 0.35);
-    const bob = player.onGround ? Math.abs(stride) * 0.18 : -1.5;
-    const sy = screen.y + bob;
+    const previous = this.characterMotion.get(player) ?? createCharacterMotion(player.x, this.liveGameTime);
+    const motion = advanceCharacterMotion(previous, {
+      x: player.x, width: w, onGround: player.onGround, dashing: player.dashing, vy: player.vy,
+      melee: player.meleeActive ? player.meleeProgress : 0, ranged: player.rangedProgress,
+      tumble: camera.isReducedMotion() ? 0 : player.airbornePose,
+    }, this.liveGameTime, camera.isReducedMotion());
+    this.characterMotion.set(player, motion.state);
+    const sy = screen.y + motion.bob;
     if (player.dashing && !camera.isReducedMotion()) {
       paintDashBrush(ctx, screen.x + w / 2, sy, h, player.facingRight, Math.floor(player.distanceTraveled / 64));
     }
@@ -406,42 +412,9 @@ export class GameRenderer {
     ctx.translate(screen.x + w / 2, sy);
     ctx.scale(player.facingRight ? 1 : -1, 1);
     ctx.translate(-w / 2, 0);
-    drawCharacterArt(ctx, char, w, h, {
-      stride,
-      airborne: !player.onGround,
-      dashing: player.dashing,
-      melee: player.meleeActive ? player.meleeProgress : 0,
-      // Double-jump tumble FX: fully suppressed under reduced motion, same
-      // gate as the magnet/speed FX. Local-player flourish only — the wire
-      // snapshot (NetPlayerSnapshot) carries no pose field, so the remote
-      // sprite stays neutral rather than guessing a tumble it can't sync.
-      tumble: camera.isReducedMotion() ? 0 : player.airbornePose,
-    });
-
-    // Katana slash accent: ninja-only, drawn in the same local transform as
-    // the sprite so it stays glued to the arm. The weapon strike is the one
-    // moment lime is the correct accent — the eye must find the hit zone.
-    // Paper blade + thin lime edge, zero additive glow; gone when idle.
-    if (char.id === "ninja" && player.meleeActive) {
-      const m = Math.max(0, Math.min(1, player.meleeProgress));
-      const swing = Math.sin(m * Math.PI);
-      const len = (14 + 8 * swing) * (w / 20);
-      const ang = -0.45 - swing * 0.85;
-      const hx = w * 0.85, hy = h * 0.38 - 4 * swing;
-      ctx.strokeStyle = "#f4f2ed";
-      ctx.lineWidth = 2.2 * (w / 20);
-      ctx.lineCap = "round";
-      ctx.beginPath();
-      ctx.moveTo(hx, hy);
-      ctx.lineTo(hx + Math.cos(ang) * len, hy + Math.sin(ang) * len);
-      ctx.stroke();
-      ctx.strokeStyle = "#c7ff4d";
-      ctx.lineWidth = 0.9 * (w / 20);
-      ctx.beginPath();
-      ctx.moveTo(hx - Math.cos(ang) * 2, hy - Math.sin(ang) * 2);
-      ctx.lineTo(hx + Math.cos(ang) * len, hy + Math.sin(ang) * len);
-      ctx.stroke();
-    }
+    drawCharacterArt(ctx, char, w, h, motion.pose);
+    // The ninja's blade now belongs to the same articulated hand as every
+    // other prop. A second renderer-only sword used to float above that hand.
 
     if (player.wallSliding) {
       // Contact sparkle: a shimmer of chips at the wall-side edge while the

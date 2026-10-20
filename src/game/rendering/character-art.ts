@@ -8,8 +8,17 @@ import {
 } from "./ink-crimson";
 import { inkMaterials } from "./ink-kit";
 import { drawCharacterSheet, ensureCharacterSheetsLoading } from "./sprite-sheet";
+import { drawRedesignedCharacter } from "./ink-redesign";
 
 export interface CharacterArtPose {
+  /** Normalized locomotion cycle; advances with ground travel, never render FPS. */
+  phase?: number;
+  /** Simulation seconds for idle breathing / cloth follow-through. */
+  time?: number;
+  moving?: boolean;
+  verticalVelocity?: number;
+  /** Ranged attack progress, separate from melee and layered over locomotion. */
+  ranged?: number;
   stride?: number;
   airborne?: boolean;
   dashing?: boolean;
@@ -338,6 +347,36 @@ function drawInkKnight(ctx: CanvasRenderingContext2D, w: number, h: number, pose
  * visual silhouette remains aligned with physics while still reading clearly.
  */
 export function drawCharacterArt(
+  ctx: CanvasRenderingContext2D,
+  char: CharacterDef,
+  width: number,
+  height: number,
+  pose: CharacterArtPose = {},
+): void {
+  ensureCharacterSheetsLoading();
+  ctx.save();
+  ctx.imageSmoothingEnabled = false;
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+  // Tumble is a visual transform shared by both art styles. It never rotates
+  // the physics box and the caller suppresses it for reduced motion.
+  const tumble = Math.max(0, Math.min(1, pose.tumble ?? 0));
+  if (tumble > 0) {
+    ctx.translate(width / 2, height / 2);
+    ctx.rotate(resolveTumbleRotation(1, tumble));
+    ctx.translate(-width / 2, -height / 2);
+  }
+  if (!drawCharacterSheet(ctx, char.id, width, height, pose) &&
+      !drawRedesignedCharacter(ctx, char, width, height, pose)) {
+    // Unknown future IDs retain the legacy fallback without doubling tumble.
+    drawOriginalCharacterArt(ctx, char, width, height, { ...pose, tumble: 0 });
+  }
+  ctx.restore();
+}
+
+/** Historical pre-sheet-overhaul art. Used by the reproducible old/new board;
+ * not the game's default painter. Keep the reference unchanged. */
+export function drawOriginalCharacterArt(
   ctx: CanvasRenderingContext2D,
   char: CharacterDef,
   width: number,

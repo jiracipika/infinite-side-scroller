@@ -24,7 +24,11 @@ interface CourtPoseOpts {
 /** Map enemy locomotion state onto the character-art pose vocabulary. */
 export function courtPose(e: Enemy, opts: CourtPoseOpts): CharacterArtPose {
   return {
-    stride: opts.moving ? Math.sin(e.animTimer * 10) * 2 : 0,
+    phase: (e.animTimer * 10 / (Math.PI * 2)) % 1,
+    time: e.animTimer,
+    moving: opts.moving,
+    verticalVelocity: e.vy,
+    stride: opts.moving && e.onGround ? Math.sin(e.animTimer * 10) * 2 : 0,
     airborne: !e.onGround,
     dashing: Boolean(opts.lunge),
     melee: opts.swing && opts.swing > 0 ? opts.swing : undefined,

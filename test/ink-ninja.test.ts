@@ -67,7 +67,9 @@ describe('graphic-novel ninja shared art', () => {
         assert.match(p.color, /^#[0-9a-f]{6}$/i);
         for (const [x, y] of p.points) {
           assert.ok(Number.isFinite(x) && Number.isFinite(y));
-          assert.ok(x >= -width * 1.5 && x <= width * 1.5, `x=${x}`);
+          // The new hand-attached katana intentionally reaches beyond the
+          // former unarmed 1.5× silhouette; keep a bounded blade allowance.
+          assert.ok(x >= -width * 1.5 && x <= width * 1.65, `x=${x}`);
           assert.ok(y >= -height * .2 && y <= height * 1.1, `y=${y}`);
         }
       }

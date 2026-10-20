@@ -777,6 +777,7 @@ const StartScreen: FC<Props> = ({
                 <CharacterSprite
                   characterId={selectedChar}
                   size={124}
+                  animated
                   decorative
                 />
               </div>
@@ -849,7 +850,7 @@ const StartScreen: FC<Props> = ({
                     title={unlocked ? c.ability : `Unlock for ${c.unlockCost} coins`}
                   >
                     <span className="dash-chip-sprite-v2">
-                      <CharacterSprite characterId={c.id} size={28} decorative />
+                      <CharacterSprite characterId={c.id} size={38} decorative />
                     </span>
                     <span>{c.name}</span>
                     {!unlocked && <small>{canAfford ? `${c.unlockCost}c` : `🔒 ${c.unlockCost}c`}</small>}

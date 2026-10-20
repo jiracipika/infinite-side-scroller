@@ -1,13 +1,11 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 
 import { CHARACTERS, getCharacterById } from '@/game/data/characters';
 import { drawCharacterArt, type CharacterArtPose } from '@/game/rendering/character-art';
 
 const CRIMSON = ['velvet', 'ember', 'rosalia', 'marionette', 'dorian', 'onyx', 'mortimer', 'grimshaw'] as const;
 
-const CRIMSON_SRC = readFileSync(new URL('../src/game/rendering/ink-crimson.ts', import.meta.url), 'utf8');
 
 interface PaintResult {
   polygons: Array<{ color: string; points: number[][] }>;
@@ -113,15 +111,12 @@ describe('crimson court — bespoke ink art for the red-and-black eight', () => 
     }
   });
 
-  it('identity anchors stay pinned in the crimson art source', () => {
-    assert.match(CRIMSON_SRC, /const lace = '#e8d5dc'/, 'velvet lace fan');
-    assert.match(CRIMSON_SRC, /const fire2 = '#ffb14a'/, 'ember flame core');
-    assert.match(CRIMSON_SRC, /const stem = '#4a7a4e'/, 'rosalia thorn stem');
-    assert.match(CRIMSON_SRC, /const ribbonC = '#ff3d6e'/, 'marionette ribbon');
-    assert.match(CRIMSON_SRC, /const steel = '#e6e8ef'/, 'dorian rapier blade');
-    assert.match(CRIMSON_SRC, /const iron = '#5a5f6e'/, 'onyx kanabo iron');
-    assert.match(CRIMSON_SRC, /const flameC = '#ff6b4a'/, 'mortimer candle flame');
-    assert.match(CRIMSON_SRC, /const bone = '#d8d2c4'/, 'grimshaw crescent bone');
+  it('signature prop materials survive in the actual redesigned draw output', () => {
+    for (const [id, color] of [['velvet','#e8d5dc'],['ember','#ffb14a'],['rosalia','#4a7a4e'],
+      ['marionette','#ff3d6e'],['dorian','#e6e8ef'],['onyx','#5a5f6e'],['mortimer','#ff6b4a'],['grimshaw','#d8d2c4']]) {
+      const frame = paint(id);
+      assert.ok(frame.polygons.some(p => p.color === color) || frame.strokes.includes(color), `${id}: ${color}`);
+    }
   });
 
   it('every crimson id renders through bespoke art in the real dispatch', () => {

@@ -20,6 +20,8 @@ export async function captureRenderedFrame({ action, timeoutMs = 4000 }) {
       case 'run': return Math.abs(p.vx) > 10;
       case 'jump': return p.vy < 0;
       case 'combat': return !!p.meleeActive;
+      case 'air-combat': return !!p.meleeActive && !p.onGround;
+      case 'ranged': return p.rangedProgress > 0;
       case 'dash': return !!p.dashing;
       default: return false;
     }

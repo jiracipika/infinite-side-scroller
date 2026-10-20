@@ -158,6 +158,8 @@ export class Player {
   // Projectiles
   projectiles: PlayerProjectile[] = [];
   private shootCooldown = 0;
+  /** Drawing-only recoil/casting timer; does not gate projectile gameplay. */
+  private rangedPoseTimer = 0;
   private weaponType: WeaponType = "orb";
   private weaponTimer = 0;
   private healerRegenTimer = 0;
@@ -305,6 +307,7 @@ export class Player {
     if (this.airbornePose > 0) {
       this.airbornePose = Math.max(0, this.airbornePose - dt * 2);
     }
+    this.rangedPoseTimer = Math.max(0, this.rangedPoseTimer - dt);
     if (this.shootCooldown > 0) this.shootCooldown -= dt;
     if (this.weaponTimer > 0) {
       this.weaponTimer -= dt;
@@ -447,6 +450,7 @@ export class Player {
         isMagicBolt: shot.isMagicBolt,
       });
       this.shootCooldown = shot.cooldown;
+      this.rangedPoseTimer = 0.24;
     }
 
     // Jump press is read at the top of update() (before the dash early-return)
@@ -781,6 +785,11 @@ export class Player {
 
   get hasMeleeWeapon(): boolean {
     return this.meleeEnabled;
+  }
+
+  /** Normalized 240ms visual casting/recoil progress (zero outside a shot). */
+  get rangedProgress(): number {
+    return this.rangedPoseTimer > 0 ? 1 - this.rangedPoseTimer / 0.24 : 0;
   }
 
   /** Normalized swing progress 0..1 for rendering the arc animation. */
