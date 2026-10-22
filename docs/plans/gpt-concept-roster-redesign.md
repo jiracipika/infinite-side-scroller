@@ -74,3 +74,23 @@ characters.ts, never from the sheets.
 3. Pixel-look rendering: stylized chunky-pixel PROCEDURAL drawing (crisp
    integer-stepped shapes, limited palette per character) — confirm that's the
    intent vs literally snapping the renderer to a pixel grid.
+
+## Progress 2026-10-22 (late)
+
+- User shared the "Design Cyborg Sheet" ChatGPT conversation
+  (chatgpt.com/share/6ad9a454-cacc-83ea-95ac-ede044f24e86). The images are
+  auth-gated for logged-out automation (401 from backend-anon even in-browser),
+  but the full prompt text was extracted from the page payload into
+  `/Volumes/ADATA/projects/dashverse-art/gpt-concepts/round1-cyborg-sheet/design-brief.txt`:
+  the exact round-1 style recipe (chibi, chunky pixels, dark outline, bg
+  #191725 family, violet rim #9570ff, lime accent #c7ff4d, front+side+back+3
+  expressions) plus per-character specs for 12 characters: ANSLEY, CYBORG,
+  DORIAN, EMBER, GRIMSHAW, HEALER, MARIONETTE, MORTIMER, ONYX, ROSALIA,
+  SPIRIT, VELVET (12 sediment image files exist in the chat, ~1448×1086 each).
+- To obtain the actual raster sheets, the user can open the share link in
+  their logged-in Safari and save the 12 images into
+  `gpt-concepts/round1-cyborg-sheet/` named by character. The other named chat
+  ("Knight concept sheet") presumably covers KNIGHT/NINJA/TANK/MAGE/RANGER.
+- Knight pilot launched as idle-time task `offpeak-960db51e` (background):
+  procedural chunky-pixel knight in a new module, opt-in wiring, all-pose
+  verification, no commit — pilot needs user sign-off before roster rollout.
