@@ -307,15 +307,15 @@ export default function GameScreen() {
     <ScreenShake shakeKey={shakeKey} intensity={6} duration={350}>
     <View style={styles.container}>
       <StatusBar style="light" hidden={gameState === 'playing'} />
-      {gameState !== 'menu' && (
-        <Tabs.Screen
-          options={{
-            // A side-scroller needs every available pixel during an active run
-            // and its pause/game-over overlays.
-            tabBarStyle: { display: 'none' },
-          }}
-        />
-      )}
+      <Tabs.Screen
+        options={{
+          // A side-scroller needs every available pixel during an active run
+          // and its pause/game-over overlays. The Screen must stay mounted:
+          // React Navigation keeps the last-registered options after an
+          // unmount, which stranded the hidden tab bar after Quit to Menu.
+          tabBarStyle: gameState === 'menu' ? undefined : { display: 'none' },
+        }}
+      />
       {/*
         Android WebView is a native surface and can be composited above sibling
         React Native views. Mount it only after Play is pressed so the native
