@@ -8,8 +8,13 @@ preferred round-1 character sheets. Implementation starts only after those land.
 
 Redraw all 17 playable Ink characters to match the ChatGPT **round-1** concept
 sheets — chunky chibi pixel-style game-sprite sheets (front/side/back + 3
-expressions), NOT the round-2 "cuter" ornate profile style. The user explicitly
-prefers round 1.
+expressions), NOT the round-2 "cuter" ornate profile style.
+
+**BINDING DECISION (user, 2026-10-22):** use the FIRST generated version of
+every character; round-2 iterations are never the visual target. Round-2 files
+may only inform per-character identity (palette/props/personality) when a
+character's round-1 sheet can't be recovered. After the sheets are collected,
+build the animations (all renderer poses) for those designs.
 
 **Hard constraints (same as the second edition, see docs/art/roster-redesign.md):**
 character IDs, abilities, unlock costs, health, collision dimensions, world art
