@@ -127,9 +127,22 @@ workflows:
           bash scripts/patch-android.sh
       - name: Build signed release AAB
         script: |
+          # Keystore sources, in order: the "dashverse" Code-signing entry
+          # (android_signing injects CM_KEYSTORE_PATH), or a base64 CM_KEYSTORE
+          # variable in the android_keystore_credentials group (API-creatable,
+          # no UI upload needed).
+          KS="$CM_KEYSTORE_PATH"
+          if [ -z "$KS" ] && [ -n "${CM_KEYSTORE:-}" ]; then
+            KS=/tmp/dashverse.keystore.jks
+            echo "$CM_KEYSTORE" | base64 --decode > "$KS"
+          fi
+          if [ -z "$KS" ]; then
+            echo "No keystore: attach the dashverse Code-signing entry or the android_keystore_credentials group" >&2
+            exit 1
+          fi
           cd apps/mobile/android
           ./gradlew bundleRelease \
-            -Pandroid.injected.signing.store.file="$CM_KEYSTORE_PATH" \
+            -Pandroid.injected.signing.store.file="$KS" \
             -Pandroid.injected.signing.store.password="$CM_KEYSTORE_PASSWORD" \
             -Pandroid.injected.signing.key.alias="$CM_KEY_ALIAS" \
             -Pandroid.injected.signing.key.password="$CM_KEY_PASSWORD"
