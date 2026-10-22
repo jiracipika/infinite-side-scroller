@@ -14,11 +14,14 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.dashverse.app",
-      "buildNumber": "2"
+      "buildNumber": "2",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.dashverse.app",
-      "versionCode": 2,
+      "versionCode": 3,
       "permissions": ["android.permission.INTERNET", "android.permission.VIBRATE"],
       "adaptiveIcon": {
         "backgroundColor": "#0b0813",

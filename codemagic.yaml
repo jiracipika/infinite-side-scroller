@@ -77,6 +77,86 @@ workflows:
       - apps/mobile/android/app/build/outputs/bundle/release/*.aab
       - apps/mobile/android/app/build/reports/**/*
 
+  android-testing:
+    name: Android → Play internal testing
+    # The push-to-testing lane: signed AAB, uploaded to the Play internal
+    # track with the account-wide google_play env group (the same
+    # GCLOUD_SERVICE_ACCOUNT_CREDENTIALS service account repfinder uses —
+    # env groups are account-level in Codemagic). Upload self-skips when
+    # the group is not attached, so the workflow doubles as a signed-AAB
+    # builder. Start it manually or via scripts/trigger-codemagic-release.sh.
+    max_build_duration: 60
+    environment:
+      node: 22
+      android_signing:
+        # Keystore uploaded in Codemagic UI → Code signing → Android, named
+        # "dashverse" (the farm's dashverse-release.jks — NOT repfinder's
+        # akey; the store identity is bound to the first uploaded signature).
+        # Injects CM_KEYSTORE_PATH/_PASSWORD, CM_KEY_ALIAS, CM_KEY_PASSWORD.
+        - dashverse
+      groups:
+        - google_play
+      vars:
+        EXPO_PUBLIC: "true"
+        PACKAGE_NAME: "com.dashverse.app"
+        PLAY_TRACK: "internal"
+    scripts:
+      - name: Install root dependencies
+        script: |
+          npm ci
+      - name: Install mobile dependencies
+        script: |
+          cd apps/mobile
+          npm ci
+      - name: Assign unique CI versionCode
+        script: |
+          # Play rejects reused versionCodes, and re-uploading the same one
+          # fails with "Version code N has already been used". Local farm
+          # builds use small manual numbers (1, 2, 3…); CI derives a
+          # monotonically growing code from Codemagic's per-app build
+          # counter so no CI build can ever collide with another.
+          cd apps/mobile
+          node -e "const fs=require('fs');const f='app.json';const j=JSON.parse(fs.readFileSync(f,'utf8'));j.expo.android.versionCode=100+$BUILD_NUMBER;fs.writeFileSync(f,JSON.stringify(j,null,2)+'\n');console.log('CI versionCode:',j.expo.android.versionCode)"
+      - name: Bundle game engine into mobile WebView asset
+        script: |
+          node apps/mobile/scripts/bundle-game-html.js
+      - name: Generate Android native project
+        script: |
+          cd apps/mobile
+          npx expo prebuild --platform android --clean --no-install
+          bash scripts/patch-android.sh
+      - name: Build signed release AAB
+        script: |
+          cd apps/mobile/android
+          ./gradlew bundleRelease \
+            -Pandroid.injected.signing.store.file="$CM_KEYSTORE_PATH" \
+            -Pandroid.injected.signing.store.password="$CM_KEYSTORE_PASSWORD" \
+            -Pandroid.injected.signing.key.alias="$CM_KEY_ALIAS" \
+            -Pandroid.injected.signing.key.password="$CM_KEY_PASSWORD"
+      - name: Upload AAB to Play internal testing
+        script: |
+          if [ -z "${GCLOUD_SERVICE_ACCOUNT_CREDENTIALS:-}" ]; then
+            echo "google_play env group not attached — skipping Play upload (signed AAB artifact only)."
+            exit 0
+          fi
+          set -e
+          AAB="apps/mobile/android/app/build/outputs/bundle/release/app-release.aab"
+          test -f "$AAB"
+          umask 077
+          echo "$GCLOUD_SERVICE_ACCOUNT_CREDENTIALS" > /tmp/play-sa.json
+          fastlane supply \
+            --package_name "$PACKAGE_NAME" \
+            --json_key /tmp/play-sa.json \
+            --track "$PLAY_TRACK" \
+            --skip_upload_metadata \
+            --skip_upload_images \
+            --skip_upload_screenshots \
+            --aab "$AAB"
+          rm -f /tmp/play-sa.json
+    artifacts:
+      - apps/mobile/android/app/build/outputs/bundle/release/*.aab
+      - apps/mobile/android/app/build/reports/**/*
+
   ios-release:
     name: iOS Release IPA
     max_build_duration: 60
