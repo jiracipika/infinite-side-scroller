@@ -3,6 +3,7 @@
 import { useEffect, useRef, type FC } from "react";
 import { getCharacterById } from "@/game/data/characters";
 import { drawCharacterArt } from "@/game/rendering/character-art";
+import { characterHasFullArt } from "@/game/rendering/character-fullart";
 
 interface CharacterSpriteProps {
   characterId: string;
@@ -30,7 +31,10 @@ const CharacterSprite: FC<CharacterSpriteProps> = ({
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     canvas.width = Math.round(size * dpr);
     canvas.height = Math.round(size * dpr);
-    const scale = Math.min((size - 6) / (character.width + 24), (size - 6) / (character.height + 12));
+    // Full-art figures draw at 1.3x box height (head/hat overhangs the
+    // collision box), so reserve extra room or they clip the frame.
+    const fullArt = characterHasFullArt(characterId);
+    const scale = Math.min((size - 6) / (character.width + 24), (size - 6) / (character.height + 12)) * (fullArt ? 0.75 : 1);
     const drawnWidth = character.width * scale;
     const drawnHeight = character.height * scale;
     const originY = (size - drawnHeight) / 2 + scale;

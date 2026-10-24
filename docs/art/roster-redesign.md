@@ -93,3 +93,23 @@ Set `ART_SCREENSHOTS` to choose an output directory.
 Browser commands accept `GAME_URL`, `ART_SCREENSHOTS` and `PLAYWRIGHT_PACKAGE`.
 Run a production server (`npm run start -- --port 3010`) after building. Never
 build into the same `.next` while a dev server is using it.
+
+
+## Full-art lane, third edition (2026-10-24)
+
+The redesign boards (front / side / back + expression sheets) arrive as single
+images per character in `design/full-art/src/` (artist drop, kept local — see
+`.gitignore`). `scripts/generate-full-art.mjs` segments the big FRONT figure
+off each decorated board (median-filtered region-growing flood fill, largest
+solid-tall component, split-part re-attachment, enclosed-hole fill) and emits
+`design/full-art/<id>.png` (committed regeneration source), a QA contact sheet
+and `src/game/rendering/character-fullart-data.ts` (WebP data URIs, longest
+edge 192px).
+
+`character-fullart.ts` draws the figure pose-transformed (gait lean, squash &
+stretch, dash posture, swing lunge, idle breathing) into the collision box,
+anchored bottom-center; the silhouette may overhang the box as with the sheet
+lane. It is the DEFAULT identity for every character that ships art — menus
+and gameplay — while the ink painters and pixel sheets remain explicit
+alternatives in the Art style toggle (Full art / Pixel / Ink). Ranger has no
+board yet and keeps the ink painters by default.

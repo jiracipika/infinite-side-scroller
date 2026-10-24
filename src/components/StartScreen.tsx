@@ -60,6 +60,7 @@ import {
   type SaveSlotId,
 } from "@/lib/progression";
 import { characterHasSheet, setPreferredArtStyle } from "@/game/rendering/sprite-sheet";
+import { characterHasFullArt } from "@/game/rendering/character-fullart";
 import {
   clearRunHistory,
   loadRunHistory,
@@ -427,7 +428,7 @@ const StartScreen: FC<Props> = ({
   // Art-style alternative: swap the selected character between the painted
   // pixel sheets and the original procedural ink painter. Applies instantly —
   // the renderer consults the shared preference module on its next draw.
-  const handleSetArtStyle = (characterId: string, style: "pixel" | "ink") => {
+  const handleSetArtStyle = (characterId: string, style: "fullart" | "pixel" | "ink") => {
     const result = setCharacterArtStyle(activeSlotId, characterId, style);
     setSaveSlots(result.slots);
     if (result.ok) {
@@ -802,25 +803,36 @@ const StartScreen: FC<Props> = ({
             <div className="dash-panel-heading-row with-margin" style={{ alignItems: "center", gap: 8 }}>
               <span>Art style</span>
               {(() => {
-                const current = activeSlot ? characterArtStyle(activeSlot, selectedChar) : "ink";
-                if (!characterHasSheet(selectedChar)) {
-                  return <small className="dash-subtle-pill-v2">Pixel sheets incoming</small>;
+                const current = activeSlot ? characterArtStyle(activeSlot, selectedChar) : "fullart";
+                if (!characterHasFullArt(selectedChar) && !characterHasSheet(selectedChar)) {
+                  return <small className="dash-subtle-pill-v2">New art incoming</small>;
                 }
                 return (
                   <span style={{ display: "inline-flex", gap: 6 }}>
+                    {characterHasFullArt(selectedChar) && (
+                      <button
+                        type="button"
+                        className={`dash-subtle-pill-v2 ${current === "fullart" ? "is-active" : ""}`}
+                        onClick={() => handleSetArtStyle(selectedChar, "fullart")}
+                      >
+                        Full art
+                      </button>
+                    )}
+                    {characterHasSheet(selectedChar) && (
+                      <button
+                        type="button"
+                        className={`dash-subtle-pill-v2 ${current === "pixel" ? "is-active" : ""}`}
+                        onClick={() => handleSetArtStyle(selectedChar, "pixel")}
+                      >
+                        Pixel
+                      </button>
+                    )}
                     <button
                       type="button"
                       className={`dash-subtle-pill-v2 ${current === "ink" ? "is-active" : ""}`}
                       onClick={() => handleSetArtStyle(selectedChar, "ink")}
                     >
                       Ink
-                    </button>
-                    <button
-                      type="button"
-                      className={`dash-subtle-pill-v2 ${current === "pixel" ? "is-active" : ""}`}
-                      onClick={() => handleSetArtStyle(selectedChar, "pixel")}
-                    >
-                      Pixel
                     </button>
                   </span>
                 );

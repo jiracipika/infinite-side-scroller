@@ -7,7 +7,8 @@ import {
   drawInkDorian, drawInkOnyx, drawInkMortimer, drawInkGrimshaw,
 } from "./ink-crimson";
 import { inkMaterials } from "./ink-kit";
-import { drawCharacterSheet, ensureCharacterSheetsLoading } from "./sprite-sheet";
+import { drawCharacterSheet, ensureCharacterSheetsLoading, preferredArtStyle } from "./sprite-sheet";
+import { drawCharacterFullArt, ensureCharacterFullArtLoading } from "./character-fullart";
 import { drawRedesignedCharacter } from "./ink-redesign";
 
 export interface CharacterArtPose {
@@ -354,11 +355,12 @@ export function drawCharacterArt(
   pose: CharacterArtPose = {},
 ): void {
   ensureCharacterSheetsLoading();
+  ensureCharacterFullArtLoading();
   ctx.save();
   ctx.imageSmoothingEnabled = false;
   ctx.lineJoin = 'round';
   ctx.lineCap = 'round';
-  // Tumble is a visual transform shared by both art styles. It never rotates
+  // Tumble is a visual transform shared by all art lanes. It never rotates
   // the physics box and the caller suppresses it for reduced motion.
   const tumble = Math.max(0, Math.min(1, pose.tumble ?? 0));
   if (tumble > 0) {
@@ -366,7 +368,16 @@ export function drawCharacterArt(
     ctx.rotate(resolveTumbleRotation(1, tumble));
     ctx.translate(-width / 2, -height / 2);
   }
-  if (!drawCharacterSheet(ctx, char.id, width, height, pose) &&
+  // Lane precedence: the user's explicit Pixel opt-in wins, then the
+  // full-art redesign (every character's default identity), then the
+  // procedural ink painters. An explicit Ink choice skips both bitmap lanes
+  // so the painter is always reachable; an unloaded bitmap falls through to
+  // ink rather than drawing nothing.
+  const style = preferredArtStyle(char.id);
+  const bitmapLane = style === 'pixel' ? drawCharacterSheet(ctx, char.id, width, height, pose)
+    : style === 'fullart' ? drawCharacterFullArt(ctx, char.id, width, height, pose)
+    : false;
+  if (!bitmapLane &&
       !drawRedesignedCharacter(ctx, char, width, height, pose)) {
     // Unknown future IDs retain the legacy fallback without doubling tumble.
     drawOriginalCharacterArt(ctx, char, width, height, { ...pose, tumble: 0 });

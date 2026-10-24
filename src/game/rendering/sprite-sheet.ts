@@ -50,20 +50,33 @@ export function characterHasSheet(id: string): boolean {
   return Object.prototype.hasOwnProperty.call(CHARACTER_SHEETS, id);
 }
 
-// Art-style preference: the original ink painters are the default identity;
-// characters that ship a painted sheet may opt into it per character. Module-
-// level because the renderer path is synchronous and both the game page and
-// the menus share one document.
-const pixelPreferred = new Set<string>();
+// Art-style preference. The full-art redesign is the default identity for
+// every character that ships it; the ink painters and the pixel sheets are
+// explicitly selectable alternatives. Only EXPLICIT choices are stored — an
+// absent entry means "the character's default", so new characters and new art
+// roll out without touching saved preferences. Module-level because the
+// renderer path is synchronous and the game page and menus share one document.
+export type CharacterStyleChoice = 'fullart' | 'pixel' | 'ink';
+const styleChoice = new Map<string, Exclude<CharacterStyleChoice, 'fullart'>>();
 
-export function setPreferredArtStyle(characterId: string, style: 'pixel' | 'ink'): void {
-  if (style === 'pixel') pixelPreferred.add(characterId);
-  else pixelPreferred.delete(characterId);
+export function setPreferredArtStyle(characterId: string, style: CharacterStyleChoice): void {
+  if (style === 'fullart') styleChoice.delete(characterId);
+  else styleChoice.set(characterId, style);
   if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') window.dispatchEvent(new Event('dashverse-art-change'));
 }
 
-export function preferredArtStyle(characterId: string): 'pixel' | 'ink' {
-  return pixelPreferred.has(characterId) ? 'pixel' : 'ink';
+/**
+ * The character's effective art lane. 'fullart' means "the character
+ * default" — resolved to the full-art figure when one ships, or to the ink
+ * painters when it does not (callers treat it as the default bucket).
+ */
+export function preferredArtStyle(characterId: string): CharacterStyleChoice {
+  return styleChoice.get(characterId) ?? 'fullart';
+}
+
+/** True when the user explicitly opted this character into the ink painters. */
+export function inkPreferred(characterId: string): boolean {
+  return styleChoice.get(characterId) === 'ink';
 }
 
 /**
@@ -83,7 +96,9 @@ export function drawCharacterSheet(
 ): boolean {
   const img = images.get(characterId);
   if (!img) return false;
-  if (!pixelPreferred.has(characterId)) return false; // Ink is the default; sheets are explicitly opt-in.
+  // Sheets are now an explicit opt-in alternative; the full-art redesign is
+  // the default identity.
+  if (styleChoice.get(characterId) !== 'pixel') return false;
   const frame = sheetFrameForPose(pose);
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(img, frame * 32, 0, 32, 32, -(height - width) / 2, 0, height, height);

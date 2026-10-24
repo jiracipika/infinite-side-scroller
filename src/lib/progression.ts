@@ -57,12 +57,12 @@ export interface SaveSlot {
 }
 
 /**
- * Art-style alternatives: the original procedural ink painters are every
- * character's default identity; the hand-painted pixel sheets are a freely
- * switchable alternative (characters that ship a sheet — see
- * characterHasSheet).
+ * Art-style lanes. The full-art redesign is every character's DEFAULT
+ * identity (characters that ship a figure — see characterHasFullArt); the
+ * procedural ink painters and the hand-painted pixel sheets are freely
+ * switchable alternatives. An absent record entry resolves to 'fullart'.
  */
-export type CharacterArtStyle = 'pixel' | 'ink';
+export type CharacterArtStyle = 'fullart' | 'pixel' | 'ink';
 
 export interface ShopUpgrade {
   id: string;
@@ -209,7 +209,7 @@ function normalizeStyleRecord(value: unknown): Record<string, CharacterArtStyle>
   if (!value || typeof value !== 'object') return {};
   const out: Record<string, CharacterArtStyle> = {};
   for (const [id, style] of Object.entries(value as Record<string, unknown>)) {
-    if (typeof id === 'string' && id && (style === 'pixel' || style === 'ink')) {
+    if (typeof id === 'string' && id && (style === 'fullart' || style === 'pixel' || style === 'ink')) {
       out[id] = style;
     }
   }
@@ -372,9 +372,9 @@ export function addRunRewards(
   }));
 }
 
-/** Chosen style for a character; defaults to the original ink painters. */
+/** Chosen style for a character; absent entries ride the full-art default. */
 export function characterArtStyle(slot: SaveSlot, characterId: string): CharacterArtStyle {
-  return slot.artStyleByCharacter[characterId] ?? 'ink';
+  return slot.artStyleByCharacter[characterId] ?? 'fullart';
 }
 
 export function setCharacterArtStyle(
@@ -382,7 +382,7 @@ export function setCharacterArtStyle(
   characterId: string,
   style: CharacterArtStyle,
 ): { ok: boolean; reason?: string; slots: SaveSlot[] } {
-  if (style !== 'pixel' && style !== 'ink') {
+  if (style !== 'fullart' && style !== 'pixel' && style !== 'ink') {
     return { ok: false, reason: 'Unknown style', slots: loadSaveSlots() };
   }
   const slots = loadSaveSlots();

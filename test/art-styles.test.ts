@@ -77,8 +77,8 @@ describe('per-character run history', () => {
     const s = slot();
     assert.deepEqual(s.roundsByCharacter, {});
     assert.deepEqual(s.artStyleByCharacter, {});
-    // Original identity: absent preference means the ink painters.
-    assert.equal(characterArtStyle(s, 'knight'), 'ink');
+    // Default identity: absent preference rides the full-art redesign.
+    assert.equal(characterArtStyle(s, 'knight'), 'fullart');
   });
 });
 
@@ -87,8 +87,8 @@ describe('per-character run history', () => {
 describe('character art style choice', () => {
   beforeEach(freshStorage);
 
-  it('defaults to the original ink painters', () => {
-    assert.equal(characterArtStyle(slot(), 'ninja'), 'ink');
+  it('defaults to the full-art redesign', () => {
+    assert.equal(characterArtStyle(slot(), 'ninja'), 'fullart');
   });
 
   it('accepts ink immediately and remembers the choice', () => {
@@ -103,6 +103,12 @@ describe('character art style choice', () => {
     assert.equal(characterArtStyle(slot(), 'knight'), 'ink');
   });
 
+  it('returns to the full-art default after an alternative was chosen', () => {
+    assert.equal(setCharacterArtStyle('slot1', 'knight', 'pixel').ok, true);
+    assert.equal(setCharacterArtStyle('slot1', 'knight', 'fullart').ok, true);
+    assert.equal(characterArtStyle(slot(), 'knight'), 'fullart');
+  });
+
   it('rejects unknown styles and missing slots', () => {
     // @ts-expect-error bad style on purpose
     assert.equal(setCharacterArtStyle('slot1', 'knight', 'crayon').ok, false);
@@ -113,12 +119,15 @@ describe('character art style choice', () => {
 // ── Renderer preference plumbing ─────────────────────────────────────
 
 describe('sprite-sheet art-style preference', () => {
-  it('defaults to ink and honors the pixel switch', () => {
-    assert.equal(preferredArtStyle('ninja'), 'ink');
+  it('defaults to the full-art lane and honors explicit switches', () => {
+    assert.equal(preferredArtStyle('ninja'), 'fullart');
     setPreferredArtStyle('ninja', 'pixel');
     assert.equal(preferredArtStyle('ninja'), 'pixel');
     setPreferredArtStyle('ninja', 'ink');
     assert.equal(preferredArtStyle('ninja'), 'ink');
+    // 'fullart' clears the explicit choice back to the character default.
+    setPreferredArtStyle('ninja', 'fullart');
+    assert.equal(preferredArtStyle('ninja'), 'fullart');
   });
 
   it('keeps the pose→frame mapping stable', () => {

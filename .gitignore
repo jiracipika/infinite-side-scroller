@@ -39,3 +39,8 @@ design/cherry/preview/bundle.js
 design/roster/preview/bundle.js
 design/crimson/preview/bundle.js
 design/crimson/baddies/bundle.js
+
+# full-art redesign: the reference boards are the artist's drop (keep local,
+# ~33 MB); the extracted figures in design/full-art/ are the committed
+# regeneration source for the embedded lane.
+design/full-art/src/
