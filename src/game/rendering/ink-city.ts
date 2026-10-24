@@ -2,11 +2,11 @@ import { textureHash, surfaceAt } from "./textures";
 
 /** Opaque screenprint inks. Bright ink is reserved for playable edges. */
 export const INK = {
-  black: "#09080f",
-  deep: "#21112f",
-  purple: "#44205f",
-  violet: "#754294",
-  lavender: "#b885d7",
+  black: "#14111e",
+  deep: "#241c33",
+  purple: "#46305f",
+  violet: "#9570ff",
+  lavender: "#c5a7ed",
   lime: "#c7ff4d",
   danger: "#ff7166",
   paper: "#f4f2ed",
@@ -236,6 +236,10 @@ export function paintInkSlab(
     ctx.lineTo(x + p + 12, y + 9);
     ctx.stroke();
   }
+  for (let p=18;p<width-12;p+=48) {
+    ctx.fillStyle=INK.lavender;ctx.beginPath();
+    ctx.moveTo(x+p,y+5);ctx.lineTo(x+p+3,y+9);ctx.lineTo(x+p,y+13);ctx.lineTo(x+p-3,y+9);ctx.closePath();ctx.fill();
+  }
   ctx.restore();
 }
 
@@ -315,33 +319,29 @@ export function paintRoofProp(
   ctx.strokeStyle = INK.violet;
   ctx.lineWidth = 1;
   if (kind === "tree") {
-    ctx.fillRect(-3, -64, 6, 64);
-    ctx.fillRect(-19, -47, 38, 3);
-    ctx.fillRect(-12, -61, 24, 2);
-    ctx.beginPath();
-    ctx.moveTo(-18, -2);
-    ctx.lineTo(0, -49);
-    ctx.lineTo(18, -2);
-    ctx.stroke();
-    if (variant % 2 === 0) {
-      ctx.fillStyle = INK.deep;
-      ctx.fillRect(4, -49, 15, 28);
-      ctx.strokeRect(4, -49, 15, 28);
-      ctx.fillStyle = INK.lavender;
-      ctx.fillRect(8, -43, 6, 2);
-      ctx.fillRect(10, -39, 2, 11);
+    // Crooked saplings reclaim the ruins; leaf plates share Ranger's
+    // forest greens and the violet edge light of the painted character art.
+    ctx.fillStyle = '#302139';
+    ctx.beginPath();ctx.moveTo(-5,0);ctx.lineTo(-2,-30);ctx.lineTo(-9,-51);
+    ctx.lineTo(-3,-47);ctx.lineTo(3,-65);ctx.lineTo(5,-36);ctx.lineTo(9,-23);ctx.lineTo(5,0);ctx.closePath();ctx.fill();ctx.stroke();
+    for(let i=0;i<5;i++){
+      const side=i%2?1:-1,ly=-23-i*8,lx=side*(8+(i%3)*3);
+      ctx.fillStyle=i%2?'#465d3a':'#384631';
+      ctx.beginPath();ctx.moveTo(0,ly+6);ctx.lineTo(lx,ly-7);ctx.lineTo(lx+side*13,ly-10);ctx.lineTo(lx+side*8,ly+3);ctx.closePath();ctx.fill();ctx.stroke();
     }
+    ctx.fillStyle=INK.lavender;ctx.fillRect(2,-51,2,3);
+  } else if (kind === 'rock') {
+    // Faceted amethyst, opaque outlines rather than blurry neon blocks.
+    ctx.fillStyle='#58406f';ctx.beginPath();ctx.moveTo(-14,0);ctx.lineTo(-12,-15);ctx.lineTo(-4,-26);ctx.lineTo(7,-19);ctx.lineTo(15,0);ctx.closePath();ctx.fill();ctx.stroke();
+    ctx.fillStyle='#9570ff';ctx.beginPath();ctx.moveTo(-4,-24);ctx.lineTo(1,-8);ctx.lineTo(-5,-3);ctx.lineTo(-9,-14);ctx.closePath();ctx.fill();
+    ctx.strokeStyle='#c5a7ed';ctx.beginPath();ctx.moveTo(-4,-23);ctx.lineTo(6,-17);ctx.stroke();
   } else {
-    const w = kind === "rock" ? 24 : 32;
-    ctx.fillRect(-w / 2, -14, w, 14);
-    ctx.strokeRect(-w / 2, -14, w, 14);
-    for (let i = 0; i < 4; i++) {
-      ctx.beginPath();
-      ctx.moveTo(-w / 2 + 5, -11 + i * 3);
-      ctx.lineTo(w / 2 - 5, -11 + i * 3);
-      ctx.stroke();
+    for(let i=0;i<5;i++){
+      const lx=(i-2)*7,ly=-7-(i%2)*7;
+      ctx.fillStyle=i%2?'#485f3a':'#34432e';
+      ctx.beginPath();ctx.moveTo(lx-8,0);ctx.lineTo(lx-6,ly);ctx.lineTo(lx+2,ly-5);ctx.lineTo(lx+9,-2);ctx.closePath();ctx.fill();ctx.stroke();
     }
-    ctx.fillRect(w / 2 - 5, -20, 5, 6);
+    if(variant%3===0){ctx.fillStyle=INK.lavender;ctx.fillRect(-2,-17,3,3);}
   }
   ctx.restore();
 }

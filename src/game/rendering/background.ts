@@ -139,8 +139,8 @@ export function drawBackgroundSky(
 
   // Horizon shifts toward the dark zenith color at night so the bright
   // biome gradient doesn't glow through the night tint.
-  const zenith = blendHex("#28113e", "#301348", nightness * 0.55);
-  const horizon = blendHex("#68308b", "#743599", nightness * 0.52);
+  const zenith = blendHex("#211b32", "#191725", nightness * 0.55);
+  const horizon = blendHex("#59436f", "#46315f", nightness * 0.52);
 
   const gradient = ctx.createLinearGradient(0, 0, 0, height);
   gradient.addColorStop(0, zenith);
@@ -149,7 +149,7 @@ export function drawBackgroundSky(
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, width, height);
   ctx.save();
-  ctx.fillStyle = "#51256e";
+  ctx.fillStyle = "#6d5388";
   const printStep = detail === "high" ? 36 : 72;
   for (let y = 8; y < height * 0.7; y += printStep) {
     for (let x = 8; x < width; x += printStep) {
@@ -157,7 +157,7 @@ export function drawBackgroundSky(
       ctx.fillRect(x + h * 9, y, 1 + h * 2, 1);
     }
   }
-  ctx.strokeStyle = "#51256e";
+  ctx.strokeStyle = "#6d5388";
   ctx.lineWidth = 1;
   ctx.beginPath();
   for (let i = 0; i < 22; i++) {

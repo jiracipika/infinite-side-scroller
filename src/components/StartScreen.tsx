@@ -511,7 +511,7 @@ const StartScreen: FC<Props> = ({
           </div>
           </MotionStagger>
 
-          <InkCover />
+          <InkCover characterId={selectedChar} />
           <MotionStagger delay={0.08}>
           <p className="dash-hero-lede">
             One more jump. One more world. Make this run count.

@@ -191,3 +191,59 @@
 }
 :global(.reduce-motion-forced) .shell, :global(.reduce-motion-forced) .shell * { animation: none !important; transition: none !important; }
 :global(.reduce-motion-forced) .coverMoon, :global(.reduce-motion-forced) .coverCity, :global(.reduce-motion-forced) .coverRunner { transform: none; }
+
+/* Painted cast edition: use the redesigned figures as the visual anchor.
+   Warm ink, violet rim light and small lime accents echo their costumes. */
+:global(.dash-menu-shell).shell {
+  --dash-cyan: #c7ff4d;
+  --dash-line: #65517d;
+  background: radial-gradient(ellipse at 20% 0, #38284e 0, transparent 55%), #191725;
+}
+:global(.dash-menu-shell).shell::before {
+  background: radial-gradient(#9570ff 1px, transparent 1.5px);
+  background-size: 44px 44px;
+  opacity: .12;
+}
+.inkBleed { background: radial-gradient(ellipse at 90% 70%, #9570ff12, transparent 45%); }
+.shell :global(.dash-command-panel), .shell :global(.dash-card) {
+  border-color: #635076;
+  border-radius: 10px;
+  background: linear-gradient(150deg, #2c233a, #201b2d 80%);
+  box-shadow: inset 0 1px #b395d533, 0 4px 0 #100e19, 0 12px 28px #100e1944;
+}
+:global(.dash-command-panel).heroPanel { border-top-color: #9570ff; background: #211c2f; }
+.heroPanel :global(.dash-brand-v2) h1 {
+  font-family: 'Trebuchet MS', 'Arial Black', sans-serif;
+  font-style: normal; font-size: clamp(38px, 4.8vw, 68px);
+  letter-spacing: -.055em; transform: none;
+  color: #f4ebff; text-shadow: 0 3px #50346b;
+}
+.heroPanel :global(.dash-brand-v2) h1 span { color: #c7ff4d; }
+.shell :global(.dash-section-title-row-v2) h2 {
+  font-family: 'Trebuchet MS', sans-serif; font-style: normal;
+  font-size: 26px; letter-spacing: -.04em; text-transform: none;
+}
+.cover { clip-path: none; border-radius: 8px; border-color: #9570ff66; background: #191725; }
+.cover svg { opacity: .65; }
+.coverParty { position: absolute; inset: 0 0 20px; display: flex; align-items: flex-end; justify-content: center; pointer-events: none; }
+.coverHero { z-index: 1; margin-inline: -34px; filter: drop-shadow(0 3px 0 #100d19); }
+.coverCompanion { opacity: .85; padding-bottom: 2px; }
+.coverCaption { font-size: 7px; letter-spacing: .08em; bottom: 9px; }
+.coverCaption span { background: #191725e8; border: 1px solid #9570ff44; border-radius: 3px; color: #ded0ee; }
+.shell :global(.dash-quick-stats-v2) span { border-radius: 5px; background: #191725; border-left-color: #9570ff; }
+:global(.dash-play-button-v2).playCta { border-radius: 7px; box-shadow: 0 4px 0 #6b8335; }
+:global(.dash-play-button-v2).playCta span { font-family: 'Trebuchet MS', sans-serif; font-style: normal; text-transform: none; font-size: 24px; }
+:global(.dash-icon-action-v2).iconAction { border-radius: 7px; background: #2b2239; }
+.modeGrid button:global(.dash-mode-card-v2) { clip-path: none; border-radius: 7px; background: linear-gradient(135deg,#33253f,#251e32); box-shadow: inset 0 1px #9570ff22,0 3px #15111f; }
+.modeGrid button:global(.dash-mode-card-v2) b { font-family: 'Trebuchet MS',sans-serif; font-style: normal; font-size: 18px; }
+.shell :global(.dash-character-stage-v3) {
+  border-radius: 9px; transform: none; border-color: #9570ff88 !important;
+  background: radial-gradient(ellipse at 50% 75%,#69508777,transparent 66%),#191725 !important;
+  box-shadow: inset 0 0 0 3px #30253f,0 4px #100e19 !important;
+}
+.shell :global(.dash-character-card-v3) { border-radius: 6px; background: #292137; }
+.shell :global(.dash-character-card-v3):global(.is-active) { background: #3c3545; box-shadow: inset 0 -2px #c7ff4d; }
+.shell :global(.dash-subtle-pill-v2) { border-radius: 5px; background: #30253f; }
+@media (max-width:720px) { .heroPanel :global(.dash-brand-v2) h1 { font-size: clamp(36px,10vw,60px); } }
+
+.shell :global(.dash-character-stage-v3)::before, .shell :global(.dash-character-stage-v3)::after { content: none; }
