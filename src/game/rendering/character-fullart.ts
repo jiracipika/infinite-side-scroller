@@ -1,4 +1,5 @@
 import { CHARACTER_FULL_ART } from './character-fullart-data';
+import { drawSkinnedFullArt } from './fullart-mesh';
 import type { CharacterArtPose } from './character-art';
 
 /**
@@ -9,10 +10,10 @@ import type { CharacterArtPose } from './character-art';
  * through drawCharacterArt — with the procedural ink painters and the pixel
  * sheets remaining as explicitly selectable alternatives.
  *
- * The boards are single poses, so animation is pose-driven transform work on
- * one sprite: gait lean, squash & stretch, dash trail posture, swing lunges
- * and idle breathing. All of it keys off the same CharacterArtPose the ink
- * painters consume, so motion stays deterministic and reduced-motion safe.
+ * The original pixels are bound to a per-character skeletal mesh. Arms,
+ * elbows, legs, knees, head and hand-owned props articulate independently;
+ * skirts, capes and spectral tails receive delayed cloth follow-through.
+ * The source art is never replaced or flattened back to the ink lane.
  */
 
 const images = new Map<string, HTMLImageElement>();
@@ -112,6 +113,8 @@ export function drawCharacterFullArt(
   const img = images.get(characterId);
   if (!img) return false;
 
+  if (drawSkinnedFullArt(ctx, characterId, img, width, height, pose)) return true;
+  // SSR / unavailable Canvas fallback, also while preparing a preview.
   const transform = resolveFullArtTransform(pose);
   // 1.3× box height: chibi heads and hats reach above the collision box like
   // the ink art does, while the feet stay planted on the ground line.

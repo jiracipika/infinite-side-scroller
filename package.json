@@ -47,7 +47,8 @@
     "test:controls-hint": "node scripts/test-controls-hint.mjs",
     "verify:engine-calls": "node scripts/verify-engine-calls.mjs",
     "verify:api-routes": "node scripts/verify-api-routes.mjs",
-    "verify:touch-guards": "node scripts/verify-touch-guards.mjs"
+    "verify:touch-guards": "node scripts/verify-touch-guards.mjs",
+    "art:rig": "node scripts/preview-fullart-rig.mjs"
   },
   "dependencies": {
     "motion": "^14.3.0",

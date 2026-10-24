@@ -34,10 +34,12 @@ const CharacterSprite: FC<CharacterSpriteProps> = ({
     // Full-art figures draw at 1.3x box height (head/hat overhangs the
     // collision box), so reserve extra room or they clip the frame.
     const fullArt = characterHasFullArt(characterId);
-    const scale = Math.min((size - 6) / (character.width + 24), (size - 6) / (character.height + 12)) * (fullArt ? 0.75 : 1);
+    const scale = fullArt
+      ? (size - 8) / (character.height * 1.6)
+      : Math.min((size - 6) / (character.width + 24), (size - 6) / (character.height + 12));
     const drawnWidth = character.width * scale;
     const drawnHeight = character.height * scale;
-    const originY = (size - drawnHeight) / 2 + scale;
+    const originY = fullArt ? size - 7 - drawnHeight : (size - drawnHeight) / 2 + scale;
     const draw = (time = 0) => {
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, size, size);
@@ -49,7 +51,7 @@ const CharacterSprite: FC<CharacterSpriteProps> = ({
       ctx.fill();
       ctx.translate(size / 2, originY);
       ctx.scale(facingRight ? scale : -scale, scale);
-      ctx.translate(-character.width * .6, 0);
+      ctx.translate(-character.width * (fullArt ? .5 : .6), 0);
       drawCharacterArt(ctx, character, character.width, character.height, { time, moving: false });
       ctx.restore();
     };

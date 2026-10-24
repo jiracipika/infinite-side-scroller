@@ -113,3 +113,52 @@ lane. It is the DEFAULT identity for every character that ships art — menus
 and gameplay — while the ink painters and pixel sheets remain explicit
 alternatives in the Art style toggle (Full art / Pixel / Ink). Ranger has no
 board yet and keeps the ink painters by default.
+
+## Articulated painted cast (2026-10-24)
+
+The full-art lane now uses fullart-rig.ts and fullart-mesh.ts instead of rotating
+one flat card. All 17 figures have fitted shoulder, elbow, wrist, hip, knee,
+ankle and head landmarks. Two-bone leg posing creates support/recovery and
+separate rising/falling poses. Melee and casting layer over locomotion. Long
+skirts and ghosts retain their silhouettes and move as cloth.
+
+Weapon polygons are isolated in memory and rotate rigidly with the owning
+forearm. Small areas underneath an extracted staff extend adjacent costume ink.
+This is a 2D rig of the supplied front view, not a multi-angle sprite set.
+Occluded surfaces cannot acquire artist-authored details from a single pose.
+Fit boundaries live in the rig registry for further art-directed tuning.
+
+The 16 existing PNG figures and embedded WebP strings are byte-for-byte unchanged
+from 98a0292. Ranger uses the original Pixel Ranger Concept Sheet: deep-green
+hood, single lime eye, leaf cloak and wooden bow, recovered from the artwork
+set. Its charcoal trousers are protected during background extraction.
+Incremental board imports retain previous figures and compressed textures.
+
+The renderer culls transparent mesh cells, isolates accessories once per figure,
+and uses a shared 72-frame LRU. Normal run cycles reuse phase frames; simulation
+time drives idle/attack follow-through. Facing, collision boxes, character stats,
+unlock costs, saves and explicit Ink/Pixel alternatives are unchanged. The
+mobile offline HTML is rebuilt from the same renderer.
+
+Menus showcase the redesigned party instead of the old silhouette cover.
+Larger, centered previews, violet beveled cards, dark ink and lime selection
+accents match the cast. Gameplay uses the same violet rim palette, gem insets,
+saplings, leaf clusters and amethyst rocks. Decorative props avoid traversal lime.
+
+### Review and validation
+
+- npm run art:rig creates design/articulation/index.html: self-contained original
+  versus articulated comparison, 17-character gallery, six-pose contact sheet,
+  live action selector and optional joint overlay.
+- npm run verify passed all gates, including 980 main Node tests and additional
+  UI/source suites. Existing warnings remain in historical ink-crimson.ts.
+- npm run build passed the optimized Next.js production build.
+- node apps/mobile/scripts/bundle-game-html.js rebuilt the offline WebView HTML.
+- Browser: all 17 gallery entries / 102 contact-sheet renders loaded; Knight
+  run, Ranger run/bow and Mage cast/staff inspected. Production-built client
+  menu, roster, start, movement, jump and pause exercised. The preview serves
+  built static client assets; multiplayer endpoints and native iOS/Android
+  binaries are outside this browser check.
+- Regression tests cover full-art roster completeness, independent limbs,
+  joint continuity, rigid prop length, deterministic posing, flight direction,
+  inverse kinematics, normalized skin weights and frame-cache separation.
