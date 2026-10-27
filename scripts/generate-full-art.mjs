@@ -15,6 +15,12 @@
 //
 // Run after replacing any board art:
 //   node scripts/generate-full-art.mjs
+//   node scripts/scrub-full-art-satellites.mjs --refit
+// The second step is NOT optional: the merge pass below re-attaches anything
+// within 14px of the winning blob, which is how panel satellites (palette
+// strips, decorative orbs, frame slivers) ride into the figures and then warp
+// in the rig animation. The scrubber deletes the audited satellites from the
+// regenerated figures and refits the fraction-space rigs to the new boxes.
 import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';

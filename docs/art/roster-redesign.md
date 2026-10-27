@@ -162,3 +162,35 @@ saplings, leaf clusters and amethyst rocks. Decorative props avoid traversal lim
 - Regression tests cover full-art roster completeness, independent limbs,
   joint continuity, rigid prop length, deterministic posing, flight direction,
   inverse kinematics, normalized skin weights and frame-cache separation.
+
+### Panel-satellite scrub (2026-10-27)
+
+The board merge pass re-attaches anything within 14px of the winning blob,
+which let panel furniture ride into seven figures and warp with the rig
+animation — most visibly the two palette legend strips glued down Ansley's
+left edge. `scripts/scrub-full-art-satellites.mjs` deletes the audited
+satellites from the committed figures (every drop pinned to its measured
+bbox so a changed board fails loudly instead of deleting the wrong blob),
+trims the canvas back to the figure, refits the fraction-space rigs to the
+new boxes, and regenerates the embedded WebP data, preview sheet and mobile
+WebView bundle. Run it after every `npm run art:fullart` regeneration.
+
+| Figure | Removed satellites |
+| --- | --- |
+| Ansley (cherry) | Two solid palette legend strips down her left edge |
+| Knight | Palette grid below-left, right-edge frame sliver, bottom-left swatch grid, flat navy ground band |
+| Velvet | Orange decorative orb left of her waist |
+| Rosalia | Candelabra-and-roses still-life vignette |
+| Grimshaw | Soul-mist wisp band under the robe |
+| Cyborg | Mini companion-drone sketch hovering at his chest |
+| Tank | Pale frame sliver at the far right edge |
+
+Mortimer's floating satellite is his own gloved hand and candelabra — the
+prop the rig already binds to his front arm — and was kept. Tank's tall
+right-edge region is his blade weapon (initially misread as a sample strip;
+pixel-variance check caught it) and stays. The knight and tank figures
+remain fragmented into armor plates by the original board segmentation;
+those seams predate this scrub and need a board re-drop to heal. Every
+satellite left in the wild was verified gone by re-running component
+analysis, the 980-test suite passed, and the articulation studio re-rendered
+all 17 heroes × 6 poses with zero page errors.
