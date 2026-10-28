@@ -11,8 +11,8 @@ interface Mesh {
 const meshes = new Map<string, Mesh>();
 const frames = new Map<string, HTMLCanvasElement>();
 // One global LRU, not a growing atlas for every character/action combination.
-// 72 × <=270² RGBA <21 MiB. Multiplayer and menu previews share these frames.
-export const FULL_ART_FRAME_LIMIT = 72;
+// 96 × <=270² RGBA <28 MiB. Multiplayer and menu previews share these frames.
+export const FULL_ART_FRAME_LIMIT = 96;
 const EDGE = 192, PAD = 36;
 
 function buildMesh(id:string,img:HTMLImageElement):Mesh|undefined {
@@ -85,12 +85,15 @@ function buildMesh(id:string,img:HTMLImageElement):Mesh|undefined {
 }
 
 /** Shared deterministic pose bucketing. Time is the simulation clock, so
- * paused games don't animate; attacks and flight remain separate cache keys. */
+ * paused games don't animate; attacks and flight remain separate cache keys.
+ * Buckets are fine enough (48/cycle ≈ 4.3° at the retimed ~3 stride/s gait)
+ * that successive render frames differ without a visible step. */
 export function fullArtFrameKey(id:string,pose:CharacterArtPose):string {
   return [id,!!pose.moving,!!pose.airborne,!!pose.dashing,(pose.verticalVelocity??0)<0,
-    Math.round((pose.phase??0)*24),pose.moving?0:Math.round((pose.stride??0)*8),
-    Math.round((pose.melee??0)*16),Math.round((pose.ranged??0)*16),
-    pose.moving?0:Math.floor((pose.time??0)*18)].join(':');
+    Math.round((pose.phase??0)*48),pose.moving?0:Math.round((pose.stride??0)*12),
+    Math.round((pose.melee??0)*24),Math.round((pose.ranged??0)*24),
+    pose.moving?0:Math.floor((pose.time??0)*24),
+    Math.round((pose.speedRatio??0)*6)].join(':');
 }
 
 function paintTriangle(ctx:CanvasRenderingContext2D,img:CanvasImageSource,source:Point[],target:Point[]):void {
@@ -127,7 +130,7 @@ export function drawSkinnedFullArt(ctx:CanvasRenderingContext2D,id:string,img:HT
     frame.width=Math.ceil(EDGE*mesh.aspect)+PAD*2;frame.height=EDGE+PAD*2;
     const paint=frame.getContext('2d');if(!paint)return false;
     paint.imageSmoothingEnabled=false;
-    const bakedPose={...pose,phase:Math.round((pose.phase??0)*24)/24};
+    const bakedPose={...pose,phase:Math.round((pose.phase??0)*48)/48};
     const resolved=resolveRigPose(FULL_ART_RIGS[id],mesh.aspect,bakedPose);
     const target=mesh.vertices.map(v=>{const p=deformVertex(v,resolved);return [p[0]*EDGE+PAD,p[1]*EDGE+PAD] as Point;});
     const source=mesh.vertices.map(v=>[v.source[0]*img.height,v.source[1]*img.height] as Point);

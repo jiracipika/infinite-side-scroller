@@ -391,6 +391,7 @@ export class GameRenderer {
       x: player.x, width: w, onGround: player.onGround, dashing: player.dashing, vy: player.vy,
       melee: player.meleeActive ? player.meleeProgress : 0, ranged: player.rangedProgress,
       tumble: camera.isReducedMotion() ? 0 : player.airbornePose,
+      landingVy: player.lastLandingVy,
     }, this.liveGameTime, camera.isReducedMotion());
     this.characterMotion.set(player, motion.state);
     const sy = screen.y + motion.bob;

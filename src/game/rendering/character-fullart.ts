@@ -77,8 +77,10 @@ export function resolveFullArtTransform(pose: CharacterArtPose = {}): FullArtTra
     // Committed forward lean, squashed for speed.
     t.rotate = 0.14; t.scaleX = 1.1; t.scaleY = 0.93; t.lungeX = 2;
   } else if (pose.moving) {
-    // Gait: lean into the stride extremes, alternate shoulder dip.
-    t.rotate = stride * 0.028;
+    // Gait: constant forward lean scaled by real ground speed (matching the
+    // mesh lane's torso tilt), with a lighter stride-extreme sway on top.
+    const speed = Math.max(0, Math.min(1.35, pose.speedRatio ?? 1));
+    t.rotate = 0.055 * speed + stride * 0.02;
     t.scaleX = 1 + Math.abs(stride) * 0.012;
     t.scaleY = 1 - Math.abs(stride) * 0.012;
   }

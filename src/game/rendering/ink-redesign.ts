@@ -52,8 +52,12 @@ export function drawRedesignedCharacter(
   const attack = Math.max(swing, cast * .8);
   const tuck = inkAttackWeight(pose.tumble);
   const breath = moving || pose.airborne || pose.dashing ? 0 : Math.sin((pose.time ?? 0) * 2.4) * .28;
-  const lean = (pose.dashing ? 2.4 : pose.airborne ? 1 : Math.abs(stride) * .25) + attack * .7;
-  const lift = (pose.airborne ? -.8 : pose.dashing ? .7 : -Math.abs(Math.cos(phase)) * (moving ? .55 : 0)) + breath;
+  const speedLean = (moving ? .9 : 0) * clamp(pose.speedRatio ?? 1, 0, 1.35);
+  const lean = (pose.dashing ? 2.4 : pose.airborne ? 1 : Math.abs(stride) * .25 + speedLean) + attack * .7;
+  // Takeoff reach and landing absorb: the shared wrapper scales the whole
+  // sprite; this shape offset keeps the shoulders/head leading the spring.
+  const spring = (pose.launch ?? 0) - (pose.land ?? 0) * .8;
+  const lift = (pose.airborne ? -.8 : pose.dashing ? .7 : -Math.abs(Math.cos(phase)) * (moving ? .55 : 0)) + breath - spring * 1.3;
   const follow = Math.sin(phase - .7) * (moving ? 1.1 : .18) + Math.sin((pose.time ?? 0) * 2) * .18;
   const hipY = h * (['mage', 'velvet', 'rosalia', 'grimshaw'].includes(id) ? .64 : .62);
   const shoulderY = h * .43 + lift;

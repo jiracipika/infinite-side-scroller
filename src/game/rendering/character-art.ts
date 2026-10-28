@@ -30,6 +30,28 @@ export interface CharacterArtPose {
    * tumble; the sprite eases a forward half-flip as the value rises.
    */
   tumble?: number;
+  /** Takeoff impulse 1 → 0 (from CharacterMotionState.launch): vertical stretch. */
+  launch?: number;
+  /** Landing impulse 1 → 0 (from CharacterMotionState.land): impact squash. */
+  land?: number;
+  /** Ground speed / 280 px/s, clamped 0..1.35. Scales gait lean and amplitude. */
+  speedRatio?: number;
+}
+
+/**
+ * Pure takeoff/landing spring: scale factors around the feet pivot shared by
+ * every art lane. Takeoff stretches tall and narrow (leading with the chest);
+ * landing squashes short and wide (absorbing impact). Both return to 1 as the
+ * impulses decay, so idle/normal play is bit-identical to a scale of 1.
+ */
+export function resolveSpringScale(pose: CharacterArtPose = {}): { scaleX: number; scaleY: number } {
+  const launch = Math.max(0, Math.min(1, pose.launch ?? 0));
+  const land = Math.max(0, Math.min(1, pose.land ?? 0));
+  // The squash envelope eases out (^1.35): the impact frame holds its full
+  // short-and-wide read, then recovers softly instead of linearly.
+  const stretch = launch * 0.2;
+  const squash = Math.pow(land, 1.35) * 0.24;
+  return { scaleX: 1 - stretch * 0.75 + squash, scaleY: 1 + stretch - squash };
 }
 
 /**
@@ -360,13 +382,24 @@ export function drawCharacterArt(
   ctx.imageSmoothingEnabled = false;
   ctx.lineJoin = 'round';
   ctx.lineCap = 'round';
+  // Takeoff/landing spring: one shared squash-and-stretch wrapper around the
+  // feet pivot so every lane (full-art mesh, ink painters, pixel sheets) reads
+  // the same jump anticipation and impact absorption. The impulses live in the
+  // motion state, never in physics.
+  const spring = resolveSpringScale(pose);
+  if (spring.scaleX !== 1 || spring.scaleY !== 1) {
+    ctx.translate(width / 2, height);
+    ctx.scale(spring.scaleX, spring.scaleY);
+    ctx.translate(-width / 2, -height);
+  }
   // Tumble is a visual transform shared by all art lanes. It never rotates
-  // the physics box and the caller suppresses it for reduced motion.
+  // the physics box and the caller suppresses it for reduced motion. The
+  // pivot sits at chest height — a flip around the mid-foot reads like a cartwheel.
   const tumble = Math.max(0, Math.min(1, pose.tumble ?? 0));
   if (tumble > 0) {
-    ctx.translate(width / 2, height / 2);
+    ctx.translate(width / 2, height * 0.55);
     ctx.rotate(resolveTumbleRotation(1, tumble));
-    ctx.translate(-width / 2, -height / 2);
+    ctx.translate(-width / 2, -height * 0.55);
   }
   // Lane precedence: the user's explicit Pixel opt-in wins, then the
   // full-art redesign (every character's default identity), then the

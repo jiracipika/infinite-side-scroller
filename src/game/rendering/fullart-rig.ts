@@ -110,32 +110,63 @@ export function resolveRigPose(rig: ArtRig, aspect: number, pose: CharacterArtPo
   const phase=(pose.phase??0)*Math.PI*2;
   // stride decays on stopping, so limbs settle even though phase is frozen.
   const gain=pose.moving?1:clamp(Math.abs(pose.stride??0)/2.4,0,1);
-  const swing=Math.sin(phase)*gain;
+  // Gait energy scales with actual ground speed: sprinting leans and reaches
+  // further than a jog, and the run never reads at full amplitude on a crawl.
+  const speed=clamp(pose.speedRatio??(pose.moving?1:gain),0,1.35);
+  const run=gain*clamp(speed,.55,1.35);
+  const swing=Math.sin(phase);
   const time=pose.moving?phase/2.5:(pose.time??0);
   const melee=Math.sin(clamp(pose.melee??0,0,1)*Math.PI);
   const cast=Math.sin(clamp(pose.ranged??0,0,1)*Math.PI);
   const air=!!pose.airborne,dash=!!pose.dashing;
-  const bodyY=rig.floating?Math.sin(time*2.5)*.012:gain*(-.008-Math.cos(phase*2)*.005)+Math.sin(time*2.1)*.002;
+  // Airborne keyframe blend: 0 = fully rising (tucked), 1 = fully falling
+  // (reaching for the ground). Driven by vertical velocity so the pose eases
+  // through a collected apex instead of snapping between two fixed shapes.
+  const airT=air?clamp(((pose.verticalVelocity??0)+560)/1120,0,1):0;
+  // A slow mid-air drift keeps long falls alive — a frozen tuck reads as a
+  // statue between keyframes. Amplitude is small enough to never fight the
+  // takeoff stretch or the landing reach.
+  const airDrift=air?Math.sin((pose.time??0)*3)*.012:0;
+  // Two ground contacts per cycle (phase 0 and π): body dips to absorb at each
+  // contact and rebounds tall through the pass — the double-bob of a real gait.
+  const contact=(1+Math.cos(phase*2))/2;
+  const bodyY=rig.floating?Math.sin(time*2.5)*.012
+    :air?(.003-airT*.007)
+    :run*(-.0025+.006*contact)+Math.sin(time*2.1)*.002*(1-gain);
   const hip=unit(rig.hip,aspect),neck=unit(rig.neck,aspect);
-  const rootShift: Point=[dash?.015:melee*.012,bodyY];
+  // Leading with the chest: dash and sprint both push the root forward; the
+  // melee lunge keeps its dedicated shift. Airborne stays centered.
+  const rootShift: Point=[dash?.02:air?0:melee*.012+run*.016,bodyY];
   const shift=(p:Point)=>add(p,rootShift[0],rootShift[1]);
-  const torsoTilt=dash?-.12:air?-.04:gain*.025+melee*.025;
+  // Forward lean grows with speed (a sprint tilts ~2× a jog) with a small
+  // stride-cadence sway layered on top; falling tips slightly forward to
+  // counterbalance the reaching lead leg.
+  const torsoTilt=dash?-.15:air?-.02+airT*.035:-.085*run+swing*.02*gain+melee*.025;
   const torsoPoint=(p:Point)=>rotate(shift(p),shift(hip),torsoTilt);
   const bones:Bone[]=[];
   const bone=(a:Point,b:Point,from:Point,to:Point)=>bones.push({restFrom:a,restTo:b,from,to});
   bone(hip,neck,shift(hip),torsoPoint(neck));
   const crown:Point=[neck[0],Math.max(.04,rig.headY-.22)];
-  bone(neck,crown,torsoPoint(neck),rotate(torsoPoint(crown),torsoPoint(neck),-torsoTilt*.7+Math.sin(time*1.6)*.008));
+  // The head stabilizes the gaze (counter-rotation against the torso lean) and
+  // trails the body bob by a fraction of a cycle — cheap, believable lag.
+  const headLag=run*Math.sin(phase*2-1)*.006+Math.sin(time*1.6)*.008*(1-gain);
+  bone(neck,crown,torsoPoint(neck),rotate(torsoPoint(crown),torsoPoint(neck),-torsoTilt*.8+headLag));
   rig.arms.forEach((l,i)=>{
     const a=unit(l.root,aspect),b=unit(l.joint,aspect),c=unit(l.tip,aspect);
     const root=torsoPoint(a);
-    let upper=(i===0?1:-1)*swing*.32;
-    let elbow=.08+Math.max(0,(i===0?-swing:swing))*.35;
-    if(air){upper=(i===0?.20:-.35);elbow=.45;}
-    if(dash){upper=.65;elbow=.4;}
+    // Arm pump: opposite phase to the legs, amplitude scaled by gait energy.
+    let upper=(i===0?1:-1)*swing*.55*run;
+    let elbow=.1+Math.max(0,(i===0?-swing:swing))*.45*run;
+    if(!gain){upper+=Math.sin(time*1.7+i*2.1)*.02;elbow+=.06;}
+    if(air){
+      // Rising: both arms fold up with the tuck. Falling: they spread and
+      // trail high — the universal mid-air balance gesture.
+      upper=(i===0?.2+.6*airT:-.35-.35*airT)+airDrift*(i===0?1:-1);
+      elbow=(i===0?.5-.22*airT:.42)+airDrift*.5;
+    }
+    if(dash){upper=i===0?.7:.5;elbow=.35;}
     if(i===0){upper-=melee*.78+cast*.32;elbow-=melee*.38+cast*.18;}
     else {upper+=melee*.32-cast*.25;elbow+=cast*.42;}
-    upper+=Math.sin(time*2.1+i)*.012;
     const joint=rotate(add(b,root[0]-a[0],root[1]-a[1]),root,upper);
     const tip=rotate(add(c,joint[0]-b[0],joint[1]-b[1]),joint,upper+elbow);
     bone(a,b,root,joint);bone(b,c,joint,tip);
@@ -143,14 +174,33 @@ export function resolveRigPose(rig: ArtRig, aspect: number, pose: CharacterArtPo
   rig.legs.forEach((l,i)=>{
     const a=unit(l.root,aspect),b=unit(l.joint,aspect),c=unit(l.tip,aspect);
     const root=shift(a),cycle=phase+i*Math.PI;
-    let target:Point=add(c,Math.cos(cycle)*.065*gain,-Math.max(0,Math.sin(cycle))*.055*gain);
-    if(air){const rising=(pose.verticalVelocity??0)<0;target=add(c,i===0?-.035:.035,rising?(i===0?-.12:-.07):-.035);}
-    if(dash)target=add(c,i===0?-.08:.055,-.025);
+    const step=Math.cos(cycle),lift=Math.max(0,Math.sin(cycle));
+    let target: Point;
+    if(air){
+      // Rise keyframe: knees drive up (rear higher — asymmetric tuck).
+      // Fall keyframe: the lead leg reaches forward-down for the landing
+      // while the rear trails — blended continuously through the apex.
+      // The takeoff stretch impulse outranks the tuck for its first moments,
+      // otherwise the sprite reads compact exactly when it should read tall.
+      const tuck=(1-airT)*(1-Math.min(1,pose.launch??0)*.65);
+      const reach=airT;
+      target=add(c,i===0?-.02-.035*tuck:.045+.02*reach,i===0?-.03-.105*tuck:-.02-.07*tuck+.015*reach);
+    } else if(dash){
+      target=add(c,i===0?-.075:.055,i===0?-.02:-.045);
+    } else {
+      // Grounded gait: the swing half lifts the foot with a forward knee
+      // drive; the stance half stays at ground level while sweeping back,
+      // so each foot reads as planting instead of ice-skating. Amplitude
+      // is ~2.4× the old cycle — visible at gameplay scale, not a vibration.
+      const reach=.155*run,drive=.115*run;
+      target=add(c,step*reach*(lift>0?1:.85),-lift*drive);
+    }
     if(rig.floating)target=add(c,Math.sin(time*2.5+i)*.02,bodyY);
     const joint=solveJoint(root,add(b,root[0]-a[0],root[1]-a[1]),add(c,root[0]-a[0],root[1]-a[1]),target);
     bone(a,b,root,joint);bone(b,c,joint,target);
   });
-  return {bones,bodyY,cloth:(pose.moving?Math.sin(phase-.7)*.020:Math.sin(time*3.8)*.008)+(dash?.035:0)};
+  const airCloth=air?airT*.018:0;
+  return {bones,bodyY,cloth:(pose.moving?Math.sin(phase-.7)*.02:Math.sin(time*3.8)*.008)+(dash?.035:0)+airCloth};
 }
 
 function distance(p:Point,a:Point,b:Point):number {
