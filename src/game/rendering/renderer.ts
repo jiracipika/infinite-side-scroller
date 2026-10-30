@@ -30,6 +30,7 @@ import {
 } from "./textures";
 import { shadeHexColor } from "./color";
 import { INK, paintRooftopFacade, paintInkSlab, paintRoofProp, paintDashBrush, paintInkTerrainEdge } from "./ink-city";
+import { paintStoneRelief } from './world-atmosphere';
 
 export class GameRenderer {
   private terrainCache: TerrainCache;
@@ -231,6 +232,7 @@ export class GameRenderer {
       detail: this.backgroundDetail === "high",
     });
     paintRooftopFacade(ctx, chunk.heights, chunk.index, offsetX, offsetY, canvasHeight, this.backgroundDetail === "high");
+    paintStoneRelief(ctx, chunk.heights, chunk.index, offsetX, offsetY, this.backgroundDetail === "high");
     ctx.restore();
 
     // Grass cap and highlight (thicker, layered for a readable ledge).
@@ -388,6 +390,7 @@ export class GameRenderer {
     const h = player.height;
     const previous = this.characterMotion.get(player) ?? createCharacterMotion(player.x, this.liveGameTime);
     const motion = advanceCharacterMotion(previous, {
+      characterId: char.id,
       x: player.x, width: w, onGround: player.onGround, dashing: player.dashing, vy: player.vy,
       melee: player.meleeActive ? player.meleeProgress : 0, ranged: player.rangedProgress,
       tumble: camera.isReducedMotion() ? 0 : player.airbornePose,
@@ -405,10 +408,14 @@ export class GameRenderer {
       ctx.globalAlpha = Math.floor(t) % 2 === 0 ? 0.45 : 1;
     }
 
-    ctx.fillStyle = "rgba(0,0,0,0.4)";
-    ctx.beginPath();
-    ctx.ellipse(screen.x + w / 2, sy + h + 4, w * 0.46, h * 0.16, 0, 0, Math.PI * 2);
-    ctx.fill();
+    // A contact shadow belongs to the surface. Airborne heroes used to carry
+    // a black oval through the sky; their silhouette now stays clean in flight.
+    if (player.onGround) {
+      ctx.fillStyle = "rgba(8,6,18,0.5)";
+      ctx.beginPath();
+      ctx.ellipse(screen.x + w / 2, sy + h + 1, w * .5, 2, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
 
     ctx.translate(screen.x + w / 2, sy);
     ctx.scale(player.facingRight ? 1 : -1, 1);

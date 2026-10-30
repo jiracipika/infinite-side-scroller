@@ -9,7 +9,7 @@ const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const {chromium}=createRequire(process.env.PLAYWRIGHT_PACKAGE||import.meta.url)('playwright');
 const out=path.resolve(process.env.ART_SCREENSHOTS||path.join(root,'artifacts/mobile-character-redesign'));mkdirSync(out,{recursive:true});
 const ids=['knight','ninja','tank','mage','ranger','cyborg','spirit','healer','cherry','velvet','ember','rosalia','marionette','dorian','onyx','mortimer','grimshaw'];
-const browser=await chromium.launch({headless:true});
+const browser=await chromium.launch({headless:true, ...(process.env.CHROMIUM_PATH ? {executablePath:process.env.CHROMIUM_PATH} : {})});
 try{
   const page=await browser.newPage({viewport:{width:844,height:390},isMobile:true,hasTouch:true,deviceScaleFactor:2});
   const errors=[];page.on('pageerror',e=>errors.push(e.message));

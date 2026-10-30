@@ -10,6 +10,7 @@ import { inkMaterials } from "./ink-kit";
 import { drawCharacterSheet, ensureCharacterSheetsLoading, preferredArtStyle } from "./sprite-sheet";
 import { drawCharacterFullArt, ensureCharacterFullArtLoading } from "./character-fullart";
 import { drawRedesignedCharacter } from "./ink-redesign";
+import { characterPerformance } from './character-performance';
 
 export interface CharacterArtPose {
   /** Normalized locomotion cycle; advances with ground travel, never render FPS. */
@@ -44,13 +45,13 @@ export interface CharacterArtPose {
  * landing squashes short and wide (absorbing impact). Both return to 1 as the
  * impulses decay, so idle/normal play is bit-identical to a scale of 1.
  */
-export function resolveSpringScale(pose: CharacterArtPose = {}): { scaleX: number; scaleY: number } {
+export function resolveSpringScale(pose: CharacterArtPose = {}, intensity = 1): { scaleX: number; scaleY: number } {
   const launch = Math.max(0, Math.min(1, pose.launch ?? 0));
   const land = Math.max(0, Math.min(1, pose.land ?? 0));
   // The squash envelope eases out (^1.35): the impact frame holds its full
   // short-and-wide read, then recovers softly instead of linearly.
-  const stretch = launch * 0.2;
-  const squash = Math.pow(land, 1.35) * 0.24;
+  const stretch = launch * 0.2 * intensity;
+  const squash = Math.pow(land, 1.35) * 0.24 * intensity;
   return { scaleX: 1 - stretch * 0.75 + squash, scaleY: 1 + stretch - squash };
 }
 
@@ -386,7 +387,7 @@ export function drawCharacterArt(
   // feet pivot so every lane (full-art mesh, ink painters, pixel sheets) reads
   // the same jump anticipation and impact absorption. The impulses live in the
   // motion state, never in physics.
-  const spring = resolveSpringScale(pose);
+  const spring = resolveSpringScale(pose, characterPerformance(char.id).spring);
   if (spring.scaleX !== 1 || spring.scaleY !== 1) {
     ctx.translate(width / 2, height);
     ctx.scale(spring.scaleX, spring.scaleY);

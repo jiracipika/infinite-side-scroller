@@ -1,4 +1,5 @@
 import type { CharacterArtPose } from './character-art';
+import { attackGesture, characterPerformance, type CharacterPerformance } from './character-performance';
 
 /** Non-destructive skinning: landmarks refer to the original painted figure.
  * No replacement sprites, palette changes, or procedural stand-in limbs.
@@ -6,11 +7,18 @@ import type { CharacterArtPose } from './character-art';
 export type Point = readonly [number, number];
 export interface Limb { root: Point; joint: Point; tip: Point }
 export interface ArtRig {
+  performance?: CharacterPerformance;
   neck: Point; hip: Point;
   arms: readonly [Limb, Limb]; legs: readonly [Limb, Limb];
   headY: number; hemY: number; floating?: boolean;
   /** Staff/blade/bow ownership follows the actual hand, not a global wobble. */
-  props?: readonly { polygon: readonly Point[]; arm: 0 | 1 }[];
+  props?: readonly {
+    polygon: readonly Point[]; arm: 0 | 1; behindBody?: boolean;
+    /** Continue an originally occluded weapon shaft beneath the source pixels. */
+    shaft?: { from: Point; to: Point; width: number };
+  }[];
+  /** Body silhouettes in front of an overlapping weapon stay on the body. */
+  propExclusions?: readonly (readonly Point[])[];
 }
 const limb = (a: Point, b: Point, c: Point): Limb => ({ root: a, joint: b, tip: c });
 const base: ArtRig = {
@@ -21,10 +29,10 @@ const base: ArtRig = {
 /** Per-character fitting matters: hats, skirts, shields and raised hands do
  * not share a bounding-box skeleton. Keep these alongside the source art. */
 export const FULL_ART_RIGS: Record<string, ArtRig> = {
-  knight: {...base,neck:[.6272,.4621],hip:[.6417,.7497],headY:.4519,
-    arms:[limb([.3802,.5032],[.2203,.6162],[.1477,.7086]),limb([.9323,.5238],[.9904,.6367],[.9904,.7291])],
-    legs:[limb([.4819,.7497],[.3656,.8729],[.3075,.9859]),limb([.787,.76],[.8451,.8729],[.8887,.9859])],
-    props:[{arm:0,polygon:[[-0.2592,.9859],[-0.2301,.8729],[.1913,.6881],[.3656,.6778],[.3511,.7702],[-0.0848,.9962]]}]},
+  knight: {...base,neck:[.61,.45],hip:[.62,.73],headY:.44,
+    arms:[limb([.44,.49],[.33,.60],[.28,.69]),limb([.82,.51],[.86,.62],[.86,.71])],
+    legs:[limb([.51,.73],[.43,.85],[.39,.96]),limb([.72,.74],[.76,.85],[.79,.96])],
+    props:[{arm:0,polygon:[[0,.96],[.02,.85],[.31,.67],[.43,.66],[.42,.75],[.12,.97]]}]},
   ninja: {...base,neck:[.61,.40],hip:[.58,.69],headY:.41,
     arms:[limb([.44,.47],[.32,.57],[.28,.66]),limb([.73,.47],[.78,.57],[.83,.65])],
     legs:[limb([.49,.70],[.42,.83],[.31,.96]),limb([.66,.70],[.72,.83],[.79,.96])],
@@ -74,12 +82,16 @@ export const FULL_ART_RIGS: Record<string, ArtRig> = {
   onyx: {...base,neck:[.53,.34],hip:[.53,.67],headY:.35,
     arms:[limb([.37,.41],[.25,.41],[.23,.31]),limb([.72,.42],[.79,.56],[.84,.68])],
     legs:[limb([.43,.69],[.37,.83],[.29,.96]),limb([.66,.69],[.69,.83],[.77,.96])],
-    props:[{arm:0,polygon:[[0,.27],[.92,0],[1,.08],[.97,.25],[.31,.37],[.05,.38]]}]},
+    props:[{arm:0,polygon:[[0,.27],[.92,0],[1,.08],[.97,.25],[.31,.37],[.05,.38]],behindBody:true,
+      shaft:{from:[.15,.33],to:[.84,.13],width:.065}}],
+    propExclusions:[[[.34,.09],[.48,.065],[.68,.11],[.73,.2],[.66,.35],[.48,.385],[.31,.31],[.28,.2]]]},
   mortimer: {...base,neck:[.54,.35],hip:[.55,.66],headY:.35,hemY:.64,
     arms:[limb([.37,.40],[.29,.51],[.18,.49]),limb([.72,.41],[.77,.52],[.72,.59])],
     legs:[limb([.48,.69],[.48,.82],[.46,.96]),limb([.63,.69],[.64,.82],[.68,.96])],
     props:[{arm:0,polygon:[[0,.20],[.28,.20],[.31,.45],[.19,.53],[.04,.49]]}]},
 };
+
+for (const [id, rig] of Object.entries(FULL_ART_RIGS)) rig.performance = characterPerformance(id);
 
 export interface Bone { from: Point; to: Point; restFrom: Point; restTo: Point }
 export interface RigPose { bones: Bone[]; cloth: number; bodyY: number }
@@ -107,6 +119,7 @@ export function solveJoint(a: Point, b: Point, c: Point, target: Point): Point {
 /** Bone order: torso, head, rear upper/forearm, front upper/forearm,
  * rear thigh/calf, front thigh/calf. Shared by menus, local and remote play. */
 export function resolveRigPose(rig: ArtRig, aspect: number, pose: CharacterArtPose = {}): RigPose {
+  const personality = rig.performance ?? characterPerformance('knight');
   const phase=(pose.phase??0)*Math.PI*2;
   // stride decays on stopping, so limbs settle even though phase is frozen.
   const gain=pose.moving?1:clamp(Math.abs(pose.stride??0)/2.4,0,1);
@@ -115,9 +128,11 @@ export function resolveRigPose(rig: ArtRig, aspect: number, pose: CharacterArtPo
   const speed=clamp(pose.speedRatio??(pose.moving?1:gain),0,1.35);
   const run=gain*clamp(speed,.55,1.35);
   const swing=Math.sin(phase);
-  const time=pose.moving?phase/2.5:(pose.time??0);
+  const time=(pose.moving?phase/2.5:(pose.time??0)) * personality.breath;
   const melee=Math.sin(clamp(pose.melee??0,0,1)*Math.PI);
   const cast=Math.sin(clamp(pose.ranged??0,0,1)*Math.PI);
+  const gesture=attackGesture(pose.melee ?? 0, personality.gesture);
+  const casting=attackGesture(pose.ranged ?? 0, personality.gesture === 'bow' ? 'bow' : 'cast');
   const air=!!pose.airborne,dash=!!pose.dashing;
   // Airborne keyframe blend: 0 = fully rising (tucked), 1 = fully falling
   // (reaching for the ground). Driven by vertical velocity so the pose eases
@@ -130,18 +145,19 @@ export function resolveRigPose(rig: ArtRig, aspect: number, pose: CharacterArtPo
   // Two ground contacts per cycle (phase 0 and π): body dips to absorb at each
   // contact and rebounds tall through the pass — the double-bob of a real gait.
   const contact=(1+Math.cos(phase*2))/2;
+  const landing=clamp(pose.land??0,0,1);
   const bodyY=rig.floating?Math.sin(time*2.5)*.012
     :air?(.003-airT*.007)
-    :run*(-.0025+.006*contact)+Math.sin(time*2.1)*.002*(1-gain);
+    :run*(-.005+.012*contact)*personality.weight+Math.sin(time*2.1)*.002*(1-gain)+landing*.012*personality.weight;
   const hip=unit(rig.hip,aspect),neck=unit(rig.neck,aspect);
   // Leading with the chest: dash and sprint both push the root forward; the
   // melee lunge keeps its dedicated shift. Airborne stays centered.
-  const rootShift: Point=[dash?.02:air?0:melee*.012+run*.016,bodyY];
+  const rootShift: Point=[(dash?.02:air?0:run*.016)*personality.lean+gesture.lunge+casting.lunge,bodyY];
   const shift=(p:Point)=>add(p,rootShift[0],rootShift[1]);
   // Forward lean grows with speed (a sprint tilts ~2× a jog) with a small
   // stride-cadence sway layered on top; falling tips slightly forward to
   // counterbalance the reaching lead leg.
-  const torsoTilt=dash?-.15:air?-.02+airT*.035:-.085*run+swing*.02*gain+melee*.025;
+  const torsoTilt=(dash?-.15:air?-.02+airT*.035:-.085*run+swing*.02*gain)*personality.lean+melee*.025;
   const torsoPoint=(p:Point)=>rotate(shift(p),shift(hip),torsoTilt);
   const bones:Bone[]=[];
   const bone=(a:Point,b:Point,from:Point,to:Point)=>bones.push({restFrom:a,restTo:b,from,to});
@@ -155,8 +171,11 @@ export function resolveRigPose(rig: ArtRig, aspect: number, pose: CharacterArtPo
     const a=unit(l.root,aspect),b=unit(l.joint,aspect),c=unit(l.tip,aspect);
     const root=torsoPoint(a);
     // Arm pump: opposite phase to the legs, amplitude scaled by gait energy.
-    let upper=(i===0?1:-1)*swing*.55*run;
-    let elbow=.1+Math.max(0,(i===0?-swing:swing))*.45*run;
+    // Carry heavy props close; Mortimer keeps the tray/candelabra level,
+    // while Ember's unweighted arms open out with her dancer's stride.
+    const carrying = (rig.props?.some(prop=>prop.arm===i) ?? false) ? .65 : 1;
+    let upper=(i===0?1:-1)*swing*.55*run*personality.armSwing*carrying;
+    let elbow=.1+Math.max(0,(i===0?-swing:swing))*.45*run*personality.armSwing;
     if(!gain){upper+=Math.sin(time*1.7+i*2.1)*.02;elbow+=.06;}
     if(air){
       // Rising: both arms fold up with the tuck. Falling: they spread and
@@ -164,9 +183,12 @@ export function resolveRigPose(rig: ArtRig, aspect: number, pose: CharacterArtPo
       upper=(i===0?.2+.6*airT:-.35-.35*airT)+airDrift*(i===0?1:-1);
       elbow=(i===0?.5-.22*airT:.42)+airDrift*.5;
     }
-    if(dash){upper=i===0?.7:.5;elbow=.35;}
-    if(i===0){upper-=melee*.78+cast*.32;elbow-=melee*.38+cast*.18;}
+    if(dash){upper=(i===0?.7:.5)*personality.lean;elbow=.35;}
+    if(i===personality.weaponArm){upper+=gesture.shoulder+casting.shoulder;elbow+=gesture.elbow+casting.elbow;}
     else {upper+=melee*.32-cast*.25;elbow+=cast*.42;}
+    if(personality.gesture==='bow' && i!==personality.weaponArm){upper-=cast*.65;elbow+=cast*.7;}
+    if(personality.gesture==='puppet'){upper+=Math.sin(phase*2+i)*.09*run;elbow+=Math.max(0,swing)*.2*run;}
+    if(personality.gesture==='serve' && i===0 && !melee && !cast){upper*=.25;elbow=-upper*.85;}
     const joint=rotate(add(b,root[0]-a[0],root[1]-a[1]),root,upper);
     const tip=rotate(add(c,joint[0]-b[0],joint[1]-b[1]),joint,upper+elbow);
     bone(a,b,root,joint);bone(b,c,joint,tip);
@@ -192,15 +214,22 @@ export function resolveRigPose(rig: ArtRig, aspect: number, pose: CharacterArtPo
       // drive; the stance half stays at ground level while sweeping back,
       // so each foot reads as planting instead of ice-skating. Amplitude
       // is ~2.4× the old cycle — visible at gameplay scale, not a vibration.
-      const reach=.155*run,drive=.115*run;
+      const reach=.12*run*personality.reach,drive=.095*run*personality.footLift;
       target=add(c,step*reach*(lift>0?1:.85),-lift*drive);
     }
     if(rig.floating)target=add(c,Math.sin(time*2.5+i)*.02,bodyY);
+    // Clamp horizontal reach before solving the knee. Previously IK clamped
+    // the knee alone, then attached an unreachable foot, stretching the calf.
+    // Preserve the requested ground Y whenever it is physically reachable.
+    const reach=Math.hypot(b[0]-a[0],b[1]-a[1])+Math.hypot(c[0]-b[0],c[1]-b[1])-.0001;
+    const dy=clamp(target[1]-root[1],-reach,reach);
+    const maxX=Math.sqrt(Math.max(0,reach*reach-dy*dy));
+    target=[root[0]+clamp(target[0]-root[0],-maxX,maxX),root[1]+dy];
     const joint=solveJoint(root,add(b,root[0]-a[0],root[1]-a[1]),add(c,root[0]-a[0],root[1]-a[1]),target);
     bone(a,b,root,joint);bone(b,c,joint,target);
   });
   const airCloth=air?airT*.018:0;
-  return {bones,bodyY,cloth:(pose.moving?Math.sin(phase-.7)*.02:Math.sin(time*3.8)*.008)+(dash?.035:0)+airCloth};
+  return {bones,bodyY,cloth:((pose.moving?Math.sin(phase-.7)*.02:Math.sin(time*3.8)*.008)+(dash?.035:0)+airCloth)*personality.cloth};
 }
 
 function distance(p:Point,a:Point,b:Point):number {
@@ -215,6 +244,13 @@ export function inPolygon(p:Point,polygon:readonly Point[]):boolean {
     if((a[1]>p[1])!==(b[1]>p[1])&&p[0]<(b[0]-a[0])*(p[1]-a[1])/(b[1]-a[1])+a[0])inside=!inside;
   }
   return inside;
+}
+
+/** Foreground faces win over props crossing behind them. In particular,
+ * Onyx's club silhouette must not take his head along when he swings it. */
+export function propOwnerAt(rig: ArtRig, point: Point): 0 | 1 | undefined {
+  if (rig.propExclusions?.some(polygon => inPolygon(point, polygon))) return undefined;
+  return rig.props?.find(prop => inPolygon(point, prop.polygon))?.arm;
 }
 export interface SkinVertex { source: Point; weights: readonly { bone: number; weight: number }[]; cloth: number }
 

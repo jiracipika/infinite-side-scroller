@@ -4,6 +4,7 @@ import { useEffect, useRef, type FC } from "react";
 import { getCharacterById } from "@/game/data/characters";
 import { drawCharacterArt } from "@/game/rendering/character-art";
 import { characterHasFullArt } from "@/game/rendering/character-fullart";
+import { characterPreviewPose, type CharacterPreviewAction } from '@/game/rendering/character-performance';
 
 interface CharacterSpriteProps {
   characterId: string;
@@ -13,12 +14,13 @@ interface CharacterSpriteProps {
   facingRight?: boolean;
   /** Only the selected hero breathes; roster chips don't each run a RAF loop. */
   animated?: boolean;
+  previewAction?: CharacterPreviewAction;
 }
 
 /** One shared painter for gameplay and previews, including asynchronously
  * loaded Pixel alternatives. Framing reserves room for hair, hats and props. */
 const CharacterSprite: FC<CharacterSpriteProps> = ({
-  characterId, size = 64, className, decorative = false, facingRight = true, animated = false,
+  characterId, size = 64, className, decorative = false, facingRight = true, animated = false, previewAction = 'idle',
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const character = getCharacterById(characterId);
@@ -52,7 +54,7 @@ const CharacterSprite: FC<CharacterSpriteProps> = ({
       ctx.translate(size / 2, originY);
       ctx.scale(facingRight ? scale : -scale, scale);
       ctx.translate(-character.width * (fullArt ? .5 : .6), 0);
-      drawCharacterArt(ctx, character, character.width, character.height, { time, moving: false });
+      drawCharacterArt(ctx, character, character.width, character.height, characterPreviewPose(character, time, previewAction));
       ctx.restore();
     };
     const media = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -86,7 +88,7 @@ const CharacterSprite: FC<CharacterSpriteProps> = ({
       document.removeEventListener('visibilitychange', syncMotion);
       media.removeEventListener('change', syncMotion);
     };
-  }, [animated, character, facingRight, size]);
+  }, [animated, character, characterId, facingRight, size, previewAction]);
 
   return <canvas ref={canvasRef} style={{ width: size, height: size, display: "block" }}
     className={className} aria-hidden={decorative || undefined}
