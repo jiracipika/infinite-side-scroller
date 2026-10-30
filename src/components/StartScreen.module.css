@@ -228,6 +228,11 @@
 .coverParty { position: absolute; inset: 0 0 20px; display: flex; align-items: flex-end; justify-content: center; pointer-events: none; }
 .coverHero { z-index: 1; margin-inline: -34px; filter: drop-shadow(0 3px 0 #100d19); }
 .coverCompanion { opacity: .85; padding-bottom: 2px; }
+.coverParty { padding: 8px 10px 0; }
+.coverHero, .coverCompanion { display: flex; align-items: flex-end; justify-content: center; min-width: 0; min-height: 0; }
+.coverHero { height: 100%; flex: 0 1 192px; }
+.coverCompanion { height: 78%; flex: 0 1 132px; }
+.coverParty canvas { max-width: 100%; max-height: 100%; width: auto !important; height: auto !important; object-fit: contain; }
 .coverCaption { font-size: 7px; letter-spacing: .08em; bottom: 9px; }
 .coverCaption span { background: #191725e8; border: 1px solid #9570ff44; border-radius: 3px; color: #ded0ee; }
 .shell :global(.dash-quick-stats-v2) span { border-radius: 5px; background: #191725; border-left-color: #9570ff; }

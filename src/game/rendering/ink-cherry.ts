@@ -1,11 +1,12 @@
 import type { CharacterArtPose } from './character-art';
+import { ANSLEY_SKIN } from './character-palette';
 
 type Point = readonly [number, number];
 
 /**
  * Inked anatomy authored at Ansley's real 22×32 collision size. Cutie-pie
  * cherry DNA: deep cherry-red twin-tails, near-black dress with a cherry-print
- * front (pierced stems, naturally), pale skin, white earbuds with a trailing
+ * front (pierced stems, naturally), warm brown skin, white earbuds with a trailing
  * cord, and the accent budget spent on hair, eyes, the collar charm, and her
  * closed parasol. Same drawing-only contract as the ninja: local joints never
  * write back to Player/physics, filled bent limbs, no closed neon contours.
@@ -22,7 +23,7 @@ export function drawInkCherry(
   const cherry = '#e5304a';
   const deep = '#8e1226';
   const stem = '#5a8f5a';
-  const skin = '#f2e2da';
+  const skin = ANSLEY_SKIN;
   const sx = width / 22;
   const sy = height / 32;
   const stride = Math.max(-2.5, Math.min(2.5, pose.stride ?? 0));

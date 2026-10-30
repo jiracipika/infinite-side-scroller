@@ -39,6 +39,10 @@ export function characterHasFullArt(id: string): boolean {
   return Object.prototype.hasOwnProperty.call(CHARACTER_FULL_ART, id);
 }
 
+export function characterFullArtReady(id: string): boolean {
+  return images.has(id);
+}
+
 /**
  * Resolve pure pose→transform values so the animation contract is testable
  * without a DOM. Returned rotate/scale are applied around the feet pivot;

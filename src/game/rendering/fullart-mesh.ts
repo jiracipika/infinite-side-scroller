@@ -7,14 +7,25 @@ interface Mesh {
   triangles: readonly [number,number,number][];
   aspect: number;
   texture: HTMLCanvasElement;
-  props: { texture: HTMLCanvasElement; bone: number; behindBody: boolean; shaft?: { from: Point; to: Point; width: number } }[];
+  props: { texture: HTMLCanvasElement; bone: number; bounds: Point[]; behindBody: boolean; shaft?: { from: Point; to: Point; width: number } }[];
 }
 const meshes = new Map<string, Mesh>();
-const frames = new Map<string, HTMLCanvasElement>();
-// One global LRU, not a growing atlas for every character/action combination.
-// 96 × <=270² RGBA <28 MiB. Multiplayer and menu previews share these frames.
+interface ArtFrame { canvas: HTMLCanvasElement; left: number; top: number; bytes: number }
+const frames = new Map<string, ArtFrame>();
+let frameBytes = 0;
+// Dynamic silhouettes use a byte ceiling as well as a frame-count ceiling.
+// Large scythe swings get enough room without growing the shared LRU unchecked.
 export const FULL_ART_FRAME_LIMIT = 96;
-const EDGE = 192, PAD = 36;
+export const FULL_ART_CACHE_BYTE_LIMIT = 28 * 1024 * 1024;
+const EDGE = 192;
+
+export function fullArtFrameRect(points: readonly Point[]): { left: number; top: number; width: number; height: number } {
+  const left = Math.floor(Math.min(...points.map(p => p[0]))) - 3;
+  const top = Math.floor(Math.min(...points.map(p => p[1]))) - 3;
+  const right = Math.ceil(Math.max(...points.map(p => p[0]))) + 3;
+  const bottom = Math.ceil(Math.max(...points.map(p => p[1]))) + 3;
+  return { left, top, width: Math.max(1, right - left), height: Math.max(1, bottom - top) };
+}
 
 function buildMesh(id:string,img:HTMLImageElement):Mesh|undefined {
   const rig=FULL_ART_RIGS[id];
@@ -36,22 +47,23 @@ function buildMesh(id:string,img:HTMLImageElement):Mesh|undefined {
     const texture=document.createElement('canvas');texture.width=img.width;texture.height=img.height;
     const propCtx=texture.getContext('2d');if(!propCtx)continue;
     const part=propCtx.createImageData(img.width,img.height);
+    let left=img.width,top=img.height,right=0,bottom=0;
     for(let y=0;y<img.height;y++)for(let x=0;x<img.width;x++){
       const i=y*img.width+x,o=i*4;
       if(propOwnerAt(rig, [x/img.width,y/img.height]) === arm){
         part.data.set(rgba.subarray(o,o+4),o);removed[i]=1;
+        if(rgba[o+3]>0){left=Math.min(left,x);top=Math.min(top,y);right=Math.max(right,x+1);bottom=Math.max(bottom,y+1);}
       }
     }
     propCtx.putImageData(part,0,0);props.push({texture,bone:arm===0?3:5,
+      bounds:left<right?[[left/img.height,top/img.height],[right/img.height,top/img.height],[right/img.height,bottom/img.height],[left/img.height,bottom/img.height]]:[],
       behindBody:definitions.some(p=>p.behindBody),shaft:definitions.find(p=>p.shaft)?.shaft});
   }
   const original=rgba.slice();
   for(let y=0;y<img.height;y++)for(let x=0;x<img.width;x++){
     const i=y*img.width+x,o=i*4;
-    // The source sheets include a painted ground line. It must not stretch
-    // between moving boots; gameplay already supplies a stable contact shadow.
-    const outsideBoots=rig.legs.every(l=>Math.abs(x/img.width-l.tip[0])>.11);
-    if(!rig.floating&&(y/img.height>.98||(y/img.height>.945&&outsideBoots))){rgba[o+3]=0;continue;}
+    // Keep boots, gown hems, hair and low weapon tips intact. Broad bottom
+    // strips previously erased real artwork along with painted ground lines.
     if(!removed[i])continue;
     rgba[o+3]=0;
     // At a staff crossing inside a robe, extend adjacent costume ink under
@@ -124,18 +136,27 @@ export function drawSkinnedFullArt(ctx:CanvasRenderingContext2D,id:string,img:HT
   const key=fullArtFrameKey(id,pose);
   let frame=frames.get(key);
   if(!frame){
-    frame=document.createElement('canvas');
-    frame.width=Math.ceil(EDGE*mesh.aspect)+PAD*2;frame.height=EDGE+PAD*2;
-    const paint=frame.getContext('2d');if(!paint)return false;
-    paint.imageSmoothingEnabled=false;
     const bakedPose=quantizeCharacterPose(pose);
     const resolved=resolveRigPose(FULL_ART_RIGS[id],mesh.aspect,bakedPose);
-    const target=mesh.vertices.map(v=>{const p=deformVertex(v,resolved);return [p[0]*EDGE+PAD,p[1]*EDGE+PAD] as Point;});
+    const target=mesh.vertices.map(v=>{const p=deformVertex(v,resolved);return [p[0]*EDGE,p[1]*EDGE] as Point;});
     const source=mesh.vertices.map(v=>[v.source[0]*img.height,v.source[1]*img.height] as Point);
+    const extent:Point[]=[...target];
+    for(const prop of mesh.props){
+      const transform=(p:Point)=>{const v=deformVertex({source:p,weights:[{bone:prop.bone,weight:1}],cloth:0},resolved);return [v[0]*EDGE,v[1]*EDGE] as Point;};
+      extent.push(...prop.bounds.map(transform));
+      if(prop.shaft)for(const p of [prop.shaft.from,prop.shaft.to]){
+        const v=transform([p[0]*mesh.aspect,p[1]]),r=prop.shaft.width*EDGE/2;
+        extent.push([v[0]-r,v[1]-r],[v[0]+r,v[1]+r]);
+      }
+    }
+    const rect=fullArtFrameRect(extent),canvas=document.createElement('canvas');
+    canvas.width=rect.width;canvas.height=rect.height;
+    const paint=canvas.getContext('2d');if(!paint)return false;
+    paint.imageSmoothingEnabled=false;paint.translate(-rect.left,-rect.top);
     const paintProp = (prop: Mesh['props'][number]) => {
       const b=resolved.bones[prop.bone];
       const angle=Math.atan2(b.to[1]-b.from[1],b.to[0]-b.from[0])-Math.atan2(b.restTo[1]-b.restFrom[1],b.restTo[0]-b.restFrom[0]);
-      paint.save();paint.translate(PAD+b.from[0]*EDGE,PAD+b.from[1]*EDGE);
+      paint.save();paint.translate(b.from[0]*EDGE,b.from[1]*EDGE);
       paint.rotate(angle);paint.translate(-b.restFrom[0]*EDGE,-b.restFrom[1]*EDGE);
       if(prop.shaft){
         const {from,to,width:shaftWidth}=prop.shaft;
@@ -148,11 +169,15 @@ export function drawSkinnedFullArt(ctx:CanvasRenderingContext2D,id:string,img:HT
     for(const prop of mesh.props)if(prop.behindBody)paintProp(prop);
     for(const triangle of mesh.triangles)paintTriangle(paint,mesh.texture,triangle.map(i=>source[i]),triangle.map(i=>target[i]));
     for(const prop of mesh.props)if(!prop.behindBody)paintProp(prop);
-    frames.set(key,frame);
-    if(frames.size>FULL_ART_FRAME_LIMIT)frames.delete(frames.keys().next().value!);
+    frame={canvas,left:rect.left,top:rect.top,bytes:canvas.width*canvas.height*4};
+    frames.set(key,frame);frameBytes+=frame.bytes;
+    while(frames.size>FULL_ART_FRAME_LIMIT || frameBytes>FULL_ART_CACHE_BYTE_LIMIT){
+      const oldest=frames.keys().next().value!;
+      frameBytes-=frames.get(oldest)!.bytes;frames.delete(oldest);
+    }
   }else {frames.delete(key);frames.set(key,frame);}
   const scale=height*1.3/EDGE;
   ctx.save();ctx.imageSmoothingEnabled=false;
-  ctx.drawImage(frame,width/2-(EDGE*mesh.aspect/2+PAD)*scale,height-(EDGE+PAD)*scale,frame.width*scale,frame.height*scale);
+  ctx.drawImage(frame.canvas,width/2-EDGE*mesh.aspect/2*scale+frame.left*scale,height-EDGE*scale+frame.top*scale,frame.canvas.width*scale,frame.canvas.height*scale);
   ctx.restore();return true;
 }

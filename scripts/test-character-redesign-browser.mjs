@@ -20,7 +20,7 @@ try{
     window.__sheetDraws=0;
     const original=CanvasRenderingContext2D.prototype.drawImage;
     CanvasRenderingContext2D.prototype.drawImage=function(image,...args){
-      if(image instanceof HTMLImageElement&&image.src.startsWith('data:image/png'))window.__sheetDraws++;
+      if(this.canvas.isConnected&&image instanceof HTMLImageElement&&image.src.startsWith('data:image/png'))window.__sheetDraws++;
       return original.call(this,image,...args);
     };
   });

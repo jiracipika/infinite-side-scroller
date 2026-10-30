@@ -3,8 +3,8 @@
 import { useEffect, useRef, type FC } from "react";
 import { getCharacterById } from "@/game/data/characters";
 import { drawCharacterArt } from "@/game/rendering/character-art";
-import { characterHasFullArt } from "@/game/rendering/character-fullart";
 import { characterPreviewPose, type CharacterPreviewAction } from '@/game/rendering/character-performance';
+import { characterPreviewBounds, fitCharacterPreview } from '@/game/rendering/character-framing';
 
 interface CharacterSpriteProps {
   characterId: string;
@@ -33,27 +33,19 @@ const CharacterSprite: FC<CharacterSpriteProps> = ({
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     canvas.width = Math.round(size * dpr);
     canvas.height = Math.round(size * dpr);
-    // Full-art figures draw at 1.3x box height (head/hat overhangs the
-    // collision box), so reserve extra room or they clip the frame.
-    const fullArt = characterHasFullArt(characterId);
-    const scale = fullArt
-      ? (size - 8) / (character.height * 1.6)
-      : Math.min((size - 6) / (character.width + 24), (size - 6) / (character.height + 12));
-    const drawnWidth = character.width * scale;
-    const drawnHeight = character.height * scale;
-    const originY = fullArt ? size - 7 - drawnHeight : (size - drawnHeight) / 2 + scale;
     const draw = (time = 0) => {
+      const bounds = characterPreviewBounds(character, previewAction, animated);
+      const { x, y, scale } = fitCharacterPreview(bounds, size);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, size, size);
       ctx.save();
       ctx.imageSmoothingEnabled = false;
       ctx.fillStyle = "#17121f";
       ctx.beginPath();
-      ctx.ellipse(size / 2, originY + drawnHeight + scale, drawnWidth * .42, scale, 0, 0, Math.PI * 2);
+      ctx.ellipse(size / 2, y + bounds.bottom * scale + 1, character.width * scale * .42, Math.max(.5, scale * .5), 0, 0, Math.PI * 2);
       ctx.fill();
-      ctx.translate(size / 2, originY);
+      ctx.translate(facingRight ? x : size - x, y);
       ctx.scale(facingRight ? scale : -scale, scale);
-      ctx.translate(-character.width * (fullArt ? .5 : .6), 0);
       drawCharacterArt(ctx, character, character.width, character.height, characterPreviewPose(character, time, previewAction));
       ctx.restore();
     };
