@@ -11,6 +11,7 @@ export interface ArtRig {
   neck: Point; hip: Point;
   arms: readonly [Limb, Limb]; legs: readonly [Limb, Limb];
   headY: number; hemY: number; floating?: boolean;
+  longGown?: boolean;
   /** Staff/blade/bow ownership follows the actual hand, not a global wobble. */
   props?: readonly {
     polygon: readonly Point[]; arm: 0 | 1; behindBody?: boolean;
@@ -33,10 +34,10 @@ export const FULL_ART_RIGS: Record<string, ArtRig> = {
     arms:[limb([.44,.49],[.33,.60],[.28,.69]),limb([.82,.51],[.86,.62],[.86,.71])],
     legs:[limb([.51,.73],[.43,.85],[.39,.96]),limb([.72,.74],[.76,.85],[.79,.96])],
     props:[{arm:0,polygon:[[0,.96],[.02,.85],[.31,.67],[.43,.66],[.42,.75],[.12,.97]]}]},
-  ninja: {...base,neck:[.61,.40],hip:[.58,.69],headY:.41,
-    arms:[limb([.44,.47],[.32,.57],[.28,.66]),limb([.73,.47],[.78,.57],[.83,.65])],
-    legs:[limb([.49,.70],[.42,.83],[.31,.96]),limb([.66,.70],[.72,.83],[.79,.96])],
-    props:[{arm:0,polygon:[[0,.87],[.03,.81],[.31,.63],[.40,.65],[.23,.77]]}]},
+  ninja: {...base,neck:[.675,.492],hip:[.644,.693],headY:.47,
+    arms:[limb([.505,.542],[.39,.625],[.293,.685]),limb([.759,.527],[.86,.587],[.932,.673])],
+    legs:[limb([.563,.693],[.438,.798],[.288,.935]),limb([.741,.694],[.812,.788],[.84,.916])],
+    props:[{arm:0,polygon:[[.04,.86],[.07,.8],[.29,.65],[.34,.67],[.31,.73],[.12,.85]]}]},
   ranger: {...base,neck:[.54,.43],hip:[.55,.73],headY:.43,
     arms:[limb([.38,.49],[.32,.61],[.30,.69]),limb([.73,.53],[.79,.64],[.83,.73])],
     legs:[limb([.48,.75],[.42,.86],[.36,.97]),limb([.67,.75],[.68,.86],[.73,.97])],
@@ -62,23 +63,23 @@ export const FULL_ART_RIGS: Record<string, ArtRig> = {
   grimshaw: {...base,neck:[.4792,.4442],hip:[.4691,.72],headY:.4442,hemY:.6245,floating:true,
     arms:[limb([.3089,.5185],[.2288,.5927],[.1486,.6352]),limb([.6394,.5185],[.7095,.6139],[.7396,.667])],
     props:[{arm:1,polygon:[[.6695,-0.0012],[1,-0.0012],[1,.2852],[.8397,.3382],[.7596,.8473],[.6494,.8685],[.7596,.2852],[.6895,.2321]]}]},
-  cherry: {...base,neck:[.49,.4122],hip:[.51,.6334],headY:.4122,hemY:.6032,
-    arms:[limb([.37,.4424],[.28,.4524],[.25,.5027]),limb([.64,.4524],[.69,.5328],[.73,.5932])],
-    legs:[limb([.43,.6635],[.34,.7741],[.35,.8747]),limb([.58,.6736],[.6,.8244],[.56,.9752])]},
-  velvet: {...base,neck:[.53,.33],hip:[.52,.61],headY:.33,hemY:.53,
-    arms:[limb([.37,.38],[.3,.48],[.27,.52]),limb([.67,.39],[.73,.46],[.69,.52])]},
-  ember: {...base,neck:[.57,.30],hip:[.56,.59],headY:.30,hemY:.60,
-    arms:[limb([.39,.35],[.30,.40],[.23,.46]),limb([.70,.36],[.78,.43],[.82,.49])],
-    legs:[limb([.51,.61],[.47,.76],[.41,.95]),limb([.64,.61],[.66,.77],[.69,.95])]},
-  rosalia: {...base,neck:[.51,.3],hip:[.51,.57],headY:.3,hemY:.53,
-    arms:[limb([.37,.35],[.3,.45],[.31,.51]),limb([.65,.35],[.72,.43],[.73,.48])]},
-  marionette: {...base,neck:[.50,.37],hip:[.51,.62],headY:.36,hemY:.58,
-    arms:[limb([.36,.41],[.28,.47],[.19,.54]),limb([.65,.42],[.76,.50],[.86,.54])],
-    legs:[limb([.44,.65],[.43,.80],[.40,.96]),limb([.60,.65],[.64,.79],[.68,.95])]},
-  dorian: {...base,neck:[.53,.39],hip:[.53,.65],headY:.38,hemY:.67,
-    arms:[limb([.38,.44],[.27,.44],[.23,.49]),limb([.67,.46],[.75,.52],[.77,.58])],
-    legs:[limb([.46,.68],[.47,.82],[.47,.96]),limb([.60,.68],[.65,.82],[.70,.96])],
-    props:[{arm:0,polygon:[[0,.48],[.31,.42],[.36,.46],[.07,.61],[0,.61]]}]},
+  cherry: {...base,neck:[.52,.384],hip:[.54,.55],headY:.38,hemY:.605,
+    arms:[limb([.406,.39],[.35,.445],[.255,.47]),limb([.65,.405],[.725,.5],[.815,.575])],
+    legs:[limb([.48,.66],[.46,.75],[.35,.85]),limb([.59,.66],[.58,.84],[.51,.95])]},
+  velvet: {...base,neck:[.58,.232],hip:[.559,.423],headY:.235,hemY:.45,longGown:true,
+    arms:[limb([.472,.261],[.427,.373],[.383,.495]),limb([.692,.261],[.734,.323],[.674,.244])]},
+  ember: {...base,neck:[.578,.387],hip:[.55,.568],headY:.37,hemY:.60,
+    arms:[limb([.454,.422],[.365,.485],[.258,.518]),limb([.675,.394],[.723,.319],[.697,.222])],
+    legs:[limb([.57,.65],[.55,.78],[.54,.93]),limb([.65,.62],[.65,.77],[.61,.91])]},
+  rosalia: {...base,neck:[.574,.216],hip:[.582,.415],headY:.215,hemY:.44,longGown:true,
+    arms:[limb([.478,.263],[.498,.418],[.473,.573]),limb([.695,.258],[.747,.315],[.677,.232])]},
+  marionette: {...base,neck:[.484,.461],hip:[.504,.627],headY:.45,hemY:.60,
+    arms:[limb([.378,.502],[.273,.557],[.156,.589]),limb([.611,.489],[.782,.533],[.869,.586])],
+    legs:[limb([.418,.711],[.376,.819],[.387,.888]),limb([.6,.719],[.633,.85],[.591,.938])]},
+  dorian: {...base,neck:[.54,.3954],hip:[.58,.60],headY:.4,hemY:.67,
+    arms:[limb([.46,.44],[.4,.46],[.35,.486]),limb([.668,.44],[.749,.44],[.857,.4])],
+    legs:[limb([.533,.691],[.533,.801],[.552,.908]),limb([.668,.687],[.724,.815],[.79,.939])],
+    props:[{arm:0,polygon:[[.037,.57],[.352,.462],[.417,.475],[.357,.511],[.058,.593]]}]},
   onyx: {...base,neck:[.53,.34],hip:[.53,.67],headY:.35,
     arms:[limb([.37,.41],[.25,.41],[.23,.31]),limb([.72,.42],[.79,.56],[.84,.68])],
     legs:[limb([.43,.69],[.37,.83],[.29,.96]),limb([.66,.69],[.69,.83],[.77,.96])],
@@ -221,10 +222,14 @@ export function resolveRigPose(rig: ArtRig, aspect: number, pose: CharacterArtPo
     // Clamp horizontal reach before solving the knee. Previously IK clamped
     // the knee alone, then attached an unreachable foot, stretching the calf.
     // Preserve the requested ground Y whenever it is physically reachable.
-    const reach=Math.hypot(b[0]-a[0],b[1]-a[1])+Math.hypot(c[0]-b[0],c[1]-b[1])-.0001;
+    const upperLength=Math.hypot(b[0]-a[0],b[1]-a[1]),lowerLength=Math.hypot(c[0]-b[0],c[1]-b[1]);
+    const reach=upperLength+lowerLength-.0001,minReach=Math.abs(upperLength-lowerLength)+.0001;
     const dy=clamp(target[1]-root[1],-reach,reach);
     const maxX=Math.sqrt(Math.max(0,reach*reach-dy*dy));
-    target=[root[0]+clamp(target[0]-root[0],-maxX,maxX),root[1]+dy];
+    const minX=Math.sqrt(Math.max(0,minReach*minReach-dy*dy));
+    let dx=clamp(target[0]-root[0],-maxX,maxX);
+    if(Math.abs(dx)<minX)dx=(Math.sign(dx)||(i===0?-1:1))*minX;
+    target=[root[0]+dx,root[1]+dy];
     const joint=solveJoint(root,add(b,root[0]-a[0],root[1]-a[1]),add(c,root[0]-a[0],root[1]-a[1]),target);
     bone(a,b,root,joint);bone(b,c,joint,target);
   });
@@ -262,7 +267,7 @@ export function bindVertex(rig:ArtRig,aspect:number,point:Point):SkinVertex {
   if(point[1]<rig.headY)return {source:p,weights:[{bone:1,weight:1}],cloth:0};
   const candidates:{bone:number;distance:number}[]=[{bone:0,distance:distance(p,rest[0].restFrom,rest[0].restTo)*.80}];
   // Long skirts and spectral tails are cloth, not two fabricated trouser legs.
-  const skirt=rig.hemY<.70&&point[1]>rig.hemY&&point[1]<.88;
+  const skirt=rig.hemY<.70&&point[1]>rig.hemY&&(rig.longGown||point[1]<.88);
   for(let i=2;i<rest.length;i++){
     if(i>=6&&(rig.floating||skirt))continue;
     if(i>=6&&point[1]<rig.hip[1]-.035)continue;

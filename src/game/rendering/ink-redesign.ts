@@ -1,5 +1,6 @@
 import type { CharacterDef } from '../data/characters';
 import type { CharacterArtPose } from './character-art';
+import { ANSLEY_SKIN } from './character-palette';
 
 /** Second-edition ink cast. Shapes are drawn against the actual collision box;
  * the joint rig is shared, not the costumes. No images, alpha washes or physics.
@@ -15,7 +16,7 @@ const PROFILES: Record<string, Profile> = {
   cyborg: { ink: '#141019', cloth: '#424c5c', light: '#acbdc9', accent: '#22d3ee', skin: '#d3b7a2', build: 1.05 },
   spirit: { ink: '#141019', cloth: '#8c78b3', light: '#ede9fe', accent: '#c4b5fd', skin: '#ede9fe', build: .75 },
   healer: { ink: '#141019', cloth: '#285552', light: '#e5f3e8', accent: '#5eead4', skin: '#f1c9a5', build: .9 },
-  cherry: { ink: '#141019', cloth: '#3a2c42', light: '#a78bb0', accent: '#e5304a', skin: '#f2e2da', build: .85 },
+  cherry: { ink: '#141019', cloth: '#3a2c42', light: '#a78bb0', accent: '#e5304a', skin: ANSLEY_SKIN, build: .85 },
   velvet: { ink: '#141019', cloth: '#6b203e', light: '#e8d5dc', accent: '#c2183f', skin: '#f3e3e6', build: .85 },
   ember: { ink: '#141019', cloth: '#873227', light: '#ffb14a', accent: '#ff5a3c', skin: '#f2c9a8', build: .82 },
   rosalia: { ink: '#141019', cloth: '#6e1730', light: '#e6b4bc', accent: '#d7234a', skin: '#f3dce0', build: .95 },

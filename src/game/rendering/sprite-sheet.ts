@@ -1,5 +1,6 @@
 import { CHARACTER_SHEETS } from './character-sheets-data';
 import type { CharacterArtPose } from './character-art';
+import { applyCharacterSheetPalette } from './character-palette';
 
 /**
  * Sprite-sheet lane of the art overhaul: hand-painted Aseprite strips are a
@@ -23,7 +24,7 @@ export function sheetFrameForPose(pose: CharacterArtPose): number {
   return Math.abs(pose.stride ?? 0) > 0.5 ? SHEET_FRAME.run : SHEET_FRAME.idle;
 }
 
-const images = new Map<string, HTMLImageElement>();
+const images = new Map<string, HTMLImageElement | HTMLCanvasElement>();
 let loadStarted = false;
 
 /** Kick one-shot async loads for every embedded sheet. Idempotent, never throws. */
@@ -34,7 +35,16 @@ export function ensureCharacterSheetsLoading(): void {
   for (const [id, src] of Object.entries(CHARACTER_SHEETS)) {
     const img = new Image();
     img.onload = () => {
-      images.set(id, img);
+      if (id === 'cherry' && typeof document !== 'undefined') {
+        const canvas = document.createElement('canvas'); canvas.width = img.width; canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0);
+          const pixels = ctx.getImageData(0, 0, img.width, img.height);
+          applyCharacterSheetPalette(id, pixels.data, img.width);
+          ctx.putImageData(pixels, 0, 0); images.set(id, canvas);
+        } else images.set(id, img);
+      } else images.set(id, img);
       if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') window.dispatchEvent(new Event('dashverse-art-change'));
     };
     img.src = src;
