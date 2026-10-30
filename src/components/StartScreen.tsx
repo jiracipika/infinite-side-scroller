@@ -71,6 +71,7 @@ import { schedulePanelReveal } from "@/lib/menu-panel-reveal";
 import TouchControlSettings from "./TouchControlSettings";
 import ControlsHint from "./ControlsHint";
 import InkCover from "./InkCover";
+import type { CharacterPreviewAction } from '@/game/rendering/character-performance';
 import styles from "./StartScreen.module.css";
 import {
   fetchOnlineLeaderboard,
@@ -138,6 +139,7 @@ const StartScreen: FC<Props> = ({
   const [achieveCount, setAchieveCount] = useState(0);
   const [mounted, setMounted] = useState(false);
   const [selectedChar, setSelectedChar] = useState("knight");
+  const [previewAction, setPreviewAction] = useState<CharacterPreviewAction>('idle');
   const parallaxRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -779,6 +781,7 @@ const StartScreen: FC<Props> = ({
                   characterId={selectedChar}
                   size={124}
                   animated
+                  previewAction={previewAction}
                   decorative
                 />
               </div>
@@ -799,6 +802,14 @@ const StartScreen: FC<Props> = ({
                   color="#f87171"
                 />
               </div>
+            </div>
+            <div className={styles.motionPreview} role="group" aria-label="Character movement preview">
+              {(['idle', 'run', 'jump', 'attack'] as const).map((action) => (
+                <button key={action} type="button" aria-pressed={previewAction === action}
+                  onClick={() => setPreviewAction(action)}>
+                  {{ idle: 'Stand', run: 'Run', jump: 'Jump', attack: 'Attack' }[action]}
+                </button>
+              ))}
             </div>
             <div className="dash-panel-heading-row with-margin" style={{ alignItems: "center", gap: 8 }}>
               <span>Art style</span>

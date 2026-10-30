@@ -1,12 +1,13 @@
 import type { CharacterArtPose } from './character-art';
-import { bindVertex, deformVertex, FULL_ART_RIGS, resolveRigPose, inPolygon, type Point, type SkinVertex } from './fullart-rig';
+import { quantizeCharacterPose } from './character-performance';
+import { bindVertex, deformVertex, FULL_ART_RIGS, resolveRigPose, propOwnerAt, type Point, type SkinVertex } from './fullart-rig';
 
 interface Mesh {
   vertices: SkinVertex[];
   triangles: readonly [number,number,number][];
   aspect: number;
   texture: HTMLCanvasElement;
-  props: { texture: HTMLCanvasElement; bone: number }[];
+  props: { texture: HTMLCanvasElement; bone: number; behindBody: boolean; shaft?: { from: Point; to: Point; width: number } }[];
 }
 const meshes = new Map<string, Mesh>();
 const frames = new Map<string, HTMLCanvasElement>();
@@ -37,11 +38,12 @@ function buildMesh(id:string,img:HTMLImageElement):Mesh|undefined {
     const part=propCtx.createImageData(img.width,img.height);
     for(let y=0;y<img.height;y++)for(let x=0;x<img.width;x++){
       const i=y*img.width+x,o=i*4;
-      if(definitions.some(p=>inPolygon([x/img.width,y/img.height],p.polygon))){
+      if(propOwnerAt(rig, [x/img.width,y/img.height]) === arm){
         part.data.set(rgba.subarray(o,o+4),o);removed[i]=1;
       }
     }
-    propCtx.putImageData(part,0,0);props.push({texture,bone:arm===0?3:5});
+    propCtx.putImageData(part,0,0);props.push({texture,bone:arm===0?3:5,
+      behindBody:definitions.some(p=>p.behindBody),shaft:definitions.find(p=>p.shaft)?.shaft});
   }
   const original=rgba.slice();
   for(let y=0;y<img.height;y++)for(let x=0;x<img.width;x++){
@@ -89,11 +91,7 @@ function buildMesh(id:string,img:HTMLImageElement):Mesh|undefined {
  * Buckets are fine enough (48/cycle ≈ 4.3° at the retimed ~3 stride/s gait)
  * that successive render frames differ without a visible step. */
 export function fullArtFrameKey(id:string,pose:CharacterArtPose):string {
-  return [id,!!pose.moving,!!pose.airborne,!!pose.dashing,(pose.verticalVelocity??0)<0,
-    Math.round((pose.phase??0)*48),pose.moving?0:Math.round((pose.stride??0)*12),
-    Math.round((pose.melee??0)*24),Math.round((pose.ranged??0)*24),
-    pose.moving?0:Math.floor((pose.time??0)*24),
-    Math.round((pose.speedRatio??0)*6)].join(':');
+  return id + ':' + Object.values(quantizeCharacterPose(pose)).join(':');
 }
 
 function paintTriangle(ctx:CanvasRenderingContext2D,img:CanvasImageSource,source:Point[],target:Point[]):void {
@@ -130,18 +128,26 @@ export function drawSkinnedFullArt(ctx:CanvasRenderingContext2D,id:string,img:HT
     frame.width=Math.ceil(EDGE*mesh.aspect)+PAD*2;frame.height=EDGE+PAD*2;
     const paint=frame.getContext('2d');if(!paint)return false;
     paint.imageSmoothingEnabled=false;
-    const bakedPose={...pose,phase:Math.round((pose.phase??0)*48)/48};
+    const bakedPose=quantizeCharacterPose(pose);
     const resolved=resolveRigPose(FULL_ART_RIGS[id],mesh.aspect,bakedPose);
     const target=mesh.vertices.map(v=>{const p=deformVertex(v,resolved);return [p[0]*EDGE+PAD,p[1]*EDGE+PAD] as Point;});
     const source=mesh.vertices.map(v=>[v.source[0]*img.height,v.source[1]*img.height] as Point);
-    for(const triangle of mesh.triangles)paintTriangle(paint,mesh.texture,triangle.map(i=>source[i]),triangle.map(i=>target[i]));
-    for(const prop of mesh.props){
+    const paintProp = (prop: Mesh['props'][number]) => {
       const b=resolved.bones[prop.bone];
       const angle=Math.atan2(b.to[1]-b.from[1],b.to[0]-b.from[0])-Math.atan2(b.restTo[1]-b.restFrom[1],b.restTo[0]-b.restFrom[0]);
       paint.save();paint.translate(PAD+b.from[0]*EDGE,PAD+b.from[1]*EDGE);
       paint.rotate(angle);paint.translate(-b.restFrom[0]*EDGE,-b.restFrom[1]*EDGE);
+      if(prop.shaft){
+        const {from,to,width:shaftWidth}=prop.shaft;
+        paint.lineCap='round';paint.strokeStyle='#19151f';paint.lineWidth=shaftWidth*EDGE;
+        paint.beginPath();paint.moveTo(from[0]*mesh.aspect*EDGE,from[1]*EDGE);paint.lineTo(to[0]*mesh.aspect*EDGE,to[1]*EDGE);paint.stroke();
+        paint.strokeStyle='#55495f';paint.lineWidth=shaftWidth*EDGE*.5;paint.stroke();
+      }
       paint.drawImage(prop.texture,0,0,EDGE*mesh.aspect,EDGE);paint.restore();
-    }
+    };
+    for(const prop of mesh.props)if(prop.behindBody)paintProp(prop);
+    for(const triangle of mesh.triangles)paintTriangle(paint,mesh.texture,triangle.map(i=>source[i]),triangle.map(i=>target[i]));
+    for(const prop of mesh.props)if(!prop.behindBody)paintProp(prop);
     frames.set(key,frame);
     if(frames.size>FULL_ART_FRAME_LIMIT)frames.delete(frames.keys().next().value!);
   }else {frames.delete(key);frames.set(key,frame);}

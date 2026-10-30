@@ -43,14 +43,9 @@ const DROPS = {
     { id: 1, box: [1, 72, 55, 313] },
     { id: 2, box: [1, 676, 61, 919] },
   ],
-  // Big palette grid below-left of the figure, right-edge frame sliver,
-  // bottom-left swatch grid, flat navy ground band (variance 47).
-  knight: [
-    { id: 1, box: [6, 187, 657, 871] },
-    { id: 2, box: [581, 231, 614, 331] },
-    { id: 6, box: [10, 605, 310, 865] },
-    { id: 9, box: [71, 851, 705, 900] },
-  ],
+  // Knight is deliberately excluded. Its connected torso, scarf and sword
+  // were misidentified as palette furniture; dropping that component erased
+  // most of the hero. Keep the restored complete source and fitted rig.
   // Orange decorative orb with dark jagged rim, left of her waist.
   velvet: [{ id: 1, box: [1, 300, 182, 486] }],
   // Candelabra + roses still-life vignette on a stone ledge.

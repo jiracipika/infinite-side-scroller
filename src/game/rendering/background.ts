@@ -1,16 +1,6 @@
 /**
- * Layered world background — sky, celestial bodies, stars, ridged parallax
- * mountains, chromatic streams, and world-anchored clouds.
- *
- * Replaces the old two-layer sine mountains + flat gradient sky with a deep,
- * biome-tinted backdrop:
- *
- *   - 3-stop sky gradient that darkens toward the horizon at night
- *   - deterministic star field that fades in/out with the day/night cycle
- *   - sun (day) / moon (night) traveling a real arc across the sky
- *   - 3 mountain ridge layers with aerial perspective + snow caps
- *   - thin "chromatic streams" (the Dashverse neon signature) behind peaks
- *   - world-anchored drifting clouds tinted by biome + time of day
+ * Moonlit fantasy ruins: a graded sky, fractured moon, distant sanctuary
+ * silhouettes, three world-anchored city plates and restrained drifting dust.
  *
  * Everything is deterministic (seeded hashes + sines) so the
  * renderer's chunk caching stays stable and multiplayer clients see identical
@@ -23,6 +13,7 @@ import type { BiomeColors } from "../world/biomes";
 import { blendHex, hexToRgba } from "./color";
 import { textureHash } from "./textures";
 import { paintIndustrialCity } from "./ink-city";
+import { drawDistantSanctuary, drawWorldMotes } from './world-atmosphere';
 
 /** Renderer fidelity tier — mirrors the engine's adaptive quality level. */
 export type BackgroundDetail = "low" | "high";
@@ -150,7 +141,8 @@ export function drawBackgroundSky(
   ctx.fillRect(0, 0, width, height);
   ctx.save();
   ctx.fillStyle = "#6d5388";
-  const printStep = detail === "high" ? 36 : 72;
+  ctx.globalAlpha = .32;
+  const printStep = detail === "high" ? 48 : 96;
   for (let y = 8; y < height * 0.7; y += printStep) {
     for (let x = 8; x < width; x += printStep) {
       const h = textureHash(x + y * 31, 117);
@@ -342,5 +334,7 @@ function drawMoon(
 /** Three opaque urban plates replace the smooth hills and duplicate skyline. */
 export function drawBackgroundParallax(ctx: CanvasRenderingContext2D, opts: BackgroundRenderOpts): void {
   const { width, height, cameraX, cameraY, detail } = opts;
+  drawDistantSanctuary(ctx, opts);
   paintIndustrialCity(ctx, width, height, cameraX, cameraY, detail === "high");
+  drawWorldMotes(ctx, opts);
 }

@@ -9,7 +9,7 @@ const out=path.resolve(process.env.ART_SCREENSHOTS||path.join(root,'artifacts/ch
 const url=process.env.GAME_URL||'http://127.0.0.1:3010';
 const {chromium}=createRequire(process.env.PLAYWRIGHT_PACKAGE||import.meta.url)('playwright');
 mkdirSync(out,{recursive:true});
-const browser=await chromium.launch({headless:true});
+const browser=await chromium.launch({headless:true, ...(process.env.CHROMIUM_PATH ? {executablePath:process.env.CHROMIUM_PATH} : {})});
 const ids=['knight','ninja','tank','mage','ranger','cyborg','spirit','healer','cherry','velvet','ember','rosalia','marionette','dorian','onyx','mortimer','grimshaw'];
 const melee=new Set(['knight','ninja','tank','cyborg','cherry','velvet','ember','rosalia','marionette','dorian','onyx','mortimer','grimshaw']);
 const reports=[];
@@ -30,15 +30,21 @@ try{
   assert.equal(await page.getByRole('button',{name:/Play Endless/}).evaluate(e=>{
     while(e){if(Number(getComputedStyle(e).opacity)<.99)return false;e=e.parentElement;}return true;
   }),true,'reduced-motion hydration must not hide the Play CTA');
-  assert.equal(await page.evaluate(()=>window.__sheetDraws),0,'Ink default must stay procedural after sheets load');
+  assert.equal(await page.evaluate(()=>window.__sheetDraws),0,'Full art default must not use pixel sheets');
   const hero=page.locator('.dash-character-stage-v3 canvas');
-  const ink=await hero.evaluate(c=>c.toDataURL());
+  const fullart=await hero.evaluate(c=>c.toDataURL());
   await page.getByRole('button',{name:'Pixel',exact:true}).click();
   await page.waitForTimeout(100);
   assert.ok(await page.evaluate(()=>window.__sheetDraws)>0,'Pixel toggle really draws sheets');
-  const pixel=await hero.evaluate(c=>c.toDataURL());assert.notEqual(ink,pixel);
+  const pixel=await hero.evaluate(c=>c.toDataURL());assert.notEqual(fullart,pixel);
   await page.getByRole('button',{name:'Ink',exact:true}).click();
-  assert.equal(await hero.evaluate(c=>c.toDataURL()),ink,'Ink switch repaints the menu immediately');
+  assert.notEqual(await hero.evaluate(c=>c.toDataURL()),fullart,'Ink switch repaints the menu immediately');
+  await page.getByRole('button',{name:'Full art',exact:true}).click();
+  assert.equal(await hero.evaluate(c=>c.toDataURL()),fullart,'Full art selection restores the painted hero');
+  for(const name of ['Run','Jump','Attack','Stand']){
+    const button=page.getByRole('group',{name:'Character movement preview'}).getByRole('button',{name,exact:true});
+    await button.click();assert.equal(await button.getAttribute('aria-pressed'),'true');
+  }
   for(const [width,height] of [[1280,630],[390,844]]){
     await page.setViewportSize({width,height});await page.screenshot({path:path.join(out,`menu-${width}.png`),fullPage:true});
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'no horizontal menu overflow');

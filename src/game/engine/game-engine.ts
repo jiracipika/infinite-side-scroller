@@ -52,6 +52,7 @@ import {
 import { spawnHazardsForChunk, renderHazard, type Hazard } from "../hazards";
 import { profileForBiomeName, profileForLevelBiome } from "../spawn-patterns";
 import { getCharacterById } from "../data/characters";
+import { hexToRgba } from '../rendering/color';
 import type { Platform as PlatformData } from "../world/chunk";
 import { PerformanceProfiler } from "./performance-profiler";
 import { comboMultiplierFor } from "./combo-tiers";
@@ -3231,22 +3232,12 @@ export class GameEngine {
     const px = this.player.x - this.camera.renderX + this.player.width / 2;
     const py = this.player.y - this.camera.renderY + this.player.height / 2;
 
-    // Character-specific slash tint.
-    let tint = "rgba(255, 255, 255, 0.55)";
-    let glow = "rgba(186, 230, 253, 0.35)";
-    const charId = this.player.characterId;
-    if (charId === "ninja") {
-      tint = "rgba(134, 239, 172, 0.5)";
-      glow = "rgba(74, 222, 128, 0.3)";
-    } else if (charId === "tank") {
-      tint = "rgba(252, 211, 77, 0.55)";
-      glow = "rgba(245, 158, 11, 0.35)";
-    } else if (charId === "cyborg") {
-      tint = "rgba(103, 232, 249, 0.55)";
-      glow = "rgba(34, 211, 238, 0.35)";
-    }
-
-    const radius = 40;
+    // Carry each hero's identity into combat: cherry red, court crimson,
+    // cyborg cyan, ninja green, rather than a shared white slash for the court.
+    const character = getCharacterById(this.player.characterId);
+    const tint = hexToRgba(character.specialColor, .62);
+    const glow = hexToRgba(character.specialColor, .2);
+    const radius = Math.max(28, (character.meleeRange ?? 48) * .8);
     // The arc sweeps from -50° to +50° relative to the facing direction,
     // and the visible portion follows the progress so it looks like a slash.
     const sweepSpan = Math.PI * 0.62; // ~112°

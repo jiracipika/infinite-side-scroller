@@ -35,8 +35,12 @@ if(joints){const aspect=originals[c.id].width/originals[c.id].height,r=resolveRi
 requestAnimationFrame(frame);}requestAnimationFrame(frame);
 function sheet(){const s=document.querySelector('#sheet'),l=s.getContext('2d');l.clearRect(0,0,s.width,s.height);const poses=[['ORIGINAL',null],['RUN / REACH',{moving:true,phase:.25,stride:2.4}],['RUN / PASS',{moving:true,phase:.75,stride:-2.4}],['JUMP',{airborne:true,verticalVelocity:-300}],['STRIKE',{melee:.5}],['CAST',{ranged:.5}]];CHARACTERS.forEach((c,row)=>{const y=row*260;l.fillStyle='#c7ff4d';l.font='15px Trebuchet MS';l.fillText(c.name,12,y+20);poses.forEach(([name,p],col)=>{const x=col*200+100;l.fillStyle='#bda9ce';l.font='11px Trebuchet MS';l.fillText(name,x-60,y+42);if(p)paint(l,c,p,x,y+250,145);else original(l,c,x,y+250,188);});});
 const gallery=document.querySelector('#gallery');gallery.innerHTML='';CHARACTERS.forEach(c=>{const f=document.createElement('figure'),cv=document.createElement('canvas');cv.width=170;cv.height=200;paint(cv.getContext('2d'),c,{time:.6},85,185,120);const label=document.createElement('figcaption');label.textContent=c.name;f.append(cv,label);gallery.append(f);});document.querySelector('#status').textContent=CHARACTERS.length+' redesigned heroes · '+(CHARACTERS.length*6)+' pose checks · '+errors.length+' errors';}
-window.addEventListener('dashverse-art-change',()=>{if(Object.values(originals).every(i=>i.complete))sheet();});
-Promise.all(Object.values(originals).map(i=>i.decode())).then(()=>setTimeout(sheet,100));
+// Coalesce the 17 image-load events. Painting 102 poses on every event thrashed
+// the bounded runtime frame cache and stalled this review page during startup.
+let sheetScheduled=false;
+function scheduleSheet(){if(sheetScheduled)return;sheetScheduled=true;setTimeout(sheet,100);}
+window.addEventListener('dashverse-art-change',()=>{if(Object.values(originals).every(i=>i.complete))scheduleSheet();});
+Promise.all(Object.values(originals).map(i=>i.decode())).then(scheduleSheet);
 </script></html>`;
 writeFileSync(path.join(out,'index.html'),html);
 console.log(out);
