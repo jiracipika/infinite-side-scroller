@@ -261,9 +261,9 @@ export interface SkinVertex { source: Point; weights: readonly { bone: number; w
 
 /** Bind once per image. Broad central areas retain the painted torso, while
  * distance weights blend shoulders/knees with no cut seams or exposed holes. */
-export function bindVertex(rig:ArtRig,aspect:number,point:Point):SkinVertex {
+export function bindVertex(rig:ArtRig,aspect:number,point:Point,restBones?:readonly Bone[]):SkinVertex {
   const p=unit(point,aspect);
-  const rest=resolveRigPose(rig,aspect,{}).bones;
+  const rest=restBones??resolveRigPose(rig,aspect,{}).bones;
   if(point[1]<rig.headY)return {source:p,weights:[{bone:1,weight:1}],cloth:0};
   const candidates:{bone:number;distance:number}[]=[{bone:0,distance:distance(p,rest[0].restFrom,rest[0].restTo)*.80}];
   // Long skirts and spectral tails are cloth, not two fabricated trouser legs.
@@ -282,14 +282,31 @@ export function bindVertex(rig:ArtRig,aspect:number,point:Point):SkinVertex {
   return {source:p,weights:pair.map((v,i)=>({bone:v.bone,weight:raw[i]/total})),cloth};
 }
 
-export function deformVertex(vertex:SkinVertex,pose:RigPose):Point {
+export interface SkinTransform { restX: number; restY: number; fromX: number; fromY: number; cos: number; sin: number }
+
+/** The same bone rotation serves hundreds of vertices. Calculate its trig
+ * once per pose, rather than twice per skin weight on every vertex. */
+export function resolveSkinTransforms(pose:RigPose):SkinTransform[] {
+  return pose.bones.map(b=>{
+    const angle=Math.atan2(b.to[1]-b.from[1],b.to[0]-b.from[0])-Math.atan2(b.restTo[1]-b.restFrom[1],b.restTo[0]-b.restFrom[0]);
+    return {restX:b.restFrom[0],restY:b.restFrom[1],fromX:b.from[0],fromY:b.from[1],cos:Math.cos(angle),sin:Math.sin(angle)};
+  });
+}
+
+export function deformVertex(vertex:SkinVertex,pose:RigPose,transforms?:readonly SkinTransform[]):Point {
   let x=0,y=0;
   for(const {bone,weight} of vertex.weights){
-    const b=pose.bones[bone];
-    const angle=Math.atan2(b.to[1]-b.from[1],b.to[0]-b.from[0])-Math.atan2(b.restTo[1]-b.restFrom[1],b.restTo[0]-b.restFrom[0]);
-    const p=rotate(vertex.source,b.restFrom,angle);
-    x+=(p[0]+b.from[0]-b.restFrom[0])*weight;
-    y+=(p[1]+b.from[1]-b.restFrom[1])*weight;
+    if(transforms){
+      const t=transforms[bone],dx=vertex.source[0]-t.restX,dy=vertex.source[1]-t.restY;
+      x+=(t.restX+dx*t.cos-dy*t.sin+t.fromX-t.restX)*weight;
+      y+=(t.restY+dx*t.sin+dy*t.cos+t.fromY-t.restY)*weight;
+    }else{
+      const b=pose.bones[bone];
+      const angle=Math.atan2(b.to[1]-b.from[1],b.to[0]-b.from[0])-Math.atan2(b.restTo[1]-b.restFrom[1],b.restTo[0]-b.restFrom[0]);
+      const p=rotate(vertex.source,b.restFrom,angle);
+      x+=(p[0]+b.from[0]-b.restFrom[0])*weight;
+      y+=(p[1]+b.from[1]-b.restFrom[1])*weight;
+    }
   }
   return [x+pose.cloth*vertex.cloth,y+Math.abs(pose.cloth)*vertex.cloth*.2];
 }

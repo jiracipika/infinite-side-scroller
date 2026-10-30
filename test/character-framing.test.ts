@@ -28,7 +28,7 @@ describe('complete character framing', () => {
       assert.ok(x - rect.left >= 3 && x - rect.left <= rect.width - 3);
       assert.ok(y - rect.top >= 3 && y - rect.top <= rect.height - 3);
     }
-    assert.ok(FULL_ART_CACHE_BYTE_LIMIT <= 28 * 1024 * 1024, 'variable frame sizes retain a bounded cache');
+    assert.ok(FULL_ART_CACHE_BYTE_LIMIT <= 64 * 1024 * 1024, 'variable frame sizes retain a bounded cache');
   });
 
   for (const id of ['cherry', 'velvet', 'rosalia', 'ember', 'marionette', 'ninja', 'dorian']) {

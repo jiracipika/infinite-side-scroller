@@ -1,0 +1,178 @@
+{
+  "baseline": "1555e410e62d5008ada15342075935a6f08f57fc",
+  "browser": "154.0.8037.57",
+  "cpuThrottle": 1,
+  "samples": [
+    {
+      "label": "baseline",
+      "enemies": 0,
+      "sampledFrames": 300,
+      "medianMs": 0.7000000001862645,
+      "p95Ms": 1.400000000372529,
+      "averageMs": 1.078999999994412,
+      "worstMs": 103,
+      "coldMs": 103,
+      "triangleClips": 54710,
+      "peakCachedBytes": 0,
+      "quality": "high",
+      "dpr": 1
+    },
+    {
+      "label": "baseline",
+      "enemies": 4,
+      "sampledFrames": 300,
+      "medianMs": 69.70000000018626,
+      "p95Ms": 82.1000000005588,
+      "averageMs": 67.96433333333272,
+      "worstMs": 190.5,
+      "coldMs": 190.5,
+      "triangleClips": 1921888,
+      "peakCachedBytes": 0,
+      "quality": "high",
+      "dpr": 1
+    },
+    {
+      "label": "baseline",
+      "enemies": 8,
+      "sampledFrames": 300,
+      "medianMs": 108.40000000037253,
+      "p95Ms": 130.79999999981374,
+      "averageMs": 105.77666666665114,
+      "worstMs": 139.79999999981374,
+      "coldMs": 68.5,
+      "triangleClips": 2969744,
+      "peakCachedBytes": 0,
+      "quality": "high",
+      "dpr": 1
+    },
+    {
+      "label": "optimized",
+      "enemies": 0,
+      "sampledFrames": 300,
+      "medianMs": 0.7000000001862645,
+      "p95Ms": 1.400000000372529,
+      "averageMs": 1.0543333333420257,
+      "worstMs": 82.3999999994412,
+      "coldMs": 82.3999999994412,
+      "triangleClips": 54710,
+      "peakCachedBytes": 6017256,
+      "quality": "high",
+      "dpr": 1
+    },
+    {
+      "label": "optimized",
+      "enemies": 4,
+      "sampledFrames": 300,
+      "medianMs": 0.7000000001862645,
+      "p95Ms": 13.900000000372529,
+      "averageMs": 2.2430000000012416,
+      "worstMs": 216.90000000037253,
+      "coldMs": 216.90000000037253,
+      "triangleClips": 230310,
+      "peakCachedBytes": 32776908,
+      "quality": "high",
+      "dpr": 1
+    },
+    {
+      "label": "optimized",
+      "enemies": 8,
+      "sampledFrames": 300,
+      "medianMs": 0.6000000005587935,
+      "p95Ms": 1.2999999998137355,
+      "averageMs": 0.7703333333351959,
+      "worstMs": 12.799999999813735,
+      "coldMs": 12.799999999813735,
+      "triangleClips": 10,
+      "peakCachedBytes": 32776908,
+      "quality": "high",
+      "dpr": 1
+    }
+  ],
+  "parity": [
+    {
+      "id": "knight",
+      "poses": 24,
+      "changedPixels": 0
+    },
+    {
+      "id": "ninja",
+      "poses": 24,
+      "changedPixels": 0
+    },
+    {
+      "id": "tank",
+      "poses": 24,
+      "changedPixels": 0
+    },
+    {
+      "id": "mage",
+      "poses": 24,
+      "changedPixels": 0
+    },
+    {
+      "id": "ranger",
+      "poses": 24,
+      "changedPixels": 0
+    },
+    {
+      "id": "cyborg",
+      "poses": 24,
+      "changedPixels": 0
+    },
+    {
+      "id": "spirit",
+      "poses": 24,
+      "changedPixels": 0
+    },
+    {
+      "id": "healer",
+      "poses": 24,
+      "changedPixels": 0
+    },
+    {
+      "id": "cherry",
+      "poses": 24,
+      "changedPixels": 0
+    },
+    {
+      "id": "velvet",
+      "poses": 24,
+      "changedPixels": 0
+    },
+    {
+      "id": "ember",
+      "poses": 24,
+      "changedPixels": 0
+    },
+    {
+      "id": "rosalia",
+      "poses": 24,
+      "changedPixels": 0
+    },
+    {
+      "id": "marionette",
+      "poses": 24,
+      "changedPixels": 0
+    },
+    {
+      "id": "dorian",
+      "poses": 24,
+      "changedPixels": 0
+    },
+    {
+      "id": "onyx",
+      "poses": 24,
+      "changedPixels": 0
+    },
+    {
+      "id": "mortimer",
+      "poses": 24,
+      "changedPixels": 0
+    },
+    {
+      "id": "grimshaw",
+      "poses": 24,
+      "changedPixels": 0
+    }
+  ]
+}

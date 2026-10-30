@@ -3181,9 +3181,9 @@
     if (rig.propExclusions?.some((polygon) => inPolygon(point, polygon))) return void 0;
     return rig.props?.find((prop) => inPolygon(point, prop.polygon))?.arm;
   }
-  function bindVertex(rig, aspect, point) {
+  function bindVertex(rig, aspect, point, restBones) {
     const p = unit(point, aspect);
-    const rest = resolveRigPose(rig, aspect, {}).bones;
+    const rest = restBones ?? resolveRigPose(rig, aspect, {}).bones;
     if (point[1] < rig.headY) return { source: p, weights: [{ bone: 1, weight: 1 }], cloth: 0 };
     const candidates = [{ bone: 0, distance: distance(p, rest[0].restFrom, rest[0].restTo) * 0.8 }];
     const skirt = rig.hemY < 0.7 && point[1] > rig.hemY && (rig.longGown || point[1] < 0.88);
@@ -3200,14 +3200,26 @@
     const cloth = skirt || rig.floating ? Math.max(0, (point[1] - rig.hemY) / (1 - rig.hemY)) : edge > 0.29 && point[1] > 0.38 ? 0.6 : 0;
     return { source: p, weights: pair.map((v, i) => ({ bone: v.bone, weight: raw[i] / total })), cloth };
   }
-  function deformVertex(vertex, pose) {
+  function resolveSkinTransforms(pose) {
+    return pose.bones.map((b) => {
+      const angle = Math.atan2(b.to[1] - b.from[1], b.to[0] - b.from[0]) - Math.atan2(b.restTo[1] - b.restFrom[1], b.restTo[0] - b.restFrom[0]);
+      return { restX: b.restFrom[0], restY: b.restFrom[1], fromX: b.from[0], fromY: b.from[1], cos: Math.cos(angle), sin: Math.sin(angle) };
+    });
+  }
+  function deformVertex(vertex, pose, transforms) {
     let x = 0, y = 0;
     for (const { bone, weight } of vertex.weights) {
-      const b = pose.bones[bone];
-      const angle = Math.atan2(b.to[1] - b.from[1], b.to[0] - b.from[0]) - Math.atan2(b.restTo[1] - b.restFrom[1], b.restTo[0] - b.restFrom[0]);
-      const p = rotate(vertex.source, b.restFrom, angle);
-      x += (p[0] + b.from[0] - b.restFrom[0]) * weight;
-      y += (p[1] + b.from[1] - b.restFrom[1]) * weight;
+      if (transforms) {
+        const t = transforms[bone], dx = vertex.source[0] - t.restX, dy = vertex.source[1] - t.restY;
+        x += (t.restX + dx * t.cos - dy * t.sin + t.fromX - t.restX) * weight;
+        y += (t.restY + dx * t.sin + dy * t.cos + t.fromY - t.restY) * weight;
+      } else {
+        const b = pose.bones[bone];
+        const angle = Math.atan2(b.to[1] - b.from[1], b.to[0] - b.from[0]) - Math.atan2(b.restTo[1] - b.restFrom[1], b.restTo[0] - b.restFrom[0]);
+        const p = rotate(vertex.source, b.restFrom, angle);
+        x += (p[0] + b.from[0] - b.restFrom[0]) * weight;
+        y += (p[1] + b.from[1] - b.restFrom[1]) * weight;
+      }
     }
     return [x + pose.cloth * vertex.cloth, y + Math.abs(pose.cloth) * vertex.cloth * 0.2];
   }
@@ -3216,14 +3228,21 @@
   var meshes = /* @__PURE__ */ new Map();
   var frames = /* @__PURE__ */ new Map();
   var frameBytes = 0;
-  var FULL_ART_FRAME_LIMIT = 96;
-  var FULL_ART_CACHE_BYTE_LIMIT = 28 * 1024 * 1024;
+  var FULL_ART_FRAME_LIMIT = 512;
+  var FULL_ART_CACHE_BYTE_LIMIT = 64 * 1024 * 1024;
   var EDGE = 192;
   function fullArtFrameRect(points) {
-    const left = Math.floor(Math.min(...points.map((p) => p[0]))) - 3;
-    const top = Math.floor(Math.min(...points.map((p) => p[1]))) - 3;
-    const right = Math.ceil(Math.max(...points.map((p) => p[0]))) + 3;
-    const bottom = Math.ceil(Math.max(...points.map((p) => p[1]))) + 3;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const p of points) {
+      minX = Math.min(minX, p[0]);
+      minY = Math.min(minY, p[1]);
+      maxX = Math.max(maxX, p[0]);
+      maxY = Math.max(maxY, p[1]);
+    }
+    const left = Math.floor(minX) - 3;
+    const top = Math.floor(minY) - 3;
+    const right = Math.ceil(maxX) + 3;
+    const bottom = Math.ceil(maxY) + 3;
     return { left, top, width: Math.max(1, right - left), height: Math.max(1, bottom - top) };
   }
   function buildMesh(id, img) {
@@ -3298,8 +3317,7 @@
     }
     ctx.putImageData(pixels, 0, 0);
     const cols = 24, rows = 34;
-    const vertices = [], triangles = [];
-    for (let y = 0; y <= rows; y++) for (let x = 0; x <= cols; x++) vertices.push(bindVertex(rig, aspect, [x / cols, y / rows]));
+    const indices = [];
     for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
       let visible = false;
       for (let py = Math.floor(y / rows * img.height); py < Math.ceil((y + 1) / rows * img.height) && !visible; py++)
@@ -3310,8 +3328,20 @@
           }
       if (!visible) continue;
       const a = y * (cols + 1) + x, b = a + 1, c = a + cols + 1, d = c + 1;
-      triangles.push([a, b, d], [a, d, c]);
+      indices.push([a, b, d], [a, d, c]);
     }
+    const rest = resolveRigPose(rig, aspect, {}).bones;
+    const vertices = [], source = [];
+    for (let y = 0; y <= rows; y++) for (let x = 0; x <= cols; x++) {
+      const vertex = bindVertex(rig, aspect, [x / cols, y / rows], rest);
+      vertices.push(vertex);
+      source.push([vertex.source[0] * img.height, vertex.source[1] * img.height]);
+    }
+    const triangles = indices.map(([a, b, c]) => {
+      const p = source[a], q = source[b], r = source[c];
+      const ax = q[0] - p[0], ay = q[1] - p[1], bx = r[0] - p[0], by = r[1] - p[1];
+      return { a, b, c, x: p[0], y: p[1], ax, ay, bx, by, determinant: ax * by - bx * ay };
+    });
     const mesh = { vertices, triangles, aspect, texture: mask, props };
     meshes.set(id, mesh);
     return mesh;
@@ -3319,10 +3349,9 @@
   function fullArtFrameKey(id, pose) {
     return id + ":" + Object.values(quantizeCharacterPose(pose)).join(":");
   }
-  function paintTriangle(ctx, img, source, target) {
-    const [a, b, c] = source, [p, q, r] = target;
-    const ax = b[0] - a[0], ay = b[1] - a[1], bx = c[0] - a[0], by = c[1] - a[1];
-    const determinant = ax * by - bx * ay;
+  function paintTriangle(ctx, img, triangle, target) {
+    const { ax, ay, bx, by, determinant } = triangle;
+    const p = target[triangle.a], q = target[triangle.b], r = target[triangle.c];
     if (Math.abs(determinant) < 1e-8) return;
     const ux = q[0] - p[0], uy = q[1] - p[1], vx = r[0] - p[0], vy = r[1] - p[1];
     const m00 = (ux * by - vx * ay) / determinant, m01 = (vx * ax - ux * bx) / determinant;
@@ -3331,14 +3360,14 @@
     ctx.beginPath();
     const mx = (p[0] + q[0] + r[0]) / 3, my = (p[1] + q[1] + r[1]) / 3;
     for (let i = 0; i < 3; i++) {
-      const v = target[i], dx = v[0] - mx, dy = v[1] - my, length = Math.hypot(dx, dy) || 1;
+      const v = i === 0 ? p : i === 1 ? q : r, dx = v[0] - mx, dy = v[1] - my, length = Math.hypot(dx, dy) || 1;
       const x = v[0] + dx / length * 0.35, y = v[1] + dy / length * 0.35;
       if (i === 0) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
     }
     ctx.closePath();
     ctx.clip();
-    ctx.transform(m00, m10, m01, m11, p[0] - m00 * a[0] - m01 * a[1], p[1] - m10 * a[0] - m11 * a[1]);
+    ctx.transform(m00, m10, m01, m11, p[0] - m00 * triangle.x - m01 * triangle.y, p[1] - m10 * triangle.x - m11 * triangle.y);
     ctx.drawImage(img, 0, 0);
     ctx.restore();
   }
@@ -3350,15 +3379,15 @@
     if (!frame) {
       const bakedPose = quantizeCharacterPose(pose);
       const resolved = resolveRigPose(FULL_ART_RIGS[id], mesh.aspect, bakedPose);
+      const transforms = resolveSkinTransforms(resolved);
       const target = mesh.vertices.map((v) => {
-        const p = deformVertex(v, resolved);
+        const p = deformVertex(v, resolved, transforms);
         return [p[0] * EDGE, p[1] * EDGE];
       });
-      const source = mesh.vertices.map((v) => [v.source[0] * img.height, v.source[1] * img.height]);
       const extent = [...target];
       for (const prop of mesh.props) {
         const transform = (p) => {
-          const v = deformVertex({ source: p, weights: [{ bone: prop.bone, weight: 1 }], cloth: 0 }, resolved);
+          const v = deformVertex({ source: p, weights: [{ bone: prop.bone, weight: 1 }], cloth: 0 }, resolved, transforms);
           return [v[0] * EDGE, v[1] * EDGE];
         };
         extent.push(...prop.bounds.map(transform));
@@ -3398,7 +3427,7 @@
         paint.restore();
       };
       for (const prop of mesh.props) if (prop.behindBody) paintProp(prop);
-      for (const triangle of mesh.triangles) paintTriangle(paint, mesh.texture, triangle.map((i) => source[i]), triangle.map((i) => target[i]));
+      for (const triangle of mesh.triangles) paintTriangle(paint, mesh.texture, triangle, target);
       for (const prop of mesh.props) if (!prop.behindBody) paintProp(prop);
       frame = { canvas, left: rect2.left, top: rect2.top, bytes: canvas.width * canvas.height * 4 };
       frames.set(key, frame);

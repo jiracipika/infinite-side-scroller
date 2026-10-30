@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {CHARACTERS} from '../src/game/data/characters';
 import {CHARACTER_FULL_ART} from '../src/game/rendering/character-fullart-data';
 import {FULL_ART_RIGS,bindVertex,deformVertex,resolveRigPose,solveJoint,type Point} from '../src/game/rendering/fullart-rig';
-import {fullArtFrameKey,FULL_ART_FRAME_LIMIT} from '../src/game/rendering/fullart-mesh';
+import {fullArtFrameKey,FULL_ART_FRAME_LIMIT,FULL_ART_CACHE_BYTE_LIMIT} from '../src/game/rendering/fullart-mesh';
 
 describe('painted character articulation',()=>{
   it('keeps the entire redesigned roster and includes the recovered Ranger',()=>{
@@ -54,6 +54,7 @@ describe('painted character articulation',()=>{
     const poses=[{}, {moving:true,phase:.25}, {moving:true,phase:.75},{airborne:true,verticalVelocity:-1},{airborne:true,verticalVelocity:1},{dashing:true},{melee:.5},{ranged:.5}];
     assert.equal(new Set(poses.map(p=>fullArtFrameKey('knight',p))).size,poses.length);
     assert.notEqual(fullArtFrameKey('knight',{}),fullArtFrameKey('ranger',{}));
-    assert.ok(FULL_ART_FRAME_LIMIT<=96);
+    assert.ok(FULL_ART_FRAME_LIMIT<=512);
+    assert.ok(FULL_ART_CACHE_BYTE_LIMIT<=64*1024*1024);
   });
 });
