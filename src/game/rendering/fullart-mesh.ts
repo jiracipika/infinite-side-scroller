@@ -1,10 +1,15 @@
 import type { CharacterArtPose } from './character-art';
 import { quantizeCharacterPose } from './character-performance';
-import { bindVertex, deformVertex, FULL_ART_RIGS, resolveRigPose, propOwnerAt, type Point, type SkinVertex } from './fullart-rig';
+import { bindVertex, deformVertex, FULL_ART_RIGS, resolveRigPose, resolveSkinTransforms, propOwnerAt, type Point, type SkinVertex } from './fullart-rig';
+
+interface Triangle {
+  a:number; b:number; c:number;
+  x:number; y:number; ax:number; ay:number; bx:number; by:number; determinant:number;
+}
 
 interface Mesh {
   vertices: SkinVertex[];
-  triangles: readonly [number,number,number][];
+  triangles: Triangle[];
   aspect: number;
   texture: HTMLCanvasElement;
   props: { texture: HTMLCanvasElement; bone: number; bounds: Point[]; behindBody: boolean; shaft?: { from: Point; to: Point; width: number } }[];
@@ -15,15 +20,22 @@ const frames = new Map<string, ArtFrame>();
 let frameBytes = 0;
 // Dynamic silhouettes use a byte ceiling as well as a frame-count ceiling.
 // Large scythe swings get enough room without growing the shared LRU unchecked.
-export const FULL_ART_FRAME_LIMIT = 96;
-export const FULL_ART_CACHE_BYTE_LIMIT = 28 * 1024 * 1024;
+export const FULL_ART_FRAME_LIMIT = 512;
+export const FULL_ART_CACHE_BYTE_LIMIT = 64 * 1024 * 1024;
 const EDGE = 192;
 
+/** Diagnostic snapshot for the render benchmark; no additional render work. */
+export function fullArtCacheStats():{frames:number;bytes:number} {
+  return {frames:frames.size,bytes:frameBytes};
+}
+
 export function fullArtFrameRect(points: readonly Point[]): { left: number; top: number; width: number; height: number } {
-  const left = Math.floor(Math.min(...points.map(p => p[0]))) - 3;
-  const top = Math.floor(Math.min(...points.map(p => p[1]))) - 3;
-  const right = Math.ceil(Math.max(...points.map(p => p[0]))) + 3;
-  const bottom = Math.ceil(Math.max(...points.map(p => p[1]))) + 3;
+  let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+  for(const p of points){minX=Math.min(minX,p[0]);minY=Math.min(minY,p[1]);maxX=Math.max(maxX,p[0]);maxY=Math.max(maxY,p[1]);}
+  const left = Math.floor(minX) - 3;
+  const top = Math.floor(minY) - 3;
+  const right = Math.ceil(maxX) + 3;
+  const bottom = Math.ceil(maxY) + 3;
   return { left, top, width: Math.max(1, right - left), height: Math.max(1, bottom - top) };
 }
 
@@ -82,8 +94,7 @@ function buildMesh(id:string,img:HTMLImageElement):Mesh|undefined {
   }
   ctx.putImageData(pixels,0,0);
   const cols=24,rows=34;
-  const vertices:SkinVertex[]=[],triangles:[number,number,number][]=[];
-  for(let y=0;y<=rows;y++)for(let x=0;x<=cols;x++)vertices.push(bindVertex(rig,aspect,[x/cols,y/rows]));
+  const indices:[number,number,number][]=[];
   for(let y=0;y<rows;y++)for(let x=0;x<cols;x++){
     // Cull only provably transparent cells; thin bowstrings and staff tips
     // survive because this checks every source pixel, not just the corners.
@@ -93,8 +104,22 @@ function buildMesh(id:string,img:HTMLImageElement):Mesh|undefined {
         if(rgba[(py*img.width+px)*4+3]>0){visible=true;break;}
     if(!visible)continue;
     const a=y*(cols+1)+x,b=a+1,c=a+cols+1,d=c+1;
-    triangles.push([a,b,d],[a,d,c]);
+    indices.push([a,b,d],[a,d,c]);
   }
+  // Share one rest skeleton across the grid and precompile the immutable
+  // source geometry. Keep the original grid extents and bitmap placement so
+  // nearest-neighbor sampling remains pixel-identical to the original art.
+  const rest=resolveRigPose(rig,aspect,{}).bones;
+  const vertices:SkinVertex[]=[],source:Point[]=[];
+  for(let y=0;y<=rows;y++)for(let x=0;x<=cols;x++){
+    const vertex=bindVertex(rig,aspect,[x/cols,y/rows],rest);vertices.push(vertex);
+    source.push([vertex.source[0]*img.height,vertex.source[1]*img.height]);
+  }
+  const triangles=indices.map(([a,b,c])=>{
+    const p=source[a],q=source[b],r=source[c];
+    const ax=q[0]-p[0],ay=q[1]-p[1],bx=r[0]-p[0],by=r[1]-p[1];
+    return {a,b,c,x:p[0],y:p[1],ax,ay,bx,by,determinant:ax*by-bx*ay};
+  });
   const mesh={vertices,triangles,aspect,texture:mask,props};meshes.set(id,mesh);return mesh;
 }
 
@@ -106,10 +131,9 @@ export function fullArtFrameKey(id:string,pose:CharacterArtPose):string {
   return id + ':' + Object.values(quantizeCharacterPose(pose)).join(':');
 }
 
-function paintTriangle(ctx:CanvasRenderingContext2D,img:CanvasImageSource,source:Point[],target:Point[]):void {
-  const [a,b,c]=source,[p,q,r]=target;
-  const ax=b[0]-a[0],ay=b[1]-a[1],bx=c[0]-a[0],by=c[1]-a[1];
-  const determinant=ax*by-bx*ay;
+function paintTriangle(ctx:CanvasRenderingContext2D,img:HTMLCanvasElement,triangle:Triangle,target:readonly Point[]):void {
+  const {ax,ay,bx,by,determinant}=triangle;
+  const p=target[triangle.a],q=target[triangle.b],r=target[triangle.c];
   if(Math.abs(determinant)<1e-8)return;
   const ux=q[0]-p[0],uy=q[1]-p[1],vx=r[0]-p[0],vy=r[1]-p[1];
   const m00=(ux*by-vx*ay)/determinant,m01=(vx*ax-ux*bx)/determinant;
@@ -119,13 +143,14 @@ function paintTriangle(ctx:CanvasRenderingContext2D,img:CanvasImageSource,source
   // the source silhouette is retained; there are no rectangular limb cuts.
   const mx=(p[0]+q[0]+r[0])/3,my=(p[1]+q[1]+r[1])/3;
   for(let i=0;i<3;i++){
-    const v=target[i],dx=v[0]-mx,dy=v[1]-my,length=Math.hypot(dx,dy)||1;
+    const v=i===0?p:i===1?q:r,dx=v[0]-mx,dy=v[1]-my,length=Math.hypot(dx,dy)||1;
     const x=v[0]+dx/length*.35,y=v[1]+dy/length*.35;
     if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
   }
   ctx.closePath();ctx.clip();
-  ctx.transform(m00,m10,m01,m11,p[0]-m00*a[0]-m01*a[1],p[1]-m10*a[0]-m11*a[1]);
-  ctx.drawImage(img,0,0);ctx.restore();
+  ctx.transform(m00,m10,m01,m11,p[0]-m00*triangle.x-m01*triangle.y,p[1]-m10*triangle.x-m11*triangle.y);
+  ctx.drawImage(img,0,0);
+  ctx.restore();
 }
 
 /** Rasterize a skinned pose only when it changes, then draw it with one
@@ -138,11 +163,11 @@ export function drawSkinnedFullArt(ctx:CanvasRenderingContext2D,id:string,img:HT
   if(!frame){
     const bakedPose=quantizeCharacterPose(pose);
     const resolved=resolveRigPose(FULL_ART_RIGS[id],mesh.aspect,bakedPose);
-    const target=mesh.vertices.map(v=>{const p=deformVertex(v,resolved);return [p[0]*EDGE,p[1]*EDGE] as Point;});
-    const source=mesh.vertices.map(v=>[v.source[0]*img.height,v.source[1]*img.height] as Point);
+    const transforms=resolveSkinTransforms(resolved);
+    const target=mesh.vertices.map(v=>{const p=deformVertex(v,resolved,transforms);return [p[0]*EDGE,p[1]*EDGE] as Point;});
     const extent:Point[]=[...target];
     for(const prop of mesh.props){
-      const transform=(p:Point)=>{const v=deformVertex({source:p,weights:[{bone:prop.bone,weight:1}],cloth:0},resolved);return [v[0]*EDGE,v[1]*EDGE] as Point;};
+      const transform=(p:Point)=>{const v=deformVertex({source:p,weights:[{bone:prop.bone,weight:1}],cloth:0},resolved,transforms);return [v[0]*EDGE,v[1]*EDGE] as Point;};
       extent.push(...prop.bounds.map(transform));
       if(prop.shaft)for(const p of [prop.shaft.from,prop.shaft.to]){
         const v=transform([p[0]*mesh.aspect,p[1]]),r=prop.shaft.width*EDGE/2;
@@ -167,7 +192,7 @@ export function drawSkinnedFullArt(ctx:CanvasRenderingContext2D,id:string,img:HT
       paint.drawImage(prop.texture,0,0,EDGE*mesh.aspect,EDGE);paint.restore();
     };
     for(const prop of mesh.props)if(prop.behindBody)paintProp(prop);
-    for(const triangle of mesh.triangles)paintTriangle(paint,mesh.texture,triangle.map(i=>source[i]),triangle.map(i=>target[i]));
+    for(const triangle of mesh.triangles)paintTriangle(paint,mesh.texture,triangle,target);
     for(const prop of mesh.props)if(!prop.behindBody)paintProp(prop);
     frame={canvas,left:rect.left,top:rect.top,bytes:canvas.width*canvas.height*4};
     frames.set(key,frame);frameBytes+=frame.bytes;

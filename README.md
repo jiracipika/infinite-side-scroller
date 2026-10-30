@@ -24,6 +24,7 @@ Open [http://localhost:3000](http://localhost:3000).
 - `npm run verify` — full release verification ladder (engine, progression, saves, HUD, mobile, touch, particles, typecheck, lint, tests)
 - `npm run build` — production Next.js build
 - `npm run release:evidence` — release evidence bundle
+- `BASELINE_REF=<commit> npm run benchmark:renderer` — compare full-quality rendering work and require pixel-identical character output; see [render performance notes](docs/performance/rendering-optimization.md).
 
 ## Mobile App (Expo, iOS + Android)
 
