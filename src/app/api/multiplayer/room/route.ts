@@ -613,20 +613,10 @@ export async function GET(request: NextRequest) {
   });
 }
 
-export async function DELETE(request: NextRequest) {
-  const rooms = await loadRooms();
-  const roomId = normalizeRoomId(request.nextUrl.searchParams.get('roomId'));
-  const playerId = request.nextUrl.searchParams.get('playerId') ?? '';
-
-  if (!roomId || !playerId) {
-    return json({ error: 'roomId and playerId required' }, 400);
-  }
-
+/** Shared leave logic for the DELETE route and the POST 'leave' action. */
+function leaveRoom(rooms: RoomMap, roomId: string, playerId: string): void {
   const room = rooms.get(roomId);
-  if (!room) {
-    await saveRooms(rooms);
-    return json({ ok: true });
-  }
+  if (!room) return;
   ensureRoomState(room);
 
   const leaving = room.players.get(playerId);
@@ -647,6 +637,18 @@ export async function DELETE(request: NextRequest) {
     const nextHost = room.players.values().next().value as NetPlayerState | undefined;
     if (nextHost) room.hostId = nextHost.id;
   }
+}
+
+export async function DELETE(request: NextRequest) {
+  const rooms = await loadRooms();
+  const roomId = normalizeRoomId(request.nextUrl.searchParams.get('roomId'));
+  const playerId = request.nextUrl.searchParams.get('playerId') ?? '';
+
+  if (!roomId || !playerId) {
+    return json({ error: 'roomId and playerId required' }, 400);
+  }
+
+  leaveRoom(rooms, roomId, playerId);
 
   await saveRooms(rooms);
   return json({ ok: true });
@@ -657,7 +659,7 @@ export async function POST(request: NextRequest) {
   cleanupRooms(rooms);
 
   const body = await request.json().catch(() => null) as null | {
-    action?: 'create' | 'join' | 'sync';
+    action?: 'create' | 'join' | 'sync' | 'leave';
     roomId?: string;
     playerId?: string;
     playerName?: string;
@@ -668,6 +670,20 @@ export async function POST(request: NextRequest) {
 
   if (!body?.action) {
     return json({ error: 'action required' }, 400);
+  }
+
+  if (body.action === 'leave') {
+    // Body-carried IDs: the request target is the constant /api route, so the
+    // URL never derives from user input (the DELETE route keeps query-param
+    // parity for older clients).
+    const roomId = normalizeRoomId(body.roomId ?? '');
+    const playerId = typeof body.playerId === 'string' ? body.playerId : '';
+    if (!roomId || !playerId) {
+      return json({ error: 'roomId and playerId required' }, 400);
+    }
+    leaveRoom(rooms, roomId, playerId);
+    await saveRooms(rooms);
+    return json({ ok: true });
   }
 
   if (body.action === 'create') {

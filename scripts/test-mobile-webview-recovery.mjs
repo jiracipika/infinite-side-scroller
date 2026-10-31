@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const source = fs.readFileSync(
-  path.join(process.cwd(), 'apps/mobile/app/(tabs)/index.tsx'),
+  path.join(process.cwd(), 'apps/mobile/app/index.tsx'),
   'utf8',
 );
 

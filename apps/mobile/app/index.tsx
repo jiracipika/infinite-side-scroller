@@ -12,30 +12,30 @@ import {
   Animated,
   Vibration,
   Platform,
-  type GestureResponderEvent,
 } from 'react-native';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
-import { Tabs } from 'expo-router';
-import { useFocusEffect } from '@react-navigation/native';
+import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { loadPlayerBest, savePlayerBest } from '../../lib/player-best';
-import { appendRunHistory } from '../../lib/run-history';
-import { loadGameSettings, DEFAULT_GAME_SETTINGS, type GameSettings } from '../../lib/game-settings';
-import { useMobileHaptics } from '../../hooks/useMobileHaptics';
-import { FadeTransition } from '../../components/FadeTransition';
-import { LoadingSpinner, LoadingProgressBar } from '../../components/LoadingSpinner';
+import { loadPlayerBest, savePlayerBest } from '../lib/player-best';
+import { appendRunHistory } from '../lib/run-history';
+import { loadGameSettings, DEFAULT_GAME_SETTINGS, type GameSettings } from '../lib/game-settings';
+import { useMobileHaptics } from '../hooks/useMobileHaptics';
+import { FadeTransition } from '../components/FadeTransition';
+import { LoadingSpinner, LoadingProgressBar } from '../components/LoadingSpinner';
 import {
   ParticleBurst,
   ScreenShake,
   useParticleBurst,
   useScreenShake,
-} from '../../components/ParticleBurst';
-import { AnimatedScore, AnimatedHeart, AnimatedHealthBar } from '../../components/AnimatedUI';
-import { PressableScale } from '../../components/PressableScale';
+} from '../components/ParticleBurst';
+import { AnimatedScore, AnimatedHeart, AnimatedHealthBar } from '../components/AnimatedUI';
+import { PressableScale } from '../components/PressableScale';
+import { SettingsSheet } from '../components/SettingsSheet';
+import { LeaderboardSheet } from '../components/LeaderboardSheet';
 
-const GAME_HTML = require('../../assets/game.html');
+const GAME_HTML = require('../assets/game.html');
 // Metro html assets don't resolve in Android release builds: the asset gets
 // flattened to res/raw and the WebView is handed a stub 'http://assets_game/'
 // URL, which trips ERR_CLEARTEXT_NOT_PERMITTED and the engine never loads
@@ -46,12 +46,6 @@ const GAME_SOURCE =
   Platform.OS === 'android'
     ? { uri: 'file:///android_asset/game.html', baseUrl: 'file:///android_asset/game.html' }
     : GAME_HTML;
-
-const MENU_STEPS = [
-  { title: 'Warm up', detail: 'Start endless and learn the rhythm.' },
-  { title: 'Collect', detail: 'Bank coins for checkpoints and upgrades.' },
-  { title: 'Compete', detail: 'Beat your best run from the board.' },
-];
 
 type GameState = 'menu' | 'playing' | 'paused' | 'gameover';
 
@@ -77,6 +71,11 @@ const DEFAULT_STATS: GameStats = {
   fps: 60, powerUps: [], maxCombo: 0, enemiesDefeated: 0,
 };
 
+/**
+ * Single-screen shell (no tabs): the menu IS the app — title, best score,
+ * one Play button, and settings/leaderboard as corner icons that open
+ * slide-up sheets. Everything else in this file is the run itself.
+ */
 export default function GameScreen() {
   const webViewRef = useRef<WebView>(null);
   const [gameState, setGameState] = useState<GameState>('menu');
@@ -90,13 +89,11 @@ export default function GameScreen() {
   const [largeControls, setLargeControls] = useState(DEFAULT_GAME_SETTINGS.largeControls);
   const [hapticsEnabled, setHapticsEnabled] = useState(DEFAULT_GAME_SETTINGS.hapticsEnabled);
   const [showFPS, setShowFPS] = useState(DEFAULT_GAME_SETTINGS.showFPS);
+  const [showSettings, setShowSettings] = useState(false);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
   const pendingRunRef = useRef<number | null>(null);
   const gameStateRef = useRef<GameState>('menu');
   const settingsRef = useRef<GameSettings>(DEFAULT_GAME_SETTINGS);
-  // Holds the latest stats so the message handler can read current values
-  // without listing `stats` in its dependency array (which would recreate the
-  // callback on every stats frame and cause excessive re-renders).
-  const statsRef = useRef<GameStats>(DEFAULT_STATS);
   // Track previous stat values to detect damage/coin milestones for particles.
   const prevStatsRef = useRef<GameStats>(DEFAULT_STATS);
 
@@ -141,8 +138,8 @@ export default function GameScreen() {
     return () => { mounted = false; };
   }, []);
 
-  // Load persisted settings on mount and whenever the game tab gains focus
-  // (so changes made in the Settings tab are picked up on return).
+  // Load persisted settings on mount and after the settings sheet closes
+  // (so changes made in the sheet are picked up immediately).
   const refreshSettings = useCallback(() => {
     let mounted = true;
     void loadGameSettings().then(settings => {
@@ -168,14 +165,6 @@ export default function GameScreen() {
     const cleanup = refreshSettings();
     return cleanup;
   }, [refreshSettings]);
-
-  // Re-read settings whenever the Game tab regains focus, so changes made in
-  // the Settings tab are reflected immediately on return.
-  useFocusEffect(
-    React.useCallback(() => {
-      refreshSettings();
-    }, [refreshSettings])
-  );
 
   const sendInput = useCallback((type: string, value: boolean) => {
     const detail = JSON.stringify({ type, value });
@@ -306,16 +295,8 @@ export default function GameScreen() {
   return (
     <ScreenShake shakeKey={shakeKey} intensity={6} duration={350}>
     <View style={styles.container}>
+      <Stack.Screen options={{ headerShown: false }} />
       <StatusBar style="light" hidden={gameState === 'playing'} />
-      <Tabs.Screen
-        options={{
-          // A side-scroller needs every available pixel during an active run
-          // and its pause/game-over overlays. The Screen must stay mounted:
-          // React Navigation keeps the last-registered options after an
-          // unmount, which stranded the hidden tab bar after Quit to Menu.
-          tabBarStyle: gameState === 'menu' ? undefined : { display: 'none' },
-        }}
-      />
       {/*
         Android WebView is a native surface and can be composited above sibling
         React Native views. Mount it only after Play is pressed so the native
@@ -421,7 +402,12 @@ export default function GameScreen() {
           duration={400}
           gradientColors={['rgba(0,0,0,0.94)', 'rgba(8,12,22,0.97)', 'rgba(16,20,34,0.99)']}
         >
-          <MenuOverlay onPlay={handlePlay} highScore={highScore} />
+          <MenuOverlay
+            onPlay={handlePlay}
+            highScore={highScore}
+            onOpenSettings={() => setShowSettings(true)}
+            onOpenLeaderboard={() => setShowLeaderboard(true)}
+          />
         </FadeTransition>
       )}
 
@@ -452,19 +438,32 @@ export default function GameScreen() {
           />
         </FadeTransition>
       )}
+
+      {/* Corner-icon sheets (from the menu only) */}
+      <SettingsSheet
+        visible={showSettings}
+        onClose={() => setShowSettings(false)}
+        onChanged={refreshSettings}
+      />
+      <LeaderboardSheet
+        visible={showLeaderboard}
+        onClose={() => setShowLeaderboard(false)}
+      />
     </View>
     </ScreenShake>
   );
 }
 
-// ─── Touch Controls ────────────────────────────────────────────────
+// ─── Touch Controls (one-thumb auto-runner) ────────────────────────
+// The character always runs right — the engine locks the horizontal axis in
+// auto-run mode and fires attacks automatically inside engagement range.
+// The player only jumps and slides (dash) — two buttons, one thumb.
 
 const TouchControls: React.FC<{
   sendInput: (type: string, value: boolean) => void;
   largeControls?: boolean;
 }> = ({ sendInput, largeControls = false }) => {
   const heldInputsRef = useRef<Set<string>>(new Set());
-  const [movementDirection, setMovementDirectionState] = useState<-1 | 0 | 1>(0);
 
   const handleTouchStart = useCallback((type: string) => {
     if (heldInputsRef.current.has(type)) return;
@@ -478,26 +477,11 @@ const TouchControls: React.FC<{
     sendInput(type, false);
   }, [sendInput]);
 
-  const setMovementDirection = useCallback((next: -1 | 0 | 1) => {
-    const previous = heldInputsRef.current.has('move-left')
-      ? -1
-      : heldInputsRef.current.has('move-right')
-        ? 1
-        : 0;
-    if (previous === next) return;
-    if (previous === -1) handleTouchEnd('move-left');
-    if (previous === 1) handleTouchEnd('move-right');
-    if (next === -1) handleTouchStart('move-left');
-    if (next === 1) handleTouchStart('move-right');
-    setMovementDirectionState(next);
-  }, [handleTouchEnd, handleTouchStart]);
-
   const releaseAll = useCallback(() => {
     for (const type of heldInputsRef.current) {
       sendInput(type, false);
     }
     heldInputsRef.current.clear();
-    setMovementDirectionState(0);
   }, [sendInput]);
 
   useEffect(() => {
@@ -515,95 +499,44 @@ const TouchControls: React.FC<{
 
   return (
     <View style={styles.touchOverlay} pointerEvents="box-none">
-      {/* Left side: one broad pad supports press-and-slide direction changes. */}
-      <View style={styles.leftControls}>
-        <NativeMovementPad
-          direction={movementDirection}
-          onDirectionChange={setMovementDirection}
-        />
-      </View>
-
-      {/* Right side: independent action targets support simultaneous fingers. */}
+      {/* Right side: big jump target, slide (dash) tucked beside it so both
+          sit under the thumb arc with independent touch targets. */}
       <View style={styles.rightControls}>
-        <View style={styles.actionRow}>
-          <DirectionButton
-            size={largeControls ? 'lg' : 'sm'}
-            icon="speedometer"
-            label="Dash"
-            hint="Tap to dash in the facing direction"
-            onPress={() => handleTouchStart('dash-press')}
-            onRelease={() => handleTouchEnd('dash-press')}
-            accent="purple"
-          />
-          <DirectionButton
-            size={largeControls ? 'lg' : 'sm'}
-            icon="flash"
-            label="Attack"
-            hint="Hold to attack while running"
-            onPress={() => handleTouchStart('attack-press')}
-            onRelease={() => handleTouchEnd('attack-press')}
-            accent="orange"
-          />
-        </View>
-        <View style={{ height: 12 }} />
-        <DirectionButton
-          size="lg"
-          icon="arrow-up"
-          label="Jump"
-          hint="Hold to jump over obstacles"
-          onPress={() => handleTouchStart('jump-press')}
-          onRelease={() => handleTouchEnd('jump-press')}
-          accent="blue"
+        <ActionIconButton
+          size={largeControls ? 'md' : 'sm'}
+          icon="flash"
+          label="Slide"
+          hint="Dash through danger without stopping"
+          onPress={() => handleTouchStart('dash-press')}
+          onRelease={() => handleTouchEnd('dash-press')}
+          accent="purple"
         />
+        <Pressable
+          onPressIn={() => handleTouchStart('jump-press')}
+          onPressOut={() => handleTouchEnd('jump-press')}
+          onTouchCancel={() => handleTouchEnd('jump-press')}
+          accessibilityRole="button"
+          accessibilityLabel="Jump"
+          accessibilityHint="Tap to jump; tap again mid-air for a double jump"
+          style={[styles.jumpBtn, largeControls && styles.jumpBtnLarge]}
+        >
+          <Ionicons name="arrow-up" size={largeControls ? 34 : 28} color="rgba(255,255,255,0.85)" />
+        </Pressable>
       </View>
     </View>
   );
 };
 
-const NativeMovementPad: React.FC<{
-  direction: -1 | 0 | 1;
-  onDirectionChange: (direction: -1 | 0 | 1) => void;
-}> = ({ direction, onDirectionChange }) => {
-  const width = 148;
-  const updateDirection = useCallback((event: GestureResponderEvent) => {
-    const x = event.nativeEvent.locationX;
-    const normalized = Math.max(0, Math.min(1, x / width));
-    onDirectionChange(normalized <= 0.4 ? -1 : normalized >= 0.6 ? 1 : 0);
-  }, [onDirectionChange]);
-
-  return (
-    <Pressable
-      onPressIn={updateDirection}
-      onTouchMove={updateDirection}
-      onPressOut={() => onDirectionChange(0)}
-      onTouchCancel={() => onDirectionChange(0)}
-      accessibilityRole="adjustable"
-      accessibilityLabel="Movement pad"
-      accessibilityHint="Hold and slide left or right to move"
-      accessibilityValue={{ text: direction === -1 ? 'Moving left' : direction === 1 ? 'Moving right' : 'Neutral' }}
-      style={styles.movementPad}
-    >
-      <View pointerEvents="none" style={[styles.movementHalf, direction === -1 && styles.movementHalfActive]}>
-        <Ionicons name="arrow-back" size={26} color="rgba(255,255,255,0.82)" />
-      </View>
-      <View pointerEvents="none" style={styles.movementPadDivider} />
-      <View pointerEvents="none" style={[styles.movementHalf, direction === 1 && styles.movementHalfActive]}>
-        <Ionicons name="arrow-forward" size={26} color="rgba(255,255,255,0.82)" />
-      </View>
-    </Pressable>
-  );
-};
-
-const DirectionButton: React.FC<{
+const ActionIconButton: React.FC<{
   icon: keyof typeof Ionicons.glyphMap;
-  size?: 'sm' | 'lg';
+  size?: 'sm' | 'md';
   accent?: 'blue' | 'orange' | 'purple';
   label: string;
   hint: string;
   onPress: () => void;
   onRelease: () => void;
-}> = ({ icon, size = 'lg', accent, label, hint, onPress, onRelease }) => {
-  const btnSize = size === 'lg' ? 64 : 48;
+}> = ({ icon, size = 'sm', accent, label, hint, onPress, onRelease }) => {
+  const btnSize = size === 'md' ? 60 : 50;
 
   return (
     <Pressable
@@ -621,7 +554,7 @@ const DirectionButton: React.FC<{
         accent === 'purple' && styles.touchBtnPurple,
       ]}
     >
-      <Ionicons name={icon} size={size === 'lg' ? 24 : 18} color="rgba(255,255,255,0.7)" />
+      <Ionicons name={icon} size={size === 'md' ? 24 : 20} color="rgba(255,255,255,0.7)" />
     </Pressable>
   );
 };
@@ -683,16 +616,13 @@ const HUD: React.FC<{ stats: GameStats; onPause: () => void; showFPS?: boolean }
           <Text style={styles.distanceText}>{Math.round(stats.distance)}m</Text>
         </View>
 
-        {/* Right: Biome + Pause */}
+        {/* Right: FPS (optional) + Pause */}
         <View style={styles.hudRight}>
           {showFPS && (
             <View style={styles.hudBadge} accessible accessibilityLabel={`${Math.round(stats.fps)} FPS`}>
               <Text style={styles.fpsText}>{Math.round(stats.fps)} FPS</Text>
             </View>
           )}
-          <View style={styles.hudBadge}>
-            <Text style={styles.biomeText}>{stats.biome}</Text>
-          </View>
           <PauseButton onPress={onPause} />
         </View>
       </View>
@@ -726,9 +656,14 @@ const PauseButton: React.FC<{ onPress: () => void }> = ({ onPress }) => {
   );
 };
 
-// ─── Menu Overlay ──────────────────────────────────────────────────
+// ─── Menu Overlay (single screen — the app IS this screen) ─────────
 
-const MenuOverlay: React.FC<{ onPlay: (seed?: number) => void; highScore: number }> = ({ onPlay, highScore }) => {
+const MenuOverlay: React.FC<{
+  onPlay: (seed?: number) => void;
+  highScore: number;
+  onOpenSettings: () => void;
+  onOpenLeaderboard: () => void;
+}> = ({ onPlay, highScore, onOpenSettings, onOpenLeaderboard }) => {
   const { width, height } = useWindowDimensions();
   const isLandscape = width > height;
 
@@ -736,7 +671,23 @@ const MenuOverlay: React.FC<{ onPlay: (seed?: number) => void; highScore: number
   <LinearGradient colors={['rgba(0,0,0,0.94)', 'rgba(8,12,22,0.97)', 'rgba(16,20,34,0.99)']} style={styles.overlay}>
     <View style={styles.ambientGlowA} />
     <View style={styles.ambientGlowB} />
-    <View style={styles.ambientGlowC} />
+
+    {/* Corner icons: settings + leaderboard sheets */}
+    <View style={styles.cornerIcons}>
+      <CornerIconButton
+        icon="trophy"
+        label="Leaderboard"
+        hint="See your best runs and personal records"
+        onPress={onOpenLeaderboard}
+      />
+      <CornerIconButton
+        icon="settings"
+        label="Settings"
+        hint="Tune audio, performance, and touch controls"
+        onPress={onOpenSettings}
+      />
+    </View>
+
     <View style={[styles.menuContent, isLandscape && styles.menuContentLandscape]}>
       <View style={styles.appMark}>
         <Text style={styles.appMarkText}>∞</Text>
@@ -744,37 +695,12 @@ const MenuOverlay: React.FC<{ onPlay: (seed?: number) => void; highScore: number
       <Text style={styles.title}>Dashverse</Text>
       <Text style={styles.subtitle}>RUN · COLLECT · COMPETE</Text>
 
-      <View style={styles.menuGlassPanel}>
-        <View style={styles.menuHeaderRow}>
-          <View>
-            <Text style={styles.panelEyebrow}>Today's route</Text>
-            <Text style={styles.panelTitle}>Pick up speed in three moves.</Text>
-          </View>
-          <View style={styles.readyPill}>
-            <View style={styles.readyDot} />
-            <Text style={styles.readyText}>Ready</Text>
-          </View>
+      {highScore > 0 && (
+        <View style={styles.bestPill} accessible accessibilityLabel={`Personal best score ${highScore}`}>
+          <Text style={styles.bestPillLabel}>BEST</Text>
+          <Text style={styles.bestPillValue}>{highScore.toLocaleString()}</Text>
         </View>
-
-        {highScore > 0 && (
-          <View style={styles.highScoreRow}>
-            <Text style={styles.highScoreLabel}>Best Score</Text>
-            <Text style={styles.highScoreValue}>{highScore.toLocaleString()}</Text>
-          </View>
-        )}
-
-        <View style={styles.menuStepGrid}>
-          {MENU_STEPS.map((step, index) => (
-            <View key={step.title} style={styles.menuStepRow}>
-              <Text style={styles.menuStepIndex}>{index + 1}</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.menuStepTitle}>{step.title}</Text>
-                <Text style={styles.menuStepDetail}>{step.detail}</Text>
-              </View>
-            </View>
-          ))}
-        </View>
-      </View>
+      )}
 
       <PressableScale
         style={styles.playBtn}
@@ -784,18 +710,34 @@ const MenuOverlay: React.FC<{ onPlay: (seed?: number) => void; highScore: number
         accessibilityHint="Start a new endless run"
       >
         <LinearGradient colors={['#c7ff4d', '#5E5CE6', '#BF5AF2']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.playBtnGradient}>
-          <Text style={styles.playBtnText}>Play Endless</Text>
-          <Text style={styles.playBtnSubtext}>Jump straight into a run</Text>
+          <Text style={styles.playBtnText}>Play</Text>
         </LinearGradient>
       </PressableScale>
 
       <Text style={styles.controlsHint}>
-        Touch controls stay low: move left, jump/attack right.
+        Auto-runs right · tap to jump · slide through danger
       </Text>
     </View>
   </LinearGradient>
   );
 };
+
+const CornerIconButton: React.FC<{
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  hint: string;
+  onPress: () => void;
+}> = ({ icon, label, hint, onPress }) => (
+  <Pressable
+    onPress={onPress}
+    accessibilityRole="button"
+    accessibilityLabel={label}
+    accessibilityHint={hint}
+    style={styles.cornerIconBtn}
+  >
+    <Ionicons name={icon} size={22} color="rgba(255,255,255,0.72)" />
+  </Pressable>
+);
 
 // ─── Pause Overlay ─────────────────────────────────────────────────
 
@@ -902,7 +844,7 @@ const StatCard: React.FC<{ label: string; value: string; highlight?: boolean }> 
 
 // ─── Styles ────────────────────────────────────────────────────────
 
-const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
+const { width: SCREEN_W } = Dimensions.get('window');
 
 const styles = StyleSheet.create({
   container: {
@@ -953,47 +895,28 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     zIndex: 20,
   },
-  leftControls: {
+  rightControls: {
     position: 'absolute',
-    bottom: 40,
-    left: 24,
+    bottom: 44,
+    right: 24,
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-end',
+    gap: 14,
   },
-  movementPad: {
-    width: 148,
-    height: 68,
-    borderRadius: 34,
-    overflow: 'hidden',
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.16)',
-  },
-  movementHalf: {
-    flex: 1,
-    height: '100%',
+  jumpBtn: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: 'rgba(59,130,246,0.24)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(59,130,246,0.4)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  movementHalfActive: {
-    backgroundColor: 'rgba(199,255,77,0.48)',
-  },
-  movementPadDivider: {
-    width: 1,
-    height: 28,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-  },
-  rightControls: {
-    position: 'absolute',
-    bottom: 40,
-    right: 24,
-    alignItems: 'flex-end',
-  },
-  actionRow: {
-    flexDirection: 'row',
-    gap: 10,
+  jumpBtnLarge: {
+    width: 108,
+    height: 108,
+    borderRadius: 54,
   },
   touchBtn: {
     backgroundColor: 'rgba(255,255,255,0.1)',
@@ -1001,6 +924,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.15)',
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 4,
   },
   touchBtnBlue: {
     backgroundColor: 'rgba(59,130,246,0.2)',
@@ -1040,9 +964,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
-  heart: { fontSize: 14, lineHeight: 16 },
-  heartFull: { color: '#f87171' },
-  heartEmpty: { color: 'rgba(255,255,255,0.15)' },
   heartsRow: { flexDirection: 'row', gap: 2, marginTop: 4 },
   coinDot: { fontSize: 10, color: '#facc15' },
   coinCount: { fontSize: 12, color: 'rgba(255,255,255,0.7)', fontWeight: '500' },
@@ -1057,7 +978,6 @@ const styles = StyleSheet.create({
     textShadowRadius: 8,
   },
   distanceText: { color: 'rgba(255,255,255,0.25)', fontSize: 11, marginTop: 2 },
-  biomeText: { color: 'rgba(255,255,255,0.4)', fontSize: 11, fontWeight: '500' },
   fpsText: { color: 'rgba(48,209,88,0.8)', fontSize: 11, fontWeight: '600' },
   pauseBtn: {
     width: 48, height: 48, borderRadius: 24,
@@ -1088,14 +1008,23 @@ const styles = StyleSheet.create({
     left: -SCREEN_W * 0.24,
     backgroundColor: 'rgba(191,90,242,0.16)',
   },
-  ambientGlowC: {
+  cornerIcons: {
     position: 'absolute',
-    width: SCREEN_W * 0.5,
-    height: SCREEN_W * 0.5,
-    borderRadius: SCREEN_W,
-    top: '35%',
-    left: -SCREEN_W * 0.12,
-    backgroundColor: 'rgba(255,55,95,0.08)',
+    top: 18,
+    right: 18,
+    flexDirection: 'row',
+    gap: 10,
+    zIndex: 2,
+  },
+  cornerIconBtn: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
   },
   menuContent: {
     alignItems: 'center',
@@ -1144,122 +1073,27 @@ const styles = StyleSheet.create({
     letterSpacing: 3,
     textTransform: 'uppercase',
   },
-  divider: {
-    width: 48,
-    height: 1,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    marginTop: 4,
-  },
-  highScoreRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: 'rgba(255,255,255,0.045)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-  },
-  highScoreLabel: {
-    color: 'rgba(250,204,21,0.7)',
-    fontSize: 12,
-    textTransform: 'uppercase',
-    letterSpacing: 2,
-  },
-  highScoreValue: {
-    color: 'rgba(250,204,21,0.9)',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  menuGlassPanel: {
-    width: '100%',
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-    backgroundColor: 'rgba(28,28,30,0.58)',
-    padding: 14,
-    gap: 12,
-    overflow: 'hidden',
-  },
-  menuHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  panelEyebrow: {
-    color: 'rgba(235,235,245,0.42)',
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1.5,
-    textTransform: 'uppercase',
-  },
-  panelTitle: {
-    color: '#fff',
-    fontSize: 17,
-    fontWeight: '700',
-    marginTop: 4,
-  },
-  readyPill: {
-    minHeight: 30,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: 'rgba(48,209,88,0.3)',
-    backgroundColor: 'rgba(48,209,88,0.12)',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-  },
-  readyDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 7,
-    backgroundColor: '#30D158',
-  },
-  readyText: {
-    color: '#30D158',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  menuStepGrid: {
-    gap: 8,
-  },
-  menuStepRow: {
-    minHeight: 58,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: 'rgba(255,255,255,0.045)',
+  bestPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    padding: 10,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(250,204,21,0.25)',
+    backgroundColor: 'rgba(250,204,21,0.08)',
+    paddingHorizontal: 18,
+    paddingVertical: 8,
   },
-  menuStepIndex: {
-    width: 30,
-    height: 30,
-    borderRadius: 10,
-    overflow: 'hidden',
-    textAlign: 'center',
-    textAlignVertical: 'center',
-    color: '#c7ff4d',
-    fontSize: 13,
-    fontWeight: '900',
-    backgroundColor: 'rgba(142,121,158,0.18)',
-  },
-  menuStepTitle: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  menuStepDetail: {
-    color: 'rgba(235,235,245,0.58)',
+  bestPillLabel: {
+    color: 'rgba(250,204,21,0.7)',
     fontSize: 12,
-    lineHeight: 16,
-    marginTop: 2,
+    fontWeight: '800',
+    letterSpacing: 2,
+  },
+  bestPillValue: {
+    color: 'rgba(250,204,21,0.95)',
+    fontSize: 16,
+    fontWeight: '800',
   },
   playBtn: {
     marginTop: 4,
@@ -1286,11 +1120,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 18,
     fontWeight: '700',
-  },
-  playBtnSubtext: {
-    color: 'rgba(255,255,255,0.68)',
-    fontSize: 12,
-    marginTop: 2,
   },
   secondaryBtn: {
     width: 280,

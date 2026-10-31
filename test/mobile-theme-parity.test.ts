@@ -43,7 +43,7 @@ describe("polish: mobile shell shares the web ink theme", () => {
   });
 
   it("dark ink text on lime buttons, not white", () => {
-    const src = readFileSync(join(SHELL_ROOT, "app/(tabs)/index.tsx"), "utf8");
+    const src = readFileSync(join(SHELL_ROOT, "app/index.tsx"), "utf8");
     // every style whose backgroundColor is the lime accent must pair with
     // dark text in the following style block (catch the white-on-lime case).
     const blocks = src.split(/(\w+):\s*\{/).slice(1);

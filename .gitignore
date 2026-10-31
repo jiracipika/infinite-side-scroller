@@ -44,3 +44,6 @@ design/crimson/baddies/bundle.js
 # ~33 MB); the extracted figures in design/full-art/ are the committed
 # regeneration source for the embedded lane.
 design/full-art/src/
+
+# Mimosa security-scanner session artifacts
+.mimosa/

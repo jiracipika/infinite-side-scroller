@@ -5,7 +5,19 @@ function normalizeRoomId(roomId: string): string {
 }
 
 async function requestJson<T>(input: RequestInfo | URL, init?: RequestInit): Promise<T> {
-  const response = await fetch(input, {
+  const url = typeof input === 'string'
+    ? input
+    : input instanceof URL
+      ? input.toString()
+      : input.url;
+  // Same-origin guard: every caller passes a relative API path built from
+  // sanitized params. Rejecting anything else keeps this helper structurally
+  // incapable of cross-origin or forged-destination requests, whatever a
+  // future caller tries to feed it.
+  if (!url.startsWith('/')) {
+    throw new Error('requestJson accepts same-origin relative paths only');
+  }
+  const response = await fetch(url, {
     cache: 'no-store',
     ...init,
   });
@@ -98,8 +110,13 @@ export async function fetchMultiplayerRoom(roomId: string): Promise<{ room: NetR
 }
 
 export async function leaveMultiplayerRoom(roomId: string, playerId: string): Promise<void> {
-  await requestJson(`/api/multiplayer/room?roomId=${encodeURIComponent(normalizeRoomId(roomId))}&playerId=${encodeURIComponent(playerId)}`, {
-    method: 'DELETE',
+  // Constant request target with the sanitized IDs in the body — the URL is
+  // never derived from user input. The DELETE query-param route remains for
+  // older clients.
+  await requestJson('/api/multiplayer/room', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'leave', roomId: normalizeRoomId(roomId), playerId }),
   });
 }
 

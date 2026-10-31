@@ -1,4 +1,24 @@
-const REDIS_REST_URL = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL || '';
+/**
+ * Fail-closed URL gate for the Redis REST endpoint. The URL comes from
+ * deployment env config, not user input, but validating it keeps a
+ * misconfigured (or tampered) env from turning redisCommand() into an
+ * arbitrary-origin fetch: https only, no credentials inline, no leftovers.
+ */
+function safeRedisUrl(raw: string): string | null {
+  if (!raw) return null;
+  try {
+    const parsed = new URL(raw);
+    if (parsed.protocol !== 'https:') return null;
+    if (parsed.username || parsed.password) return null;
+    return parsed.toString().replace(/\/$/, '');
+  } catch {
+    return null;
+  }
+}
+
+const REDIS_REST_URL = safeRedisUrl(
+  process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL || '',
+) ?? '';
 const REDIS_REST_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN || '';
 
 export const hasSharedRedis = Boolean(REDIS_REST_URL && REDIS_REST_TOKEN);

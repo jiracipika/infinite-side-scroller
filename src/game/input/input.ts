@@ -18,6 +18,13 @@ export interface InputOptions {
   /** Browser Gamepad API slot to reserve for this engine instance. */
   gamepadIndex?: number;
   keyboardScheme?: 'all' | 'wasd' | 'arrows';
+  /**
+   * One-thumb auto-runner mode (mobile): the character always runs right.
+   * getHorizontalAxis() locks to +1 so keyboard/touch/gamepad direction
+   * inputs become irrelevant, and the engine drives attacks via
+   * setAutoAttack() instead of an on-screen attack button.
+   */
+  autoRun?: boolean;
 }
 
 export class InputManager {
@@ -82,6 +89,12 @@ export class InputManager {
   private readonly gamepadEnabled: boolean;
   private readonly gamepadIndex: number | undefined;
   private readonly keyboardScheme: 'all' | 'wasd' | 'arrows';
+  private readonly autoRun: boolean;
+  // Engine-driven attack gate for auto-run mode: when true, melee and ranged
+  // attacks read as held so the player's own cooldown logic sets the cadence.
+  // The engine re-evaluates it every frame; releaseAll intentionally leaves
+  // it alone because it is engine state, not player input.
+  private autoAttack = false;
   private gamepad: GamepadInputState = { ...EMPTY_GAMEPAD_INPUT };
   private prevGamepad: GamepadInputState = { ...EMPTY_GAMEPAD_INPUT };
 
@@ -91,6 +104,7 @@ export class InputManager {
     this.gamepadEnabled = options.enableGamepad ?? true;
     this.gamepadIndex = options.gamepadIndex;
     this.keyboardScheme = options.keyboardScheme ?? 'all';
+    this.autoRun = options.autoRun ?? false;
 
     if (typeof window !== 'undefined') {
       if (this.keyboardEnabled) {
@@ -279,8 +293,21 @@ export class InputManager {
     return ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'KeyJ', 'KeyK', 'KeyL', 'ShiftRight'].includes(code);
   }
 
+  /**
+   * Arm or disarm the auto-runner's automatic attacks. While armed, melee
+   * (KeyC) and ranged (KeyE/KeyZ) read as held; the player update's own
+   * cooldowns and the engine's engagement-range gate set the actual cadence.
+   */
+  setAutoAttack(active: boolean): void {
+    this.autoAttack = active;
+  }
+
   /** Resolve opposite-direction rollover: newest held direction wins. */
   getHorizontalAxis(): -1 | 0 | 1 {
+    // One-thumb auto-runner: the run never stops, so direction input is
+    // locked. Returning before every other source keeps touch, keyboard and
+    // gamepad from fighting the auto-run contract.
+    if (this.autoRun) return 1;
     const gamepad = this.getGamepad();
     let leftOrder = this.touchLeft ? this.touchLeftOrder : -1;
     let rightOrder = this.touchRight ? this.touchRightOrder : -1;
@@ -310,9 +337,11 @@ export class InputManager {
     if (code === 'ArrowLeft' || code === 'KeyA') return this.touchLeft || gamepad.left;
     if (code === 'ArrowRight' || code === 'KeyD') return this.touchRight || gamepad.right;
     if (code === 'Space' || code === 'ArrowUp' || code === 'KeyW') return this.touchJump || gamepad.jump;
-    if (code === 'KeyE' || code === 'KeyJ' || code === 'KeyZ') return this.touchAttack || gamepad.attack;
+    if (code === 'KeyE' || code === 'KeyJ' || code === 'KeyZ') {
+      return this.autoAttack || this.touchAttack || gamepad.attack;
+    }
     if (code === 'KeyX' || code === 'ShiftLeft') return this.touchDash || gamepad.dash;
-    if (code === 'KeyC') return this.touchMelee || gamepad.melee;
+    if (code === 'KeyC') return this.autoAttack || this.touchMelee || gamepad.melee;
     if (code === 'KeyV') return this.touchSpecial || gamepad.special;
     if (code === 'KeyF') return this.touchCarry || gamepad.carry;
     return false;
@@ -386,7 +415,8 @@ export class InputManager {
   /** Check if attack is held */
   isAttackDown(): boolean {
     return (
-      (this.acceptsKey('KeyE') && this.keys.has('KeyE'))
+      this.autoAttack
+      || (this.acceptsKey('KeyE') && this.keys.has('KeyE'))
       || (this.acceptsKey('KeyJ') && this.keys.has('KeyJ'))
       || this.touchAttack
       || this.getGamepad().attack

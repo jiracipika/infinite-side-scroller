@@ -91,12 +91,12 @@ const pauseSource = read('src/components/PauseMenu.tsx')
 mustContain(pauseSource, /settings\.musicVolume/, 'PauseMenu music volume slider binding')
 
 // ── 9. Mobile shell + settings ──────────────────────────────────
-const mobileGamePath = 'apps/mobile/app/(tabs)/index.tsx'
+const mobileGamePath = 'apps/mobile/app/index.tsx'
 const mobileGame = read(mobileGamePath)
 mustContain(mobileGame, /setAudioVolumes\(\$\{settings\.masterVolume\}, \$\{settings\.sfxVolume\}, \$\{settings\.musicVolume\}\)/, 'mobile settings push includes musicVolume')
 mustContain(mobileGame, /setAudioVolumes\(\$\{s\.masterVolume\}, \$\{s\.sfxVolume\}, \$\{s\.musicVolume\}\)/, 'mobile run-start push includes musicVolume')
 
-const mobileSettingsPath = 'apps/mobile/app/(tabs)/settings.tsx'
+const mobileSettingsPath = 'apps/mobile/components/SettingsSheet.tsx'
 const mobileSettings = read(mobileSettingsPath)
 mustContain(mobileSettings, /usePersistedSetting\('musicVolume', 0\.6\)/, 'mobile musicVolume persisted setting')
 mustContain(mobileSettings, /label="Music Volume" value=\{\`\$\{Math\.round\(musicVolume \* 100\)\}%\`\}/, 'mobile Music Volume slider row')

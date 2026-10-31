@@ -259,7 +259,9 @@ function sortEntries(entries: Entry[]): Entry[] {
 }
 
 function tokenDigest(token: string): string {
-  return crypto.createHash('sha1').update(token).digest('hex');
+  // SHA-256 — the digest is only a replay-dedup key, but the token strings are
+  // opaque; a modern hash keeps the lookup off any legacy-collision surface.
+  return crypto.createHash('sha256').update(token).digest('hex');
 }
 
 function badgeForRank(rank: number): string {

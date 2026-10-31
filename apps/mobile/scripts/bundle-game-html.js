@@ -87,9 +87,14 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
   // === Game engine bundle ===
   ${gameJS}
 
-  // Create engine
+  // Create engine — one-thumb auto-runner profile: the character always runs
+  // right, melee/ranged attacks fire automatically inside engagement range,
+  // and the native shell only supplies jump and dash/slide presses. Keyboard
+  // and gamepad listeners stay off in the WebView host.
   var canvas = document.getElementById('gameCanvas');
-  var engine = new window.GameEngine(canvas, 42, 'knight');
+  var engine = new window.GameEngine(canvas, 42, 'knight', {
+    input: { autoRun: true, enableKeyboard: false, enableGamepad: false },
+  });
 
   engine.start();
 

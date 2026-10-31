@@ -4,7 +4,7 @@ import path from 'node:path';
 
 const root = process.cwd();
 const screen = fs.readFileSync(
-  path.join(root, 'apps/mobile/app/(tabs)/index.tsx'),
+  path.join(root, 'apps/mobile/app/index.tsx'),
   'utf8',
 );
 const bundler = fs.readFileSync(

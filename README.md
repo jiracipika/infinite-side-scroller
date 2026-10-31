@@ -40,6 +40,15 @@ npm run mobile:android
 npm run mobile:web
 ```
 
+The mobile shell is a single screen: the menu is the app — title, personal
+best, one Play button, and settings/leaderboard as corner icons that open
+slide-up sheets. Runs use a one-thumb auto-runner scheme: the character always
+runs right, melee/ranged attacks fire automatically inside engagement range,
+and the only buttons are Jump and Slide (dash). The engine is bundled into a
+WebView from the same `src/game` source the web version ships, so every repo
+update flows to the next mobile build (`apps/mobile/scripts/bundle-game-html.js`
+runs before each native build, locally and on Codemagic).
+
 ## Save Slots + Shop
 
 From the main menu:

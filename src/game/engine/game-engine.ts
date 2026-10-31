@@ -190,6 +190,9 @@ export class GameEngine {
   private camera: Camera;
   private chunkManager: ChunkManager;
   private input: InputManager;
+  // One-thumb auto-runner mode (mobile): the run never stops and attacks are
+  // driven by hasEnemyInEngagementRange() instead of an attack button.
+  private readonly autoRun: boolean;
   private player: Player;
   private particles: ParticleSystem;
 
@@ -410,6 +413,7 @@ export class GameEngine {
     this.ctx = canvas.getContext("2d")!;
     if (seed !== undefined) this.worldSeed = seed;
     if (characterId) this._characterId = characterId;
+    this.autoRun = options?.input?.autoRun ?? false;
 
     this.input = new InputManager(options?.input);
     this.camera = new Camera({
@@ -1841,6 +1845,25 @@ export class GameEngine {
     enemy.onGround = false;
   }
 
+  /**
+   * Auto-run attack gate: true when any living enemy sits inside the forward
+   * engagement envelope — a cone ahead of the runner (melee swings and shots
+   * only travel the facing side) with a generous vertical band so hovering
+   * UFOs and airborne bats are covered too. Rear targets are deliberately
+   * ignored: the auto-runner never moves backwards.
+   */
+  private hasEnemyInEngagementRange(): boolean {
+    const px = this.player.centerX;
+    const py = this.player.centerY;
+    for (const enemy of this.enemies) {
+      if (!enemy.alive) continue;
+      const dx = enemy.x + enemy.width / 2 - px;
+      const dy = enemy.y + enemy.height / 2 - py;
+      if (dx > -70 && dx < 470 && Math.abs(dy) < 200) return true;
+    }
+    return false;
+  }
+
   private isStompCollision(enemy: Enemy, dt: number): boolean {
     if (!enemy.stompable) return false;
 
@@ -2161,6 +2184,12 @@ export class GameEngine {
       this.player.onGround = false;
       this.player.facingRight = this.remotePlayer.facingRight;
     } else {
+      // One-thumb auto-runner: drive melee/ranged attacks from engagement
+      // range instead of an on-screen attack button. The player's own
+      // cooldown logic still sets the swing cadence.
+      if (this.autoRun) {
+        this.input.setAutoAttack(this.hasEnemyInEngagementRange());
+      }
       this.player.update(dt, this.input, groundY, platforms);
 
       // Landing particles + SFX — intensity scales with fall speed so hops
