@@ -702,17 +702,22 @@ const MenuOverlay: React.FC<{
         </View>
       )}
 
-      <PressableScale
-        style={styles.playBtn}
-        onPress={() => onPlay()}
-        accessibilityRole="button"
-        accessibilityLabel="Play Endless"
-        accessibilityHint="Start a new endless run"
-      >
-        <LinearGradient colors={['#c7ff4d', '#5E5CE6', '#BF5AF2']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.playBtnGradient}>
-          <Text style={styles.playBtnText}>Play</Text>
-        </LinearGradient>
-      </PressableScale>
+      {/* Stretch wrapper: PressableScale applies style to its inner view, so
+          width:'100%' would resolve against the hug-content Pressable and
+          collapse — the wrapper owns the width instead. */}
+      <View style={styles.playBtnWrap}>
+        <PressableScale
+          style={styles.playBtn}
+          onPress={() => onPlay()}
+          accessibilityRole="button"
+          accessibilityLabel="Play Endless"
+          accessibilityHint="Start a new endless run"
+        >
+          <LinearGradient colors={['#c7ff4d', '#5E5CE6', '#BF5AF2']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.playBtnGradient}>
+            <Text style={styles.playBtnText}>Play</Text>
+          </LinearGradient>
+        </PressableScale>
+      </View>
 
       <Text style={styles.controlsHint}>
         Auto-runs right · tap to jump · slide through danger
@@ -750,9 +755,11 @@ const PauseOverlay: React.FC<{
     <View style={styles.menuContent}>
       <Text style={styles.overlayTitle}>Paused</Text>
 
-      <PressableScale style={styles.playBtn} onPress={onResume} accessibilityRole="button" accessibilityLabel="Resume run">
-        <Text style={styles.playBtnText}>Resume</Text>
-      </PressableScale>
+      <View style={styles.playBtnWrap}>
+        <PressableScale style={styles.playBtn} onPress={onResume} accessibilityRole="button" accessibilityLabel="Resume run">
+          <Text style={styles.playBtnText}>Resume</Text>
+        </PressableScale>
+      </View>
 
       <PressableScale style={styles.secondaryBtn} onPress={onRestart} accessibilityRole="button" accessibilityLabel="Restart run">
         <Text style={styles.secondaryBtnText}>Restart</Text>
@@ -818,9 +825,11 @@ const GameOverOverlay: React.FC<{
           <StatCard label="Defeated" value={`${stats.enemiesDefeated}`} />
         </View>
 
-        <PressableScale style={styles.playBtn} onPress={onRestart} accessibilityRole="button" accessibilityLabel="Play again">
-          <Text style={styles.playBtnText}>Play Again</Text>
-        </PressableScale>
+        <View style={styles.playBtnWrap}>
+          <PressableScale style={styles.playBtn} onPress={onRestart} accessibilityRole="button" accessibilityLabel="Play again">
+            <Text style={styles.playBtnText}>Play Again</Text>
+          </PressableScale>
+        </View>
 
         <View style={styles.gameOverActions}>
           <PressableScale style={styles.gameOverSecondaryBtn} onPress={() => { void handleShare(); }} accessibilityRole="button" accessibilityLabel="Share this run result">
@@ -1095,8 +1104,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
   },
-  playBtn: {
+  playBtnWrap: {
+    width: '100%',
     marginTop: 4,
+  },
+  playBtn: {
     width: '100%',
     minHeight: 62,
     borderRadius: 18,
@@ -1110,6 +1122,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 9 },
   },
   playBtnGradient: {
+    width: '100%',
     minHeight: 62,
     paddingVertical: 12,
     borderRadius: 18,
