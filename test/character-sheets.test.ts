@@ -18,6 +18,14 @@ describe('character sprite sheets', () => {
     assert.equal(sheetFrameForPose({ stride: 0.35 }), SHEET_FRAME.idle);
   });
 
+  it('keeps running through both stride crossings and respects an explicit stop', () => {
+    for (const stride of [-2, -.2, 0, .2, 2]) {
+      assert.equal(sheetFrameForPose({ moving: true, stride }), SHEET_FRAME.run);
+    }
+    assert.equal(sheetFrameForPose({ moving: false, stride: 2 }), SHEET_FRAME.idle);
+    assert.equal(sheetFrameForPose({ ranged: .5 }), SHEET_FRAME.melee);
+  });
+
   it('embeds a valid data-url strip for every shipped sheet', () => {
     assert.ok(Object.keys(CHARACTER_SHEETS).length >= 1, 'at least one sheet ships');
     for (const [id, src] of Object.entries(CHARACTER_SHEETS)) {

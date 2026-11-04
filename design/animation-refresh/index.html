@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dashverse — Character animation review</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#151322;color:#f4eaff;font:16px system-ui;padding:32px;max-width:1500px;margin:auto}h1{font-size:32px}p{color:#c3b9d2;line-height:1.5}button,select{font:inherit;padding:10px;background:#302944;color:inherit;border:1px solid #75658c;border-radius:8px;margin:0 8px 12px 0}main{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px}article{background:#211c30;border:1px solid #463857;border-radius:18px;padding:20px;overflow:hidden}canvas{width:100%;height:auto;image-rendering:pixelated;background:linear-gradient(#252139,#34304b)}.strip{width:100%;overflow:auto}.strip img{height:128px;image-rendering:pixelated}h2{font-size:22px}small{color:#c3b9d2}
+</style>
+<h1>Dashverse · Character animation review</h1>
+<p>Knight, Ninja and Ansley. Complete poses with alternating steps, planted feet and distinct jump, landing and attack drawings.</p>
+<label>Action <select id="action"><option value="walk">Walk</option><option value="jump">Jump and land</option><option value="attack">Attack</option><option value="dash">Dash</option><option value="idle">Idle</option></select></label>
+<button id="pause">Pause</button><button id="direction">Face left</button>
+<main></main>
+<p>Each strip shows: contact A · passing A · contact B · passing B · idle · rise · fall · land · dash · anticipation · strike · recovery.</p>
+<script>
+const rows=[['knight','Knight'],['ninja','Ninja'],['cherry','Ansley']];
+let playing=!matchMedia('(prefers-reduced-motion: reduce)').matches, left=false, time=0,last;
+const views=rows.map(([id,name])=>{const card=document.createElement('article');card.innerHTML=`<h2>${name}</h2><canvas width="384" height="384" aria-label="${name} animation"></canvas><div class="strip"><img src="${id}/spritesheet.png" alt="${name}, all twelve authored poses"></div>`;document.querySelector('main').append(card);const img=new Image();img.src=`${id}/spritesheet.png`;return {ctx:card.querySelector('canvas').getContext('2d'),img};});
+function toggleLabel(){document.querySelector('#pause').textContent=playing?'Pause':'Play';}toggleLabel();
+document.querySelector('#pause').onclick=()=>{playing=!playing;toggleLabel();};
+document.querySelector('#direction').onclick=()=>{left=!left;document.querySelector('#direction').textContent=left?'Face right':'Face left';};
+document.querySelector('#action').onchange=()=>{time=0;};
+function tick(now){if(last!==undefined&&playing&&!document.hidden)time+=Math.min(now-last,50);last=now;const action=document.querySelector('#action').value;let frame=4;
+if(action==='walk'){const t=time%520;frame=t<150?0:t<260?1:t<410?2:3;}
+if(action==='jump')frame=[4,5,5,6,6,7,4][Math.floor(time/140)%7];
+if(action==='attack')frame=[4,9,10,11,4][Math.floor(time/140)%5];
+if(action==='dash')frame=8;
+for(const {ctx,img} of views){ctx.clearRect(0,0,384,384);if(!img.complete||!img.naturalWidth)continue;ctx.save();ctx.imageSmoothingEnabled=false;if(left){ctx.translate(384,0);ctx.scale(-1,1);}ctx.drawImage(img,frame*128,0,128,128,0,0,384,384);ctx.restore();}requestAnimationFrame(tick);}
+requestAnimationFrame(tick);
+</script></html>

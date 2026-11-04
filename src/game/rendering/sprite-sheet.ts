@@ -18,10 +18,10 @@ export const SHEET_FRAME = { idle: 0, run: 1, air: 2, dash: 3, melee: 4, tumble:
 export function sheetFrameForPose(pose: CharacterArtPose): number {
   if ((pose.tumble ?? 0) > 0) return SHEET_FRAME.tumble;
   if (pose.dashing) return SHEET_FRAME.dash;
-  if ((pose.melee ?? 0) > 0) return SHEET_FRAME.melee;
+  if ((pose.melee ?? 0) > 0 || (pose.ranged ?? 0) > 0) return SHEET_FRAME.melee;
   if (pose.airborne) return SHEET_FRAME.air;
   // drawPlayer keeps a small idle sway alive; only a real stride reads as running.
-  return Math.abs(pose.stride ?? 0) > 0.5 ? SHEET_FRAME.run : SHEET_FRAME.idle;
+  return (pose.moving ?? (Math.abs(pose.stride ?? 0) > 0.5)) ? SHEET_FRAME.run : SHEET_FRAME.idle;
 }
 
 const images = new Map<string, HTMLImageElement | HTMLCanvasElement>();

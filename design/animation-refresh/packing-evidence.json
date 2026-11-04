@@ -1,0 +1,308 @@
+{
+  "knight": {
+    "frames": [
+      "contact-a",
+      "passing-a",
+      "contact-b",
+      "passing-b",
+      "idle",
+      "rise",
+      "fall",
+      "land",
+      "dash",
+      "anticipation",
+      "strike",
+      "recovery"
+    ],
+    "frameSize": 128,
+    "baseline": 118,
+    "sourceSha256": {
+      "knight-walk.png": "12468f7fe547b961f1239be2bf855da64c486ef3dd2eb5a3d6d8f5a22aa5af62",
+      "knight-actions.png": "286a403a16acc7fc57e179ae3046f8bb9401bd2e449fcb578b43a2f89845f993"
+    },
+    "bounds": [
+      [
+        25,
+        14,
+        102,
+        118
+      ],
+      [
+        25,
+        13,
+        102,
+        118
+      ],
+      [
+        25,
+        13,
+        102,
+        118
+      ],
+      [
+        25,
+        13,
+        102,
+        118
+      ],
+      [
+        27,
+        13,
+        101,
+        118
+      ],
+      [
+        22,
+        20,
+        106,
+        118
+      ],
+      [
+        23,
+        14,
+        105,
+        118
+      ],
+      [
+        24,
+        28,
+        103,
+        118
+      ],
+      [
+        15,
+        26,
+        113,
+        118
+      ],
+      [
+        20,
+        16,
+        108,
+        118
+      ],
+      [
+        6,
+        21,
+        122,
+        118
+      ],
+      [
+        11,
+        18,
+        117,
+        118
+      ]
+    ],
+    "contactSilhouetteIoU": 0.9263329263329263,
+    "alpha": [
+      0,
+      255
+    ],
+    "paletteReduction": false
+  },
+  "ninja": {
+    "frames": [
+      "contact-a",
+      "passing-a",
+      "contact-b",
+      "passing-b",
+      "idle",
+      "rise",
+      "fall",
+      "land",
+      "dash",
+      "anticipation",
+      "strike",
+      "recovery"
+    ],
+    "frameSize": 128,
+    "baseline": 118,
+    "sourceSha256": {
+      "ninja-walk.png": "e2a5835a245e67819d11e0e8cf1d6d5fa4934b236bb7430e8132bd2c17a2bf06",
+      "ninja-actions.png": "8f7ff16c3ea4f83b7cc816780ccfe868a0444c5fa7762999f5fa055b78f7bf3f"
+    },
+    "bounds": [
+      [
+        28,
+        10,
+        99,
+        118
+      ],
+      [
+        28,
+        10,
+        100,
+        118
+      ],
+      [
+        28,
+        10,
+        103,
+        118
+      ],
+      [
+        28,
+        10,
+        100,
+        118
+      ],
+      [
+        24,
+        10,
+        104,
+        118
+      ],
+      [
+        22,
+        25,
+        106,
+        118
+      ],
+      [
+        23,
+        15,
+        105,
+        118
+      ],
+      [
+        20,
+        31,
+        107,
+        118
+      ],
+      [
+        16,
+        28,
+        111,
+        118
+      ],
+      [
+        19,
+        16,
+        109,
+        118
+      ],
+      [
+        9,
+        24,
+        118,
+        118
+      ],
+      [
+        13,
+        15,
+        115,
+        118
+      ]
+    ],
+    "contactSilhouetteIoU": 0.9397039616891598,
+    "alpha": [
+      0,
+      255
+    ],
+    "paletteReduction": false
+  },
+  "cherry": {
+    "frames": [
+      "contact-a",
+      "passing-a",
+      "contact-b",
+      "passing-b",
+      "idle",
+      "rise",
+      "fall",
+      "land",
+      "dash",
+      "anticipation",
+      "strike",
+      "recovery"
+    ],
+    "frameSize": 128,
+    "baseline": 118,
+    "sourceSha256": {
+      "cherry-walk.png": "02630e3a29e2077dfd60fa1cbe1da68f1228f72dd4c9ecbc2b0ecf0f2c636b0b",
+      "cherry-actions.png": "b71be31823779bd5291ee4f4dfcbbe7610ef22a32fefdfd09f4cddf79698d628"
+    },
+    "bounds": [
+      [
+        27,
+        12,
+        100,
+        118
+      ],
+      [
+        27,
+        11,
+        93,
+        118
+      ],
+      [
+        27,
+        12,
+        100,
+        118
+      ],
+      [
+        27,
+        10,
+        92,
+        118
+      ],
+      [
+        30,
+        10,
+        97,
+        118
+      ],
+      [
+        24,
+        25,
+        104,
+        118
+      ],
+      [
+        25,
+        14,
+        103,
+        118
+      ],
+      [
+        26,
+        23,
+        102,
+        118
+      ],
+      [
+        18,
+        21,
+        110,
+        118
+      ],
+      [
+        24,
+        12,
+        104,
+        118
+      ],
+      [
+        17,
+        13,
+        110,
+        118
+      ],
+      [
+        26,
+        13,
+        102,
+        118
+      ]
+    ],
+    "contactSilhouetteIoU": 0.9446552108904263,
+    "alpha": [
+      0,
+      255
+    ],
+    "paletteReduction": false
+  }
+}
