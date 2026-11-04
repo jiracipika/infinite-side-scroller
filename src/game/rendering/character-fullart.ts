@@ -1,6 +1,7 @@
 import { CHARACTER_FULL_ART } from './character-fullart-data';
 import { drawSkinnedFullArt } from './fullart-mesh';
 import type { CharacterArtPose } from './character-art';
+import { ensureCharacterAnimationsLoading, characterAnimationReady, drawCharacterAnimation } from './character-animation';
 
 /**
  * Full-art lane of the character redesign: each entry is a segmented FRONT
@@ -10,10 +11,11 @@ import type { CharacterArtPose } from './character-art';
  * through drawCharacterArt — with the procedural ink painters and the pixel
  * sheets remaining as explicitly selectable alternatives.
  *
- * The original pixels are bound to a per-character skeletal mesh. Arms,
+ * Knight, Ninja and Ansley use authored complete animation frames. The
+ * remaining original figures are bound to a per-character skeletal mesh. Arms,
  * elbows, legs, knees, head and hand-owned props articulate independently;
  * skirts, capes and spectral tails receive delayed cloth follow-through.
- * The source art is never replaced or flattened back to the ink lane.
+ * The original source figures remain available while animation assets load.
  */
 
 const images = new Map<string, HTMLImageElement>();
@@ -21,6 +23,7 @@ let loadStarted = false;
 
 /** Kick one-shot async loads for every embedded figure. Idempotent, never throws. */
 export function ensureCharacterFullArtLoading(): void {
+  ensureCharacterAnimationsLoading();
   if (loadStarted) return;
   if (typeof Image === 'undefined') return; // node/test or SSR context
   loadStarted = true;
@@ -40,7 +43,7 @@ export function characterHasFullArt(id: string): boolean {
 }
 
 export function characterFullArtReady(id: string): boolean {
-  return images.has(id);
+  return images.has(id) && characterAnimationReady(id);
 }
 
 /**
@@ -116,6 +119,7 @@ export function drawCharacterFullArt(
   height: number,
   pose: CharacterArtPose = {},
 ): boolean {
+  if (drawCharacterAnimation(ctx, characterId, width, height, pose)) return true;
   const img = images.get(characterId);
   if (!img) return false;
 

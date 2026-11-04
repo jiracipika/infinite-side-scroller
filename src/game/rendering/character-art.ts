@@ -11,6 +11,7 @@ import { drawCharacterSheet, ensureCharacterSheetsLoading, preferredArtStyle } f
 import { drawCharacterFullArt, ensureCharacterFullArtLoading } from "./character-fullart";
 import { drawRedesignedCharacter } from "./ink-redesign";
 import { characterPerformance } from './character-performance';
+import { characterAnimationLoaded } from './character-animation';
 
 export interface CharacterArtPose {
   /** Normalized locomotion cycle; advances with ground travel, never render FPS. */
@@ -387,7 +388,11 @@ export function drawCharacterArt(
   // feet pivot so every lane (full-art mesh, ink painters, pixel sheets) reads
   // the same jump anticipation and impact absorption. The impulses live in the
   // motion state, never in physics.
-  const spring = resolveSpringScale(pose, characterPerformance(char.id).spring);
+  const style = preferredArtStyle(char.id);
+  // Authored jump/landing drawings already contain the anticipation and
+  // crouch; stretching them again would distort the complete silhouette.
+  const spring = resolveSpringScale(pose,
+    style === 'fullart' && characterAnimationLoaded(char.id) ? 0 : characterPerformance(char.id).spring);
   if (spring.scaleX !== 1 || spring.scaleY !== 1) {
     ctx.translate(width / 2, height);
     ctx.scale(spring.scaleX, spring.scaleY);
@@ -407,7 +412,6 @@ export function drawCharacterArt(
   // procedural ink painters. An explicit Ink choice skips both bitmap lanes
   // so the painter is always reachable; an unloaded bitmap falls through to
   // ink rather than drawing nothing.
-  const style = preferredArtStyle(char.id);
   const bitmapLane = style === 'pixel' ? drawCharacterSheet(ctx, char.id, width, height, pose)
     : style === 'fullart' ? drawCharacterFullArt(ctx, char.id, width, height, pose)
     : false;

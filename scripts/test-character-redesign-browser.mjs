@@ -18,9 +18,13 @@ try{
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.addInitScript(()=>{
     window.__sheetDraws=0;
+    window.__authoredDraws=0;
     const original=CanvasRenderingContext2D.prototype.drawImage;
     CanvasRenderingContext2D.prototype.drawImage=function(image,...args){
-      if(this.canvas.isConnected&&image instanceof HTMLImageElement&&image.src.startsWith('data:image/png'))window.__sheetDraws++;
+      if(this.canvas.isConnected&&image instanceof HTMLImageElement&&image.src.startsWith('data:image/png')){
+        if(image.naturalWidth===192&&image.naturalHeight===32)window.__sheetDraws++;
+        if(image.naturalWidth===1536&&image.naturalHeight===128)window.__authoredDraws++;
+      }
       return original.call(this,image,...args);
     };
   });
@@ -31,6 +35,7 @@ try{
     while(e){if(Number(getComputedStyle(e).opacity)<.99)return false;e=e.parentElement;}return true;
   }),true,'reduced-motion hydration must not hide the Play CTA');
   assert.equal(await page.evaluate(()=>window.__sheetDraws),0,'Full art default must not use pixel sheets');
+  assert.ok(await page.evaluate(()=>window.__authoredDraws)>0,'Default Knight uses the complete authored animation sheet');
   const hero=page.locator('.dash-character-stage-v3 canvas');
   const fullart=await hero.evaluate(c=>c.toDataURL());
   await page.getByRole('button',{name:'Pixel',exact:true}).click();
