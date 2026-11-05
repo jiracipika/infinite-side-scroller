@@ -16,6 +16,7 @@
     ],
     "frameSize": 128,
     "baseline": 118,
+    "motion": "walk",
     "sourceSha256": {
       "knight-walk.png": "12468f7fe547b961f1239be2bf855da64c486ef3dd2eb5a3d6d8f5a22aa5af62",
       "knight-actions.png": "286a403a16acc7fc57e179ae3046f8bb9401bd2e449fcb578b43a2f89845f993"
@@ -88,9 +89,9 @@
         118
       ],
       [
-        11,
+        19,
         18,
-        117,
+        109,
         118
       ]
     ],
@@ -118,6 +119,7 @@
     ],
     "frameSize": 128,
     "baseline": 118,
+    "motion": "walk",
     "sourceSha256": {
       "ninja-walk.png": "e2a5835a245e67819d11e0e8cf1d6d5fa4934b236bb7430e8132bd2c17a2bf06",
       "ninja-actions.png": "8f7ff16c3ea4f83b7cc816780ccfe868a0444c5fa7762999f5fa055b78f7bf3f"
@@ -190,13 +192,628 @@
         118
       ],
       [
-        13,
+        23,
         15,
-        115,
+        104,
         118
       ]
     ],
     "contactSilhouetteIoU": 0.9397039616891598,
+    "alpha": [
+      0,
+      255
+    ],
+    "paletteReduction": false
+  },
+  "tank": {
+    "frames": [
+      "contact-a",
+      "passing-a",
+      "contact-b",
+      "passing-b",
+      "idle",
+      "rise",
+      "fall",
+      "land",
+      "dash",
+      "anticipation",
+      "strike",
+      "recovery"
+    ],
+    "frameSize": 128,
+    "baseline": 118,
+    "motion": "walk",
+    "sourceSha256": {
+      "tank-walk.png": "585f32022eddd19f89a27d56b3b18aecaf499283125a247cf4c158ceeea28758",
+      "tank-atlas.png": "2c260145b1074237d44609ad3edc791bafc44ca17892f722d9515cd768c01fb9"
+    },
+    "bounds": [
+      [
+        25,
+        15,
+        102,
+        118
+      ],
+      [
+        25,
+        15,
+        102,
+        118
+      ],
+      [
+        25,
+        15,
+        102,
+        118
+      ],
+      [
+        25,
+        15,
+        102,
+        118
+      ],
+      [
+        21,
+        17,
+        107,
+        118
+      ],
+      [
+        21,
+        25,
+        107,
+        118
+      ],
+      [
+        21,
+        15,
+        107,
+        118
+      ],
+      [
+        20,
+        28,
+        107,
+        118
+      ],
+      [
+        9,
+        23,
+        119,
+        118
+      ],
+      [
+        18,
+        23,
+        109,
+        118
+      ],
+      [
+        6,
+        23,
+        122,
+        118
+      ],
+      [
+        19,
+        22,
+        108,
+        118
+      ]
+    ],
+    "contactSilhouetteIoU": 0.927570093457944,
+    "alpha": [
+      0,
+      255
+    ],
+    "paletteReduction": false
+  },
+  "mage": {
+    "frames": [
+      "contact-a",
+      "passing-a",
+      "contact-b",
+      "passing-b",
+      "idle",
+      "rise",
+      "fall",
+      "land",
+      "dash",
+      "anticipation",
+      "strike",
+      "recovery"
+    ],
+    "frameSize": 128,
+    "baseline": 118,
+    "motion": "walk",
+    "sourceSha256": {
+      "mage-atlas.png": "9317e42e0c40eebfacb332e9502816200997179a8b4371b2d79531aacd65128a"
+    },
+    "bounds": [
+      [
+        22,
+        12,
+        106,
+        118
+      ],
+      [
+        22,
+        12,
+        105,
+        118
+      ],
+      [
+        22,
+        12,
+        105,
+        118
+      ],
+      [
+        22,
+        12,
+        105,
+        118
+      ],
+      [
+        22,
+        10,
+        106,
+        118
+      ],
+      [
+        21,
+        16,
+        106,
+        118
+      ],
+      [
+        21,
+        12,
+        106,
+        118
+      ],
+      [
+        21,
+        20,
+        106,
+        118
+      ],
+      [
+        13,
+        19,
+        114,
+        118
+      ],
+      [
+        18,
+        12,
+        110,
+        118
+      ],
+      [
+        8,
+        15,
+        119,
+        118
+      ],
+      [
+        17,
+        14,
+        111,
+        118
+      ]
+    ],
+    "contactSilhouetteIoU": 0.9128780673387864,
+    "alpha": [
+      0,
+      255
+    ],
+    "paletteReduction": false
+  },
+  "ranger": {
+    "frames": [
+      "contact-a",
+      "passing-a",
+      "contact-b",
+      "passing-b",
+      "idle",
+      "rise",
+      "fall",
+      "land",
+      "dash",
+      "anticipation",
+      "strike",
+      "recovery"
+    ],
+    "frameSize": 128,
+    "baseline": 118,
+    "motion": "walk",
+    "sourceSha256": {
+      "ranger-walk.png": "76feb41609bd9346d2c65d94d25f29f2593f190ec7af86e617028bc292fb3a0d",
+      "ranger-atlas.png": "d308d80e62bdc3c1569bbc18953e90a059d23567661e5e64f1705d9ba32ca26c"
+    },
+    "bounds": [
+      [
+        23,
+        20,
+        104,
+        118
+      ],
+      [
+        23,
+        21,
+        104,
+        118
+      ],
+      [
+        23,
+        20,
+        104,
+        118
+      ],
+      [
+        23,
+        20,
+        104,
+        118
+      ],
+      [
+        21,
+        20,
+        107,
+        118
+      ],
+      [
+        20,
+        27,
+        107,
+        118
+      ],
+      [
+        20,
+        23,
+        107,
+        118
+      ],
+      [
+        20,
+        28,
+        108,
+        118
+      ],
+      [
+        15,
+        22,
+        113,
+        118
+      ],
+      [
+        17,
+        20,
+        111,
+        118
+      ],
+      [
+        6,
+        20,
+        122,
+        118
+      ],
+      [
+        19,
+        20,
+        109,
+        118
+      ]
+    ],
+    "contactSilhouetteIoU": 0.9415791875855773,
+    "alpha": [
+      0,
+      255
+    ],
+    "paletteReduction": false
+  },
+  "cyborg": {
+    "frames": [
+      "contact-a",
+      "passing-a",
+      "contact-b",
+      "passing-b",
+      "idle",
+      "rise",
+      "fall",
+      "land",
+      "dash",
+      "anticipation",
+      "strike",
+      "recovery"
+    ],
+    "frameSize": 128,
+    "baseline": 118,
+    "motion": "walk",
+    "sourceSha256": {
+      "cyborg-walk.png": "938fbeaa2898cd5abcd403d7f031233d1c97cb2cb297762b142a68e9e15ced90",
+      "cyborg-atlas.png": "e765c6d5997794537b81a285cf76a30916b86043ae2a040c3a500a69e8f3e752"
+    },
+    "bounds": [
+      [
+        34,
+        10,
+        94,
+        118
+      ],
+      [
+        34,
+        10,
+        94,
+        118
+      ],
+      [
+        34,
+        12,
+        94,
+        118
+      ],
+      [
+        34,
+        13,
+        94,
+        118
+      ],
+      [
+        32,
+        10,
+        95,
+        118
+      ],
+      [
+        30,
+        17,
+        98,
+        118
+      ],
+      [
+        31,
+        13,
+        96,
+        118
+      ],
+      [
+        28,
+        25,
+        99,
+        118
+      ],
+      [
+        19,
+        20,
+        108,
+        118
+      ],
+      [
+        17,
+        14,
+        110,
+        118
+      ],
+      [
+        9,
+        18,
+        119,
+        118
+      ],
+      [
+        23,
+        18,
+        105,
+        118
+      ]
+    ],
+    "contactSilhouetteIoU": 0.8761061946902655,
+    "alpha": [
+      0,
+      255
+    ],
+    "paletteReduction": false
+  },
+  "spirit": {
+    "frames": [
+      "contact-a",
+      "passing-a",
+      "contact-b",
+      "passing-b",
+      "idle",
+      "rise",
+      "fall",
+      "land",
+      "dash",
+      "anticipation",
+      "strike",
+      "recovery"
+    ],
+    "frameSize": 128,
+    "baseline": 118,
+    "motion": "glide",
+    "sourceSha256": {
+      "spirit-atlas.png": "a354195d1083034118d54ae4d90f78e75b6412762923704f9a198b5eef7b2e7f"
+    },
+    "bounds": [
+      [
+        25,
+        17,
+        103,
+        118
+      ],
+      [
+        28,
+        17,
+        103,
+        121
+      ],
+      [
+        25,
+        17,
+        103,
+        119
+      ],
+      [
+        30,
+        17,
+        103,
+        120
+      ],
+      [
+        28,
+        10,
+        100,
+        118
+      ],
+      [
+        26,
+        12,
+        101,
+        118
+      ],
+      [
+        27,
+        21,
+        101,
+        118
+      ],
+      [
+        23,
+        31,
+        104,
+        118
+      ],
+      [
+        8,
+        27,
+        119,
+        118
+      ],
+      [
+        18,
+        13,
+        110,
+        118
+      ],
+      [
+        7,
+        13,
+        120,
+        118
+      ],
+      [
+        22,
+        15,
+        106,
+        118
+      ]
+    ],
+    "contactSilhouetteIoU": 0.88037558685446,
+    "alpha": [
+      0,
+      255
+    ],
+    "paletteReduction": false
+  },
+  "healer": {
+    "frames": [
+      "contact-a",
+      "passing-a",
+      "contact-b",
+      "passing-b",
+      "idle",
+      "rise",
+      "fall",
+      "land",
+      "dash",
+      "anticipation",
+      "strike",
+      "recovery"
+    ],
+    "frameSize": 128,
+    "baseline": 118,
+    "motion": "walk",
+    "sourceSha256": {
+      "healer-atlas.png": "7bc2dc5a14c3f703932e81cb50fc6c0f3841caac96f979728711fb203e78777e"
+    },
+    "bounds": [
+      [
+        27,
+        11,
+        100,
+        118
+      ],
+      [
+        30,
+        11,
+        100,
+        118
+      ],
+      [
+        30,
+        11,
+        100,
+        118
+      ],
+      [
+        30,
+        11,
+        100,
+        118
+      ],
+      [
+        29,
+        10,
+        99,
+        118
+      ],
+      [
+        25,
+        13,
+        102,
+        118
+      ],
+      [
+        27,
+        14,
+        101,
+        118
+      ],
+      [
+        25,
+        19,
+        103,
+        118
+      ],
+      [
+        21,
+        13,
+        106,
+        118
+      ],
+      [
+        21,
+        12,
+        107,
+        118
+      ],
+      [
+        7,
+        11,
+        120,
+        118
+      ],
+      [
+        23,
+        12,
+        104,
+        118
+      ]
+    ],
+    "contactSilhouetteIoU": 0.9547364400305577,
     "alpha": [
       0,
       255
@@ -220,6 +837,7 @@
     ],
     "frameSize": 128,
     "baseline": 118,
+    "motion": "walk",
     "sourceSha256": {
       "cherry-walk.png": "02630e3a29e2077dfd60fa1cbe1da68f1228f72dd4c9ecbc2b0ecf0f2c636b0b",
       "cherry-actions.png": "b71be31823779bd5291ee4f4dfcbbe7610ef22a32fefdfd09f4cddf79698d628"
@@ -299,6 +917,828 @@
       ]
     ],
     "contactSilhouetteIoU": 0.9446552108904263,
+    "alpha": [
+      0,
+      255
+    ],
+    "paletteReduction": false
+  },
+  "velvet": {
+    "frames": [
+      "contact-a",
+      "passing-a",
+      "contact-b",
+      "passing-b",
+      "idle",
+      "rise",
+      "fall",
+      "land",
+      "dash",
+      "anticipation",
+      "strike",
+      "recovery"
+    ],
+    "frameSize": 128,
+    "baseline": 118,
+    "motion": "gown",
+    "sourceSha256": {
+      "velvet-atlas.png": "8270b99827d89b9537542be73365ea06b75bb0be76b10f514bf2cd63529b9c43"
+    },
+    "bounds": [
+      [
+        24,
+        19,
+        104,
+        118
+      ],
+      [
+        27,
+        19,
+        100,
+        118
+      ],
+      [
+        26,
+        19,
+        105,
+        118
+      ],
+      [
+        27,
+        19,
+        99,
+        118
+      ],
+      [
+        24,
+        17,
+        104,
+        118
+      ],
+      [
+        23,
+        21,
+        104,
+        118
+      ],
+      [
+        24,
+        16,
+        103,
+        118
+      ],
+      [
+        21,
+        24,
+        107,
+        118
+      ],
+      [
+        15,
+        17,
+        112,
+        118
+      ],
+      [
+        23,
+        16,
+        105,
+        118
+      ],
+      [
+        6,
+        16,
+        122,
+        118
+      ],
+      [
+        22,
+        16,
+        105,
+        118
+      ]
+    ],
+    "contactSilhouetteIoU": 0.9207862981704944,
+    "alpha": [
+      0,
+      255
+    ],
+    "paletteReduction": false
+  },
+  "ember": {
+    "frames": [
+      "contact-a",
+      "passing-a",
+      "contact-b",
+      "passing-b",
+      "idle",
+      "rise",
+      "fall",
+      "land",
+      "dash",
+      "anticipation",
+      "strike",
+      "recovery"
+    ],
+    "frameSize": 128,
+    "baseline": 118,
+    "motion": "walk",
+    "sourceSha256": {
+      "ember-walk.png": "fea41534d77dfca9cd188c4ddf90c3ccd5ff86482cb20664e4da854c4ec26064",
+      "ember-atlas.png": "fc18829345004374e767288ce7807bacd2fbe2a6b58f4f74452910893a7aac33"
+    },
+    "bounds": [
+      [
+        14,
+        10,
+        113,
+        118
+      ],
+      [
+        14,
+        10,
+        113,
+        118
+      ],
+      [
+        15,
+        14,
+        113,
+        118
+      ],
+      [
+        14,
+        14,
+        113,
+        118
+      ],
+      [
+        22,
+        10,
+        105,
+        118
+      ],
+      [
+        22,
+        16,
+        106,
+        118
+      ],
+      [
+        21,
+        18,
+        107,
+        118
+      ],
+      [
+        21,
+        25,
+        107,
+        118
+      ],
+      [
+        13,
+        14,
+        114,
+        118
+      ],
+      [
+        18,
+        12,
+        109,
+        118
+      ],
+      [
+        6,
+        12,
+        121,
+        118
+      ],
+      [
+        21,
+        12,
+        107,
+        118
+      ]
+    ],
+    "contactSilhouetteIoU": 0.9418445539135194,
+    "alpha": [
+      0,
+      255
+    ],
+    "paletteReduction": false
+  },
+  "rosalia": {
+    "frames": [
+      "contact-a",
+      "passing-a",
+      "contact-b",
+      "passing-b",
+      "idle",
+      "rise",
+      "fall",
+      "land",
+      "dash",
+      "anticipation",
+      "strike",
+      "recovery"
+    ],
+    "frameSize": 128,
+    "baseline": 118,
+    "motion": "gown",
+    "sourceSha256": {
+      "rosalia-atlas.png": "5becbe1caaba0c4a7db817c41171df695d7227c761ad42b13bef62ac3c96bad2"
+    },
+    "bounds": [
+      [
+        25,
+        15,
+        103,
+        118
+      ],
+      [
+        28,
+        17,
+        100,
+        118
+      ],
+      [
+        27,
+        16,
+        104,
+        118
+      ],
+      [
+        30,
+        17,
+        101,
+        118
+      ],
+      [
+        26,
+        15,
+        101,
+        118
+      ],
+      [
+        22,
+        26,
+        105,
+        118
+      ],
+      [
+        22,
+        24,
+        106,
+        118
+      ],
+      [
+        21,
+        32,
+        106,
+        118
+      ],
+      [
+        18,
+        27,
+        110,
+        118
+      ],
+      [
+        19,
+        19,
+        109,
+        118
+      ],
+      [
+        6,
+        22,
+        122,
+        118
+      ],
+      [
+        21,
+        20,
+        106,
+        118
+      ]
+    ],
+    "contactSilhouetteIoU": 0.9318550567874527,
+    "alpha": [
+      0,
+      255
+    ],
+    "paletteReduction": false
+  },
+  "marionette": {
+    "frames": [
+      "contact-a",
+      "passing-a",
+      "contact-b",
+      "passing-b",
+      "idle",
+      "rise",
+      "fall",
+      "land",
+      "dash",
+      "anticipation",
+      "strike",
+      "recovery"
+    ],
+    "frameSize": 128,
+    "baseline": 118,
+    "motion": "walk",
+    "sourceSha256": {
+      "marionette-walk.png": "410be9093e7c8b321e29877ed693cf04e886c8696160e56e980fb3ac6a9239b4",
+      "marionette-atlas.png": "19c02f737dc3050e07468a7b2f4b76bdb999f91ded9fffde8cb25a823524250a"
+    },
+    "bounds": [
+      [
+        23,
+        10,
+        104,
+        118
+      ],
+      [
+        23,
+        10,
+        104,
+        118
+      ],
+      [
+        23,
+        11,
+        104,
+        118
+      ],
+      [
+        23,
+        11,
+        104,
+        118
+      ],
+      [
+        26,
+        10,
+        101,
+        118
+      ],
+      [
+        24,
+        19,
+        104,
+        118
+      ],
+      [
+        25,
+        13,
+        103,
+        118
+      ],
+      [
+        25,
+        17,
+        103,
+        118
+      ],
+      [
+        19,
+        14,
+        109,
+        118
+      ],
+      [
+        19,
+        12,
+        109,
+        118
+      ],
+      [
+        12,
+        12,
+        116,
+        118
+      ],
+      [
+        23,
+        12,
+        104,
+        118
+      ]
+    ],
+    "contactSilhouetteIoU": 0.911481608800275,
+    "alpha": [
+      0,
+      255
+    ],
+    "paletteReduction": false
+  },
+  "dorian": {
+    "frames": [
+      "contact-a",
+      "passing-a",
+      "contact-b",
+      "passing-b",
+      "idle",
+      "rise",
+      "fall",
+      "land",
+      "dash",
+      "anticipation",
+      "strike",
+      "recovery"
+    ],
+    "frameSize": 128,
+    "baseline": 118,
+    "motion": "walk",
+    "sourceSha256": {
+      "dorian-walk.png": "e8a06e7b1bed1e8399ee0492fee11adee6c63dd28467ca432e49871cc28120ff",
+      "dorian-atlas.png": "5a80c411c44491e86b252f148d236dfed0ec5c382ffe9cc07f2ff871513edd03"
+    },
+    "bounds": [
+      [
+        20,
+        20,
+        108,
+        118
+      ],
+      [
+        20,
+        20,
+        108,
+        118
+      ],
+      [
+        20,
+        20,
+        107,
+        118
+      ],
+      [
+        20,
+        20,
+        108,
+        118
+      ],
+      [
+        24,
+        21,
+        104,
+        118
+      ],
+      [
+        22,
+        24,
+        105,
+        118
+      ],
+      [
+        23,
+        20,
+        105,
+        118
+      ],
+      [
+        24,
+        27,
+        104,
+        118
+      ],
+      [
+        20,
+        23,
+        108,
+        118
+      ],
+      [
+        23,
+        22,
+        104,
+        118
+      ],
+      [
+        6,
+        24,
+        122,
+        118
+      ],
+      [
+        20,
+        23,
+        107,
+        118
+      ]
+    ],
+    "contactSilhouetteIoU": 0.9191742477256823,
+    "alpha": [
+      0,
+      255
+    ],
+    "paletteReduction": false
+  },
+  "onyx": {
+    "frames": [
+      "contact-a",
+      "passing-a",
+      "contact-b",
+      "passing-b",
+      "idle",
+      "rise",
+      "fall",
+      "land",
+      "dash",
+      "anticipation",
+      "strike",
+      "recovery"
+    ],
+    "frameSize": 128,
+    "baseline": 118,
+    "motion": "walk",
+    "sourceSha256": {
+      "onyx-walk.png": "24387d23003fe6d197001de6d57ba4662bb0f2fd8b1c57846df59531709e8973",
+      "onyx-atlas.png": "80f6eae4987f8cc390df6758a783963f2083163102106e06e53982753fe3f495"
+    },
+    "bounds": [
+      [
+        21,
+        11,
+        107,
+        118
+      ],
+      [
+        21,
+        10,
+        106,
+        118
+      ],
+      [
+        21,
+        11,
+        107,
+        118
+      ],
+      [
+        21,
+        10,
+        106,
+        118
+      ],
+      [
+        21,
+        16,
+        106,
+        118
+      ],
+      [
+        22,
+        23,
+        105,
+        118
+      ],
+      [
+        21,
+        14,
+        106,
+        118
+      ],
+      [
+        20,
+        29,
+        108,
+        118
+      ],
+      [
+        20,
+        27,
+        107,
+        118
+      ],
+      [
+        27,
+        10,
+        101,
+        118
+      ],
+      [
+        15,
+        33,
+        113,
+        118
+      ],
+      [
+        22,
+        26,
+        105,
+        118
+      ]
+    ],
+    "contactSilhouetteIoU": 0.9387232485824035,
+    "alpha": [
+      0,
+      255
+    ],
+    "paletteReduction": false
+  },
+  "mortimer": {
+    "frames": [
+      "contact-a",
+      "passing-a",
+      "contact-b",
+      "passing-b",
+      "idle",
+      "rise",
+      "fall",
+      "land",
+      "dash",
+      "anticipation",
+      "strike",
+      "recovery"
+    ],
+    "frameSize": 128,
+    "baseline": 118,
+    "motion": "walk",
+    "sourceSha256": {
+      "mortimer-walk.png": "967e420cb781640f0f5349f315dface87d6997a4eec9d9234c924c3234cc9fac",
+      "mortimer-atlas.png": "76a8e184d7d59e342b45fe7c60a831b6683df4a32c0df346032a7051d9fdbfdf"
+    },
+    "bounds": [
+      [
+        35,
+        10,
+        93,
+        118
+      ],
+      [
+        35,
+        10,
+        93,
+        118
+      ],
+      [
+        35,
+        11,
+        93,
+        118
+      ],
+      [
+        35,
+        11,
+        93,
+        118
+      ],
+      [
+        36,
+        10,
+        92,
+        118
+      ],
+      [
+        32,
+        20,
+        95,
+        118
+      ],
+      [
+        33,
+        14,
+        94,
+        118
+      ],
+      [
+        33,
+        21,
+        95,
+        118
+      ],
+      [
+        24,
+        17,
+        104,
+        118
+      ],
+      [
+        29,
+        13,
+        99,
+        118
+      ],
+      [
+        18,
+        13,
+        110,
+        118
+      ],
+      [
+        33,
+        13,
+        95,
+        118
+      ]
+    ],
+    "contactSilhouetteIoU": 0.933068783068783,
+    "alpha": [
+      0,
+      255
+    ],
+    "paletteReduction": false
+  },
+  "grimshaw": {
+    "frames": [
+      "contact-a",
+      "passing-a",
+      "contact-b",
+      "passing-b",
+      "idle",
+      "rise",
+      "fall",
+      "land",
+      "dash",
+      "anticipation",
+      "strike",
+      "recovery"
+    ],
+    "frameSize": 128,
+    "baseline": 118,
+    "motion": "glide",
+    "sourceSha256": {
+      "grimshaw-walk.png": "c73e36a98a800c04f0d2cc96a6bac378f78f0608dcbb0b1939f741583f8a44a6",
+      "grimshaw-atlas.png": "323469add3f2e87ef59243f9036a7b635d51ac6627fbf7c75a391c4e2fbba29a"
+    },
+    "bounds": [
+      [
+        20,
+        15,
+        108,
+        118
+      ],
+      [
+        20,
+        15,
+        108,
+        123
+      ],
+      [
+        20,
+        15,
+        108,
+        118
+      ],
+      [
+        20,
+        15,
+        108,
+        118
+      ],
+      [
+        24,
+        16,
+        104,
+        118
+      ],
+      [
+        23,
+        12,
+        105,
+        118
+      ],
+      [
+        21,
+        17,
+        106,
+        118
+      ],
+      [
+        21,
+        24,
+        107,
+        118
+      ],
+      [
+        16,
+        20,
+        112,
+        118
+      ],
+      [
+        20,
+        16,
+        108,
+        118
+      ],
+      [
+        8,
+        26,
+        119,
+        118
+      ],
+      [
+        23,
+        19,
+        105,
+        118
+      ]
+    ],
+    "contactSilhouetteIoU": 0.9732781332329695,
     "alpha": [
       0,
       255

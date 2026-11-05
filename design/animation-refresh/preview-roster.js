@@ -1,0 +1,2 @@
+// Generated roster for the standalone review page.
+window.animationRoster = [["knight", "Knight"], ["ninja", "Ninja"], ["tank", "Tank"], ["mage", "Mage"], ["ranger", "Ranger"], ["cyborg", "Cyborg"], ["spirit", "Spirit"], ["healer", "Healer"], ["cherry", "Ansley"], ["velvet", "Velvet"], ["ember", "Ember"], ["rosalia", "Rosalia"], ["marionette", "Marionette"], ["dorian", "Dorian"], ["onyx", "Onyx"], ["mortimer", "Mortimer"], ["grimshaw", "Grimshaw"]];

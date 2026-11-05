@@ -1,0 +1,104 @@
+[
+  {
+    "id": "knight",
+    "name": "Knight",
+    "source": "split",
+    "motion": "walk"
+  },
+  {
+    "id": "ninja",
+    "name": "Ninja",
+    "source": "split",
+    "motion": "walk"
+  },
+  {
+    "id": "tank",
+    "name": "Tank",
+    "source": "walk-override",
+    "motion": "walk"
+  },
+  {
+    "id": "mage",
+    "name": "Mage",
+    "source": "atlas",
+    "motion": "walk"
+  },
+  {
+    "id": "ranger",
+    "name": "Ranger",
+    "source": "walk-override",
+    "motion": "walk"
+  },
+  {
+    "id": "cyborg",
+    "name": "Cyborg",
+    "source": "walk-override",
+    "motion": "walk"
+  },
+  {
+    "id": "spirit",
+    "name": "Spirit",
+    "source": "atlas",
+    "motion": "glide"
+  },
+  {
+    "id": "healer",
+    "name": "Healer",
+    "source": "atlas",
+    "motion": "walk"
+  },
+  {
+    "id": "cherry",
+    "name": "Ansley",
+    "source": "split",
+    "motion": "walk"
+  },
+  {
+    "id": "velvet",
+    "name": "Velvet",
+    "source": "atlas",
+    "motion": "gown"
+  },
+  {
+    "id": "ember",
+    "name": "Ember",
+    "source": "walk-override",
+    "motion": "walk"
+  },
+  {
+    "id": "rosalia",
+    "name": "Rosalia",
+    "source": "atlas",
+    "motion": "gown"
+  },
+  {
+    "id": "marionette",
+    "name": "Marionette",
+    "source": "walk-override",
+    "motion": "walk"
+  },
+  {
+    "id": "dorian",
+    "name": "Dorian",
+    "source": "walk-override",
+    "motion": "walk"
+  },
+  {
+    "id": "onyx",
+    "name": "Onyx",
+    "source": "walk-override",
+    "motion": "walk"
+  },
+  {
+    "id": "mortimer",
+    "name": "Mortimer",
+    "source": "walk-override",
+    "motion": "walk"
+  },
+  {
+    "id": "grimshaw",
+    "name": "Grimshaw",
+    "source": "walk-override",
+    "motion": "glide"
+  }
+]
