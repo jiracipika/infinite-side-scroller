@@ -29,8 +29,25 @@ try {
   const report = await page.evaluate(() => {
     const a = window.art, canvas = document.querySelector('#probe'), ctx = canvas.getContext('2d', { willReadFrequently: true });
     const imageDraw = CanvasRenderingContext2D.prototype.drawImage;
-    const clippedFrames = [], clippedPreviews = []; let current; let previewChecks = 0, frameChecks = 0;
+    const clippedFrames = [], clippedPreviews = [], authoredCharacters = new Set(); let current; let previewChecks = 0, frameChecks = 0;
+    const checkedCells = new Set();
     CanvasRenderingContext2D.prototype.drawImage = function(image, ...args) {
+      if (this.canvas === canvas && image instanceof HTMLImageElement && image.naturalWidth === 1536 && image.naturalHeight === 128 && current?.style === 'fullart') {
+        authoredCharacters.add(current.id);
+        const key = current.id + ':' + args[0];
+        if (!checkedCells.has(key)) {
+          checkedCells.add(key); frameChecks++;
+          const cell = document.createElement('canvas'); cell.width = cell.height = 128;
+          const cellContext = cell.getContext('2d', { willReadFrequently: true });
+          imageDraw.call(cellContext, image, args[0], 0, 128, 128, 0, 0, 128, 128);
+          const pixels = cellContext.getImageData(0, 0, 128, 128).data;
+          let edges = 0;
+          for (let y = 0; y < 128; y++) for (let x = 0; x < 128; x++) {
+            if ((x < 2 || x >= 126 || y < 2 || y >= 126) && pixels[(y * 128 + x) * 4 + 3]) edges++;
+          }
+          if (edges) clippedFrames.push({ ...current, edges });
+        }
+      }
       if (this.canvas === canvas && image instanceof HTMLCanvasElement && current?.style === 'fullart') {
         frameChecks++;
         const pixels = image.getContext('2d').getImageData(0, 0, image.width, image.height).data;
@@ -61,18 +78,24 @@ try {
         }
       }
       if (style === 'fullart') {
-        // Dashes and combined air attacks also need safe internal raster bounds.
+        // Exercise every authored cell, including all three combat phases.
         canvas.width = 512; canvas.height = 512;
-        for (const pose of [{ dashing: true }, { airborne: true, melee: .5, verticalVelocity: -300 }, { land: 1 }, { airborne: true, launch: 1, verticalVelocity: -520 }]) {
+        for (const pose of [
+          ...[0, .35, .5, .9].map(phase => ({ moving: true, phase })), {},
+          { airborne: true, verticalVelocity: -300 }, { airborne: true, verticalVelocity: 300 },
+          { land: 1 }, { dashing: true }, ...[.1, .35, .8].map(melee => ({ airborne: true, melee })),
+        ]) {
           current = { id: char.id, style, pose }; ctx.setTransform(1, 0, 0, 1, 200, 200);
           a.drawCharacterArt(ctx, char, char.width, char.height, pose);
         }
       }
     }
-    return { characters: a.CHARACTERS.length, styles: 3, previewChecks, frameChecks, clippedFrames, clippedPreviews };
+    return { characters: a.CHARACTERS.length, authoredCharacters: authoredCharacters.size, styles: 3, previewChecks, frameChecks, clippedFrames, clippedPreviews };
   });
   writeFileSync(path.join(out, 'evidence.json'), JSON.stringify({ ...report, errors }, null, 2));
   assert.deepEqual(report.clippedFrames, [], 'internal animation rasters must retain every pixel');
+  assert.equal(report.authoredCharacters, report.characters, 'every Full Art character must use its authored sheet');
+  assert.equal(report.frameChecks, report.characters * 12, 'all twelve authored cells must be inspected for every character');
   assert.deepEqual(report.clippedPreviews, [], 'all poses must fit the menu canvas in both directions');
   assert.deepEqual(errors, []);
   console.log(JSON.stringify({ ...report, errors, output: out }, null, 2));

@@ -1,8 +1,13 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { characterAnimationFrame } from '../src/game/rendering/character-animation';
+import { CHARACTER_ANIMATIONS } from '../src/game/rendering/character-animation-data';
+import { CHARACTERS } from '../src/game/data/characters';
 
 describe('authored character animation playback', () => {
+  it('covers the full playable and court roster without mixing animation systems', () => {
+    assert.deepEqual(Object.keys(CHARACTER_ANIMATIONS).sort(), CHARACTERS.map(character => character.id).sort());
+  });
   it('alternates contact and passing poses without idle flashes', () => {
     assert.deepEqual([0, .35, .5, .9, 1].map(phase => characterAnimationFrame({ moving: true, phase, stride: 0 })), [0, 1, 2, 3, 0]);
     assert.equal(characterAnimationFrame({ moving: false, stride: 2 }), 4);

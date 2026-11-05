@@ -11,11 +11,9 @@ import { ensureCharacterAnimationsLoading, characterAnimationReady, drawCharacte
  * through drawCharacterArt — with the procedural ink painters and the pixel
  * sheets remaining as explicitly selectable alternatives.
  *
- * Knight, Ninja and Ansley use authored complete animation frames. The
- * remaining original figures are bound to a per-character skeletal mesh. Arms,
- * elbows, legs, knees, head and hand-owned props articulate independently;
- * skirts, capes and spectral tails receive delayed cloth follow-through.
- * The original source figures remain available while animation assets load.
+ * All seventeen characters use authored complete animation frames, including
+ * their own walking/gliding, jumping, landing and combat poses. The original
+ * skeletal figures remain the loading fallback.
  */
 
 const images = new Map<string, HTMLImageElement>();

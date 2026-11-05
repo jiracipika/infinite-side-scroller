@@ -4,14 +4,14 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#151322;color:#f4eaff;font:16px system-ui;padding:32px;max-width:1500px;margin:auto}h1{font-size:32px}p{color:#c3b9d2;line-height:1.5}button,select{font:inherit;padding:10px;background:#302944;color:inherit;border:1px solid #75658c;border-radius:8px;margin:0 8px 12px 0}main{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px}article{background:#211c30;border:1px solid #463857;border-radius:18px;padding:20px;overflow:hidden}canvas{width:100%;height:auto;image-rendering:pixelated;background:linear-gradient(#252139,#34304b)}.strip{width:100%;overflow:auto}.strip img{height:128px;image-rendering:pixelated}h2{font-size:22px}small{color:#c3b9d2}
 </style>
-<h1>Dashverse · Character animation review</h1>
-<p>Knight, Ninja and Ansley. Complete poses with alternating steps, planted feet and distinct jump, landing and attack drawings.</p>
+<h1>Dashverse · Full roster animation review</h1>
+<p>All 17 characters. Complete poses with individual walking or gliding styles and distinct jump, landing and attack drawings.</p>
 <label>Action <select id="action"><option value="walk">Walk</option><option value="jump">Jump and land</option><option value="attack">Attack</option><option value="dash">Dash</option><option value="idle">Idle</option></select></label>
 <button id="pause">Pause</button><button id="direction">Face left</button>
 <main></main>
 <p>Each strip shows: contact A · passing A · contact B · passing B · idle · rise · fall · land · dash · anticipation · strike · recovery.</p>
-<script>
-const rows=[['knight','Knight'],['ninja','Ninja'],['cherry','Ansley']];
+<script src="preview-roster.js"></script><script>
+const rows=window.animationRoster;
 let playing=!matchMedia('(prefers-reduced-motion: reduce)').matches, left=false, time=0,last;
 const views=rows.map(([id,name])=>{const card=document.createElement('article');card.innerHTML=`<h2>${name}</h2><canvas width="384" height="384" aria-label="${name} animation"></canvas><div class="strip"><img src="${id}/spritesheet.png" alt="${name}, all twelve authored poses"></div>`;document.querySelector('main').append(card);const img=new Image();img.src=`${id}/spritesheet.png`;return {ctx:card.querySelector('canvas').getContext('2d'),img};});
 function toggleLabel(){document.querySelector('#pause').textContent=playing?'Pause':'Play';}toggleLabel();
