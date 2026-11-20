@@ -92,7 +92,7 @@ const LevelCard: FC<{
       whileTap={!locked ? { scale: 0.97 } : {}}
       style={{
         position: 'relative',
-        borderRadius: 14,
+        borderRadius: 7,
         padding: '14px 12px',
         border: locked ? '1px solid rgba(255,255,255,0.04)' : `1px solid ${biome.accent}25`,
         background: locked ? 'rgba(14,17,26,0.9)' : `linear-gradient(145deg, ${biome.bg}, rgba(14,17,26,0.92))`,
@@ -158,14 +158,14 @@ const LevelCard: FC<{
 
       {/* Name */}
       <div style={{
-        fontSize: 13, fontWeight: 600, color: locked ? 'rgba(255,255,255,0.15)' : '#fff',
+        fontSize: 13, fontWeight: 600, color: locked ? '#a69ab4' : 'var(--dv-text)',
         letterSpacing: '-0.2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
       }}>
         {level.name}
       </div>
 
       {/* Subtitle */}
-      <div style={{ fontSize: 10, color: locked ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.4)', lineHeight: 1.3 }}>
+      <div style={{ fontSize: 10, color: locked ? '#a69ab4' : 'var(--dv-muted)', lineHeight: 1.3 }}>
         {level.mode === 'coin-rush'
           ? `${level.timeLimit}s · ${level.targetCoins} coins`
           : level.mode === 'gauntlet'
@@ -182,7 +182,7 @@ const LevelCard: FC<{
           (kept in sync with the aria-label copy). */}
       {locked && (
         <div style={{
-          fontSize: 9, fontWeight: 600, color: 'rgba(255,255,255,0.35)', lineHeight: 1.3,
+          fontSize: 9, fontWeight: 600, color: '#a69ab4', lineHeight: 1.3,
         }}>
           Earn a star on the previous level to unlock
         </div>
@@ -336,13 +336,9 @@ const LevelSelectScreen: FC<Props> = ({ onLevelSelect, onBack, onEndlessPlay }) 
   ];
 
   return (
-    <div style={{
-      width: '100%', maxWidth: 600, margin: '0 auto', padding: '20px 16px',
-      color: '#fff', fontFamily: '-apple-system, system-ui, sans-serif',
-      minHeight: '100vh',
-      background: 'radial-gradient(circle at 15% 8%, rgba(255,45,149,0.2), transparent 38%), radial-gradient(circle at 90% 22%, rgba(0,229,255,0.16), transparent 42%), linear-gradient(145deg, #070314, #11172c 48%, #18071d)',
-      boxShadow: '0 0 0 100vmax rgba(3,6,14,0.94)',
-      clipPath: 'inset(0 -100vmax)',
+    <div className="dash-level-select" style={{
+      width: '100%', maxWidth: 720, margin: '0 auto', padding: '20px 16px',
+      minHeight: '100dvh', clipPath: 'inset(0 -100vmax)',
     }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
@@ -355,7 +351,7 @@ const LevelSelectScreen: FC<Props> = ({ onLevelSelect, onBack, onEndlessPlay }) 
           ←
         </motion.button>
         <div>
-          <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0, letterSpacing: '-0.5px' }}>Select Level</h1>
+          <h1 style={{ fontSize: 28, fontWeight: 820, margin: 0, letterSpacing: '-0.5px' }}>Select Level</h1>
           <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', margin: 0 }}>Choose your challenge</p>
         </div>
         {tab !== 'endless' && (
@@ -415,8 +411,7 @@ const LevelSelectScreen: FC<Props> = ({ onLevelSelect, onBack, onEndlessPlay }) 
               aria-label={`${t.label} levels`}
               style={{
                 flex: 1, padding: '10px 8px', borderRadius: 10,
-                background: active ? 'rgba(255,255,255,0.1)' : 'transparent',
-                border: 'none', cursor: 'pointer', color: active ? '#fff' : 'rgba(255,255,255,0.4)',
+                border: 'none', cursor: 'pointer',
                 fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                 transition: 'background 0.2s, color 0.2s',
               }}
@@ -451,7 +446,7 @@ const LevelSelectScreen: FC<Props> = ({ onLevelSelect, onBack, onEndlessPlay }) 
             </div>
 
             {/* Level grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+            <div className="dash-level-grid">
               {currentLevels.map((level, i) => {
                 const p = levelProgress[level.id];
                 return (

@@ -2354,3 +2354,97 @@ body {
 :focus-visible {
   transition: box-shadow 120ms ease-out, outline-color 120ms ease-out;
 }
+
+/* Dashverse interface colors match the painted world and its traversal cues. */
+:root {
+  --dv-ink: #13101b;
+  --dv-panel: #201929;
+  --dv-raised: #30243d;
+  --dv-stroke: #59476c;
+  --dv-text: #f4f2ed;
+  --dv-muted: #c6b8d2;
+  --dv-action: #c7ff4d;
+  --dv-violet: #b29aff;
+  --dv-danger: #ff7166;
+  --dv-radius: 9px;
+  --dv-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.dash-run-dialog .ios-overlay {
+  background: #110c1bc9;
+  backdrop-filter: blur(5px);
+}
+
+.dash-run-dialog .ios-sheet {
+  background: var(--dv-panel);
+  border: 1px solid var(--dv-stroke);
+  border-radius: var(--dv-radius);
+}
+
+.dash-run-dialog .ios-title1,
+.dash-run-dialog .ios-title2 {
+  color: var(--dv-text);
+  font-weight: 820;
+}
+
+.dash-run-dialog .ios-btn-primary {
+  background: var(--dv-action);
+  border-radius: 5px;
+  color: var(--dv-ink);
+  box-shadow: none;
+}
+
+.dash-run-dialog .ios-btn-gray,
+.dash-run-dialog .ios-btn-secondary {
+  color: var(--dv-text);
+  background: var(--dv-raised);
+  border-radius: 5px;
+}
+
+.dash-run-dialog .ios-action-row { color: var(--dv-violet); }
+.dash-run-dialog .ios-action-row-destructive { color: var(--dv-danger); }
+.dash-run-dialog :focus-visible, .dash-level-select :focus-visible {
+  outline: 2px solid var(--dv-action);
+  outline-offset: 2px;
+}
+
+.dash-level-select {
+  height: 100dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: radial-gradient(ellipse at 65% 0, var(--dv-raised), var(--dv-ink) 65%);
+  box-shadow: 0 0 0 100vmax var(--dv-ink);
+  color: var(--dv-text);
+}
+
+.dash-level-select [role="tab"][aria-selected="true"] {
+  background: var(--dv-action);
+  color: var(--dv-ink);
+}
+
+.dash-level-select [role="tab"] {
+  min-height: 44px;
+  color: var(--dv-muted);
+}
+
+.dash-level-result {
+  border: 1px solid var(--dv-stroke);
+  border-radius: var(--dv-radius);
+  background: var(--dv-panel);
+  box-shadow: 0 12px 72px #09061095;
+}
+
+.dash-level-result :focus-visible {
+  outline: 2px solid var(--dv-action);
+  outline-offset: 2px;
+}
+
+.dash-level-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+@media (max-width: 480px) {
+  .dash-level-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

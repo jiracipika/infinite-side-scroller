@@ -26,11 +26,11 @@ describe('run-start character affordance (already shipped — pinned)', () => {
   });
 
   test('ability + description render with the selected runner', () => {
-    assert.match(startSrc, /\{selectedCharacter\.description\} · \{selectedCharacter\.ability\}/);
+    assert.match(startSrc, /\{previewCharacter\.description\} · \{previewCharacter\.ability\}/);
   });
 
   test('hero quick-stats surface the runner name', () => {
-    assert.match(startSrc, /<small>Runner<\/small>/);
+    assert.match(startSrc, /<dt>Runner<\/dt>/);
     assert.match(startSrc, /\{selectedCharacter\.name\}/);
   });
 });

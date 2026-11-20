@@ -400,7 +400,7 @@ export default function GameScreen() {
           slideDirection="up"
           slideDistance={30}
           duration={400}
-          gradientColors={['rgba(0,0,0,0.94)', 'rgba(8,12,22,0.97)', 'rgba(16,20,34,0.99)']}
+          gradientColors={['#30243d', '#201929', '#13101b']}
         >
           <MenuOverlay
             onPlay={handlePlay}
@@ -416,7 +416,7 @@ export default function GameScreen() {
           visible={true}
           slideDirection="none"
           duration={250}
-          gradientColors={['rgba(0,0,0,0.5)', 'rgba(26,26,46,0.8)']}
+          gradientColors={['#13101b88', '#201929ed']}
         >
           <PauseOverlay onResume={handleResume} onRestart={handleRestart} onQuit={handleQuit} />
         </FadeTransition>
@@ -428,7 +428,7 @@ export default function GameScreen() {
           slideDirection="up"
           slideDistance={40}
           duration={350}
-          gradientColors={['rgba(0,0,0,0.7)', 'rgba(26,26,46,0.9)']}
+          gradientColors={['#13101bbf', '#201929f4']}
         >
           <GameOverOverlay
             stats={stats}
@@ -668,7 +668,7 @@ const MenuOverlay: React.FC<{
   const isLandscape = width > height;
 
   return (
-  <LinearGradient colors={['rgba(0,0,0,0.94)', 'rgba(8,12,22,0.97)', 'rgba(16,20,34,0.99)']} style={styles.overlay}>
+  <LinearGradient colors={['#30243d', '#201929', '#13101b']} style={styles.overlay}>
     <View style={styles.ambientGlowA} />
     <View style={styles.ambientGlowB} />
 
@@ -689,11 +689,10 @@ const MenuOverlay: React.FC<{
     </View>
 
     <View style={[styles.menuContent, isLandscape && styles.menuContentLandscape]}>
-      <View style={styles.appMark}>
-        <Text style={styles.appMarkText}>∞</Text>
-      </View>
-      <Text style={styles.title}>Dashverse</Text>
-      <Text style={styles.subtitle}>RUN · COLLECT · COMPETE</Text>
+      <Text style={styles.subtitle}>Endless platformer</Text>
+      <Text style={styles.title} accessibilityRole="header" accessibilityLabel="Dashverse">
+        DASH<Text style={styles.titleAccent}>VERSE</Text>
+      </Text>
 
       {highScore > 0 && (
         <View style={styles.bestPill} accessible accessibilityLabel={`Personal best score ${highScore}`}>
@@ -713,9 +712,7 @@ const MenuOverlay: React.FC<{
           accessibilityLabel="Play Endless"
           accessibilityHint="Start a new endless run"
         >
-          <LinearGradient colors={['#c7ff4d', '#5E5CE6', '#BF5AF2']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.playBtnGradient}>
-            <Text style={styles.playBtnText}>Play</Text>
-          </LinearGradient>
+          <Text style={styles.playBtnText}>Play Endless</Text>
         </PressableScale>
       </View>
 
@@ -751,7 +748,7 @@ const PauseOverlay: React.FC<{
   onRestart: () => void;
   onQuit: () => void;
 }> = ({ onResume, onRestart, onQuit }) => (
-  <LinearGradient colors={['rgba(0,0,0,0.5)', 'rgba(26,26,46,0.8)']} style={styles.overlay}>
+  <LinearGradient colors={['#13101b88', '#201929ed']} style={styles.overlay}>
     <View style={styles.menuContent}>
       <Text style={styles.overlayTitle}>Paused</Text>
 
@@ -806,7 +803,7 @@ const GameOverOverlay: React.FC<{
   }, [shareStatus]);
 
   return (
-    <LinearGradient colors={['rgba(0,0,0,0.7)', 'rgba(26,26,46,0.9)']} style={styles.overlay}>
+    <LinearGradient colors={['#13101bbf', '#201929f4']} style={styles.overlay}>
       <View style={styles.menuContent}>
         <Text style={styles.overlayTitle}>Game Over</Text>
 
@@ -1028,12 +1025,12 @@ const styles = StyleSheet.create({
   cornerIconBtn: {
     width: 46,
     height: 46,
-    borderRadius: 23,
+    borderRadius: 7,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.07)',
+    backgroundColor: '#201929',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
+    borderColor: '#59476c',
   },
   menuContent: {
     alignItems: 'center',
@@ -1048,38 +1045,25 @@ const styles = StyleSheet.create({
     maxWidth: 740,
     transform: [{ scale: 0.66 }],
   },
-  appMark: {
-    width: 80,
-    height: 80,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(10, 132, 255, 0.12)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(10, 132, 255, 0.28)',
-    shadowColor: '#c7ff4d',
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 8,
-  },
-  appMarkText: {
-    color: '#c7ff4d',
-    fontSize: 46,
-    fontWeight: '800',
-  },
   title: {
-    color: '#fff',
-    fontSize: 52,
-    fontWeight: '800',
-    letterSpacing: -1.2,
+    color: '#f4f2ed',
+    fontSize: 46,
+    fontWeight: '900',
+    fontStyle: 'italic',
+    letterSpacing: -2.4,
     textAlign: 'center',
+    textShadowColor: '#6b4d89',
+    textShadowRadius: 1,
+    textShadowOffset: { width: 2, height: 3 },
+  },
+  titleAccent: {
+    color: '#c7ff4d',
   },
   subtitle: {
-    color: 'rgba(235,235,245,0.45)',
-    fontSize: 12,
+    color: '#c6b8d2',
+    fontSize: 11,
     fontWeight: '700',
-    letterSpacing: 3,
+    letterSpacing: 2,
     textTransform: 'uppercase',
   },
   bestPill: {
@@ -1111,7 +1095,7 @@ const styles = StyleSheet.create({
   playBtn: {
     width: '100%',
     minHeight: 62,
-    borderRadius: 18,
+    borderRadius: 7,
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1121,18 +1105,10 @@ const styles = StyleSheet.create({
     shadowRadius: 18,
     shadowOffset: { width: 0, height: 9 },
   },
-  playBtnGradient: {
-    width: '100%',
-    minHeight: 62,
-    paddingVertical: 12,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   playBtnText: {
-    color: '#fff',
+    color: '#13101b',
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   secondaryBtn: {
     width: 280,

@@ -1,7 +1,7 @@
 import { CHARACTER_FULL_ART } from './character-fullart-data';
 import { drawSkinnedFullArt } from './fullart-mesh';
 import type { CharacterArtPose } from './character-art';
-import { ensureCharacterAnimationsLoading, characterAnimationReady, drawCharacterAnimation } from './character-animation';
+import { ensureCharacterAnimationsLoading, characterAnimationReady, characterAnimationLoaded, drawCharacterAnimation } from './character-animation';
 
 /**
  * Full-art lane of the character redesign: each entry is a segmented FRONT
@@ -42,6 +42,10 @@ export function characterHasFullArt(id: string): boolean {
 
 export function characterFullArtReady(id: string): boolean {
   return images.has(id) && characterAnimationReady(id);
+}
+
+export function characterFullArtAvailable(id: string): boolean {
+  return characterAnimationLoaded(id) || images.has(id);
 }
 
 /**

@@ -1,3 +1,4 @@
+import { renderHazard } from "@/game/hazards/index";
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
@@ -79,6 +80,25 @@ describe("industrial screenprint rendering", () => {
     );
     assert.equal(r.depth(), 0);
   });
+  it("uses the biome landing ink and marks crumbling slabs with danger ink", () => {
+    const normal = recorder();
+    paintInkSlab(normal.ctx, 10, 90, 120, 5, "#ffb000");
+    assert.ok(normal.calls.some((call) => call[1] === "strokeStyle" && call[2] === "#ffb000"));
+    assert.ok(!normal.calls.some((call) => call[1] === "strokeStyle" && call[2] === INK.lime));
+
+    const falling = recorder();
+    renderHazard(falling.ctx, { type: "falling_platform", x: 10, y: 90, width: 120, height: 8, chunkId: 0 }, 0);
+    assert.ok(falling.calls.some((call) => call[1] === "strokeStyle" && call[2] === INK.danger));
+  });
+
+  it("draws spikes through the edge of a non-multiple-of-12 hitbox", () => {
+    const { ctx, calls } = recorder();
+    renderHazard(ctx, { type: "spike", x: 80, y: 100, width: 29, height: 12, chunkId: 0 }, 40);
+    const points = calls.filter(([op]) => op === "moveTo" || op === "lineTo");
+    assert.equal(Math.min(...points.map(([, x]) => Number(x))), 40);
+    assert.equal(Math.max(...points.map(([, x]) => Number(x))), 69);
+  });
+
   it("facade is immutable and below playable surface", () => {
     const heights = Array(201).fill(100);
     const r = recorder();

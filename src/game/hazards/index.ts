@@ -2,6 +2,7 @@
  * Hazards - Spikes and falling platforms
  */
 
+import { INK, paintInkSlab } from '../rendering/ink-city';
 import {
   generatePatternLayout,
   rollSpikeWidth,
@@ -122,18 +123,35 @@ export function renderHazard(ctx: CanvasRenderingContext2D, h: Hazard, cameraX: 
   const sy = h.y - cameraY;
   ctx.save();
   if (h.type === 'spike') {
-    const count = Math.floor(h.width / 12);
-    ctx.fillStyle = '#09080f'; ctx.strokeStyle = '#ff7166'; ctx.lineWidth = 1.4;
+    const count = Math.max(1, Math.round(h.width / 12));
+    const toothWidth = h.width / count;
+    ctx.strokeStyle = INK.danger;
+    ctx.lineWidth = 1.4;
     for (let i = 0; i < count; i++) {
-      const bx = sx + i * 12;
-      ctx.beginPath(); ctx.moveTo(bx, sy + h.height); ctx.lineTo(bx + 6, sy); ctx.lineTo(bx + 12, sy + h.height); ctx.closePath(); ctx.fill(); ctx.stroke();
-      // Opaque coral tips make danger readable even against the black terrain.
-      ctx.fillStyle = '#ff7166'; ctx.beginPath(); ctx.moveTo(bx + 3, sy + 6); ctx.lineTo(bx + 6, sy); ctx.lineTo(bx + 9, sy + 6); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#09080f';
+      const x = sx + i * toothWidth;
+      const tip = x + toothWidth / 2;
+      ctx.fillStyle = INK.black;
+      ctx.beginPath();
+      ctx.moveTo(x, sy + h.height);
+      ctx.lineTo(tip, sy);
+      ctx.lineTo(x + toothWidth, sy + h.height);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = INK.danger;
+      ctx.beginPath();
+      ctx.moveTo(tip - toothWidth / 4, sy + h.height / 2);
+      ctx.lineTo(tip, sy);
+      ctx.lineTo(tip + toothWidth / 4, sy + h.height / 2);
+      ctx.closePath();
+      ctx.fill();
     }
   } else {
     const shakeX = !reducedMotion && h.crumbleTimer && !h.falling ? Math.sin(h.crumbleTimer * 65) * 1.5 : 0;
-    ctx.fillStyle = '#09080f'; ctx.fillRect(sx + shakeX, sy, h.width, h.height);
-    ctx.strokeStyle = '#ff7166'; ctx.lineWidth = 1.5; ctx.strokeRect(sx + shakeX, sy, h.width, h.height);
+    paintInkSlab(ctx, sx + shakeX, sy, h.width, Math.round(h.x), INK.danger);
+    ctx.strokeStyle = INK.danger;
+    ctx.lineWidth = 1.2;
     // Warning hatch is present BEFORE activation, not only after stepping on it.
     ctx.beginPath();
     for (let x = 4; x < h.width - 5; x += 14) { ctx.moveTo(sx + x + shakeX, sy + h.height - 1); ctx.lineTo(sx + x + 5 + shakeX, sy + 1); }

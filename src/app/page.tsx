@@ -29,7 +29,6 @@ import { MP_INPUT_BUFFER_SIZE, MP_INTERPOLATION_DELAY_MS, MP_P2P_INTERPOLATION_D
 import {
   addRunRewards,
   buildProgressionBonuses,
-  characterArtStyle,
   clearPendingContinueSlot,
   clearSlotCheckpoint,
   getTodayIsoDay,
@@ -41,7 +40,7 @@ import {
   takePendingContinueSlot,
   type SaveSlotId,
 } from "@/lib/progression";
-import { setPreferredArtStyle } from '@/game/rendering/sprite-sheet';
+import { setPreferredArtStyles } from '@/game/rendering/sprite-sheet';
 import {
   issueRunToken,
   submitRunScore,
@@ -300,6 +299,7 @@ export default function Home() {
     const resolvedId = slotId ?? loadActiveSaveSlotId();
     activeSaveSlotRef.current = resolvedId;
     const slot = loadSaveSlots().find((s) => s.id === resolvedId);
+    setPreferredArtStyles(slot?.artStyleByCharacter ?? {});
     const bonuses = buildProgressionBonuses(slot?.unlockedUpgradeIds ?? []);
     game.setProgressionBonuses(bonuses);
   }, []);
@@ -708,14 +708,18 @@ export default function Home() {
 
   // ── Level mode handlers ──
   const handleStartLevel = useCallback((level: LevelConfig) => {
+    applyProgressionFromSlot();
+    runModeRef.current = "standard";
+    runSeedRef.current = level.seed;
+    runTokenRef.current = null;
     setMultiplayerSession(null);
     setCurrentLevel(level);
     currentLevelRef.current = level;
     setLevelResult(null);
     gameRef.current?.setMultiplayerEnabled(false);
     startGame(level.seed);
-    gameRef.current?.setLevel(level);
-  }, [startGame]);
+    gameRef.current?.setLevel(level, loadSelectedCharacter());
+  }, [applyProgressionFromSlot, startGame]);
 
   const handleNextLevel = useCallback(() => {
     const level = currentLevelRef.current;
@@ -1651,16 +1655,6 @@ export default function Home() {
     };
   }, [applyProgressionFromSlot, multiplayerSession, splitScreenSeed, state]);
 
-  // Art-style preference drives the renderer's sheet-vs-ink choice; re-applied
-  // on state transitions so a style toggled in the menus takes effect on the
-  // next run without a reload. Idempotent by construction.
-  useEffect(() => {
-    const slotId = activeSaveSlotRef.current || loadActiveSaveSlotId();
-    const slot = loadSaveSlots().find((s) => s.id === slotId);
-    const characterId = loadSelectedCharacter();
-    if (slot) setPreferredArtStyle(characterId, characterArtStyle(slot, characterId));
-  }, [state]);
-
   const previousStateRef = useRef(state);
   useEffect(() => {
     const prev = previousStateRef.current;
@@ -1671,7 +1665,7 @@ export default function Home() {
       splitScreenSeed === null
     ) {
       const slotId = activeSaveSlotRef.current || loadActiveSaveSlotId();
-      const runCharacterId = loadSelectedCharacter();
+      const runCharacterId = gameRef.current?.getLocalPlayerSnapshot().characterId ?? loadSelectedCharacter();
       addRunRewards(slotId, {
         coins: stats.coins,
         score: stats.score,
@@ -1702,7 +1696,7 @@ export default function Home() {
           score: stats.score,
           distance: Math.round(stats.distance),
           coins: stats.coins,
-          characterId: loadSelectedCharacter(),
+          characterId: runCharacterId,
           replayPath: sampleReplayPath(ghostPoints),
         }).catch(() => {});
       }

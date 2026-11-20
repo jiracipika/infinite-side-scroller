@@ -650,8 +650,8 @@ export class GameEngine {
   }
 
   /** Configure the engine for level-based play. */
-  setLevel(config: LevelConfig): void {
-    this.setSeed(config.seed, this._characterId);
+  setLevel(config: LevelConfig, characterId = this._characterId): void {
+    this.setSeed(config.seed, characterId);
     this.levelConfig = config;
     this.levelBiomeOverride = getLevelBiome(config.biome);
     this.renderer.setWorldBiomeOverride(this.levelBiomeOverride);

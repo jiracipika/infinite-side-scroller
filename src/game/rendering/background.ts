@@ -130,8 +130,8 @@ export function drawBackgroundSky(
 
   // Horizon shifts toward the dark zenith color at night so the bright
   // biome gradient doesn't glow through the night tint.
-  const zenith = blendHex("#211b32", "#191725", nightness * 0.55);
-  const horizon = blendHex("#59436f", "#46315f", nightness * 0.52);
+  const zenith = blendHex(blendHex("#211b32", colors.sky, .24), "#191725", nightness * .55);
+  const horizon = biomeHorizon(colors, nightness);
 
   const gradient = ctx.createLinearGradient(0, 0, 0, height);
   gradient.addColorStop(0, zenith);
@@ -179,7 +179,7 @@ export function drawBackgroundSky(
   const hazeEndY = 780 - cameraY;
   const hazeGradient = ctx.createLinearGradient(0, hazeStartY, 0, hazeEndY);
   hazeGradient.addColorStop(0, hexToRgba(horizon, 0));
-  hazeGradient.addColorStop(1, hexToRgba(horizon, 0.09));
+  hazeGradient.addColorStop(1, hexToRgba(horizon, .18));
   ctx.fillStyle = hazeGradient;
   ctx.fillRect(0, 0, width, height);
 }
@@ -331,10 +331,18 @@ function drawMoon(
 
 // ── Parallax ───────────────────────────────────────────────────────────
 
-/** Three opaque urban plates replace the smooth hills and duplicate skyline. */
+/** Keep each region inside the violet world palette with a local undertone. */
+function biomeHorizon(colors: BiomeColors, nightness: number): string {
+  const stone = blendHex("#59436f", colors.skyGradient, .28);
+  const lit = blendHex(stone, colors.ground, .15);
+  return blendHex(lit, "#46315f", nightness * .38);
+}
+
+/** Three city plates share the local atmospheric ink. */
 export function drawBackgroundParallax(ctx: CanvasRenderingContext2D, opts: BackgroundRenderOpts): void {
   const { width, height, cameraX, cameraY, detail } = opts;
   drawDistantSanctuary(ctx, opts);
-  paintIndustrialCity(ctx, width, height, cameraX, cameraY, detail === "high");
+  const { nightness } = getSkyCycle(opts.gameTime);
+  paintIndustrialCity(ctx, width, height, cameraX, cameraY, detail === "high", biomeHorizon(opts.colors, nightness));
   drawWorldMotes(ctx, opts);
 }

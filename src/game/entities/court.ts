@@ -7,6 +7,7 @@
  */
 import { Enemy } from './Enemy';
 import { drawCharacterArt, type CharacterArtPose } from '../rendering/character-art';
+import { INK } from '../rendering/ink-city';
 import { getCharacterById } from '../data/characters';
 import { advanceCharacterMotion, createCharacterMotion, type CharacterMotionState } from '../rendering/character-motion';
 
@@ -64,19 +65,28 @@ export function renderCourtBaddie(
     ctx.globalAlpha = 1;
   }
 
-  // Menace aura: the court announces itself.
-  ctx.strokeStyle = accent;
+  // A consistent danger ring separates the Court from playable silhouettes.
+  ctx.strokeStyle = INK.danger;
   ctx.globalAlpha = 0.22 + pulse * 0.18;
   ctx.lineWidth = 1.5;
   ctx.beginPath();
   ctx.arc(sx + e.width / 2, sy + e.height / 2, Math.max(e.width, e.height) * 0.72 + pulse * 3, 0, Math.PI * 2);
   ctx.stroke();
+  ctx.globalAlpha = .82;
+  ctx.fillStyle = accent;
+  ctx.beginPath();
+  const cx = sx + e.width / 2, top = sy - e.height * .29;
+  ctx.moveTo(cx - 4, top);
+  ctx.lineTo(cx + 4, top);
+  ctx.lineTo(cx, top + 4);
+  ctx.closePath();
+  ctx.fill();
   ctx.globalAlpha = 1;
 
   // The character art draws facing right; baddies face the player.
   ctx.translate(sx + e.width / 2, sy);
   ctx.scale(e.facingRight ? 1 : -1, 1);
   ctx.translate(-e.width / 2, 0);
-  drawCharacterArt(ctx, getCharacterById(e.type), e.width, e.height, pose);
+  drawCharacterArt(ctx, getCharacterById(e.type), e.width, e.height, pose, 'fullart');
   ctx.restore();
 }

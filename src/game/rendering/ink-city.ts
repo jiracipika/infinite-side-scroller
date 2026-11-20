@@ -1,3 +1,4 @@
+import { blendHex } from "./color";
 import { textureHash, surfaceAt } from "./textures";
 
 /** Opaque screenprint inks. Bright ink is reserved for playable edges. */
@@ -44,32 +45,40 @@ export function paintIndustrialCity(
   cameraX: number,
   cameraY: number,
   detail: boolean,
+  haze: string = INK.purple,
 ) {
   ctx.save();
+  const verticalScale = Math.min(1, height / 600);
+  // The foreground holds the deepest ink. Distance softens the rooflines
+  // and picks up more of the sky color, leaving bright accents to gameplay.
+  const planes = [
+    { factor: .09, step: 117, height: 1.03, fill: blendHex(INK.purple, haze, .46), edge: blendHex(INK.lavender, haze, .64) },
+    { factor: .19, step: 152, height: .95, fill: blendHex(INK.deep, haze, .28), edge: blendHex(INK.violet, haze, .68) },
+    { factor: .34, step: 223, height: .85, fill: INK.black, edge: blendHex(INK.purple, haze, .25) },
+  ];
   for (let layer = 0; layer < 3; layer++) {
-    const factor = [0.09, 0.19, 0.34][layer];
-    const step = [105, 145, 210][layer];
+    const plane = planes[layer];
+    const { factor, step } = plane;
     const base = height * 0.78 - cameraY * factor * 0.3;
     const start = Math.floor((cameraX * factor) / step) - 1;
     const end = Math.ceil((cameraX * factor + width) / step) + 1;
-    const fill = [INK.purple, INK.deep, INK.black][layer];
     for (let i = start; i <= end; i++) {
       const b = cityBlock(i, layer);
       const x = i * step - cameraX * factor;
-      const top = base - b.height * [1.45, 1.2, 1][layer];
-      ctx.fillStyle = fill;
+      const top = base - b.height * plane.height * verticalScale;
+      ctx.fillStyle = plane.fill;
       ctx.beginPath();
       ctx.moveTo(x, height + 10);
       ctx.lineTo(x + 3, top + 12);
       ctx.lineTo(x + 12, top + 12);
       ctx.lineTo(x + 12, top);
-      // Broken roofline variants: notched bite, battered lean, collapsed slab.
+      // Broken roofs alternate between notches, gables and collapsed slabs.
       if (b.roof === 1) {
         ctx.lineTo(x + b.width * 0.3, top + 2);
         ctx.lineTo(x + b.width * 0.38, top + 14);
         ctx.lineTo(x + b.width * 0.5, top + 3);
       } else if (b.roof === 2) {
-        ctx.lineTo(x + b.width * 0.4, top - 8);
+        ctx.lineTo(x + b.width * 0.38, top - 23 * verticalScale);
         ctx.lineTo(x + b.width * 0.62, top + 1);
       } else if (b.roof === 3) {
         ctx.lineTo(x + b.width * 0.35, top + 6);
@@ -82,7 +91,7 @@ export function paintIndustrialCity(
       ctx.lineTo(x + b.width + 4, height + 10);
       ctx.closePath();
       ctx.fill();
-      ctx.strokeStyle = layer === 0 ? INK.violet : INK.purple;
+      ctx.strokeStyle = plane.edge;
       ctx.lineWidth = 1.5;
       ctx.beginPath();
       ctx.moveTo(x + 4, base);
@@ -98,12 +107,12 @@ export function paintIndustrialCity(
       }
       if (!detail && i % 2) continue;
       // Screenprinted facade bands, fire escapes, tanks and sagging cables.
-      ctx.strokeStyle = layer === 2 ? INK.deep : INK.violet;
+      ctx.strokeStyle = layer === 2 ? INK.deep : plane.edge;
       ctx.lineWidth = 1;
       ctx.beginPath();
       for (let y = top + 32; y < Math.min(base, height); y += 32) {
         ctx.moveTo(x + 8, y);
-        ctx.lineTo(x + b.width - 8, y);
+        ctx.lineTo(x + b.width * .59, y + 1.5);
         if (layer > 0) {
           ctx.moveTo(x + b.width - 19, y);
           ctx.lineTo(x + b.width - 19, y + 24);
@@ -112,11 +121,16 @@ export function paintIndustrialCity(
       }
       ctx.stroke();
       // Irregular windows: variable pitch + per-row clusters; some bands skipped.
-      ctx.fillStyle = layer === 2 ? INK.purple : INK.violet;
+      ctx.fillStyle = plane.edge;
       const grid = windowGrid(i, layer);
-      for (let row = 0; row < grid.rows.length; row++)
-        for (const col of grid.rows[row])
-          ctx.fillRect(x + 15 + col * 18, top + 30 + row * grid.pitch, 4, 11);
+      for (let row = 0; row < grid.rows.length; row++) {
+        const wy = top + 30 + row * grid.pitch;
+        if (wy + 11 > base + 18) break;
+        for (const col of grid.rows[row]) {
+          const wx = x + 15 + col * 18;
+          if (wx + 6 <= x + b.width) ctx.fillRect(wx, wy, 4 + (row % 3 === 0 ? 2 : 0), 11);
+        }
+      }
       if (layer === 1 && i % 3 === 0) {
         ctx.fillStyle = INK.purple;
         ctx.fillRect(x - 8, top + 30, 19, 65);
@@ -206,6 +220,7 @@ export function paintInkSlab(
   y: number,
   width: number,
   seed: number,
+  landingColor: string = INK.lime,
 ) {
   ctx.save();
   ctx.fillStyle = INK.black;
@@ -221,7 +236,7 @@ export function paintInkSlab(
   ctx.closePath();
   ctx.fill();
   ctx.stroke();
-  ctx.strokeStyle = INK.lime;
+  ctx.strokeStyle = landingColor;
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(x, y);

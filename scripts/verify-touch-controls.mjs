@@ -45,7 +45,7 @@ for (const marker of ['stats.lives', 'stats.health', 'stats.coins', 'stats.dista
   requireMarker(hud, 'HUD.tsx', marker)
 }
 
-for (const marker of ['dash-tester-checklist-v2', 'Recommended play plan', 'Same-Wi-Fi']) {
+for (const marker of ['How to play', 'Play Endless', 'Adventure', 'Same-Wi-Fi']) {
   requireMarker(start, 'StartScreen.tsx', marker)
 }
 

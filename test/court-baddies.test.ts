@@ -11,6 +11,7 @@ import { Dorian } from '@/game/entities/Dorian';
 import { Onyx } from '@/game/entities/Onyx';
 import { Mortimer } from '@/game/entities/Mortimer';
 import { Grimshaw } from '@/game/entities/Grimshaw';
+import { INK } from '@/game/rendering/ink-city';
 import type { Enemy } from '@/game/entities/Enemy';
 
 const COURT: Array<{ id: string; make: (x: number, y: number, chunkId: number) => Enemy; grounded: boolean }> = [
@@ -101,8 +102,9 @@ describe('the crimson court as baddies', () => {
         const b = renderFrame(e);
         assert.deepEqual(a, b, 'same state, same frame');
         assert.ok(a.ops.includes('scale'), 'left-facing render mirrors the sprite');
-        assert.ok(a.strokes.includes(getCharacterById(entry.id).specialColor),
-          'aura uses the character special color');
+        assert.ok(a.strokes.includes(INK.danger), 'the Court shares a danger outline');
+        assert.ok(a.polygons.some((p) => p.color === char.specialColor),
+          'the crest keeps the character special color');
         for (const p of a.polygons) {
           for (const [x, y] of p.points) {
             assert.ok(Number.isFinite(x) && Number.isFinite(y), `finite point ${x},${y}`);

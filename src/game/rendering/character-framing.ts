@@ -1,6 +1,7 @@
 import type { CharacterDef } from '../data/characters';
 import { drawCharacterArt, type CharacterArtPose } from './character-art';
-import { characterHasFullArt, characterFullArtReady } from './character-fullart';
+import { characterHasFullArt, characterFullArtAvailable } from './character-fullart';
+import { characterAnimationLoaded } from './character-animation';
 import { characterSheetReady, preferredArtStyle } from './sprite-sheet';
 import { characterPreviewPose, type CharacterPreviewAction } from './character-performance';
 
@@ -35,8 +36,9 @@ function previewPoses(char: CharacterDef, action: CharacterPreviewAction, animat
  * determines the framing of a subsequently loaded full-art figure. */
 export function characterPreviewBounds(char: CharacterDef, action: CharacterPreviewAction, animated: boolean): ArtBounds {
   const style = preferredArtStyle(char.id);
-  const ready = style === 'fullart' ? characterFullArtReady(char.id) : style === 'pixel' ? characterSheetReady(char.id) : true;
-  const key = [char.id, style, ready, action, animated].join(':');
+  const ready = style === 'fullart' ? characterFullArtAvailable(char.id) : style === 'pixel' ? characterSheetReady(char.id) : true;
+  const authored = style === 'fullart' && characterAnimationLoaded(char.id);
+  const key = [char.id, style, ready, authored, action, animated].join(':');
   const cached = envelopes.get(key);
   if (cached) return cached;
   const fallback = { left: -16, top: characterHasFullArt(char.id) ? -char.height * .4 : -8,
@@ -60,4 +62,18 @@ export function characterPreviewBounds(char: CharacterDef, action: CharacterPrev
     right: (right - 256) / 3 + 1, bottom: (bottom - 256) / 3 + 1 } : fallback;
   envelopes.set(key, bounds);
   return bounds;
+}
+
+/** Keep the display scale and ground line fixed when changing preview actions. */
+export function characterStageBounds(char: CharacterDef): ArtBounds {
+  const idle = characterPreviewBounds(char, 'idle', true);
+  return (['run', 'jump', 'attack'] as const).reduce((bounds, action) => {
+    const next = characterPreviewBounds(char, action, true);
+    return {
+      left: Math.min(bounds.left, next.left),
+      top: Math.min(bounds.top, next.top),
+      right: Math.max(bounds.right, next.right),
+      bottom: Math.max(bounds.bottom, next.bottom),
+    };
+  }, idle);
 }
