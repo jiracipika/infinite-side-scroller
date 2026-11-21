@@ -1,8 +1,8 @@
 import type { Metadata, Viewport } from "next";
-import Script from "next/script";
 import "./globals.css";
 import { GameStoreProvider } from "@/components/GameStore";
 import ServiceWorkerRegistrar from "@/components/ServiceWorkerRegistrar";
+import AdSenseScript from "@/components/AdSenseScript";
 
 export const metadata: Metadata = {
   title: "Dashverse",
@@ -34,12 +34,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="antialiased bg-black">
-        <Script
-          async
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4128325832827761"
-          crossOrigin="anonymous"
-          strategy="afterInteractive"
-        />
+        <AdSenseScript />
         <GameStoreProvider>
           {children}
         </GameStoreProvider>

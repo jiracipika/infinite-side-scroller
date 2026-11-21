@@ -293,6 +293,23 @@ export default function Home() {
     }
   }, []);
 
+  // Embedded play (avolab Arcade iframe, ?embed=1): keyboard events only reach
+  // the game after the frame itself owns focus, and a freshly loaded iframe
+  // usually doesn't. Claim focus on mount and again on the first pointer
+  // interaction so the very first keypress moves the runner — no preliminary
+  // click required. Standalone tabs keep their natural focus behavior.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (new URLSearchParams(window.location.search).get("embed") !== "1") return;
+    const focusGame = () => window.focus();
+    const mountFocus = window.setTimeout(focusGame, 0);
+    window.addEventListener("pointerdown", focusGame, true);
+    return () => {
+      window.clearTimeout(mountFocus);
+      window.removeEventListener("pointerdown", focusGame, true);
+    };
+  }, []);
+
   const applyProgressionFromSlot = useCallback((slotId?: SaveSlotId) => {
     const game = gameRef.current;
     if (!game) return;
