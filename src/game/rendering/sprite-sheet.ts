@@ -69,10 +69,24 @@ export function characterHasSheet(id: string): boolean {
 export type CharacterStyleChoice = 'fullart' | 'pixel' | 'ink';
 const styleChoice = new Map<string, Exclude<CharacterStyleChoice, 'fullart'>>();
 
+function notifyStyleChange(): void {
+  if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') window.dispatchEvent(new Event('dashverse-art-change'));
+}
+
 export function setPreferredArtStyle(characterId: string, style: CharacterStyleChoice): void {
+  if (preferredArtStyle(characterId) === style) return;
   if (style === 'fullart') styleChoice.delete(characterId);
   else styleChoice.set(characterId, style);
-  if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') window.dispatchEvent(new Event('dashverse-art-change'));
+  notifyStyleChange();
+}
+
+/** Replace the whole roster's overrides when loading a different save slot. */
+export function setPreferredArtStyles(styles: Readonly<Record<string, CharacterStyleChoice>>): void {
+  const overrides = Object.entries(styles).filter((entry): entry is [string, 'pixel' | 'ink'] => entry[1] !== 'fullart');
+  if (overrides.length === styleChoice.size && overrides.every(([id, style]) => styleChoice.get(id) === style)) return;
+  styleChoice.clear();
+  for (const [id, style] of overrides) styleChoice.set(id, style);
+  notifyStyleChange();
 }
 
 /**
@@ -103,12 +117,13 @@ export function drawCharacterSheet(
   width: number,
   height: number,
   pose: CharacterArtPose = {},
+  style = preferredArtStyle(characterId),
 ): boolean {
   const img = images.get(characterId);
   if (!img) return false;
   // Sheets are now an explicit opt-in alternative; the full-art redesign is
   // the default identity.
-  if (styleChoice.get(characterId) !== 'pixel') return false;
+  if (style !== 'pixel') return false;
   const frame = sheetFrameForPose(pose);
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(img, frame * 32, 0, 32, 32, -(height - width) / 2, 0, height, height);

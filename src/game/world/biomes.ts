@@ -233,6 +233,7 @@ const BIOME_ORDER: BiomeType[] = [
 
 /** Width of a biome region in world pixels */
 const BIOME_WIDTH = 8000;
+const BIOME_TRANSITION_WIDTH = 600;
 
 /**
  * Get the biome at a given world X position.
@@ -250,24 +251,11 @@ export function getBiomeAt(worldX: number): BiomeConfig {
  */
 export function getBlendedBiomeColors(worldX: number): BiomeColors {
   const current = getBiomeAt(worldX);
-  const nextX = worldX + 200; // Look ahead for blending
-  const next = getBiomeAt(nextX);
-
-  // If same biome, no blending needed
-  if (current.type === next.type) return current.colors;
-
-  // Blend factor based on proximity to biome boundary
-  const biomeStart = Math.floor(worldX / BIOME_WIDTH) * BIOME_WIDTH;
-  const distFromStart = worldX - biomeStart;
-  const transitionZone = 600; // pixels of blending
-  let blend = 0;
-
-  if (distFromStart > BIOME_WIDTH - transitionZone) {
-    blend = (distFromStart - (BIOME_WIDTH - transitionZone)) / transitionZone;
-    blend = Math.max(0, Math.min(1, blend));
-  }
-
-  return blendColors(current.colors, next.colors, blend);
+  const boundaryX = (Math.floor(worldX / BIOME_WIDTH) + 1) * BIOME_WIDTH;
+  const distanceToBoundary = boundaryX - worldX;
+  if (distanceToBoundary >= BIOME_TRANSITION_WIDTH) return current.colors;
+  const next = getBiomeAt(boundaryX);
+  return blendColors(current.colors, next.colors, 1 - distanceToBoundary / BIOME_TRANSITION_WIDTH);
 }
 
 /** Linearly interpolate between two color strings */

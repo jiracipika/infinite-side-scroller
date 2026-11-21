@@ -76,9 +76,14 @@ assert(
   /const handlePlay = \(\) => \{\s*\n\s*playUiClick\(\);/.test(startScreen),
   'Play Endless (handlePlay) must answer with a click',
 );
-for (const label of ['setActiveView("character")', 'setActiveView("profile")', 'setShowMultiplayer', 'handleSplitScreen', 'handleDailyChallengeClick', 'handleLeaderboardToggle', 'setShowRunHistory', 'setShowProgression', 'setShowSettings']) {
+for (const label of ['openMenuView("character")', 'openMenuView("profile")', 'setShowMultiplayer', 'handleSplitScreen', 'handleDailyChallengeClick', 'handleLeaderboardToggle', 'setShowRunHistory', 'setShowProgression', 'setShowSettings']) {
   assert(startScreen.includes(label), `StartScreen must still define ${label}`);
 }
+
+assert(
+  /const openMenuView = \(view: MenuView\) => \{\s*playUiClick\(\);/.test(startScreen),
+  'runner and profile navigation must answer with a click',
+);
 
 // 3. Redeem outcomes wired at the React boundary (NOT inside lib/progression)
 const redeemBlock = startScreen.match(/const handleRedeemCode = \(\) => \{[\s\S]*?\n  \};/);
@@ -186,12 +191,11 @@ if (buyCharBlock) {
   assert(failBranch.includes('playUiClick'), 'character buy failure keeps the plain click');
   assert(!failBranch.includes('playPurchase'), 'character buy failure must NOT ring the register');
 }
-// Roster chips: unlocked taps stay a plain select click; locked taps route to
-// the buy handler with NO pre-click — the handler alone decides the sound
-// (register on success, click on failure), so a buy never double-fires.
+// Locked chips inspect the runner. The separate unlock button owns the purchase sound.
 assert(
-  /onClick=\{\(\) => \{\s*\n\s*if \(!unlocked\) \{[\s\S]{0,200}?handleBuyCharacter\(c\.id\);/.test(startScreen),
-  'character roster chips must route locked taps straight to the buy handler (no pre-click)',
+  /if \(!unlocked\) \{\s*setInspectedChar\(c\.id\);/.test(startScreen)
+    && /onClick=\{\(\) => handleBuyCharacter\(previewCharacter\.id\)\}/.test(startScreen),
+  'locked runner inspection and purchases must use separate actions',
 );
 assert(
   /playUiClick\(\);\s*\n\s*setAvatarId\(preset\.id\);/.test(startScreen),

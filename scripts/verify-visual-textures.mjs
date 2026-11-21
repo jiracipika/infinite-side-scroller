@@ -8,8 +8,7 @@
 //  3. The engine must drive fidelity (setBackgroundDetail) from its
 //     adaptive-quality branches and pin finite-level palettes
 //     (setWorldBiomeOverride) on both setSeed and setLevel.
-//  4. Grass tufts must never be baked into the static chunk cache
-//     (isCacheContext guard).
+//  4. Grass tufts are drawn separately from static chunk baking.
 
 import fs from 'node:fs'
 import path from 'node:path'
@@ -64,7 +63,7 @@ const setSeedBody = engine.match(/setSeed\(seed: number[\s\S]*?\n  \}/)
 if (!setSeedBody || !setSeedBody[0].includes('setWorldBiomeOverride(null)')) {
   errors.push('setSeed must clear the world biome override (setWorldBiomeOverride(null))')
 }
-const setLevelBody = engine.match(/setLevel\(config: LevelConfig\): void \{[\s\S]*?\n  \}/)
+const setLevelBody = engine.match(/setLevel\(config: LevelConfig[^)]*\): void \{[\s\S]*?\n  \}/)
 if (!setLevelBody || !setLevelBody[0].includes('setWorldBiomeOverride(')) {
   errors.push('setLevel must pin the renderer palette via setWorldBiomeOverride')
 }
@@ -73,9 +72,9 @@ if (!/drawTerrain\(chunks,\s*this\.camera,\s*this\.gameTime/.test(engine)) {
 }
 
 // 4. Cache isolation — animated tufts excluded from baked chunk canvases
-const bakeCall = renderer.match(/drawTerrainToContext\(offCtx[\s\S]*?\);/)
-if (!bakeCall || !bakeCall[0].includes('true')) {
-  errors.push('the chunk-cache bake call must pass isCacheContext=true so tufts are never frozen into cached canvases')
+const staticTerrain = renderer.match(/private drawTerrainToContext[\s\S]*?\n  \}/)
+if (!staticTerrain || /drawTerrainTufts|drawTuft/.test(staticTerrain[0]) || !renderer.includes('this.drawTerrainTufts(chunk,')) {
+  errors.push('terrain tufts must draw in a separate live pass, outside static terrain baking')
 }
 
 // 5. Module exports used by tests/previews

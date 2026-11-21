@@ -4,7 +4,7 @@ import { useEffect, useRef, type FC } from "react";
 import { getCharacterById } from "@/game/data/characters";
 import { drawCharacterArt } from "@/game/rendering/character-art";
 import { characterPreviewPose, type CharacterPreviewAction } from '@/game/rendering/character-performance';
-import { characterPreviewBounds, fitCharacterPreview } from '@/game/rendering/character-framing';
+import { characterPreviewBounds, characterStageBounds, fitCharacterPreview } from '@/game/rendering/character-framing';
 
 interface CharacterSpriteProps {
   characterId: string;
@@ -15,12 +15,23 @@ interface CharacterSpriteProps {
   /** Only the selected hero breathes; roster chips don't each run a RAF loop. */
   animated?: boolean;
   previewAction?: CharacterPreviewAction;
+  stableFraming?: boolean;
+  motionSetting?: 'auto' | 'on' | 'off';
 }
+
+// Give each move a readable still pose when the animation is disabled.
+const STILL_POSE_TIME: Record<CharacterPreviewAction, number> = {
+  idle: 0,
+  run: .12,
+  jump: .32,
+  attack: .35,
+};
 
 /** One shared painter for gameplay and previews, including asynchronously
  * loaded Pixel alternatives. Framing reserves room for hair, hats and props. */
 const CharacterSprite: FC<CharacterSpriteProps> = ({
   characterId, size = 64, className, decorative = false, facingRight = true, animated = false, previewAction = 'idle',
+  stableFraming = false, motionSetting = 'auto',
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const character = getCharacterById(characterId);
@@ -33,16 +44,21 @@ const CharacterSprite: FC<CharacterSpriteProps> = ({
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     canvas.width = Math.round(size * dpr);
     canvas.height = Math.round(size * dpr);
+    const boundsForPreview = () => stableFraming
+      ? characterStageBounds(character)
+      : characterPreviewBounds(character, previewAction, animated);
+    let framing = fitCharacterPreview(boundsForPreview(), size);
     const draw = (time = 0) => {
-      const bounds = characterPreviewBounds(character, previewAction, animated);
-      const { x, y, scale } = fitCharacterPreview(bounds, size);
+      const { x, y, scale } = framing;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, size, size);
       ctx.save();
       ctx.imageSmoothingEnabled = false;
       ctx.fillStyle = "#17121f";
       ctx.beginPath();
-      ctx.ellipse(size / 2, y + bounds.bottom * scale + 1, character.width * scale * .42, Math.max(.5, scale * .5), 0, 0, Math.PI * 2);
+      const shadowX = (facingRight ? x : size - x) + (facingRight ? 1 : -1) * character.width * scale / 2;
+      const shadowY = Math.min(size - 2, y + character.height * scale + 1);
+      ctx.ellipse(shadowX, shadowY, character.width * scale * .42, Math.max(.5, scale * .5), 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.translate(facingRight ? x : size - x, y);
       ctx.scale(facingRight ? scale : -scale, scale);
@@ -50,6 +66,7 @@ const CharacterSprite: FC<CharacterSpriteProps> = ({
       ctx.restore();
     };
     const media = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const reduced = () => motionSetting === 'on' || (motionSetting === 'auto' && media.matches);
     let frame = 0, last = 0, elapsed = 0;
     let visible = true;
     const tick = (now: number) => {
@@ -60,12 +77,15 @@ const CharacterSprite: FC<CharacterSpriteProps> = ({
       }
       frame = requestAnimationFrame(tick);
     };
-    const refresh = () => draw(media.matches ? 0 : elapsed);
+    const refresh = () => {
+      framing = fitCharacterPreview(boundsForPreview(), size);
+      draw(reduced() ? STILL_POSE_TIME[previewAction] : elapsed);
+    };
     const syncMotion = () => {
       cancelAnimationFrame(frame);
       frame = 0; last = 0;
       refresh();
-      if (animated && !media.matches && visible && !document.hidden) frame = requestAnimationFrame(tick);
+      if (animated && !reduced() && visible && !document.hidden) frame = requestAnimationFrame(tick);
     };
     const observer = new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; syncMotion(); });
     observer.observe(canvas);
@@ -80,7 +100,7 @@ const CharacterSprite: FC<CharacterSpriteProps> = ({
       document.removeEventListener('visibilitychange', syncMotion);
       media.removeEventListener('change', syncMotion);
     };
-  }, [animated, character, characterId, facingRight, size, previewAction]);
+  }, [animated, character, characterId, facingRight, size, previewAction, stableFraming, motionSetting]);
 
   return <canvas ref={canvasRef} style={{ width: size, height: size, display: "block" }}
     className={className} aria-hidden={decorative || undefined}

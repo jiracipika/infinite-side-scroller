@@ -55,10 +55,13 @@ for (const [name, hex] of [
   ['violet', '#9570ff'],
   ['coral', '#ff7166'],
   ['offwhite', '#f4f2ed'],
-  ['panel body', '#1c1c2e'],
 ]) {
   assert(css.includes(hex), `HUD.module.css must use the approved ${name} token ${hex}`);
 }
+
+assert(css.includes('background: var(--dv-panel)'), 'The HUD body must use the shared Dashverse panel color');
+const globalCss = fs.readFileSync(path.join(ROOT, 'src', 'app', 'globals.css'), 'utf8');
+assert(/--dv-panel:\s*#[\da-f]{6};/i.test(globalCss), 'The shared HUD panel color must be opaque');
 
 // 4. Every pre-existing metric / conditional is preserved
 const requiredMetrics = [

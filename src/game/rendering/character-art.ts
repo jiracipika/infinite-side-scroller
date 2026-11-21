@@ -7,7 +7,7 @@ import {
   drawInkDorian, drawInkOnyx, drawInkMortimer, drawInkGrimshaw,
 } from "./ink-crimson";
 import { inkMaterials } from "./ink-kit";
-import { drawCharacterSheet, ensureCharacterSheetsLoading, preferredArtStyle } from "./sprite-sheet";
+import { characterSheetReady, drawCharacterSheet, ensureCharacterSheetsLoading, preferredArtStyle } from "./sprite-sheet";
 import { drawCharacterFullArt, ensureCharacterFullArtLoading } from "./character-fullart";
 import { drawRedesignedCharacter } from "./ink-redesign";
 import { characterPerformance } from './character-performance';
@@ -377,6 +377,7 @@ export function drawCharacterArt(
   width: number,
   height: number,
   pose: CharacterArtPose = {},
+  style = preferredArtStyle(char.id),
 ): void {
   ensureCharacterSheetsLoading();
   ensureCharacterFullArtLoading();
@@ -388,7 +389,6 @@ export function drawCharacterArt(
   // feet pivot so every lane (full-art mesh, ink painters, pixel sheets) reads
   // the same jump anticipation and impact absorption. The impulses live in the
   // motion state, never in physics.
-  const style = preferredArtStyle(char.id);
   // Authored jump/landing drawings already contain the anticipation and
   // crouch; stretching them again would distort the complete silhouette.
   const spring = resolveSpringScale(pose,
@@ -402,7 +402,7 @@ export function drawCharacterArt(
   // the physics box and the caller suppresses it for reduced motion. The
   // pivot sits at chest height — a flip around the mid-foot reads like a cartwheel.
   const tumble = Math.max(0, Math.min(1, pose.tumble ?? 0));
-  if (tumble > 0) {
+  if (tumble > 0 && !(style === 'pixel' && characterSheetReady(char.id))) {
     ctx.translate(width / 2, height * 0.55);
     ctx.rotate(resolveTumbleRotation(1, tumble));
     ctx.translate(-width / 2, -height * 0.55);
@@ -412,7 +412,7 @@ export function drawCharacterArt(
   // procedural ink painters. An explicit Ink choice skips both bitmap lanes
   // so the painter is always reachable; an unloaded bitmap falls through to
   // ink rather than drawing nothing.
-  const bitmapLane = style === 'pixel' ? drawCharacterSheet(ctx, char.id, width, height, pose)
+  const bitmapLane = style === 'pixel' ? drawCharacterSheet(ctx, char.id, width, height, pose, style)
     : style === 'fullart' ? drawCharacterFullArt(ctx, char.id, width, height, pose)
     : false;
   if (!bitmapLane &&

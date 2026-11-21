@@ -7,11 +7,12 @@ export function drawDistantSanctuary(ctx: CanvasRenderingContext2D, opts: Backgr
   const { width, height, cameraX, cameraY, detail } = opts;
   const step = 620, parallax = .065;
   const start = Math.floor(cameraX * parallax / step) - 1;
+  const verticalScale = Math.min(1, height / 600);
   ctx.save();
   for (let cell = start; cell * step - cameraX * parallax < width + step; cell++) {
     const x = cell * step - cameraX * parallax;
     const base = height * .78 - cameraY * .04;
-    const peak = base - 260 - textureHash(cell, 610) * 170;
+    const peak = base - (245 + textureHash(cell, 610) * 135) * verticalScale;
     const kind = ((cell % 3) + 3) % 3;
     ctx.fillStyle = '#3a304f';
     ctx.strokeStyle = '#72618c';

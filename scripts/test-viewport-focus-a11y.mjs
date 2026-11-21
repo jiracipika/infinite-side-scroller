@@ -13,20 +13,22 @@ import { createRequire } from 'node:module';
 // the RENDERED app at the bottom of this file.
 
 const startSrc = readFileSync(new URL('../src/components/StartScreen.tsx', import.meta.url), 'utf8');
+const menuCss = readFileSync(new URL('../src/components/StartScreen.module.css', import.meta.url), 'utf8');
+const globalCss = readFileSync(new URL('../src/app/globals.css', import.meta.url), 'utf8');
 const selectSrc = readFileSync(new URL('../src/components/LevelSelectScreen.tsx', import.meta.url), 'utf8');
 const completeSrc = readFileSync(new URL('../src/components/LevelCompleteScreen.tsx', import.meta.url), 'utf8');
 const pageSrc = readFileSync(new URL('../src/app/page.tsx', import.meta.url), 'utf8');
 
 describe('horizontal overflow guards (rendered bar: scrollWidth <= innerWidth at 390px)', () => {
   test('start-screen shell clips horizontal overflow (vertical scroll only)', () => {
-    assert.match(startSrc, /overflowY: "auto"/);
-    assert.match(startSrc, /overflowX: "hidden"/);
+    assert.match(menuCss, /overflow-y: auto/);
+    assert.match(menuCss, /overflow-x: hidden/);
   });
 
   test('level-select root pairs its 100vmax shadow spread with a matching clip', () => {
     // The full-bleed backdrop is a 100vmax box-shadow; without the clipPath it
     // would extend the scrollable area on every screen that hosts level select.
-    assert.match(selectSrc, /boxShadow: '0 0 0 100vmax/);
+    assert.match(globalCss, /\.dash-level-select \{[^}]*box-shadow: 0 0 0 100vmax/);
     assert.match(selectSrc, /clipPath: 'inset\(0 -100vmax\)'/);
   });
 
@@ -45,11 +47,11 @@ describe('keyboard focus order structure (rendered bar: first Tab hits a meaning
     assert.doesNotMatch(pageSrc, /tabIndex/i);
   });
 
-  test('start screen: How-to-play disclosure precedes the Play CTA (first Tab = meaningful control)', () => {
+  test('start screen: the Play CTA is first, with How to play still available', () => {
     const disclosure = startSrc.indexOf('<summary>How to play</summary>');
     const playCta = startSrc.indexOf('dash-play-button-v2');
     assert.ok(disclosure !== -1 && playCta !== -1, 'both controls exist');
-    assert.ok(disclosure < playCta, 'disclosure must come before the play CTA in DOM order');
+    assert.ok(playCta < disclosure, 'Play Endless is first in keyboard order');
   });
 
   test('level select: back button precedes the continue banner (first Tab = Back to menu)', () => {

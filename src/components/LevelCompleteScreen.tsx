@@ -114,10 +114,11 @@ const LevelCompleteScreen: FC<Props> = ({ level, result, onNext, onRetry, onBack
       role="dialog"
       aria-modal="true"
       aria-labelledby="level-complete-title"
+      className="dash-level-result"
       style={{
       width: '100%', maxWidth: 420, margin: '0 auto', padding: '32px 20px',
-      color: '#fff', fontFamily: '-apple-system, system-ui, sans-serif',
-      textAlign: 'center', minHeight: '100vh',
+      color: 'var(--dv-text)',
+      textAlign: 'center', maxHeight: '100dvh', overflowY: 'auto',
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
     }}>
       <h1 id="level-complete-title" className="sr-only">Level Complete</h1>
@@ -137,7 +138,7 @@ const LevelCompleteScreen: FC<Props> = ({ level, result, onNext, onRetry, onBack
         initial={{ opacity: 0, scale: 0.8 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ delay: 0.15, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-        style={{ fontSize: 28, fontWeight: 700, margin: '0 0 20px', letterSpacing: '-0.5px' }}
+        style={{ fontSize: 28, fontWeight: 820, margin: '0 0 20px', letterSpacing: '-0.5px' }}
       >
         {level.name}
       </motion.h2>

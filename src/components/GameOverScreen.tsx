@@ -204,7 +204,7 @@ const GameOverScreen: FC<Props> = ({ stats, newRecords, hapticsEnabled = true, o
 
   return (
     <div
-      className="absolute inset-0 flex items-center justify-center pointer-events-auto"
+      className="dash-run-dialog absolute inset-0 flex items-center justify-center pointer-events-auto"
       style={{ animation: 'iosFadeIn 0.3s ease' }}
       role="dialog"
       aria-modal="true"

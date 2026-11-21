@@ -132,7 +132,7 @@ const PauseMenu: FC<Props> = ({ onResume, onRestart, onQuit }) => {
 
   return (
     <div
-      className="absolute inset-0 flex items-end sm:items-center justify-center"
+      className="dash-run-dialog absolute inset-0 flex items-end sm:items-center justify-center"
       style={{ animation: 'iosFadeIn 0.18s ease' }}
       ref={dialogRef}
       role="dialog"

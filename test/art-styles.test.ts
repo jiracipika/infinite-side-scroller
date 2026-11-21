@@ -14,6 +14,7 @@ import {
 import {
   preferredArtStyle,
   setPreferredArtStyle,
+  setPreferredArtStyles,
   sheetFrameForPose,
   SHEET_FRAME,
 } from '@/game/rendering/sprite-sheet';
@@ -128,6 +129,20 @@ describe('sprite-sheet art-style preference', () => {
     // 'fullart' clears the explicit choice back to the character default.
     setPreferredArtStyle('ninja', 'fullart');
     assert.equal(preferredArtStyle('ninja'), 'fullart');
+  });
+
+  it('replaces the complete art profile when switching save slots', () => {
+    setCharacterArtStyle('slot1', 'knight', 'pixel');
+    setCharacterArtStyle('slot1', 'ninja', 'ink');
+    setCharacterArtStyle('slot2', 'knight', 'ink');
+    setPreferredArtStyles(slot('slot1').artStyleByCharacter);
+    assert.equal(preferredArtStyle('knight'), 'pixel');
+    assert.equal(preferredArtStyle('ninja'), 'ink');
+
+    setPreferredArtStyles(slot('slot2').artStyleByCharacter);
+    assert.equal(preferredArtStyle('knight'), 'ink');
+    assert.equal(preferredArtStyle('ninja'), 'fullart');
+    setPreferredArtStyles({});
   });
 
   it('keeps the pose→frame mapping stable', () => {

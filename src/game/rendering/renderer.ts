@@ -27,8 +27,9 @@ import {
   tuftsForChunk,
   drawTuft,
   paintPlatformDetail,
+  type Tuft,
 } from "./textures";
-import { shadeHexColor } from "./color";
+import { blendHex, shadeHexColor } from "./color";
 import { INK, paintRooftopFacade, paintInkSlab, paintRoofProp, paintDashBrush, paintInkTerrainEdge } from "./ink-city";
 import { paintStoneRelief } from './world-atmosphere';
 
@@ -42,6 +43,7 @@ export class GameRenderer {
   private backgroundDetail: BackgroundDetail = "high";
   /** Static world override for finite levels; null = shifting endless biomes. */
   private worldBiomeOverride: BiomeConfig | null = null;
+  private terrainTufts = new WeakMap<Chunk, Tuft[]>();
   private characterMotion = new WeakMap<Player, CharacterMotionState>();
 
   constructor(ctx: CanvasRenderingContext2D) {
@@ -50,6 +52,7 @@ export class GameRenderer {
   }
 
   resize(width: number, height: number): void {
+    if (this.height !== height) this.clearTerrainCache();
     this.width = width;
     this.height = height;
   }
@@ -61,12 +64,14 @@ export class GameRenderer {
   setBackgroundDetail(detail: BackgroundDetail): void {
     if (this.backgroundDetail === detail) return;
     this.backgroundDetail = detail;
+    this.clearTerrainCache();
   }
 
   /** Pin the world palette (finite levels). Null restores endless blending. */
   setWorldBiomeOverride(biome: BiomeConfig | null): void {
     if (this.worldBiomeOverride === biome) return;
     this.worldBiomeOverride = biome;
+    this.clearTerrainCache();
   }
 
   /** Resolve palette for a world X, honoring the finite-level override. */
@@ -117,83 +122,63 @@ export class GameRenderer {
     reducedMotion: boolean = false,
   ): void {
     this.liveGameTime = gameTime;
-    this.liveReducedMotion = reducedMotion;
     for (const chunk of chunks) {
       if (!camera.isVisible(chunk.worldX, 0, CHUNK_WIDTH + 4, this.height))
         continue;
 
-      if (this.cacheEnabled && this.terrainCache.has(chunk.index)) {
-        // Draw from cache
-        const cachedCanvas = this.terrainCache.get(chunk.index);
-        if (cachedCanvas) {
-          const screen = camera.worldToScreen(chunk.worldX, 0);
-          this.ctx.drawImage(cachedCanvas, screen.x, screen.y);
-          continue;
+      const screen = camera.worldToScreen(chunk.worldX, 0);
+      let cached = this.cacheEnabled ? this.terrainCache.get(chunk.index) : null;
+      if (!cached && this.cacheEnabled) {
+        const offscreen = document.createElement("canvas");
+        offscreen.width = CHUNK_WIDTH + 4;
+        // Short landscape panes can see world coordinates below the viewport
+        // height. Leave room for the deepest visible part of the terrain.
+        offscreen.height = Math.ceil(Math.max(...chunk.heights) + this.height + 16);
+        const offCtx = offscreen.getContext("2d");
+        if (offCtx) {
+          this.drawTerrainToContext(offCtx, chunk, offscreen.height, 0, 0);
+          this.terrainCache.set(chunk.index, offscreen);
+          cached = offscreen;
         }
       }
 
-      // Draw and cache
-      this.drawChunkTerrain(chunk, camera, this.cacheEnabled);
+      if (cached) {
+        this.ctx.drawImage(cached, screen.x, screen.y);
+      } else {
+        this.drawTerrainToContext(this.ctx, chunk, this.height, screen.x, screen.y);
+      }
+      if (this.backgroundDetail === "high") {
+        this.drawTerrainTufts(chunk, screen.x, screen.y, gameTime, reducedMotion);
+      }
     }
   }
 
-  private drawChunkTerrain(
-    chunk: Chunk,
-    camera: Camera,
-    shouldCache: boolean = false,
-  ): void {
-    const ctx = this.ctx;
-
-    // If caching, create an offscreen canvas
-    if (shouldCache) {
-      const cacheWidth = CHUNK_WIDTH + 4;
-      const cacheHeight = this.height + 200;
-      const offscreen = document.createElement("canvas");
-      offscreen.width = cacheWidth;
-      offscreen.height = cacheHeight;
-      const offCtx = offscreen.getContext("2d");
-      if (!offCtx) return;
-
-      // Draw terrain to offscreen canvas — isCacheContext=true keeps the
-      // animated tuft pass out of the frozen cache image.
-      this.drawTerrainToContext(offCtx, chunk, cacheWidth, cacheHeight, 0, 0, true);
-
-      // Cache the transparent canvas itself; drawImage preserves destination sky.
-      this.terrainCache.set(chunk.index, offscreen);
-    }
-
-    // Draw to main canvas — live context gets gameTime/reducedMotion so the
-    // grass tufts can sway; the baked cache canvas never animates.
-    this.drawTerrainToContext(
-      ctx,
-      chunk,
-      this.width,
-      this.height,
-      chunk.worldX - camera.renderX,
-      -camera.renderY,
-      false,
-      this.liveGameTime,
-      this.liveReducedMotion,
-    );
-  }
-
-  /**
-   * Per-frame animation inputs for the live terrain pass. Set at the top of
-   * drawTerrain; defaults keep the signature backward compatible.
-   */
   private liveGameTime = 0;
-  private liveReducedMotion = false;
+
+  private drawTerrainTufts(
+    chunk: Chunk, offsetX: number, offsetY: number, gameTime: number, reducedMotion: boolean,
+  ): void {
+    const colors = this.paletteAt(chunk.worldX + CHUNK_WIDTH / 2);
+    const ink = blendHex(INK.deep, colors.ground, .46);
+    const sway = reducedMotion ? 0 : Math.sin(gameTime * 2.1) * .9;
+    let tufts = this.terrainTufts.get(chunk);
+    if (!tufts) {
+      tufts = tuftsForChunk(chunk.index, chunk.heights, chunk.biome.treeChance * .5 + chunk.biome.bushChance * .5 + .1);
+      this.terrainTufts.set(chunk, tufts);
+    }
+    for (const tuft of tufts) {
+      const x = tuft.x + offsetX;
+      if (x < -10 || x > this.width + 10) continue;
+      drawTuft(this.ctx, tuft, ink, sway, offsetX, offsetY);
+    }
+  }
 
   private drawTerrainToContext(
     ctx: CanvasRenderingContext2D,
     chunk: Chunk,
-    canvasWidth: number,
     canvasHeight: number,
     offsetX: number,
     offsetY: number,
-    isCacheContext: boolean = false,
-    gameTime: number = 0,
-    reducedMotion: boolean = false,
   ): void {
     ctx.beginPath();
     let started = false;
@@ -220,6 +205,7 @@ export class GameRenderer {
     ctx.fillRect(offsetX, 0, CHUNK_WIDTH + 1, canvasHeight + 10);
 
     // Deterministic texture passes: strata bands, speckles, pebbles.
+    const colors = this.paletteAt(chunk.worldX + CHUNK_WIDTH / 2);
     paintGroundTexture(ctx, {
       heights: chunk.heights,
       chunkWorldX: chunk.worldX,
@@ -227,8 +213,8 @@ export class GameRenderer {
       offsetX,
       offsetY,
       depthPx: canvasHeight,
-      ground: this.paletteAt(chunk.worldX + CHUNK_WIDTH / 2).ground,
-      groundDark: this.paletteAt(chunk.worldX + CHUNK_WIDTH / 2).groundDark,
+      ground: colors.ground,
+      groundDark: colors.groundDark,
       detail: this.backgroundDetail === "high",
     });
     paintRooftopFacade(ctx, chunk.heights, chunk.index, offsetX, offsetY, canvasHeight, this.backgroundDetail === "high");
@@ -245,37 +231,22 @@ export class GameRenderer {
       this.backgroundDetail === "high",
     );
 
-    ctx.lineWidth = 3;
+    // Keep the bright collision edge continuous, including where its color
+    // changes near biome boundaries. Batch adjacent segments with the same ink.
+    ctx.lineWidth = 2.5;
+    let landingColor = '';
     for (let i = 0; i < chunk.heights.length - 1; i++) {
-      const worldX = chunk.worldX + i * 4;
-      const capColors = this.paletteAt(worldX);
-      ctx.strokeStyle = capColors.platform;
-      const screenX = i * 4 + offsetX;
-      const screenY = chunk.heights[i] - 1 + offsetY;
-      ctx.beginPath();
-      ctx.moveTo(screenX, screenY);
-      ctx.lineTo((i + 1) * 4 + offsetX, chunk.heights[i + 1] - 1 + offsetY);
-      ctx.stroke();
-    }
-
-    // Live view only: animated grass tufts riding the surface. (Cached chunk
-    // canvases are static, so tufts would freeze mid-sway if baked in.)
-    if (!isCacheContext && this.backgroundDetail === "high") {
-      const capColors = this.paletteAt(chunk.worldX + CHUNK_WIDTH / 2);
-      const tufts = tuftsForChunk(
-        chunk.index,
-        chunk.heights,
-        Math.min(0.85, 0.3 + capColors.ground.length * 0.05),
-      );
-      const sway = reducedMotion
-        ? 0
-        : Math.sin(gameTime * 2.1) * 0.9;
-      for (const tuft of tufts) {
-        const sx = tuft.x + offsetX;
-        if (sx < -10 || sx > canvasWidth + 10) continue;
-        drawTuft(ctx, tuft, shadeHexColor(capColors.ground, -8), sway, offsetX, offsetY);
+      const color = this.paletteAt(chunk.worldX + i * 4).platform;
+      if (color !== landingColor) {
+        if (landingColor) ctx.stroke();
+        landingColor = color;
+        ctx.strokeStyle = color;
+        ctx.beginPath();
+        ctx.moveTo(i * 4 + offsetX, chunk.heights[i] - 1 + offsetY);
       }
+      ctx.lineTo((i + 1) * 4 + offsetX, chunk.heights[i + 1] - 1 + offsetY);
     }
+    if (landingColor) ctx.stroke();
 
     // Caves
     for (const cave of chunk.caves) {
@@ -294,7 +265,6 @@ export class GameRenderer {
   drawPlatforms(chunks: Chunk[], camera: Camera, gameTime: number = 0): void {
     const ctx = this.ctx;
     for (const chunk of chunks) {
-      const colors = this.paletteAt(chunk.worldX + 400);
       for (const platform of chunk.platforms) {
         // Calculate moving platform Y offset
         let platY = platform.y;
@@ -303,26 +273,8 @@ export class GameRenderer {
         }
         const screen = camera.worldToScreen(platform.x, platY);
         if (screen.x + platform.width < 0 || screen.x > this.width) continue;
-        const beamGradient = ctx.createLinearGradient(
-          0,
-          screen.y,
-          0,
-          screen.y + 10,
-        );
-        // Ink body: near-black slab so the lime cap reads as a crisp landing
-        // edge against any biome — the graphic-novel signature.
-        beamGradient.addColorStop(0, "#1c1c2e");
-        beamGradient.addColorStop(1, shadeHexColor(colors.groundDark, -26));
-        ctx.fillStyle = beamGradient;
-        ctx.fillRect(screen.x, screen.y, platform.width, 10);
-        // Lime landing cap — bright, opaque, unmistakably "stand here".
-        ctx.fillStyle = colors.platform;
-        ctx.fillRect(screen.x, screen.y, platform.width, 2.5);
-        // Thin ink border keeps the slab inked rather than floated.
-        ctx.strokeStyle = "#0a0a0f";
-        ctx.lineWidth = 1.5;
-        ctx.strokeRect(screen.x, screen.y, platform.width, 10);
-        paintInkSlab(ctx, screen.x, screen.y, platform.width, Math.round(platform.x));
+        const colors = this.paletteAt(platform.x + platform.width / 2);
+        paintInkSlab(ctx, screen.x, screen.y, platform.width, Math.round(platform.x), colors.platform);
         // Paint detail after the opaque slab so bevels and roots stay visible.
         paintPlatformDetail(
           ctx,
@@ -431,12 +383,12 @@ export class GameRenderer {
       // clamped to 0 (vx-derived clocks freeze against a wall). No RNG:
       // deterministic for any client rendering the same state.
       const t = screen.y;
-      const side = player.facingRight ? 1 : -1;
       const chips = 3;
       for (let i = 0; i < chips; i++) {
-        const phase = (t / 14 + i / chips) % 1;
+        const phase = ((t / 14 + i / chips) % 1 + 1) % 1;
         const cy = h - 6 - phase * 9;
-        const cx = w / 2 + side * (w / 2 + 1 + Math.sin(phase * Math.PI) * 2);
+        // The sprite transform already mirrors left-facing players.
+        const cx = w + 1 + Math.sin(phase * Math.PI) * 2;
         ctx.globalAlpha = Math.sin(phase * Math.PI) * 0.8;
         ctx.fillStyle = i === 0 ? "#fef08a" : "#fbbf24";
         ctx.fillRect(Math.round(cx) - 1, Math.round(cy), 2, 2);

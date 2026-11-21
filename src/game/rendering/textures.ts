@@ -86,7 +86,7 @@ export function paintGroundTexture(
 function paintRockFaces(ctx: CanvasRenderingContext2D, opts: GroundTextureOpts): void {
   const { heights, chunkIndex, offsetX, offsetY, depthPx, ground, detail } = opts;
   ctx.save();
-  const step = detail ? 42 : 84;
+  const step = detail ? 63 : 126;
   for (let lx = 8; lx < heights.length * 4 - 12; lx += step) {
     const seed = chunkIndex * 8191 + lx;
     const surface = surfaceAt(heights, lx);
@@ -97,10 +97,10 @@ function paintRockFaces(ctx: CanvasRenderingContext2D, opts: GroundTextureOpts):
       if (depth + 30 > depthPx) continue;
       const x = lx + offsetX;
       const y = surface + depth + offsetY;
-      const width = 16 + roll * 20;
+      const width = 10 + roll * 26;
       const height = 12 + textureHash(seed + row, 719) * 19;
       ctx.fillStyle = row === 0 ? ground : "#8e799e";
-      ctx.globalAlpha = row === 0 ? 0.12 : 0.07;
+      ctx.globalAlpha = row === 0 ? 0.085 : 0.055;
       ctx.beginPath();
       ctx.moveTo(x, y + 4);
       ctx.lineTo(x + width * 0.7, y);
@@ -110,7 +110,7 @@ function paintRockFaces(ctx: CanvasRenderingContext2D, opts: GroundTextureOpts):
       ctx.closePath();
       ctx.fill();
       // Lit chipped edge; the dark bottom edge gives each face thickness.
-      ctx.globalAlpha = 0.22;
+      ctx.globalAlpha = 0.13;
       ctx.strokeStyle = ground;
       ctx.lineWidth = 1;
       ctx.beginPath();

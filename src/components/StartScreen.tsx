@@ -24,7 +24,6 @@ import {
   loadSelectedCharacter,
 } from "@/game/data/characters";
 import CharacterSprite from "./CharacterSprite";
-import MotionStagger from "./MotionStagger";
 import AchievementsModal from "./AchievementsModal";
 import ACHIEVEMENTS, { loadUnlockedAchievements } from "@/lib/achievements";
 import {
@@ -59,7 +58,7 @@ import {
   type SaveSlot,
   type SaveSlotId,
 } from "@/lib/progression";
-import { characterHasSheet, setPreferredArtStyle } from "@/game/rendering/sprite-sheet";
+import { characterHasSheet, setPreferredArtStyles } from "@/game/rendering/sprite-sheet";
 import { characterHasFullArt } from "@/game/rendering/character-fullart";
 import {
   clearRunHistory,
@@ -102,6 +101,19 @@ interface Props {
 
 type MenuView = "character" | "profile";
 
+const ART_STYLES = [
+  { id: "fullart", label: "Full art", available: characterHasFullArt },
+  { id: "ink", label: "Ink", available: () => true },
+  { id: "pixel", label: "Pixel", available: characterHasSheet },
+] as const;
+
+const PREVIEW_ACTIONS = [
+  { id: "idle", label: "Stand" },
+  { id: "run", label: "Run" },
+  { id: "jump", label: "Jump" },
+  { id: "attack", label: "Attack" },
+] as const;
+
 const StartScreen: FC<Props> = ({
   onPlay,
   onPlayDailyChallenge,
@@ -140,7 +152,7 @@ const StartScreen: FC<Props> = ({
   const [mounted, setMounted] = useState(false);
   const [selectedChar, setSelectedChar] = useState("knight");
   const [previewAction, setPreviewAction] = useState<CharacterPreviewAction>('idle');
-  const parallaxRef = useRef<HTMLDivElement>(null);
+  const [inspectedChar, setInspectedChar] = useState<string | null>(null);
 
   useEffect(() => {
     setAchieveCount(loadUnlockedAchievements().length);
@@ -161,34 +173,6 @@ const StartScreen: FC<Props> = ({
     }, 30_000);
     return () => window.clearInterval(timer);
   }, []);
-
-  // Mouse-tracking parallax for dramatic depth
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const mql = window.matchMedia("(prefers-reduced-motion: reduce)");
-    if (mql.matches) return;
-    if (window.matchMedia("(hover: none)").matches) return;
-    const shell = parallaxRef.current;
-    if (!shell) return;
-    let raf = 0;
-    const onMove = (e: MouseEvent) => {
-      cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(() => {
-        const rect = shell.getBoundingClientRect();
-        const x = (e.clientX - rect.left) / rect.width;
-        const y = (e.clientY - rect.top) / rect.height;
-        shell.style.setProperty("--px", `${x}`);
-        shell.style.setProperty("--py", `${y}`);
-        shell.style.setProperty("--mx", `${(x * 100).toFixed(1)}%`);
-        shell.style.setProperty("--my", `${(y * 100).toFixed(1)}%`);
-      });
-    };
-    shell.addEventListener("mousemove", onMove);
-    return () => {
-      shell.removeEventListener("mousemove", onMove);
-      cancelAnimationFrame(raf);
-    };
-  }, [mounted]);
 
   useEffect(() => {
     const storedName = loadLeaderboardName();
@@ -353,6 +337,7 @@ const StartScreen: FC<Props> = ({
     if (!showLeaderboard) {
       setLeaderboard(loadLeaderboard());
       setOnlineScope("global");
+      schedulePanelReveal("leaderboard-panel");
     }
     setShowLeaderboard((v) => !v);
   };
@@ -360,6 +345,8 @@ const StartScreen: FC<Props> = ({
   const handleSelectSaveSlot = (slotId: SaveSlotId) => {
     playUiClick();
     setActiveSlot(slotId);
+    setInspectedChar(null);
+    setPreviewAction("idle");
     setActiveSaveSlotId(slotId);
   };
 
@@ -403,6 +390,7 @@ const StartScreen: FC<Props> = ({
       playPurchase();
       fireHaptic("success", settings.hapticsEnabled);
       setSelectedChar(characterId);
+      setInspectedChar(null);
       saveSelectedCharacter(characterId);
     } else {
       playUiClick();
@@ -434,7 +422,6 @@ const StartScreen: FC<Props> = ({
     const result = setCharacterArtStyle(activeSlotId, characterId, style);
     setSaveSlots(result.slots);
     if (result.ok) {
-      setPreferredArtStyle(characterId, style);
       playUiClick();
       fireHaptic("success", settings.hapticsEnabled);
     } else {
@@ -442,7 +429,7 @@ const StartScreen: FC<Props> = ({
     }
     setProgressionMessage(
       result.ok
-        ? (style === "ink" ? "Ink style equipped" : "Pixel style equipped")
+        ? { fullart: "Full art equipped", ink: "Ink style equipped", pixel: "Pixel style equipped" }[style]
         : (result.reason ?? "Style change failed"),
     );
   };
@@ -451,6 +438,10 @@ const StartScreen: FC<Props> = ({
     () => saveSlots.find((s) => s.id === activeSlotId) ?? null,
     [activeSlotId, saveSlots],
   );
+  useEffect(() => {
+    setPreferredArtStyles(activeSlot?.artStyleByCharacter ?? {});
+  }, [activeSlot]);
+
   const dailyUsed = useMemo(
     () => hasPlayedDailyChallenge(activeSlotId, isoDay),
     [activeSlotId, isoDay],
@@ -474,132 +465,84 @@ const StartScreen: FC<Props> = ({
 
   const selectedCharacter =
     CHARACTERS.find((c) => c.id === selectedChar) ?? CHARACTERS[0];
+  const previewCharacter = CHARACTERS.find((c) => c.id === inspectedChar) ?? selectedCharacter;
+  const bankCoins = activeSlot?.bankCoins ?? 0;
+  const previewLocked = previewCharacter.unlockCost > 0
+    && !activeSlot?.unlockedCharacterIds.includes(previewCharacter.id);
+  const previewStyle = activeSlot ? characterArtStyle(activeSlot, previewCharacter.id) : "fullart";
   const highScoreLabel =
-    stats.highScore > 0 ? stats.highScore.toLocaleString() : "New run";
+    stats.highScore > 0 ? stats.highScore.toLocaleString() : "—";
+
+  const openMenuView = (view: MenuView) => {
+    playUiClick();
+    setActiveView(view);
+    if (window.matchMedia("(max-width: 899px)").matches) {
+      schedulePanelReveal(view === "character" ? "runner-panel" : "profile-panel");
+    }
+  };
 
   return (
     <div
-      ref={parallaxRef}
       className={`absolute inset-0 dash-menu-shell ${styles.shell}`}
-      style={{
-        opacity: mounted ? 1 : 0,
-        transition: "opacity 0.28s ease",
-        overflowY: "auto",
-        overflowX: "hidden",
-        WebkitOverflowScrolling: "touch",
-        overscrollBehavior: "contain",
-        padding:
-          "max(16px, env(safe-area-inset-top, 0px)) 0 max(30px, env(safe-area-inset-bottom, 0px))",
-      }}
+      style={{ opacity: mounted ? 1 : 0 }}
     >
-      <StarField />
-      <div className={styles.inkBleed} aria-hidden="true" />
-
       <main className="dash-menu-stage dash-menu-stage-v2">
         <section className={`dash-command-panel dash-hero-v2 ${styles.heroPanel}`}>
-          <MotionStagger delay={0}>
-          <div className="dash-topbar-v2">
-            <div className="dash-brand-v2">
-              <div>
-                <p className="dash-eyebrow">THE INFINITE RUN / VOL. 01</p>
-                <h1 aria-label="Dashverse">
-                  DASH<span>VERSE</span>
-                </h1>
-              </div>
+          <div className={styles.heroScene}>
+            <InkCover characterId={selectedChar} />
+            <div className={styles.heroCopy}>
+              <p>Endless platformer</p>
+              <h1 aria-label="Dashverse">DASH<span>VERSE</span></h1>
             </div>
-            <div className={`dash-live-pill ${styles.pill}`}>
-              <span /> Ready
+            <div className={styles.launchRow}>
+              <button
+                className={`dash-play-button-v2 ${styles.playCta}`}
+                onClick={handlePlay}
+              >
+                <span>Play Endless</span>
+                <span aria-hidden="true">→</span>
+              </button>
             </div>
           </div>
-          </MotionStagger>
-
-          <InkCover characterId={selectedChar} />
-          <MotionStagger delay={0.08}>
-          <p className="dash-hero-lede">
-            One more jump. One more world. Make this run count.
-          </p>
-          </MotionStagger>
-
-          <details className={styles.controlsDisclosure}>
-            <summary>How to play</summary>
-            <ControlsHint dismissible={false} />
-          </details>
-
-          <MotionStagger delay={0.16}>
-          <div className="dash-quick-stats-v2">
-            <span>
-              <small>Best</small>
-              <b>{highScoreLabel}</b>
-            </span>
-            <span>
-              <small>Save</small>
-              <b>{activeSlot?.name ?? "Slot 1"}</b>
-            </span>
-            <span>
-              <small>Bank</small>
-              <b>{activeSlot?.bankCoins ?? 0}c</b>
-            </span>
-            <span>
-              <small>Runner</small>
-              <b>{selectedCharacter.name}</b>
-            </span>
+          <div className={styles.heroFooter}>
+            <dl className={styles.quickStats}>
+              <div><dt>Best score</dt><dd>{highScoreLabel}</dd></div>
+              <div><dt>Save slot</dt><dd>{activeSlot?.name ?? "Slot 1"}</dd></div>
+              <div><dt>Runner</dt><dd>{selectedCharacter.name}</dd></div>
+            </dl>
+            <div className={styles.heroLinks}>
+              <button
+                type="button"
+                onClick={() => openMenuView("character")}
+                aria-label="Open character select"
+                aria-pressed={activeView === "character"}
+              >
+                Runners
+              </button>
+              <button
+                type="button"
+                onClick={() => openMenuView("profile")}
+                aria-label="Open player profile"
+                aria-pressed={activeView === "profile"}
+              >
+                Profile
+              </button>
+            </div>
+            <details className={styles.controlsDisclosure}>
+              <summary>How to play</summary>
+              <ControlsHint dismissible={false} />
+            </details>
           </div>
-          </MotionStagger>
-
-          <MotionStagger delay={0.24}>
-          <div className={`dash-primary-row-v2 ${styles.primaryRow}`}>
-            <button
-              className={`dash-play-button-v2 ${styles.playCta}`}
-              onClick={handlePlay}
-            >
-              <span>Play Endless</span>
-              <small>Jump straight into a run</small>
-              <em className={styles.playGlyph} aria-hidden="true">
-                →
-              </em>
-            </button>
-            <button
-              className={`dash-icon-action-v2 ${styles.iconAction} ${activeView === "character" ? "is-active" : ""}`}
-              onClick={() => {
-                playUiClick();
-                setActiveView("character");
-              }}
-              aria-label="Open character select"
-              aria-pressed={activeView === "character"}
-            >
-              <CharacterSprite characterId={selectedChar} size={38} decorative />
-            </button>
-            <button
-              className={`dash-icon-action-v2 ${styles.iconAction} ${activeView === "profile" ? "is-active" : ""}`}
-              onClick={() => {
-                playUiClick();
-                setActiveView("profile");
-              }}
-              aria-label="Open player profile"
-              aria-pressed={activeView === "profile"}
-            >
-              <span aria-hidden="true" style={{ fontStyle: "italic", fontWeight: 800, fontFamily: "'Arial Narrow', sans-serif" }}>
-                {playerName.trim() ? playerName.trim().charAt(0).toUpperCase() : "??"}
-              </span>
-            </button>
-          </div>
-          </MotionStagger>
         </section>
 
         <section
           className={`dash-command-panel dash-modes-v2 dash-view-panel-v3 ${styles.modesPanel}`}
+          aria-labelledby="menu-modes-title"
         >
           <div className="dash-section-title-row-v2">
-            <div>
-              <p className="dash-eyebrow">CHOOSE YOUR NEXT CHAPTER</p>
-              <h2>Break the limit.</h2>
-            </div>
+            <h2 id="menu-modes-title">Game modes & extras</h2>
           </div>
-          <div className={styles.chapterRule} aria-hidden="true"><span>01 — PLAY</span><span>02 — COMPETE</span><span>03 — BUILD</span></div>
-          <p className="dash-tester-checklist-v2">
-            Recommended play plan: Adventure first. Daily for records. Same-Wi-Fi with a friend.
-          </p>
-            <div className={`dash-mode-grid-v2 ${styles.modeGrid}`}>
+          <div className={`dash-mode-grid-v2 ${styles.modeGrid}`}>
               {onLevelSelect && (
                 <button
                   className="dash-mode-card-v2 solo"
@@ -611,7 +554,7 @@ const StartScreen: FC<Props> = ({
                   <small>Solo</small>
                   <b>Adventure</b>
                   <span>Levels + time attacks</span>
-                  <em>→</em>
+                  <em aria-hidden="true">→</em>
                 </button>
               )}
             <button
@@ -620,13 +563,14 @@ const StartScreen: FC<Props> = ({
               aria-controls="samesifi-panel"
               onClick={() => {
                 playUiClick();
+                if (!showMultiplayer) schedulePanelReveal("samesifi-panel");
                 setShowMultiplayer((v) => !v);
               }}
             >
               <small>Co-op</small>
               <b>{showMultiplayer ? "Hide Wi-Fi" : "Same-Wi-Fi"}</b>
               <span>Host or join nearby</span>
-              <em>↔</em>
+              <em aria-hidden="true">↔</em>
             </button>
             <button
               className="dash-mode-card-v2 coop"
@@ -635,7 +579,7 @@ const StartScreen: FC<Props> = ({
               <small>Co-op</small>
               <b>Split Screen</b>
               <span>Two players locally</span>
-              <em>▦</em>
+              <em aria-hidden="true">▦</em>
             </button>
             {onPlayDailyChallenge && (
               <button
@@ -652,7 +596,7 @@ const StartScreen: FC<Props> = ({
                       ? "Resets tomorrow"
                       : "One ranked shot"}
                 </span>
-                <em>★</em>
+                <em aria-hidden="true">★</em>
               </button>
             )}
             <button
@@ -664,7 +608,7 @@ const StartScreen: FC<Props> = ({
               <small>Compete</small>
               <b>{showLeaderboard ? "Hide Board" : "Leaderboard"}</b>
               <span>Records + ghost races</span>
-              <em>≡</em>
+              <em aria-hidden="true">≡</em>
             </button>
             <button
               className="dash-mode-card-v2 customize"
@@ -682,7 +626,7 @@ const StartScreen: FC<Props> = ({
               <small>Review</small>
               <b>{showRunHistory ? "Hide Run Lab" : "Run Lab"}</b>
               <span>Trends + recent debriefs</span>
-              <em>↗</em>
+              <em aria-hidden="true">↗︎</em>
             </button>
             <button
               className="dash-mode-card-v2 customize"
@@ -690,13 +634,14 @@ const StartScreen: FC<Props> = ({
               aria-controls="saves-shop-panel"
               onClick={() => {
                 playUiClick();
+                if (!showProgression) schedulePanelReveal("saves-shop-panel");
                 setShowProgression((v) => !v);
               }}
             >
               <small>Customize</small>
               <b>{showProgression ? "Hide Shop" : "Saves + Shop"}</b>
               <span>Coins, checkpoints, perks</span>
-              <em>◇</em>
+              <em aria-hidden="true">◇</em>
             </button>
             <button
               className="dash-mode-card-v2 customize"
@@ -711,28 +656,25 @@ const StartScreen: FC<Props> = ({
               <small>Setup</small>
               <b>{showSettings ? "Hide Settings" : "Settings"}</b>
               <span>Controls, audio, and display</span>
-              <em>⚙</em>
+              <em aria-hidden="true">⚙︎</em>
             </button>
           </div>
         </section>
 
         {activeView === "character" && (
-          <section className="dash-command-panel dash-runner-v2 dash-character-select-v3 dash-view-panel-v3">
+          <section id="runner-panel"
+            className={`dash-command-panel dash-runner-v2 dash-character-select-v3 dash-view-panel-v3 ${styles.runnerPanel}`}
+            aria-label="Character select"
+          >
             <div className="dash-section-title-row-v2">
               <div>
-                <p className="dash-eyebrow">YOUR RUNNER / LOADOUT</p>
-                <h2>{selectedCharacter.name}</h2>
+                <p className={styles.eyebrow}>Runners</p>
+                <h2>{previewCharacter.name}</h2>
               </div>
-              <span
-                className="dash-subtle-pill-v2"
-                role="button"
-                tabIndex={0}
-                aria-label="Bank coins"
-                onClick={handleBankPillTap}
-                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") handleBankPillTap(); }}
-              >
-                Bank: {activeSlot?.bankCoins ?? 0}c
-              </span>
+              <button type="button" className={styles.bank} onClick={handleBankPillTap}
+                aria-label={`Bank coins, ${bankCoins}`}>
+                {bankCoins.toLocaleString()} coins
+              </button>
             </div>
             {showCodeInput && (
               <div className="dash-section-title-row-v2" style={{ gap: 8 }}>
@@ -764,119 +706,98 @@ const StartScreen: FC<Props> = ({
                 </button>
               </div>
             )}
-            <p className="dash-panel-subtitle">{selectedCharacter.description} · {selectedCharacter.ability}</p>
-            <div className="dash-runner-body-v2 dash-character-hero-v3">
+            <div className={`dash-runner-body-v2 dash-character-hero-v3 ${styles.runnerBody}`}>
               <div
-                className="dash-character-avatar-v2 dash-sprite-frame-v2 dash-character-stage-v3"
-                style={
-                  {
-                    "--hero-color": selectedCharacter.bodyColor,
-                    background: `linear-gradient(145deg, ${selectedCharacter.bodyColor}33, ${selectedCharacter.bodyColor}11)`,
-                    borderColor: selectedCharacter.outlineColor,
-                    boxShadow: `0 18px 50px ${selectedCharacter.bodyColor}28, inset 0 1px 0 rgba(255,255,255,0.18)`,
-                  } as CSSProperties
-                }
+                className={`dash-character-stage-v3 ${styles.runnerStage}`}
+                style={{ "--runner-accent": previewCharacter.specialColor } as CSSProperties}
               >
                 <CharacterSprite
-                  characterId={selectedChar}
-                  size={124}
+                  characterId={previewCharacter.id}
+                  size={162}
                   animated
+                  stableFraming
                   previewAction={previewAction}
+                  motionSetting={settings.reducedMotion}
                   decorative
                 />
               </div>
-              <div className="dash-stat-stack-v2">
-                <StatBar
-                  label="SPD"
-                  value={selectedCharacter.speed}
-                  color="#9d82ff"
-                />
-                <StatBar
-                  label="JMP"
-                  value={selectedCharacter.jumpVelocity}
-                  color="#c7ff4d"
-                />
-                <StatBar
-                  label="HP"
-                  value={selectedCharacter.maxHealth / 5}
-                  color="#f87171"
-                />
+              <div className={styles.runnerDetails}>
+                <p>{previewCharacter.description} · {previewCharacter.ability}</p>
+                <div className={styles.specialMove}>
+                  <small>Special move</small>
+                  <b>{previewCharacter.specialName}</b>
+                </div>
+                <dl className="dash-stat-stack-v2">
+                  <div><dt>Speed</dt><dd>{previewCharacter.speed}×</dd></div>
+                  <div><dt>Jump</dt><dd>{previewCharacter.jumpVelocity}×</dd></div>
+                  <div><dt>Health</dt><dd>{previewCharacter.maxHealth} HP</dd></div>
+                </dl>
               </div>
             </div>
+
             <div className={styles.motionPreview} role="group" aria-label="Character movement preview">
-              {(['idle', 'run', 'jump', 'attack'] as const).map((action) => (
-                <button key={action} type="button" aria-pressed={previewAction === action}
-                  onClick={() => setPreviewAction(action)}>
-                  {{ idle: 'Stand', run: 'Run', jump: 'Jump', attack: 'Attack' }[action]}
+              {PREVIEW_ACTIONS.map(({ id, label }) => (
+                <button key={id} type="button" aria-pressed={previewAction === id}
+                  onClick={() => setPreviewAction(id)}>
+                  {label}
                 </button>
               ))}
             </div>
-            <div className="dash-panel-heading-row with-margin" style={{ alignItems: "center", gap: 8 }}>
-              <span>Art style</span>
-              {(() => {
-                const current = activeSlot ? characterArtStyle(activeSlot, selectedChar) : "fullart";
-                if (!characterHasFullArt(selectedChar) && !characterHasSheet(selectedChar)) {
-                  return <small className="dash-subtle-pill-v2">New art incoming</small>;
-                }
-                return (
-                  <span style={{ display: "inline-flex", gap: 6 }}>
-                    {characterHasFullArt(selectedChar) && (
-                      <button
-                        type="button"
-                        className={`dash-subtle-pill-v2 ${current === "fullart" ? "is-active" : ""}`}
-                        onClick={() => handleSetArtStyle(selectedChar, "fullart")}
-                      >
-                        Full art
+
+            <div className={styles.runnerOptions}>
+              {previewLocked ? (
+                <button type="button" className={styles.unlockButton}
+                  disabled={bankCoins < previewCharacter.unlockCost}
+                  onClick={() => handleBuyCharacter(previewCharacter.id)}>
+                  {bankCoins < previewCharacter.unlockCost
+                    ? `Need ${(previewCharacter.unlockCost - bankCoins).toLocaleString()} more coins`
+                    : `Unlock ${previewCharacter.name} · ${previewCharacter.unlockCost.toLocaleString()} coins`}
+                </button>
+              ) : (
+                <>
+                  <span>Art style</span>
+                  <div className={styles.styleOptions} role="group" aria-label="Character art style">
+                    {ART_STYLES.filter(({ available }) => available(previewCharacter.id)).map(({ id, label }) => (
+                      <button key={id} type="button" aria-pressed={previewStyle === id}
+                        onClick={() => handleSetArtStyle(previewCharacter.id, id)}>
+                        {label}
                       </button>
-                    )}
-                    {characterHasSheet(selectedChar) && (
-                      <button
-                        type="button"
-                        className={`dash-subtle-pill-v2 ${current === "pixel" ? "is-active" : ""}`}
-                        onClick={() => handleSetArtStyle(selectedChar, "pixel")}
-                      >
-                        Pixel
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      className={`dash-subtle-pill-v2 ${current === "ink" ? "is-active" : ""}`}
-                      onClick={() => handleSetArtStyle(selectedChar, "ink")}
-                    >
-                      Ink
-                    </button>
-                  </span>
-                );
-              })()}
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
-            <div className="dash-character-grid-v2 dash-character-roster-v3">
+            <p className={styles.runnerMessage} role="status">{progressionMessage}</p>
+
+            <div className={`dash-character-grid-v2 dash-character-roster-v3 ${styles.roster}`} role="group" aria-label="Runner roster">
               {CHARACTERS.map((c) => {
-                const unlocked = activeSlot?.unlockedCharacterIds.includes(c.id) ?? c.unlockCost <= 0;
-                const canAfford = (activeSlot?.bankCoins ?? 0) >= c.unlockCost;
+                const unlocked = c.unlockCost <= 0 || activeSlot?.unlockedCharacterIds.includes(c.id);
+                const equipped = selectedChar === c.id;
+                const inspecting = previewCharacter.id === c.id;
                 return (
                   <button
                     key={c.id}
                     type="button"
-                    className={`dash-character-chip-v2 dash-character-card-v3 ${selectedChar === c.id ? "is-active" : ""}`}
+                    className="dash-character-chip-v2 dash-character-card-v3"
+                    aria-pressed={inspecting}
+                    aria-label={unlocked ? c.name : `${c.name}, locked, ${c.unlockCost} coins`}
+                    data-equipped={equipped || undefined}
                     onClick={() => {
+                      playUiClick();
+                      setPreviewAction("idle");
                       if (!unlocked) {
-                        // Buy path: the handler rings the register on success,
-                        // clicks on failure — never both.
-                        handleBuyCharacter(c.id);
+                        setInspectedChar(c.id);
                         return;
                       }
-                      playUiClick();
+                      setInspectedChar(null);
                       setSelectedChar(c.id);
                       saveSelectedCharacter(c.id);
                     }}
-                    style={{ "--chip-color": c.bodyColor } as CSSProperties}
-                    title={unlocked ? c.ability : `Unlock for ${c.unlockCost} coins`}
+                    style={{ "--runner-accent": c.specialColor } as CSSProperties}
                   >
-                    <span className="dash-chip-sprite-v2">
-                      <CharacterSprite characterId={c.id} size={38} decorative />
-                    </span>
+                    <CharacterSprite characterId={c.id} size={46} decorative />
                     <span>{c.name}</span>
-                    {!unlocked && <small>{canAfford ? `${c.unlockCost}c` : `🔒 ${c.unlockCost}c`}</small>}
+                    <small>{equipped ? "Equipped" : unlocked ? "Owned" : `${c.unlockCost} coins`}</small>
                   </button>
                 );
               })}
@@ -885,7 +806,7 @@ const StartScreen: FC<Props> = ({
         )}
 
         {activeView === "profile" && (
-          <section className="dash-command-panel dash-profile-v2 dash-view-panel-v3">
+          <section id="profile-panel" className={`dash-command-panel dash-profile-v2 dash-view-panel-v3 ${styles.profilePanel}`}>
             <div className="dash-section-title-row-v2 compact">
               <div>
                 <p className="dash-eyebrow">Profile</p>
@@ -1296,47 +1217,6 @@ const ScoreRow: FC<{
   </div>
 );
 
-/* ── Star field background ────────────────────────────────────── */
-
-const StarField: FC = () => {
-  // Golden-ratio distribution for even spacing, no JS randomness needed
-  const stars = useMemo(
-    () =>
-      Array.from({ length: 38 }, (_, i) => ({
-        x: ((i * 137.508) % 100).toFixed(3),
-        y: ((i * 61.803) % 100).toFixed(3),
-        size: 0.9 + (i % 4) * 0.55,
-        delay: ((i * 0.618) % 3.5).toFixed(2),
-        duration: (1.6 + (i % 5) * 0.7).toFixed(2),
-      })),
-    [],
-  );
-
-  return (
-    <div
-      className="absolute inset-0 overflow-hidden pointer-events-none"
-      style={{ zIndex: 0 }}
-    >
-      {stars.map((star, i) => (
-        <div
-          key={i}
-          style={{
-            position: "absolute",
-            left: `${star.x}%`,
-            top: `${star.y}%`,
-            width: star.size,
-            height: star.size,
-            borderRadius: "50%",
-            background: "white",
-            opacity: 0,
-            animation: `starTwinkle ${star.duration}s ease-in-out ${star.delay}s infinite`,
-          }}
-        />
-      ))}
-    </div>
-  );
-};
-
 /* ── Settings Panel ──────────────────────────────────────────── */
 
 const SettingsPanel: FC = () => {
@@ -1437,51 +1317,6 @@ const CameraModeRow: FC<{
             {mode.label}
           </button>
         ))}
-      </div>
-    </div>
-  );
-};
-
-/* ── Stat bar for character select ───────────────────────────── */
-
-const StatBar: FC<{ label: string; value: number; color: string }> = ({
-  label,
-  value,
-  color,
-}) => {
-  const pct = Math.min(100, Math.round(value * 100));
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-      <span
-        className="ios-caption2"
-        style={{
-          color: "var(--ios-label3)",
-          width: 24,
-          fontSize: 9,
-          letterSpacing: "0.04em",
-        }}
-      >
-        {label}
-      </span>
-      <div
-        style={{
-          flex: 1,
-          height: 4,
-          borderRadius: 2,
-          background: "var(--ios-fill3)",
-          overflow: "hidden",
-        }}
-      >
-        <div
-          style={{
-            width: `${pct}%`,
-            height: "100%",
-            borderRadius: 2,
-            background: color,
-            transition: "width 0.3s cubic-bezier(0.34,1.56,0.64,1)",
-            boxShadow: `0 0 6px ${color}44`,
-          }}
-        />
       </div>
     </div>
   );
