@@ -207,7 +207,7 @@ const LevelCompleteScreen: FC<Props> = ({ level, result, onNext, onRetry, onBack
         <StatRow label="Distance" value={`${Math.round(result.distance)}m`} delay={0.7} />
         <StatRow label="Coins" value={`${result.coins}`} color="#FFD60A" delay={0.75} />
         <StatRow label="Time" value={formatTime(result.timeMs)} delay={0.8} />
-        <StatRow label="Enemies Defeated" value={`${result.enemiesDefeated}`} color="#FF453A" delay={0.85} />
+        <StatRow label="Enemies Defeated" value={`${result.enemiesDefeated}`} color="var(--dv-danger)" delay={0.85} />
       </motion.div>
 
       {/* Buttons — hierarchy is explicit: ONE dominant primary action
@@ -267,9 +267,9 @@ const LevelCompleteScreen: FC<Props> = ({ level, result, onNext, onRetry, onBack
               aria-label="Play next level"
               style={{
                 flex: 1.5, padding: 14, borderRadius: 12,
-                background: 'linear-gradient(135deg, #30D158, #0A84FF)', border: 'none',
-                color: '#fff', fontSize: 16, fontWeight: 700, cursor: 'pointer',
-                boxShadow: '0 0 18px rgba(48,209,88,0.35)',
+                background: 'var(--dv-action)', border: 'none',
+                color: 'var(--dv-ink)', fontSize: 16, fontWeight: 700, cursor: 'pointer',
+                boxShadow: '0 0 18px rgba(199,255,77,0.25)',
                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
               }}
             >

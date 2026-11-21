@@ -286,11 +286,11 @@ const GameOverScreen: FC<Props> = ({ stats, newRecords, hapticsEnabled = true, o
                   marginTop: 10,
                   fontSize: 13,
                   fontWeight: 700,
-                  color: 'var(--ios-green)',
+                  color: 'var(--dv-action)',
                   padding: '4px 12px',
                   borderRadius: 16,
-                  background: 'rgba(48,209,88,0.15)',
-                  border: '1px solid rgba(48,209,88,0.35)',
+                  background: 'rgba(199,255,77,0.12)',
+                  border: '1px solid rgba(199,255,77,0.35)',
                   animation: 'iosBounceIn 0.5s cubic-bezier(0.34,1.56,0.64,1) 0.35s both',
                 }}
               >
@@ -423,9 +423,9 @@ const StatRow: FC<StatRowProps> = ({ label, value, highlight, isNewBest, delay =
             fontSize: 9,
             fontWeight: 800,
             letterSpacing: '0.04em',
-            color: 'var(--ios-green)',
-            background: 'rgba(48,209,88,0.15)',
-            border: '1px solid rgba(48,209,88,0.3)',
+            color: 'var(--dv-action)',
+            background: 'rgba(199,255,77,0.12)',
+            border: '1px solid rgba(199,255,77,0.3)',
             borderRadius: 5,
             padding: '1px 5px',
             lineHeight: 1.3,
@@ -442,10 +442,10 @@ const StatRow: FC<StatRowProps> = ({ label, value, highlight, isNewBest, delay =
       style={
         isNewBest
           ? {
-              color: 'var(--ios-green)',
+              color: 'var(--dv-action)',
               fontWeight: 700,
               fontVariantNumeric: 'tabular-nums',
-              textShadow: '0 0 12px rgba(48,209,88,0.4)',
+              textShadow: '0 0 12px rgba(199,255,77,0.35)',
             }
           : highlight
             ? {

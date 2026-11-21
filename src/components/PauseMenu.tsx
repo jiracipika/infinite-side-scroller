@@ -554,7 +554,7 @@ const IOSToggle: FC<{ checked: boolean; onChange: (v: boolean) => void }> = ({ c
       onChange(!checked);
       playUiClick();
     }}
-    style={{ background: checked ? 'var(--ios-green)' : 'var(--ios-fill)' }}
+    style={{ background: checked ? 'var(--dv-violet)' : 'var(--ios-fill)' }}
     role="switch"
     aria-checked={checked}
   >

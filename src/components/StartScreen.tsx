@@ -1188,7 +1188,6 @@ const MenuPanel: FC<{
   >
     <div className="dash-section-title-row compact">
       <div>
-        <p className="dash-eyebrow">Panel</p>
         <h2>{title}</h2>
       </div>
     </div>
@@ -1397,7 +1396,7 @@ const IOSToggle: FC<{ checked: boolean; onChange: (v: boolean) => void }> = ({
       onChange(!checked);
       playUiClick();
     }}
-    style={{ background: checked ? "var(--ios-green)" : "var(--ios-fill)" }}
+    style={{ background: checked ? "var(--dv-violet)" : "var(--ios-fill)" }}
     role="switch"
     aria-checked={checked}
   >
