@@ -1,11 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 /**
- * Persisted game settings shared between the Settings tab and the Game screen.
+ * Persisted game settings shared between the Settings sheet and the Game screen.
  *
  * The Settings screen reads/writes these via usePersistedSetting, while the
- * Game screen loads them once on mount (and on focus) to push the values into
- * the WebView engine bridge. The keys here MUST match the keys used by
+ * Game screen loads them on mount and receives live values when the sheet closes.
+ * The game screen forwards the values to the WebView engine bridge. The keys here MUST match the keys used by
  * usePersistedSetting (which prefixes with @game_settings_).
  */
 
@@ -19,6 +19,7 @@ export interface GameSettings {
   reducedParticles: boolean;
   hapticsEnabled: boolean;
   largeControls: boolean;
+  leftHanded: boolean;
 }
 
 export const DEFAULT_GAME_SETTINGS: GameSettings = {
@@ -29,6 +30,7 @@ export const DEFAULT_GAME_SETTINGS: GameSettings = {
   reducedParticles: true,
   hapticsEnabled: true,
   largeControls: false,
+  leftHanded: false,
 };
 
 function parseBoolean(raw: string | null | undefined, fallback: boolean): boolean {
@@ -64,6 +66,7 @@ export async function loadGameSettings(): Promise<GameSettings> {
     SETTINGS_PREFIX + 'reducedParticles',
     SETTINGS_PREFIX + 'hapticsEnabled',
     SETTINGS_PREFIX + 'largeControls',
+    SETTINGS_PREFIX + 'leftHanded',
   ];
   try {
     const pairs = await AsyncStorage.multiGet(keys);
@@ -76,6 +79,7 @@ export async function loadGameSettings(): Promise<GameSettings> {
       reducedParticles: parseBoolean(map.get(keys[4]), DEFAULT_GAME_SETTINGS.reducedParticles),
       hapticsEnabled: parseBoolean(map.get(keys[5]), DEFAULT_GAME_SETTINGS.hapticsEnabled),
       largeControls: parseBoolean(map.get(keys[6]), DEFAULT_GAME_SETTINGS.largeControls),
+      leftHanded: parseBoolean(map.get(keys[7]), DEFAULT_GAME_SETTINGS.leftHanded),
     };
   } catch {
     return DEFAULT_GAME_SETTINGS;

@@ -22,6 +22,7 @@
     "mobile:dev": "npm --prefix apps/mobile run start",
     "mobile:ios": "npm --prefix apps/mobile run ios",
     "mobile:android": "npm --prefix apps/mobile run android",
+    "mobile:apk": "npm --prefix apps/mobile run apk",
     "mobile:web": "npm --prefix apps/mobile run web",
     "verify:game": "node scripts/verify-game-content.mjs",
     "verify:multiplayer": "node scripts/verify-multiplayer-config.mjs",

@@ -91,14 +91,15 @@ const pauseSource = read('src/components/PauseMenu.tsx')
 mustContain(pauseSource, /settings\.musicVolume/, 'PauseMenu music volume slider binding')
 
 // ── 9. Mobile shell + settings ──────────────────────────────────
-const mobileGamePath = 'apps/mobile/app/index.tsx'
-const mobileGame = read(mobileGamePath)
-mustContain(mobileGame, /setAudioVolumes\(\$\{settings\.masterVolume\}, \$\{settings\.sfxVolume\}, \$\{settings\.musicVolume\}\)/, 'mobile settings push includes musicVolume')
-mustContain(mobileGame, /setAudioVolumes\(\$\{s\.masterVolume\}, \$\{s\.sfxVolume\}, \$\{s\.musicVolume\}\)/, 'mobile run-start push includes musicVolume')
+const mobileGame = read('apps/mobile/app/index.tsx')
+const mobileBundle = read('apps/mobile/scripts/bundle-game-html.js')
+mustContain(mobileGame, /startRun\(\$\{JSON\.stringify\(options\)\}\)/, 'mobile run starts with saved settings')
+mustContain(mobileBundle, /applySettings\(options\.settings\)/, 'mobile bridge applies settings before the run starts')
+mustContain(mobileBundle, /setAudioVolumes\(settings\.masterVolume, settings\.sfxVolume, settings\.musicVolume\)/, 'mobile bridge applies all volume levels')
+mustContain(mobileBundle, /engine\.setAudioVolumes\(master, sfx, music\)/, 'mobile bridge forwards music volume to the engine')
 
-const mobileSettingsPath = 'apps/mobile/components/SettingsSheet.tsx'
-const mobileSettings = read(mobileSettingsPath)
-mustContain(mobileSettings, /usePersistedSetting\('musicVolume', 0\.6\)/, 'mobile musicVolume persisted setting')
+const mobileSettings = read('apps/mobile/components/SettingsSheet.tsx')
+mustContain(mobileSettings, /usePersistedSetting\('musicVolume', DEFAULT_GAME_SETTINGS\.musicVolume\)/, 'mobile musicVolume persisted setting')
 mustContain(mobileSettings, /label="Music Volume" value=\{\`\$\{Math\.round\(musicVolume \* 100\)\}%\`\}/, 'mobile Music Volume slider row')
 mustNotContain(mobileSettings, /No music tracks yet/, 'stale "no music tracks" placeholder')
 

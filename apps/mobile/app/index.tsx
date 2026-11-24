@@ -4,21 +4,23 @@ import {
   StyleSheet,
   Pressable,
   Text,
-  Dimensions,
+  Image,
   useWindowDimensions,
   AppState,
-  SafeAreaView,
+  BackHandler,
+  ScrollView,
   Share,
   Animated,
   Vibration,
   Platform,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { loadPlayerBest, savePlayerBest } from '../lib/player-best';
+import { loadPlayerBest, normalizePlayerBest, savePlayerBest } from '../lib/player-best';
 import { appendRunHistory } from '../lib/run-history';
 import { loadGameSettings, DEFAULT_GAME_SETTINGS, type GameSettings } from '../lib/game-settings';
 import { useMobileHaptics } from '../hooks/useMobileHaptics';
@@ -41,13 +43,15 @@ const GAME_HTML = require('../assets/game.html');
 // URL, which trips ERR_CLEARTEXT_NOT_PERMITTED and the engine never loads
 // (works in dev because Metro serves the asset over localhost). The
 // patch-android.sh post-prebuild step copies game.html into
-// android/app/src/main/assets so Android can load it as a plain file:// URL.
+// android/app/src/main/assets for release builds. Development uses Metro.
 const GAME_SOURCE =
-  Platform.OS === 'android'
+  Platform.OS === 'android' && !__DEV__
     ? { uri: 'file:///android_asset/game.html', baseUrl: 'file:///android_asset/game.html' }
     : GAME_HTML;
 
-type GameState = 'menu' | 'playing' | 'paused' | 'gameover';
+type GameState = 'menu' | 'loading' | 'playing' | 'paused' | 'gameover' | 'error';
+
+const ENGINE_LOAD_TIMEOUT_MS = 15_000;
 
 interface GameStats {
   score: number;
@@ -81,19 +85,23 @@ export default function GameScreen() {
   const [gameState, setGameState] = useState<GameState>('menu');
   const [stats, setStats] = useState<GameStats>(DEFAULT_STATS);
   const [highScore, setHighScore] = useState(0);
-  const [showMenu, setShowMenu] = useState(true);
   const [webViewKey, setWebViewKey] = useState(0);
-  const [webViewReady, setWebViewReady] = useState(false);
-  const [webViewError, setWebViewError] = useState(false);
-  const [runRequestId, setRunRequestId] = useState(0);
-  const [largeControls, setLargeControls] = useState(DEFAULT_GAME_SETTINGS.largeControls);
-  const [hapticsEnabled, setHapticsEnabled] = useState(DEFAULT_GAME_SETTINGS.hapticsEnabled);
-  const [showFPS, setShowFPS] = useState(DEFAULT_GAME_SETTINGS.showFPS);
+  const [isNewBest, setIsNewBest] = useState(false);
+  const [settings, setSettings] = useState(DEFAULT_GAME_SETTINGS);
   const [showSettings, setShowSettings] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
-  const pendingRunRef = useRef<number | null>(null);
+  const runRef = useRef({ id: 0, seed: 0, pauseOnReady: false });
   const gameStateRef = useRef<GameState>('menu');
+  const latestStatsRef = useRef(DEFAULT_STATS);
+  const bestScoreRef = useRef(0);
   const settingsRef = useRef<GameSettings>(DEFAULT_GAME_SETTINGS);
+  const { largeControls, leftHanded, showFPS, hapticsEnabled } = settings;
+
+  const transitionTo = useCallback((state: GameState) => {
+    gameStateRef.current = state;
+    setGameState(state);
+  }, []);
+
   // Track previous stat values to detect damage/coin milestones for particles.
   const prevStatsRef = useRef<GameStats>(DEFAULT_STATS);
 
@@ -121,195 +129,186 @@ export default function GameScreen() {
     prevStatsRef.current = stats;
   }, [stats, gameState, triggerShake, triggerDamageBurst, triggerCoinBurst]);
 
-  useEffect(() => {
-    gameStateRef.current = gameState;
-  }, [gameState]);
-
-  // Gameplay haptics — watches the stats stream from the WebView bridge and
-  // fires native vibration patterns on damage, coins, combo milestones, etc.
-  // Only active during gameplay and when the persisted setting is enabled.
   useMobileHaptics(stats, hapticsEnabled && gameState === 'playing');
+
+  const injectGameScript = useCallback((script: string) => {
+    webViewRef.current?.injectJavaScript(`window.__gameControls.${script}; true;`);
+  }, []);
+
+  const applySettings = useCallback((next: GameSettings) => {
+    settingsRef.current = next;
+    setSettings(next);
+    if (gameStateRef.current === 'playing' || gameStateRef.current === 'paused') {
+      injectGameScript(`applySettings(${JSON.stringify(next)})`);
+    }
+  }, [injectGameScript]);
 
   useEffect(() => {
     let mounted = true;
     void loadPlayerBest().then(best => {
-      if (mounted) setHighScore(best.score);
-    });
-    return () => { mounted = false; };
-  }, []);
-
-  // Load persisted settings on mount and after the settings sheet closes
-  // (so changes made in the sheet are picked up immediately).
-  const refreshSettings = useCallback(() => {
-    let mounted = true;
-    void loadGameSettings().then(settings => {
       if (!mounted) return;
-      settingsRef.current = settings;
-      setLargeControls(settings.largeControls);
-      setHapticsEnabled(settings.hapticsEnabled);
-      setShowFPS(settings.showFPS);
-      // Push audio/particle preferences into the engine if the WebView is alive.
-      if (webViewRef.current) {
-        webViewRef.current.injectJavaScript(
-          `try { window.__gameControls.setAudioVolumes(${settings.masterVolume}, ${settings.sfxVolume}, ${settings.musicVolume}); } catch(e){} true;`
-        );
-        webViewRef.current.injectJavaScript(
-          `try { window.__gameControls.setUserReducedParticles(${settings.reducedParticles}); } catch(e){} true;`
-        );
-      }
+      bestScoreRef.current = Math.max(bestScoreRef.current, best.score);
+      setHighScore(bestScoreRef.current);
+    });
+    void loadGameSettings().then(saved => {
+      if (mounted && settingsRef.current === DEFAULT_GAME_SETTINGS) applySettings(saved);
     });
     return () => { mounted = false; };
-  }, []);
-
-  useEffect(() => {
-    const cleanup = refreshSettings();
-    return cleanup;
-  }, [refreshSettings]);
+  }, [applySettings]);
 
   const sendInput = useCallback((type: string, value: boolean) => {
+    if (gameStateRef.current !== 'playing') return;
     const detail = JSON.stringify({ type, value });
     webViewRef.current?.injectJavaScript(
       `window.dispatchEvent(new CustomEvent('game-input', { detail: ${detail} })); true;`
     );
   }, []);
 
-  const callEngine = useCallback((fn: string) => {
-    webViewRef.current?.injectJavaScript(`try { window.__gameControls.${fn}(); } catch(e){} true;`);
-  }, []);
-
   const handleMessage = useCallback((e: WebViewMessageEvent) => {
+    const run = runRef.current;
+    if (run.id !== webViewKey) return;
+
     try {
       const data = JSON.parse(e.nativeEvent.data);
-      if (data.type === 'ready') {
-        setWebViewReady(true);
-      } else if (data.type === 'stats') {
-        setStats({
+      const phase = gameStateRef.current;
+      if (data.type === 'ready' && phase === 'loading') {
+        const appState = AppState.currentState;
+        const paused = run.pauseOnReady || (appState != null && appState !== 'active');
+        const options = { seed: run.seed, paused, settings: settingsRef.current };
+        injectGameScript(`startRun(${JSON.stringify(options)})`);
+        transitionTo(paused ? 'paused' : 'playing');
+      } else if (data.type === 'stats' && phase === 'playing') {
+        const nextStats = {
           score: data.score,
           coins: data.coins,
           distance: data.distance,
           health: data.health,
           maxHealth: data.maxHealth,
-          lives: typeof data.lives === 'number' ? data.lives : 3,
-          comboCount: typeof data.comboCount === 'number' ? data.comboCount : 0,
+          lives: data.lives ?? 3,
+          comboCount: data.comboCount ?? 0,
           biome: data.biome,
           fps: data.fps,
-          powerUps: data.powerUps || [],
-          maxCombo: data.maxCombo || 0,
-          enemiesDefeated: data.enemiesDefeated || 0,
-        });
-      } else if (data.type === 'gameover') {
-        const score = Math.max(0, Math.floor(typeof data.score === 'number' ? data.score : stats.score));
-        const runStats = {
-          score,
-          distance: typeof data.distance === 'number' ? data.distance : stats.distance,
-          coins: typeof data.coins === 'number' ? data.coins : stats.coins,
-          maxCombo: typeof data.maxCombo === 'number' ? data.maxCombo : stats.maxCombo,
-          enemiesDefeated: typeof data.enemiesDefeated === 'number' ? data.enemiesDefeated : stats.enemiesDefeated,
+          powerUps: data.powerUps ?? [],
+          maxCombo: data.maxCombo ?? 0,
+          enemiesDefeated: data.enemiesDefeated ?? 0,
         };
-        setGameState('gameover');
-        void appendRunHistory(runStats);
-        setHighScore(prev => {
-          if (score <= prev) return prev;
-          void savePlayerBest(runStats);
-          return score;
+        latestStatsRef.current = nextStats;
+        setStats(nextStats);
+      } else if (data.type === 'gameover' && (phase === 'playing' || phase === 'paused')) {
+        const stats = latestStatsRef.current;
+        const runStats = normalizePlayerBest({
+          score: data.score ?? stats.score,
+          distance: data.distance ?? stats.distance,
+          coins: data.coins ?? stats.coins,
+          maxCombo: data.maxCombo ?? stats.maxCombo,
+          enemiesDefeated: data.enemiesDefeated ?? stats.enemiesDefeated,
         });
+        setStats({ ...stats, ...runStats });
+        transitionTo('gameover');
+        void appendRunHistory(runStats);
+        const newBest = runStats.score > bestScoreRef.current;
+        setIsNewBest(newBest);
+        if (newBest) {
+          bestScoreRef.current = runStats.score;
+          setHighScore(runStats.score);
+          void savePlayerBest(runStats);
+        }
       }
-    } catch {}
-  }, [stats.score]);
+    } catch {
+      // Ignore messages other than JSON from the bundled game.
+    }
+  }, [injectGameScript, transitionTo, webViewKey]);
 
-  const handleRenderProcessGone = useCallback(() => {
-    // A terminated Chromium renderer cannot recover its current document. Return
-    // to the native menu and give the next Play action a fresh local WebView.
-    console.warn('Dashverse game renderer terminated; remounting on next run.');
-    pendingRunRef.current = null;
-    setWebViewReady(false);
-    setWebViewError(true);
-    setWebViewKey(previous => previous + 1);
-    setGameState('menu');
-    setShowMenu(true);
-  }, []);
+  const recoverWebView = useCallback(() => {
+    if (runRef.current.id !== webViewKey) return;
+    const phase = gameStateRef.current;
+    if (phase === 'loading' || phase === 'playing' || phase === 'paused') transitionTo('error');
+  }, [transitionTo, webViewKey]);
+
+  useEffect(() => {
+    if (gameState !== 'loading') return;
+    const timeout = setTimeout(() => {
+      if (gameStateRef.current === 'loading') recoverWebView();
+    }, ENGINE_LOAD_TIMEOUT_MS);
+    return () => clearTimeout(timeout);
+  }, [gameState, recoverWebView]);
 
   const queueRun = useCallback((seed: number) => {
-    pendingRunRef.current = seed;
-    setWebViewReady(false);
-    setWebViewError(false);
-    setRunRequestId(previous => previous + 1);
-    setGameState('playing');
-    setShowMenu(false);
-  }, []);
-
-  useEffect(() => {
-    const seed = pendingRunRef.current;
-    if (!webViewReady || seed === null) return;
-
-    pendingRunRef.current = null;
-    // Apply persisted settings before starting the run so the first frame
-    // respects audio volumes and particle preferences.
-    const s = settingsRef.current;
-    webViewRef.current?.injectJavaScript(
-      `try { window.__gameControls.setAudioVolumes(${s.masterVolume}, ${s.sfxVolume}, ${s.musicVolume}); window.__gameControls.setUserReducedParticles(${s.reducedParticles}); window.__gameControls.resumeAudio(); } catch(e){} true;`
-    );
-    callEngine(`setSeed(${seed})`);
-    callEngine('resume');
-  }, [callEngine, runRequestId, webViewReady]);
-
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', nextState => {
-      if (nextState !== 'active' && gameStateRef.current === 'playing') {
-        // Do not auto-resume after calls/app switching: the player explicitly
-        // chooses when to continue a paused mobile run.
-        gameStateRef.current = 'paused';
-        setGameState('paused');
-        callEngine('pause');
-      }
-    });
-    return () => subscription.remove();
-  }, [callEngine]);
-
-  const handlePlay = useCallback((seed?: number) => {
-    queueRun(seed ?? Math.floor(Math.random() * 999999));
-  }, [queueRun]);
-
-  const handlePause = useCallback(() => {
-    if (gameState === 'playing') {
-      setGameState('paused');
-      callEngine('pause');
-    }
-  }, [gameState, callEngine]);
-
-  const handleResume = useCallback(() => {
-    setGameState('playing');
-    callEngine('resume');
-  }, [callEngine]);
+    if (gameStateRef.current === 'loading') return;
+    const id = runRef.current.id + 1;
+    runRef.current = { id, seed, pauseOnReady: false };
+    latestStatsRef.current = DEFAULT_STATS;
+    prevStatsRef.current = DEFAULT_STATS;
+    setStats(DEFAULT_STATS);
+    setIsNewBest(false);
+    setWebViewKey(id);
+    transitionTo('loading');
+  }, [transitionTo]);
 
   const handleRestart = useCallback(() => {
     queueRun(Math.floor(Math.random() * 999999));
   }, [queueRun]);
 
+  const handlePause = useCallback(() => {
+    if (gameStateRef.current !== 'playing') return;
+    transitionTo('paused');
+    injectGameScript('pause()');
+  }, [injectGameScript, transitionTo]);
+
+  const handleResume = useCallback(() => {
+    if (gameStateRef.current !== 'paused') return;
+    transitionTo('playing');
+    injectGameScript('resume()');
+  }, [injectGameScript, transitionTo]);
+
   const handleQuit = useCallback(() => {
-    pendingRunRef.current = null;
-    setGameState('menu');
-    setShowMenu(true);
-  }, []);
+    transitionTo('menu');
+  }, [transitionTo]);
+
+  useEffect(() => {
+    const pauseForInterruption = () => {
+      if (gameStateRef.current === 'loading') runRef.current.pauseOnReady = true;
+      handlePause();
+    };
+    const subscription = AppState.addEventListener('change', nextState => {
+      if (nextState !== 'active') pauseForInterruption();
+    });
+    const blur = Platform.OS === 'android'
+      ? AppState.addEventListener('blur', pauseForInterruption)
+      : null;
+    return () => {
+      subscription.remove();
+      blur?.remove();
+    };
+  }, [handlePause]);
+
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (gameStateRef.current === 'menu') return false;
+      if (gameStateRef.current === 'playing') handlePause();
+      else handleQuit();
+      return true;
+    });
+    return () => subscription.remove();
+  }, [handlePause, handleQuit]);
 
   return (
     <ScreenShake shakeKey={shakeKey} intensity={6} duration={350}>
     <View style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
-      <StatusBar style="light" hidden={gameState === 'playing'} />
+      <StatusBar style="light" hidden={gameState !== 'menu'} />
       {/*
         Android WebView is a native surface and can be composited above sibling
         React Native views. Mount it only after Play is pressed so the native
         menu is never hidden behind the WebView's initial white document.
       */}
-      {gameState !== 'menu' && (
-        <View style={styles.webviewContainer}>
+      {gameState !== 'menu' && gameState !== 'error' && (
+        <View style={styles.webviewContainer} pointerEvents="none" importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
           <WebView
             key={webViewKey}
             ref={webViewRef}
             source={GAME_SOURCE}
             style={styles.webview}
-            onLoadStart={() => setWebViewReady(false)}
             onMessage={handleMessage}
             originWhitelist={['*']}
             allowFileAccess
@@ -321,41 +320,40 @@ export default function GameScreen() {
             showsVerticalScrollIndicator={false}
             showsHorizontalScrollIndicator={false}
             nestedScrollEnabled={false}
-            onError={(e) => {
-              console.warn('WebView error:', e.nativeEvent);
-              setWebViewError(true);
-            }}
-            onRenderProcessGone={handleRenderProcessGone}
+            onError={recoverWebView}
+            onRenderProcessGone={recoverWebView}
+            onContentProcessDidTerminate={recoverWebView}
+            mediaPlaybackRequiresUserAction={false}
             setSupportMultipleWindows={false}
           />
-          {/* WebView loading animation — shown while the game HTML loads. */}
-          {!webViewReady && !webViewError && (
-            <View style={styles.loadingOverlay} pointerEvents="none">
-              <LoadingSpinner label="Loading" size={48} color="#c7ff4d" />
-              <View style={{ marginTop: 20 }}>
-                <LoadingProgressBar width={160} height={3} color="#c7ff4d" />
-              </View>
-            </View>
-          )}
-          {/* WebView error overlay — shown if the game engine fails to load. */}
-          {webViewError && (
-            <View style={styles.loadingOverlay}>
-              <Ionicons name="warning" size={48} color="rgba(248,113,113,0.8)" />
-              <Text style={styles.webviewErrorTitle}>Failed to Load</Text>
-              <Text style={styles.webviewErrorBody}>
-                The game engine couldn't start. Check your connection and try again.
-              </Text>
-              <PressableScale
-                style={styles.webviewErrorRetryBtn}
-                onPress={() => handleRestart()}
-                accessibilityRole="button"
-                accessibilityLabel="Retry loading the game"
-              >
-                <Text style={styles.webviewErrorRetryText}>Retry</Text>
-              </PressableScale>
-            </View>
-          )}
         </View>
+      )}
+      {gameState === 'loading' && (
+        <View style={styles.loadingOverlay}>
+          <LoadingSpinner label="Loading" size={48} color="#c7ff4d" />
+          <View style={{ marginTop: 20 }}>
+            <LoadingProgressBar width={160} height={3} color="#c7ff4d" />
+          </View>
+        </View>
+      )}
+      {gameState === 'error' && (
+        <SafeAreaView style={styles.loadingOverlay}>
+          <Ionicons name="warning" size={42} color="#f8a4a4" />
+          <Text style={styles.webviewErrorTitle} accessibilityRole="header">Couldn’t load the game</Text>
+          <Text style={styles.webviewErrorBody}>Retry this run or return to the menu.</Text>
+          <PressableScale
+            style={styles.webviewErrorRetryBtn}
+            onPress={() => queueRun(runRef.current.seed)}
+            accessibilityRole="button"
+            accessibilityLabel="Retry loading the game"
+            haptic={hapticsEnabled}
+          >
+            <Text style={styles.webviewErrorRetryText}>Retry</Text>
+          </PressableScale>
+          <PressableScale style={styles.quitBtn} onPress={handleQuit} accessibilityRole="button" haptic={hapticsEnabled}>
+            <Text style={styles.quitBtnText}>Main Menu</Text>
+          </PressableScale>
+        </SafeAreaView>
       )}
 
       {/* Damage particle burst — centered on screen */}
@@ -363,7 +361,7 @@ export default function GameScreen() {
         burstKey={damageBurstKey}
         config={{
           count: 10,
-          colors: ['#f87171', '#ef4444', '#fca5a5', '#rgba(248,113,113,0.5)'],
+          colors: ['#f87171', '#ef4444', '#fca5a5', 'rgba(248,113,113,0.5)'],
           minRadius: 20,
           maxRadius: 60,
           minSize: 3,
@@ -386,15 +384,15 @@ export default function GameScreen() {
       />
 
       {/* HUD overlay during gameplay */}
-      {gameState === 'playing' && <HUD stats={stats} onPause={handlePause} showFPS={showFPS} />}
+      {gameState === 'playing' && <HUD stats={stats} onPause={handlePause} showFPS={showFPS} hapticsEnabled={hapticsEnabled} />}
 
       {/* Touch controls during gameplay */}
       {gameState === 'playing' && (
-        <TouchControls sendInput={sendInput} largeControls={largeControls} />
+        <TouchControls sendInput={sendInput} largeControls={largeControls} leftHanded={leftHanded} />
       )}
 
       {/* Menu overlays */}
-      {showMenu && gameState === 'menu' && (
+      {gameState === 'menu' && (
         <FadeTransition
           visible={true}
           slideDirection="up"
@@ -403,7 +401,8 @@ export default function GameScreen() {
           gradientColors={['#30243d', '#201929', '#13101b']}
         >
           <MenuOverlay
-            onPlay={handlePlay}
+            onPlay={handleRestart}
+            hapticsEnabled={hapticsEnabled}
             highScore={highScore}
             onOpenSettings={() => setShowSettings(true)}
             onOpenLeaderboard={() => setShowLeaderboard(true)}
@@ -418,7 +417,7 @@ export default function GameScreen() {
           duration={250}
           gradientColors={['#13101b88', '#201929ed']}
         >
-          <PauseOverlay onResume={handleResume} onRestart={handleRestart} onQuit={handleQuit} />
+          <PauseOverlay onResume={handleResume} onRestart={handleRestart} onQuit={handleQuit} hapticsEnabled={hapticsEnabled} />
         </FadeTransition>
       )}
 
@@ -433,6 +432,8 @@ export default function GameScreen() {
           <GameOverOverlay
             stats={stats}
             highScore={highScore}
+            isNewBest={isNewBest}
+            hapticsEnabled={hapticsEnabled}
             onRestart={handleRestart}
             onQuit={handleQuit}
           />
@@ -443,7 +444,7 @@ export default function GameScreen() {
       <SettingsSheet
         visible={showSettings}
         onClose={() => setShowSettings(false)}
-        onChanged={refreshSettings}
+        onChanged={applySettings}
       />
       <LeaderboardSheet
         visible={showLeaderboard}
@@ -462,7 +463,9 @@ export default function GameScreen() {
 const TouchControls: React.FC<{
   sendInput: (type: string, value: boolean) => void;
   largeControls?: boolean;
-}> = ({ sendInput, largeControls = false }) => {
+  leftHanded: boolean;
+}> = ({ sendInput, largeControls = false, leftHanded }) => {
+  const insets = useSafeAreaInsets();
   const heldInputsRef = useRef<Set<string>>(new Set());
 
   const handleTouchStart = useCallback((type: string) => {
@@ -476,6 +479,11 @@ const TouchControls: React.FC<{
     heldInputsRef.current.delete(type);
     sendInput(type, false);
   }, [sendInput]);
+
+  const activate = (type: string) => {
+    handleTouchStart(type);
+    handleTouchEnd(type);
+  };
 
   const releaseAll = useCallback(() => {
     for (const type of heldInputsRef.current) {
@@ -499,73 +507,61 @@ const TouchControls: React.FC<{
 
   return (
     <View style={styles.touchOverlay} pointerEvents="box-none">
-      {/* Right side: big jump target, slide (dash) tucked beside it so both
-          sit under the thumb arc with independent touch targets. */}
-      <View style={styles.rightControls}>
-        <ActionIconButton
-          size={largeControls ? 'md' : 'sm'}
-          icon="flash"
-          label="Slide"
-          hint="Dash through danger without stopping"
-          onPress={() => handleTouchStart('dash-press')}
-          onRelease={() => handleTouchEnd('dash-press')}
-          accent="purple"
-        />
+      <View style={[
+        styles.actionControls,
+        { bottom: insets.bottom + 16 },
+        leftHanded
+          ? { left: insets.left + 16, flexDirection: 'row-reverse' }
+          : { right: insets.right + 16 },
+      ]}>
+        <Pressable
+          onPressIn={() => handleTouchStart('dash-press')}
+          onPressOut={() => handleTouchEnd('dash-press')}
+          onTouchCancel={() => handleTouchEnd('dash-press')}
+          accessibilityRole="button"
+          accessibilityLabel="Slide"
+          accessibilityActions={[{ name: 'activate' }]}
+          onAccessibilityAction={({ nativeEvent }) => {
+            if (nativeEvent.actionName === 'activate') activate('dash-press');
+          }}
+          style={({ pressed }) => [styles.slideBtn, largeControls && styles.slideBtnLarge, pressed && styles.actionPressed]}
+        >
+          <Ionicons name="flash" size={20} color="#f4f2ed" />
+          <Text style={styles.actionLabel}>Slide</Text>
+        </Pressable>
         <Pressable
           onPressIn={() => handleTouchStart('jump-press')}
           onPressOut={() => handleTouchEnd('jump-press')}
           onTouchCancel={() => handleTouchEnd('jump-press')}
           accessibilityRole="button"
           accessibilityLabel="Jump"
-          accessibilityHint="Tap to jump; tap again mid-air for a double jump"
-          style={[styles.jumpBtn, largeControls && styles.jumpBtnLarge]}
+          accessibilityHint="Tap again in the air to double jump"
+          accessibilityActions={[{ name: 'activate' }]}
+          onAccessibilityAction={({ nativeEvent }) => {
+            if (nativeEvent.actionName === 'activate') activate('jump-press');
+          }}
+          style={({ pressed }) => [styles.jumpBtn, largeControls && styles.jumpBtnLarge, pressed && styles.actionPressed]}
         >
-          <Ionicons name="arrow-up" size={largeControls ? 34 : 28} color="rgba(255,255,255,0.85)" />
+          <Ionicons name="arrow-up" size={largeControls ? 32 : 26} color="#f4f2ed" />
+          <Text style={styles.actionLabel}>Jump</Text>
         </Pressable>
       </View>
     </View>
   );
 };
 
-const ActionIconButton: React.FC<{
-  icon: keyof typeof Ionicons.glyphMap;
-  size?: 'sm' | 'md';
-  accent?: 'blue' | 'orange' | 'purple';
-  label: string;
-  hint: string;
-  onPress: () => void;
-  onRelease: () => void;
-}> = ({ icon, size = 'sm', accent, label, hint, onPress, onRelease }) => {
-  const btnSize = size === 'md' ? 60 : 50;
-
-  return (
-    <Pressable
-      onPressIn={onPress}
-      onPressOut={onRelease}
-      onTouchCancel={onRelease}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityHint={hint}
-      style={[
-        styles.touchBtn,
-        { width: btnSize, height: btnSize, borderRadius: btnSize / 2 },
-        accent === 'blue' && styles.touchBtnBlue,
-        accent === 'orange' && styles.touchBtnOrange,
-        accent === 'purple' && styles.touchBtnPurple,
-      ]}
-    >
-      <Ionicons name={icon} size={size === 'md' ? 24 : 20} color="rgba(255,255,255,0.7)" />
-    </Pressable>
-  );
-};
-
 // ─── HUD ───────────────────────────────────────────────────────────
 
-const HUD: React.FC<{ stats: GameStats; onPause: () => void; showFPS?: boolean }> = ({ stats, onPause, showFPS = false }) => {
+const HUD: React.FC<{
+  stats: GameStats;
+  onPause: () => void;
+  showFPS: boolean;
+  hapticsEnabled: boolean;
+}> = ({ stats, onPause, showFPS, hapticsEnabled }) => {
   const hearts = Array.from({ length: stats.maxHealth }).map((_, i) => i);
 
   return (
-    <SafeAreaView style={styles.hudContainer} pointerEvents="box-none">
+    <SafeAreaView style={styles.hudContainer} edges={['top', 'left', 'right']} pointerEvents="box-none">
       <View style={styles.hudRow} pointerEvents="box-none">
         {/* Left: Health bar + Coins */}
         <View style={styles.hudLeft}>
@@ -623,7 +619,7 @@ const HUD: React.FC<{ stats: GameStats; onPause: () => void; showFPS?: boolean }
               <Text style={styles.fpsText}>{Math.round(stats.fps)} FPS</Text>
             </View>
           )}
-          <PauseButton onPress={onPause} />
+          <PauseButton onPress={onPause} hapticsEnabled={hapticsEnabled} />
         </View>
       </View>
     </SafeAreaView>
@@ -632,13 +628,13 @@ const HUD: React.FC<{ stats: GameStats; onPause: () => void; showFPS?: boolean }
 
 // ─── Pause Button (with press feedback + haptics) ───────────────────
 
-const PauseButton: React.FC<{ onPress: () => void }> = ({ onPress }) => {
+const PauseButton: React.FC<{ onPress: () => void; hapticsEnabled: boolean }> = ({ onPress, hapticsEnabled }) => {
   const scale = useRef(new Animated.Value(1)).current;
   return (
     <Pressable
       onPressIn={() => {
         Animated.spring(scale, { toValue: 0.9, damping: 30, stiffness: 600, useNativeDriver: true }).start();
-        Vibration.vibrate(8);
+        if (hapticsEnabled) Vibration.vibrate(8);
       }}
       onPressOut={() => {
         Animated.spring(scale, { toValue: 1, damping: 20, stiffness: 300, useNativeDriver: true }).start();
@@ -659,21 +655,21 @@ const PauseButton: React.FC<{ onPress: () => void }> = ({ onPress }) => {
 // ─── Menu Overlay (single screen — the app IS this screen) ─────────
 
 const MenuOverlay: React.FC<{
-  onPlay: (seed?: number) => void;
+  onPlay: () => void;
+  hapticsEnabled: boolean;
   highScore: number;
   onOpenSettings: () => void;
   onOpenLeaderboard: () => void;
-}> = ({ onPlay, highScore, onOpenSettings, onOpenLeaderboard }) => {
+}> = ({ onPlay, hapticsEnabled, highScore, onOpenSettings, onOpenLeaderboard }) => {
+  const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
-  const isLandscape = width > height;
+  const isLandscape = width > height * 1.25;
+  const compact = height < 690;
 
   return (
   <LinearGradient colors={['#30243d', '#201929', '#13101b']} style={styles.overlay}>
-    <View style={styles.ambientGlowA} />
-    <View style={styles.ambientGlowB} />
-
     {/* Corner icons: settings + leaderboard sheets */}
-    <View style={styles.cornerIcons}>
+    <View style={[styles.cornerIcons, { top: insets.top + 12, right: insets.right + 12 }]}>
       <CornerIconButton
         icon="trophy"
         label="Leaderboard"
@@ -688,37 +684,45 @@ const MenuOverlay: React.FC<{
       />
     </View>
 
-    <View style={[styles.menuContent, isLandscape && styles.menuContentLandscape]}>
-      <Text style={styles.subtitle}>Endless platformer</Text>
-      <Text style={styles.title} accessibilityRole="header" accessibilityLabel="Dashverse">
-        DASH<Text style={styles.titleAccent}>VERSE</Text>
-      </Text>
+    <View style={[
+      styles.launchLayout,
+      { paddingLeft: insets.left + 20, paddingRight: insets.right + 20, paddingTop: insets.top + 64, paddingBottom: insets.bottom + 12 },
+      isLandscape && styles.launchLandscape,
+    ]}>
+      <Image
+        accessible={false}
+        source={require('../assets/ruins-cover.jpg')}
+        resizeMode="cover"
+        style={[styles.launchCover, isLandscape && styles.launchCoverLandscape,
+          !isLandscape && { height: Math.min(300, height * (compact ? 0.30 : 0.34)) }]}
+      />
+      <View style={[styles.menuContent, styles.launchContent]}>
+        <Text style={styles.title} accessibilityRole="header" accessibilityLabel="Dashverse" numberOfLines={1} adjustsFontSizeToFit>
+          DASH<Text style={styles.titleAccent}>VERSE</Text>
+        </Text>
 
-      {highScore > 0 && (
-        <View style={styles.bestPill} accessible accessibilityLabel={`Personal best score ${highScore}`}>
-          <Text style={styles.bestPillLabel}>BEST</Text>
-          <Text style={styles.bestPillValue}>{highScore.toLocaleString()}</Text>
+        {highScore > 0 && (
+          <View style={styles.bestPill} accessible accessibilityLabel={`Personal best score ${highScore}`}>
+            <Text style={styles.bestPillLabel}>BEST</Text>
+            <Text style={styles.bestPillValue}>{highScore.toLocaleString()}</Text>
+          </View>
+        )}
+
+        <View style={styles.playBtnWrap}>
+          <PressableScale
+            style={styles.playBtn}
+            onPress={onPlay}
+            haptic={hapticsEnabled}
+            accessibilityRole="button"
+            accessibilityLabel="Play Endless"
+            accessibilityHint="Start a new endless run"
+          >
+            <Text style={styles.playBtnText}>Play Endless</Text>
+          </PressableScale>
         </View>
-      )}
 
-      {/* Stretch wrapper: PressableScale applies style to its inner view, so
-          width:'100%' would resolve against the hug-content Pressable and
-          collapse — the wrapper owns the width instead. */}
-      <View style={styles.playBtnWrap}>
-        <PressableScale
-          style={styles.playBtn}
-          onPress={() => onPlay()}
-          accessibilityRole="button"
-          accessibilityLabel="Play Endless"
-          accessibilityHint="Start a new endless run"
-        >
-          <Text style={styles.playBtnText}>Play Endless</Text>
-        </PressableScale>
+        <Text style={styles.controlsHint}>Jump over gaps · Slide through danger</Text>
       </View>
-
-      <Text style={styles.controlsHint}>
-        Auto-runs right · tap to jump · slide through danger
-      </Text>
     </View>
   </LinearGradient>
   );
@@ -745,27 +749,28 @@ const CornerIconButton: React.FC<{
 
 const PauseOverlay: React.FC<{
   onResume: () => void;
+  hapticsEnabled: boolean;
   onRestart: () => void;
   onQuit: () => void;
-}> = ({ onResume, onRestart, onQuit }) => (
+}> = ({ onResume, onRestart, onQuit, hapticsEnabled }) => (
   <LinearGradient colors={['#13101b88', '#201929ed']} style={styles.overlay}>
-    <View style={styles.menuContent}>
-      <Text style={styles.overlayTitle}>Paused</Text>
+    <SafeAreaView style={styles.menuContent}>
+      <Text style={styles.overlayTitle} accessibilityRole="header">Paused</Text>
 
       <View style={styles.playBtnWrap}>
-        <PressableScale style={styles.playBtn} onPress={onResume} accessibilityRole="button" accessibilityLabel="Resume run">
+        <PressableScale style={styles.playBtn} onPress={onResume} accessibilityRole="button" accessibilityLabel="Resume run" haptic={hapticsEnabled}>
           <Text style={styles.playBtnText}>Resume</Text>
         </PressableScale>
       </View>
 
-      <PressableScale style={styles.secondaryBtn} onPress={onRestart} accessibilityRole="button" accessibilityLabel="Restart run">
+      <PressableScale style={styles.secondaryBtn} onPress={onRestart} accessibilityRole="button" accessibilityLabel="Restart run" haptic={hapticsEnabled}>
         <Text style={styles.secondaryBtnText}>Restart</Text>
       </PressableScale>
 
-      <PressableScale style={styles.quitBtn} onPress={onQuit} accessibilityRole="button" accessibilityLabel="Quit to menu">
+      <PressableScale style={styles.quitBtn} onPress={onQuit} accessibilityRole="button" accessibilityLabel="Quit to menu" haptic={hapticsEnabled}>
         <Text style={styles.quitBtnText}>Quit to Menu</Text>
       </PressableScale>
-    </View>
+    </SafeAreaView>
   </LinearGradient>
 );
 
@@ -774,10 +779,11 @@ const PauseOverlay: React.FC<{
 const GameOverOverlay: React.FC<{
   stats: GameStats;
   highScore: number;
+  isNewBest: boolean;
+  hapticsEnabled: boolean;
   onRestart: () => void;
   onQuit: () => void;
-}> = ({ stats, highScore, onRestart, onQuit }) => {
-  const isNewHigh = stats.score >= highScore && stats.score > 0;
+}> = ({ stats, highScore, isNewBest, hapticsEnabled, onRestart, onQuit }) => {
   const [shareStatus, setShareStatus] = useState('Share Run');
 
   const handleShare = useCallback(async () => {
@@ -804,39 +810,43 @@ const GameOverOverlay: React.FC<{
 
   return (
     <LinearGradient colors={['#13101bbf', '#201929f4']} style={styles.overlay}>
-      <View style={styles.menuContent}>
-        <Text style={styles.overlayTitle}>Game Over</Text>
+      <SafeAreaView style={styles.resultsSafeArea}>
+        <ScrollView contentContainerStyle={styles.resultsScroll}>
+          <View style={styles.menuContent}>
+            <Text style={styles.overlayTitle} accessibilityRole="header">Game Over</Text>
 
-        {isNewHigh && (
-          <View style={styles.newHighBadge}>
-            <Text style={styles.newHighText}>New High Score!</Text>
+            {isNewBest && (
+              <View style={styles.newHighBadge}>
+                <Text style={styles.newHighText}>New High Score!</Text>
+              </View>
+            )}
+
+            <View style={styles.statsGrid}>
+              <StatCard label="Score" value={stats.score.toLocaleString()} highlight={isNewBest} />
+              <StatCard label="Best" value={highScore.toLocaleString()} />
+              <StatCard label="Distance" value={`${Math.round(stats.distance)}m`} />
+              <StatCard label="Coins" value={`${stats.coins}`} />
+              <StatCard label="Best Combo" value={stats.maxCombo > 0 ? `x${stats.maxCombo}` : '—'} />
+              <StatCard label="Defeated" value={`${stats.enemiesDefeated}`} />
+            </View>
+
+            <View style={styles.playBtnWrap}>
+              <PressableScale style={styles.playBtn} onPress={onRestart} accessibilityRole="button" accessibilityLabel="Play again" haptic={hapticsEnabled}>
+                <Text style={styles.playBtnText}>Play Again</Text>
+              </PressableScale>
+            </View>
+
+            <View style={styles.gameOverActions}>
+              <PressableScale style={styles.gameOverSecondaryBtn} onPress={() => { void handleShare(); }} accessibilityRole="button" accessibilityLabel="Share this run result" haptic={hapticsEnabled}>
+                <Text style={styles.secondaryBtnText}>{shareStatus}</Text>
+              </PressableScale>
+              <PressableScale style={styles.gameOverSecondaryBtn} onPress={onQuit} accessibilityRole="button" accessibilityLabel="Return to main menu" haptic={hapticsEnabled}>
+                <Text style={styles.secondaryBtnText}>Main Menu</Text>
+              </PressableScale>
+            </View>
           </View>
-        )}
-
-        <View style={styles.statsGrid}>
-          <StatCard label="Score" value={stats.score.toLocaleString()} highlight={isNewHigh} />
-          <StatCard label="Best" value={highScore.toLocaleString()} />
-          <StatCard label="Distance" value={`${Math.round(stats.distance)}m`} />
-          <StatCard label="Coins" value={`${stats.coins}`} />
-          <StatCard label="Best Combo" value={stats.maxCombo > 0 ? `x${stats.maxCombo}` : '—'} />
-          <StatCard label="Defeated" value={`${stats.enemiesDefeated}`} />
-        </View>
-
-        <View style={styles.playBtnWrap}>
-          <PressableScale style={styles.playBtn} onPress={onRestart} accessibilityRole="button" accessibilityLabel="Play again">
-            <Text style={styles.playBtnText}>Play Again</Text>
-          </PressableScale>
-        </View>
-
-        <View style={styles.gameOverActions}>
-          <PressableScale style={styles.gameOverSecondaryBtn} onPress={() => { void handleShare(); }} accessibilityRole="button" accessibilityLabel="Share this run result">
-            <Text style={styles.secondaryBtnText}>{shareStatus}</Text>
-          </PressableScale>
-          <PressableScale style={styles.gameOverSecondaryBtn} onPress={onQuit} accessibilityRole="button" accessibilityLabel="Return to main menu">
-            <Text style={styles.secondaryBtnText}>Main Menu</Text>
-          </PressableScale>
-        </View>
-      </View>
+        </ScrollView>
+      </SafeAreaView>
     </LinearGradient>
   );
 };
@@ -849,8 +859,6 @@ const StatCard: React.FC<{ label: string; value: string; highlight?: boolean }> 
 );
 
 // ─── Styles ────────────────────────────────────────────────────────
-
-const { width: SCREEN_W } = Dimensions.get('window');
 
 const styles = StyleSheet.create({
   container: {
@@ -901,49 +909,49 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     zIndex: 20,
   },
-  rightControls: {
+  actionControls: {
     position: 'absolute',
-    bottom: 44,
-    right: 24,
     flexDirection: 'row',
     alignItems: 'flex-end',
-    gap: 14,
+    gap: 10,
   },
   jumpBtn: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: 'rgba(59,130,246,0.24)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(59,130,246,0.4)',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#272c20',
+    borderWidth: 2,
+    borderColor: '#c7ff4d',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 2,
   },
   jumpBtnLarge: {
-    width: 108,
-    height: 108,
-    borderRadius: 54,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
   },
-  touchBtn: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
+  slideBtn: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: '#30243d',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
+    borderColor: '#a18bb4',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 4,
   },
-  touchBtnBlue: {
-    backgroundColor: 'rgba(59,130,246,0.2)',
-    borderColor: 'rgba(59,130,246,0.3)',
+  slideBtnLarge: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
   },
-  touchBtnOrange: {
-    backgroundColor: 'rgba(249,115,22,0.2)',
-    borderColor: 'rgba(249,115,22,0.3)',
+  actionLabel: {
+    color: '#f4f2ed',
+    fontSize: 11,
+    fontWeight: '700',
   },
-  touchBtnPurple: {
-    backgroundColor: 'rgba(175,82,222,0.22)',
-    borderColor: 'rgba(191,90,242,0.38)',
-  },
+  actionPressed: { opacity: 0.75 },
   hudContainer: {
     position: 'absolute',
     top: 0,
@@ -996,28 +1004,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  ambientGlowA: {
-    position: 'absolute',
-    width: SCREEN_W * 0.9,
-    height: SCREEN_W * 0.9,
-    borderRadius: SCREEN_W,
-    top: -SCREEN_W * 0.32,
-    right: -SCREEN_W * 0.28,
-    backgroundColor: 'rgba(142,121,158,0.22)',
+  launchLayout: {
+    flex: 1,
+    width: '100%',
+    maxWidth: 872,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 18,
   },
-  ambientGlowB: {
-    position: 'absolute',
-    width: SCREEN_W * 0.72,
-    height: SCREEN_W * 0.72,
-    borderRadius: SCREEN_W,
-    bottom: -SCREEN_W * 0.22,
-    left: -SCREEN_W * 0.24,
-    backgroundColor: 'rgba(191,90,242,0.16)',
+  launchLandscape: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  launchCover: {
+    width: '100%',
+    maxWidth: 450,
+    borderRadius: 14,
+    backgroundColor: '#201929',
+  },
+  launchCoverLandscape: {
+    flex: 1,
+    width: undefined,
+    height: '100%',
+    maxHeight: 320,
+  },
+  launchContent: {
+    flexShrink: 1,
+    paddingHorizontal: 0,
+    maxWidth: 320,
+    gap: 10,
   },
   cornerIcons: {
     position: 'absolute',
-    top: 18,
-    right: 18,
     flexDirection: 'row',
     gap: 10,
     zIndex: 2,
@@ -1039,12 +1057,6 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 430,
   },
-  // The same portrait-first composition stays readable in a short landscape
-  // viewport while the game itself expands to the full horizontal canvas.
-  menuContentLandscape: {
-    maxWidth: 740,
-    transform: [{ scale: 0.66 }],
-  },
   title: {
     color: '#f4f2ed',
     fontSize: 46,
@@ -1058,13 +1070,6 @@ const styles = StyleSheet.create({
   },
   titleAccent: {
     color: '#c7ff4d',
-  },
-  subtitle: {
-    color: '#c6b8d2',
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 2,
-    textTransform: 'uppercase',
   },
   bestPill: {
     flexDirection: 'row',
@@ -1111,7 +1116,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   secondaryBtn: {
-    width: 280,
+    minWidth: 120,
     minHeight: 48,
     paddingVertical: 10,
     borderRadius: 12,
@@ -1127,7 +1132,8 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   gameOverActions: {
-    width: 280,
+    width: '100%',
+    justifyContent: 'center',
     flexDirection: 'row',
     gap: 8,
   },
@@ -1143,7 +1149,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.08)',
   },
   quitBtn: {
-    width: 280,
+    minWidth: 120,
     minHeight: 48,
     paddingVertical: 10,
     borderRadius: 12,
@@ -1173,12 +1179,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
+  resultsSafeArea: {
+    width: '100%',
+    flex: 1,
+  },
+  resultsScroll: {
+    flexGrow: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+  },
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
     marginTop: 8,
-    width: 280,
+    width: '100%',
+    justifyContent: 'center',
   },
   statCard: {
     width: '46%',

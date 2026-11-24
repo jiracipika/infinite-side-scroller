@@ -21,7 +21,7 @@ fi
 
 # Fix 2: Strengthen ProGuard rules to prevent R8 stripping native modules
 PG="$ANDROID_DIR/app/proguard-rules.pro"
-if [ -f "$PG" ]; then
+if [ -f "$PG" ] && ! grep -q 'Dashverse crash fix' "$PG"; then
   cat >> "$PG" << 'PROGUARD'
 
 # ── Dashverse crash fix: keep all native module classes ──
@@ -61,10 +61,7 @@ else
   exit 1
 fi
 
-# Fix 4: Restore release signing (clean prebuilds wipe BOTH halves:
-# the gitignored keystore.properties and the signingConfigs.release
-# block the template never had — the signed build.gradle is force-added
-# at HEAD for exactly this restore; see build-farm BUILD-MATRIX.md).
+# Restore local-farm signing after a clean prebuild.
 KS="$ANDROID_DIR/keystore.properties"
 SECRETS="/Volumes/ADATA/mobile-setup/build-farm/keys/secrets.csv"
 if [ ! -f "$KS" ] && [ -f "$SECRETS" ]; then
@@ -83,15 +80,52 @@ if [ ! -f "$KS" ] && [ -f "$SECRETS" ]; then
   fi
 fi
 
-BG="$ANDROID_DIR/app/build.gradle"
-if grep -q "Caution! In production" "$BG" && ! grep -q "keystorePropertiesFile" "$BG"; then
-  recorded="$(git -C "$DIR/../../" show HEAD:apps/mobile/android/app/build.gradle 2>/dev/null)"
-  if printf '%s' "$recorded" | grep -q "keystorePropertiesFile"; then
-    printf '%s' "$recorded" > "$BG"
-    echo "Restored signingConfigs.release block from HEAD (template build.gradle replaced)"
-  else
-    echo "Warning: HEAD build.gradle lacks signing block — re-force-add after template bump" >&2
-  fi
-fi
+# Patch only signing so Expo's generated versionCode and settings survive.
+# Codemagic can still inject a signing config through Gradle properties.
+node - "$ANDROID_DIR/app/build.gradle" <<'NODE'
+const fs = require('node:fs');
+const path = require('node:path');
+const file = process.argv[2];
+const mobileDir = path.resolve(path.dirname(file), '../..');
+const reactNativeDir = path.dirname(require.resolve('react-native/package.json', { paths: [mobileDir] }));
+const pluginDir = path.dirname(require.resolve('@react-native/gradle-plugin/package.json', { paths: [reactNativeDir] }));
+const pluginSettings = path.join(pluginDir, 'settings.gradle.kts');
+// React Native 0.83 pins a resolver that references a vendor removed in Gradle 9.
+const settings = fs.readFileSync(pluginSettings, 'utf8');
+const fixedSettings = settings.replace(
+  'id("org.gradle.toolchains.foojay-resolver-convention").version("0.5.0")',
+  'id("org.gradle.toolchains.foojay-resolver-convention").version("1.0.0")',
+);
+if (fixedSettings !== settings) fs.writeFileSync(pluginSettings, fixedSettings);
+
+const gradle = fs.readFileSync(file, 'utf8');
+if (gradle.includes('keystorePropertiesFile')) process.exit(0);
+const androidBlock = /^android \{/m;
+const signingBlock = /^    signingConfigs \{/m;
+const releaseSigning = /(^        release \{\n(?:            \/\/[^\n]*\n)*)            signingConfig signingConfigs\.debug$/m;
+if (![androidBlock, signingBlock, releaseSigning].every(pattern => pattern.test(gradle))) {
+  throw new Error('Expo Gradle template changed. Update the Android signing patch.');
+}
+const patched = gradle
+  .replace(androidBlock, `def keystorePropertiesFile = rootProject.file('keystore.properties')
+def keystoreProperties = new Properties()
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.withInputStream { keystoreProperties.load(it) }
+}
+
+android {`)
+  .replace(signingBlock, `    signingConfigs {
+        release {
+            if (keystorePropertiesFile.exists()) {
+                storeFile file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+            }
+        }`)
+  .replace(releaseSigning, `        release {
+            signingConfig keystorePropertiesFile.exists() ? signingConfigs.release : signingConfigs.debug`);
+fs.writeFileSync(file, patched);
+NODE
 
 echo "Post-prebuild patches applied successfully."

@@ -68,6 +68,7 @@ describe('mobile game settings loader', () => {
     await mockStore.setItem(SETTINGS_PREFIX + 'reducedParticles', JSON.stringify(false));
     await mockStore.setItem(SETTINGS_PREFIX + 'hapticsEnabled', JSON.stringify(false));
     await mockStore.setItem(SETTINGS_PREFIX + 'largeControls', JSON.stringify(true));
+    await mockStore.setItem(SETTINGS_PREFIX + 'leftHanded', JSON.stringify(true));
 
     const settings = await loadGameSettings();
     assert.equal(settings.masterVolume, 0.3);
@@ -77,17 +78,20 @@ describe('mobile game settings loader', () => {
     assert.equal(settings.reducedParticles, false);
     assert.equal(settings.hapticsEnabled, false);
     assert.equal(settings.largeControls, true);
+    assert.equal(settings.leftHanded, true);
   });
 
   it('falls back to defaults for corrupt values', async () => {
     await mockStore.setItem(SETTINGS_PREFIX + 'masterVolume', 'not-json');
     await mockStore.setItem(SETTINGS_PREFIX + 'showFPS', JSON.stringify('string-not-bool'));
     await mockStore.setItem(SETTINGS_PREFIX + 'sfxVolume', JSON.stringify('NaN'));
+    await mockStore.setItem(SETTINGS_PREFIX + 'leftHanded', JSON.stringify('left'));
 
     const settings = await loadGameSettings();
     assert.equal(settings.masterVolume, DEFAULT_GAME_SETTINGS.masterVolume);
     assert.equal(settings.showFPS, DEFAULT_GAME_SETTINGS.showFPS);
     assert.equal(settings.sfxVolume, DEFAULT_GAME_SETTINGS.sfxVolume);
+    assert.equal(settings.leftHanded, DEFAULT_GAME_SETTINGS.leftHanded);
   });
 
   it('falls back to defaults when a key is missing', async () => {
@@ -97,6 +101,7 @@ describe('mobile game settings loader', () => {
     assert.equal(settings.masterVolume, 0.5);
     assert.equal(settings.sfxVolume, DEFAULT_GAME_SETTINGS.sfxVolume);
     assert.equal(settings.largeControls, DEFAULT_GAME_SETTINGS.largeControls);
+    assert.equal(settings.leftHanded, DEFAULT_GAME_SETTINGS.leftHanded);
   });
 
   it('uses default values that match the Settings screen defaults', async () => {
@@ -109,5 +114,6 @@ describe('mobile game settings loader', () => {
     assert.equal(DEFAULT_GAME_SETTINGS.reducedParticles, true);
     assert.equal(DEFAULT_GAME_SETTINGS.hapticsEnabled, true);
     assert.equal(DEFAULT_GAME_SETTINGS.largeControls, false);
+    assert.equal(DEFAULT_GAME_SETTINGS.leftHanded, false);
   });
 });

@@ -9,8 +9,7 @@ workflows:
       node: 22
       vars:
         EXPO_PUBLIC: "true"
-    # Automatic APK evidence for every main-branch change. Release workflows
-    # remain manual in Codemagic so credentials and store releases are explicit.
+    # Start this workflow manually in Codemagic to build a standalone test APK.
     scripts:
       - name: Install root dependencies
         script: |

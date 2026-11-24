@@ -18,6 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { usePersistedSetting } from '../hooks/usePersistedSetting';
 import { useReducedMotion, motionSpring } from '../hooks/useReducedMotion';
 import { selectionHaptic } from '../lib/haptics';
+import { DEFAULT_GAME_SETTINGS, type GameSettings } from '../lib/game-settings';
 import { PressableScale } from './PressableScale';
 
 /**
@@ -32,28 +33,31 @@ export function SettingsSheet({
 }: {
   visible: boolean;
   onClose: () => void;
-  onChanged?: () => void;
+  onChanged?: (settings: GameSettings) => void;
 }) {
-  const [masterVolume, setMasterVolume, loadedMaster] = usePersistedSetting('masterVolume', 0.7);
-  const [sfxVolume, setSfxVolume, loadedSfx] = usePersistedSetting('sfxVolume', 0.8);
-  const [musicVolume, setMusicVolume, loadedMusic] = usePersistedSetting('musicVolume', 0.6);
-  const [showFPS, setShowFPS, loadedFps] = usePersistedSetting('showFPS', false);
-  const [reducedParticles, setReducedParticles, loadedParticles] = usePersistedSetting('reducedParticles', true);
-  const [hapticsEnabled, setHapticsEnabled, loadedHaptics] = usePersistedSetting('hapticsEnabled', true);
-  const [largeControls, setLargeControls, loadedLarge] = usePersistedSetting('largeControls', false);
+  const [masterVolume, setMasterVolume, loadedMaster] = usePersistedSetting('masterVolume', DEFAULT_GAME_SETTINGS.masterVolume);
+  const [sfxVolume, setSfxVolume, loadedSfx] = usePersistedSetting('sfxVolume', DEFAULT_GAME_SETTINGS.sfxVolume);
+  const [musicVolume, setMusicVolume, loadedMusic] = usePersistedSetting('musicVolume', DEFAULT_GAME_SETTINGS.musicVolume);
+  const [showFPS, setShowFPS, loadedFps] = usePersistedSetting('showFPS', DEFAULT_GAME_SETTINGS.showFPS);
+  const [reducedParticles, setReducedParticles, loadedParticles] = usePersistedSetting('reducedParticles', DEFAULT_GAME_SETTINGS.reducedParticles);
+  const [hapticsEnabled, setHapticsEnabled, loadedHaptics] = usePersistedSetting('hapticsEnabled', DEFAULT_GAME_SETTINGS.hapticsEnabled);
+  const [largeControls, setLargeControls, loadedLarge] = usePersistedSetting('largeControls', DEFAULT_GAME_SETTINGS.largeControls);
+  const [leftHanded, setLeftHanded, loadedHand] = usePersistedSetting('leftHanded', DEFAULT_GAME_SETTINGS.leftHanded);
 
-  const allLoaded = loadedMaster && loadedSfx && loadedMusic && loadedFps && loadedParticles && loadedHaptics && loadedLarge;
+  const allLoaded = loadedMaster && loadedSfx && loadedMusic && loadedFps && loadedParticles && loadedHaptics && loadedLarge && loadedHand;
 
-  const handleClose = React.useCallback(() => {
-    selectionHaptic();
+  const handleClose = () => {
+    if (hapticsEnabled) selectionHaptic();
+    if (allLoaded) {
+      onChanged?.({ masterVolume, sfxVolume, musicVolume, showFPS, reducedParticles, hapticsEnabled, largeControls, leftHanded });
+    }
     onClose();
-    onChanged?.();
-  }, [onClose, onChanged]);
+  };
 
   if (!allLoaded) {
     return (
       <Modal visible={visible} animationType="slide" onRequestClose={handleClose}>
-        <SafeAreaView style={[styles.container, styles.loading]} edges={['top']}>
+        <SafeAreaView style={[styles.container, styles.loading]} edges={['top', 'left', 'right', 'bottom']}>
           <ActivityIndicator size="large" color="#c7ff4d" />
         </SafeAreaView>
       </Modal>
@@ -61,7 +65,7 @@ export function SettingsSheet({
   }
 
   const handleToggle = (setter: (v: boolean) => void, value: boolean) => {
-    selectionHaptic();
+    if (hapticsEnabled) selectionHaptic();
     setter(value);
   };
 
@@ -70,12 +74,12 @@ export function SettingsSheet({
   };
 
   const handleSliderRelease = () => {
-    selectionHaptic();
+    if (hapticsEnabled) selectionHaptic();
   };
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={handleClose}>
-      <SafeAreaView style={styles.container} edges={['top']}>
+      <SafeAreaView style={styles.container} edges={['top', 'left', 'right', 'bottom']}>
         <View style={styles.sheetHeader}>
           <Pressable
             onPress={handleClose}
@@ -188,6 +192,17 @@ export function SettingsSheet({
                 accessibilityHint="Increases on-screen button sizes for easier tapping"
               />
             </SettingRow>
+            <SettingDivider />
+            <SettingRow label="Controls Side" value={leftHanded ? 'Left' : 'Right'}>
+              <Switch
+                value={leftHanded}
+                onValueChange={(v) => handleToggle(setLeftHanded, v)}
+                trackColor={{ false: 'rgba(255,255,255,0.18)', true: '#c7ff4d' }}
+                thumbColor="#fff"
+                accessibilityLabel="Left-handed touch controls"
+                accessibilityHint="Moves Jump and Slide to the left side of the screen"
+              />
+            </SettingRow>
           </GlassCard>
 
           {/* ─── Accessibility Section ─── */}
@@ -208,8 +223,8 @@ export function SettingsSheet({
           {/* ─── Reset Button ─── */}
           <GlassCard style={styles.resetCardWrap} delay={180}>
             <PressableScale
+              haptic={hapticsEnabled}
               onPress={() => {
-                selectionHaptic();
                 Alert.alert(
                   'Reset Settings',
                   'Restore all options to their default values?',
@@ -219,13 +234,14 @@ export function SettingsSheet({
                       text: 'Reset',
                       style: 'destructive',
                       onPress: () => {
-                        setMasterVolume(0.7);
-                        setSfxVolume(0.8);
-                        setMusicVolume(0.6);
-                        setShowFPS(false);
-                        setReducedParticles(true);
-                        setHapticsEnabled(true);
-                        setLargeControls(false);
+                        setMasterVolume(DEFAULT_GAME_SETTINGS.masterVolume);
+                        setSfxVolume(DEFAULT_GAME_SETTINGS.sfxVolume);
+                        setMusicVolume(DEFAULT_GAME_SETTINGS.musicVolume);
+                        setShowFPS(DEFAULT_GAME_SETTINGS.showFPS);
+                        setReducedParticles(DEFAULT_GAME_SETTINGS.reducedParticles);
+                        setHapticsEnabled(DEFAULT_GAME_SETTINGS.hapticsEnabled);
+                        setLargeControls(DEFAULT_GAME_SETTINGS.largeControls);
+                        setLeftHanded(DEFAULT_GAME_SETTINGS.leftHanded);
                       },
                     },
                   ],
