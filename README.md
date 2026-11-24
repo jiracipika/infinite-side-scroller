@@ -44,10 +44,26 @@ The mobile shell is a single screen: the menu is the app — title, personal
 best, one Play button, and settings/leaderboard as corner icons that open
 slide-up sheets. Runs use a one-thumb auto-runner scheme: the character always
 runs right, melee/ranged attacks fire automatically inside engagement range,
-and the only buttons are Jump and Slide (dash). The engine is bundled into a
-WebView from the same `src/game` source the web version ships, so every repo
-update flows to the next mobile build (`apps/mobile/scripts/bundle-game-html.js`
-runs before each native build, locally and on Codemagic).
+and the action buttons are Jump and Slide (dash). In Settings, turn on large
+controls or move both buttons to the left side. Leaving the app pauses an active
+run until you tap Resume. The WebView bundles the same `src/game` source as the
+web version. `apps/mobile/scripts/bundle-game-html.js` runs before each native
+build, locally and on Codemagic.
+
+To build a standalone Android APK locally, install Node 22+, JDK 17+ and
+the Android SDK through Android Studio, and set `ANDROID_HOME`. From the repo
+root, run the following in a Bash-capable terminal:
+
+```bash
+npm ci
+npm ci --prefix apps/mobile
+npm run mobile:apk
+adb install -r apps/mobile/android/app/build/outputs/apk/release/app-release.apk
+```
+
+The APK bundles the game for offline play and uses a debug key by default.
+For a hosted build, run the **Android Installable Test APK** workflow
+(`android-debug`) manually in Codemagic and download its APK artifact.
 
 ## Save Slots + Shop
 

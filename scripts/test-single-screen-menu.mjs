@@ -13,14 +13,15 @@ const screen = fs.readFileSync(
 // surface down and bring the menu back.
 assert.match(
   screen,
-  /setGameState\('menu'\);\s*\n\s*setShowMenu\(true\)/,
+  /const handleQuit = useCallback\(\(\) => \{\s*transitionTo\('menu'\)/,
   'Quit to Menu must restore the menu overlay alongside the menu game state.',
 );
 assert.match(
   screen,
-  /gameState !== 'menu' && \(\s*\n\s*<View style=\{styles\.webviewContainer\}>/,
+  /gameState !== 'menu' && gameState !== 'error' && \(\s*<View style=\{styles\.webviewContainer\}/,
   'The WebView must unmount in the menu state so the native menu is always the front surface.',
 );
+assert.match(screen, /gameState === 'menu' && \([\s\S]*?<MenuOverlay/);
 assert.doesNotMatch(
   screen,
   /<Tabs\./,

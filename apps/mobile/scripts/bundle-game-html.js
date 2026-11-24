@@ -52,7 +52,8 @@ async function build() {
     const html = `<!DOCTYPE html>
 <html>
 <head>
-<meta charset="utf-8" name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
@@ -96,6 +97,9 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
     input: { autoRun: true, enableKeyboard: false, enableGamepad: false },
   });
 
+  // Paint the opening frame without advancing the auto-runner while the
+  // native UI is loading or backgrounded.
+  engine.pause();
   engine.start();
 
   // Stats callback → post back to React Native
@@ -134,26 +138,51 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
   // that logic in one place prevents high-DPR Android WebViews from allocating
   // competing oversized backing stores.
 
+  function setAudioVolumes(master, sfx, music) {
+    engine.setAudioVolumes(master, sfx, music);
+  }
+
+  function setUserReducedParticles(enabled) {
+    engine.setUserReducedParticles(enabled);
+  }
+
+  function applySettings(settings) {
+    setAudioVolumes(settings.masterVolume, settings.sfxVolume, settings.musicVolume);
+    setUserReducedParticles(settings.reducedParticles);
+  }
+
+  function resume() {
+    engine.resume();
+    engine.resumeAudio();
+  }
+
   // Expose controls for React Native
   window.__gameControls = {
+    startRun: function(options) {
+      applySettings(options.settings);
+      engine.setSeed(options.seed);
+      if (options.paused) engine.pause();
+      else resume();
+    },
+    applySettings: applySettings,
     setSeed: function(seed) { engine.setSeed(seed); },
     setLevel: function(config) { engine.setLevel(config); },
-    pause: function() { engine.pause(); },
-    resume: function() { engine.resume(); },
+    pause: function() {
+      // The input manager uses blur to clear held controls and queued edges.
+      window.dispatchEvent(new Event('blur'));
+      engine.pause();
+    },
+    resume: resume,
     resumeAudio: function() { engine.resumeAudio(); },
     getState: function() { return engine.state; },
     setCharacter: function(id) { engine.setSeed(engine.worldSeed, id); },
     // Settings bridge — lets the React Native shell apply persisted player
     // preferences to the running engine without a full remount.
-    setAudioVolumes: function(master, sfx) {
-      try { engine.setAudioVolumes(master, sfx); } catch(e) {}
-    },
+    setAudioVolumes: setAudioVolumes,
     setReducedMotion: function(enabled) {
       try { engine.setReducedMotion(enabled); } catch(e) {}
     },
-    setUserReducedParticles: function(enabled) {
-      try { engine.setUserReducedParticles(enabled); } catch(e) {}
-    },
+    setUserReducedParticles: setUserReducedParticles,
   };
 
   // Announce readiness only after the native command bridge exists. The React

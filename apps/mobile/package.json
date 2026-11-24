@@ -6,6 +6,7 @@
     "bundle-game": "node scripts/bundle-game-html.js",
     "start": "npm run bundle-game && expo start",
     "android": "npm run bundle-game && expo start --android",
+    "apk": "npm run bundle-game && expo prebuild --platform android --no-install && bash scripts/patch-android.sh && bash -c \"cd android && ./gradlew assembleRelease\"",
     "ios": "npm run bundle-game && expo start --ios",
     "web": "expo start --web"
   },

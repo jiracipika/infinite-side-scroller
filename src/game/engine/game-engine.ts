@@ -111,6 +111,8 @@ function getCanvasRenderDpr(rawDpr: number, width: number, height: number): numb
 
 export type EngineState = "playing" | "paused" | "gameover";
 
+const AUTO_RUN_FOCUS_X = 0.28;
+
 export interface RemotePlayerViewState {
   id: string;
   name: string;
@@ -419,6 +421,7 @@ export class GameEngine {
     this.camera = new Camera({
       ...DEFAULT_CAMERA_CONFIG,
       mode: options?.cameraMode ?? DEFAULT_CAMERA_CONFIG.mode,
+      focusX: this.autoRun ? AUTO_RUN_FOCUS_X : DEFAULT_CAMERA_CONFIG.focusX,
     });
     this.chunkManager = new ChunkManager(this.worldSeed);
     this.player = new Player(DEFAULT_PLAYER_CONFIG);
@@ -2985,13 +2988,14 @@ export class GameEngine {
       ctx.fillStyle = rgbaToString(tint);
       ctx.fillRect(0, 0, width, height);
     }
-    // Comic-panel zoom (polish): scale the world around the hero focus so
-    // the inked hero reads bigger without moving the camera math. Zoomed
-    // out-in means fewer world columns fit — culling above is conservative.
+    // Give narrow auto-runner screens more warning before hazards reach the
+    // player. Wider screens retain the original comic-panel zoom.
     ctx.save();
-    ctx.translate(width * 0.4, height * 0.6);
-    ctx.scale(WORLD_ZOOM, WORLD_ZOOM);
-    ctx.translate(-width * 0.4, -height * 0.6);
+    const focusX = this.autoRun ? AUTO_RUN_FOCUS_X : DEFAULT_CAMERA_CONFIG.focusX;
+    const zoom = this.autoRun ? Math.max(1, Math.min(WORLD_ZOOM, width / 520)) : WORLD_ZOOM;
+    ctx.translate(width * focusX, height * 0.6);
+    ctx.scale(zoom, zoom);
+    ctx.translate(-width * focusX, -height * 0.6);
     this.renderer.drawTerrain(chunks, this.camera, this.gameTime, this.reducedMotion);
     this.renderer.drawPlatforms(chunks, this.camera, this.gameTime);
     this.renderer.drawDecorations(chunks, this.camera);

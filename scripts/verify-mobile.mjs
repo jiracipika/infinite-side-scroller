@@ -40,7 +40,7 @@ const gameHtml = fs.readFileSync(gameHtmlPath, 'utf8')
 assert(gameHtmlSize > 10000, `game.html must be at least 10KB (got ${gameHtmlSize} bytes)`)
 
 // 4. Required asset files exist
-const requiredAssets = ['icon.png', 'splash-icon.png', 'favicon.png']
+const requiredAssets = ['icon.png', 'splash-icon.png', 'favicon.png', 'ruins-cover.jpg']
 for (const asset of requiredAssets) {
   assert(fs.existsSync(path.join(mobileDir, 'assets', asset)), `assets/${asset} must exist`)
 }
@@ -107,22 +107,23 @@ assert(gameHtml.includes('setUserReducedParticles'), 'mobile game bundle must ex
 assert(gameHtml.includes('resumeAudio'), 'mobile game bundle must expose resumeAudio on the engine bridge')
 assert(mobileGame.includes('loadGameSettings'), 'mobile game screen must load persisted game settings on mount')
 assert(mobileGame.includes('settingsRef'), 'mobile game screen must hold settings in a ref for the WebView bridge')
-assert(mobileGame.includes('setAudioVolumes('), 'mobile game screen must push audio volumes to the engine')
-assert(mobileGame.includes('setUserReducedParticles('), 'mobile game screen must push reduced-particles preference to the engine')
+assert(gameHtml.includes('setAudioVolumes(settings.masterVolume, settings.sfxVolume, settings.musicVolume)'), 'mobile game must apply all three saved volume levels')
+assert(gameHtml.includes('setUserReducedParticles(settings.reducedParticles)'), 'mobile game must apply the reduced-particles preference')
 assert(
-  mobileGame.includes('onChanged={refreshSettings}'),
+  mobileGame.includes('onChanged={applySettings}'),
   'mobile game screen must refresh persisted settings when the settings sheet closes',
 )
 
 // 11. Game-over must carry final stats (not rely on a stale HUD snapshot).
 assert(gameHtml.includes("type: 'gameover'") && gameHtml.includes('finalStats'), 'mobile game bundle must pass final stats through the gameover message')
 assert(
-  mobileGame.includes("typeof data.distance === 'number' ? data.distance : stats.distance"),
+  mobileGame.includes('distance: data.distance ?? stats.distance'),
   'mobile gameover handler must prefer engine final stats over stale snapshot',
 )
 
 // 12. Large-controls and showFPS settings must be wired to the UI.
 assert(mobileGame.includes('largeControls={largeControls}'), 'mobile touch controls must receive the largeControls setting')
+assert(mobileGame.includes('leftHanded={leftHanded}'), 'mobile touch controls must receive the left-handed setting')
 assert(mobileGame.includes('showFPS={showFPS}'), 'mobile HUD must receive the showFPS setting')
 
 // 13. Simplified menu — no onboarding card, no step list.

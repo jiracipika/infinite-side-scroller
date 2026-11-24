@@ -39,20 +39,10 @@ export function FadeTransition({
   gradientColors,
 }: FadeTransitionProps) {
   const reduced = useReducedMotion();
-  const opacity = useRef(new Animated.Value(visible ? 1 : 0)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(0)).current;
-  const firstRender = useRef(true);
 
   useEffect(() => {
-    if (firstRender.current) {
-      firstRender.current = false;
-      // Set initial displacement without animating on mount.
-      if (visible && !reduced && slideDirection !== 'none') {
-        translateY.setValue(slideDistance);
-      }
-      return;
-    }
-
     const dur = motionDuration(duration, reduced);
     const targetOpacity = visible ? 1 : 0;
     const targetY = visible
@@ -88,7 +78,9 @@ export function FadeTransition({
       );
     }
 
-    Animated.parallel(animations).start();
+    const transition = Animated.parallel(animations);
+    transition.start();
+    return () => transition.stop();
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
