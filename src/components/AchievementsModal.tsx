@@ -213,7 +213,7 @@ export default function AchievementsModal({ onClose }: Props) {
                     <Icon name={isHiddenSecret ? 'circle-help' : a.icon} size={21} />
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 15, fontWeight: 600, color: isUnlocked ? 'var(--dv-text)' : 'rgba(244, 242, 237, 0.6)', letterSpacing: '-0.23px' }}>
+                    <div style={{ fontSize: 15, fontWeight: 600, color: isUnlocked ? 'var(--dv-text)' : 'var(--dv-muted)', letterSpacing: '-0.23px' }}>
                       {isHiddenSecret ? '???' : a.title}
                     </div>
                     <div style={{ fontSize: 13, color: 'var(--dv-muted)', marginTop: 2 }}>

@@ -22,8 +22,8 @@
   "verifiedCharacters": 17,
   "errors": [],
   "timings": {
-    "renderMedianMs": 0.6999999284744263,
-    "renderP95Ms": 0.8999999761581421
+    "renderMedianMs": 0.5,
+    "renderP95Ms": 0.6999999284744263
   },
   "reports": [
     {
@@ -52,8 +52,8 @@
       },
       "run": {
         "snapshot": {
-          "x": 245.42222222222216,
-          "y": 359.81883195516707,
+          "x": 250.08888888888882,
+          "y": 359.8896751211018,
           "vx": 280,
           "vy": 0,
           "facingRight": true,
@@ -64,7 +64,7 @@
           "characterId": "knight",
           "width": 24,
           "height": 32,
-          "distance": 4
+          "distance": 5
         },
         "vx": 280,
         "vy": 0,
@@ -74,8 +74,8 @@
       },
       "jump": {
         "snapshot": {
-          "x": 271.0888888888888,
-          "y": 351.84887195911665,
+          "x": 266.4222222222221,
+          "y": 351.81014741582817,
           "vx": 0,
           "vy": -496.6666666666667,
           "facingRight": true,
@@ -96,10 +96,10 @@
       },
       "attack": {
         "snapshot": {
-          "x": 271.0888888888888,
-          "y": 343.95998307022774,
+          "x": 266.4222222222221,
+          "y": 336.42125852693925,
           "vx": 0,
-          "vy": -473.33333333333337,
+          "vy": -450.00000000000006,
           "facingRight": true,
           "onGround": false,
           "health": 3,
@@ -111,15 +111,15 @@
           "distance": 5
         },
         "vx": 0,
-        "vy": -473.33333333333337,
+        "vy": -450.00000000000006,
         "dashing": false,
         "meleeActive": true,
         "renderSequence": 3
       },
       "dash": {
         "snapshot": {
-          "x": 281.0888888888888,
-          "y": 304.7933164035611,
+          "x": 276.4222222222221,
+          "y": 294.81014741582817,
           "vx": 600,
           "vy": 0,
           "facingRight": true,
@@ -205,7 +205,7 @@
         "vy": -548.6666666666666,
         "dashing": false,
         "meleeActive": false,
-        "renderSequence": 2
+        "renderSequence": 1
       },
       "attack": {
         "snapshot": {
@@ -301,6 +301,28 @@
       "jump": {
         "snapshot": {
           "x": 246.49555555555568,
+          "y": 348.9514053156482,
+          "vx": 0,
+          "vy": -418.6666666666667,
+          "facingRight": true,
+          "onGround": false,
+          "health": 5,
+          "maxHealth": 5,
+          "alive": true,
+          "characterId": "tank",
+          "width": 28,
+          "height": 36,
+          "distance": 4
+        },
+        "vx": 0,
+        "vy": -418.6666666666667,
+        "dashing": false,
+        "meleeActive": false,
+        "renderSequence": 2
+      },
+      "attack": {
+        "snapshot": {
+          "x": 246.49555555555568,
           "y": 342.36251642675927,
           "vx": 0,
           "vy": -395.33333333333337,
@@ -317,35 +339,13 @@
         "vx": 0,
         "vy": -395.33333333333337,
         "dashing": false,
-        "meleeActive": false,
-        "renderSequence": 2
-      },
-      "attack": {
-        "snapshot": {
-          "x": 246.49555555555568,
-          "y": 336.1625164267593,
-          "vx": 0,
-          "vy": -372.00000000000006,
-          "facingRight": true,
-          "onGround": false,
-          "health": 5,
-          "maxHealth": 5,
-          "alive": true,
-          "characterId": "tank",
-          "width": 28,
-          "height": 36,
-          "distance": 4
-        },
-        "vx": 0,
-        "vy": -372.00000000000006,
-        "dashing": false,
         "meleeActive": true,
-        "renderSequence": 3
+        "renderSequence": 2
       },
       "dash": {
         "snapshot": {
           "x": 256.4955555555557,
-          "y": 307.1291830934259,
+          "y": 319.8958497600926,
           "vx": 600,
           "vy": 0,
           "facingRight": true,
@@ -391,8 +391,8 @@
       },
       "run": {
         "snapshot": {
-          "x": 240.87999999999997,
-          "y": 357.72164502462596,
+          "x": 245.07999999999996,
+          "y": 357.80437966794585,
           "vx": 252,
           "vy": 0,
           "facingRight": true,
@@ -431,14 +431,14 @@
         "vy": -652.6666666666666,
         "dashing": false,
         "meleeActive": false,
-        "renderSequence": 2
+        "renderSequence": 1
       },
       "attack": {
         "snapshot": {
           "x": 259.7799999999999,
-          "y": 316.85005774477844,
+          "y": 326.56116885588955,
           "vx": 0,
-          "vy": -582.6666666666665,
+          "vy": -605.9999999999999,
           "facingRight": true,
           "onGround": false,
           "health": 2,
@@ -450,7 +450,7 @@
           "distance": 5
         },
         "vx": 0,
-        "vy": -582.6666666666665,
+        "vy": -605.9999999999999,
         "dashing": false,
         "meleeActive": false,
         "renderSequence": 4
@@ -458,7 +458,7 @@
       "dash": {
         "snapshot": {
           "x": 269.7799999999999,
-          "y": 274.12783552255627,
+          "y": 281.8945021892229,
           "vx": 600,
           "vy": 0,
           "facingRight": true,
@@ -504,8 +504,8 @@
       },
       "run": {
         "snapshot": {
-          "x": 257.6022222222223,
-          "y": 359.95925510626006,
+          "x": 252.2355555555556,
+          "y": 359.89557848371174,
           "vx": 322,
           "vy": 0,
           "facingRight": true,
@@ -527,9 +527,9 @@
       "jump": {
         "snapshot": {
           "x": 276.38555555555564,
-          "y": 343.13422921195956,
+          "y": 351.45645143418176,
           "vx": 0,
-          "vy": -499.3333333333333,
+          "vy": -522.6666666666666,
           "facingRight": true,
           "onGround": false,
           "health": 3,
@@ -541,7 +541,7 @@
           "distance": 5
         },
         "vx": 0,
-        "vy": -499.3333333333333,
+        "vy": -522.6666666666666,
         "dashing": false,
         "meleeActive": false,
         "renderSequence": 2
@@ -566,7 +566,7 @@
         "vy": -476,
         "dashing": false,
         "meleeActive": false,
-        "renderSequence": 4
+        "renderSequence": 3
       },
       "dash": {
         "snapshot": {
@@ -639,10 +639,10 @@
       },
       "jump": {
         "snapshot": {
-          "x": 267.53444444444443,
-          "y": 343.7966552020001,
+          "x": 263.1011111111111,
+          "y": 351.2174976467864,
           "vx": 0,
-          "vy": -447.33333333333337,
+          "vy": -470.6666666666667,
           "facingRight": true,
           "onGround": false,
           "health": 4,
@@ -654,17 +654,17 @@
           "distance": 5
         },
         "vx": 0,
-        "vy": -447.33333333333337,
+        "vy": -470.6666666666667,
         "dashing": false,
         "meleeActive": false,
-        "renderSequence": 2
+        "renderSequence": 1
       },
       "attack": {
         "snapshot": {
-          "x": 267.53444444444443,
-          "y": 343.7966552020001,
+          "x": 263.1011111111111,
+          "y": 351.2174976467864,
           "vx": 0,
-          "vy": -447.33333333333337,
+          "vy": -470.6666666666667,
           "facingRight": true,
           "onGround": false,
           "health": 4,
@@ -676,15 +676,15 @@
           "distance": 5
         },
         "vx": 0,
-        "vy": -447.33333333333337,
+        "vy": -470.6666666666667,
         "dashing": false,
         "meleeActive": true,
-        "renderSequence": 3
+        "renderSequence": 2
       },
       "dash": {
         "snapshot": {
-          "x": 277.53444444444443,
-          "y": 307.22998853533346,
+          "x": 273.1011111111111,
+          "y": 323.72860875789746,
           "vx": 600,
           "vy": 0,
           "facingRight": true,
@@ -752,8 +752,30 @@
       },
       "jump": {
         "snapshot": {
-          "x": 271.0888888888888,
-          "y": 339.1338585764429,
+          "x": 266.4222222222221,
+          "y": 348.89170701156695,
+          "vx": 0,
+          "vy": -611.0666666666666,
+          "facingRight": true,
+          "onGround": false,
+          "health": 2,
+          "maxHealth": 2,
+          "alive": true,
+          "characterId": "spirit",
+          "width": 21,
+          "height": 33,
+          "distance": 5
+        },
+        "vx": 0,
+        "vy": -611.0666666666666,
+        "dashing": false,
+        "meleeActive": false,
+        "renderSequence": 1
+      },
+      "attack": {
+        "snapshot": {
+          "x": 266.4222222222221,
+          "y": 339.0961514560114,
           "vx": 0,
           "vy": -587.7333333333332,
           "facingRight": true,
@@ -770,34 +792,12 @@
         "vy": -587.7333333333332,
         "dashing": false,
         "meleeActive": false,
-        "renderSequence": 2
-      },
-      "attack": {
-        "snapshot": {
-          "x": 271.0888888888888,
-          "y": 329.72719190977625,
-          "vx": 0,
-          "vy": -564.3999999999999,
-          "facingRight": true,
-          "onGround": false,
-          "health": 2,
-          "maxHealth": 2,
-          "alive": true,
-          "characterId": "spirit",
-          "width": 21,
-          "height": 33,
-          "distance": 5
-        },
-        "vx": 0,
-        "vy": -564.3999999999999,
-        "dashing": false,
-        "meleeActive": false,
-        "renderSequence": 4
+        "renderSequence": 3
       },
       "dash": {
         "snapshot": {
-          "x": 281.0888888888888,
-          "y": 262.5671919097763,
+          "x": 286.4222222222221,
+          "y": 303.8028181226781,
           "vx": 600,
           "vy": 0,
           "facingRight": true,
@@ -843,8 +843,8 @@
       },
       "run": {
         "snapshot": {
-          "x": 248.08533333333327,
-          "y": 358.85652637449624,
+          "x": 243.60533333333328,
+          "y": 358.7799984086143,
           "vx": 268.8,
           "vy": 0,
           "facingRight": true,
@@ -865,8 +865,30 @@
       },
       "jump": {
         "snapshot": {
-          "x": 268.2453333333333,
-          "y": 341.5449771689597,
+          "x": 263.7653333333333,
+          "y": 350.0921044893163,
+          "vx": 0,
+          "vy": -538.2666666666667,
+          "facingRight": true,
+          "onGround": false,
+          "health": 4,
+          "maxHealth": 4,
+          "alive": true,
+          "characterId": "healer",
+          "width": 23,
+          "height": 33,
+          "distance": 5
+        },
+        "vx": 0,
+        "vy": -538.2666666666667,
+        "dashing": false,
+        "meleeActive": false,
+        "renderSequence": 2
+      },
+      "attack": {
+        "snapshot": {
+          "x": 263.7653333333333,
+          "y": 341.50988226709404,
           "vx": 0,
           "vy": -514.9333333333333,
           "facingRight": true,
@@ -885,32 +907,10 @@
         "meleeActive": false,
         "renderSequence": 2
       },
-      "attack": {
-        "snapshot": {
-          "x": 268.2453333333333,
-          "y": 333.35164383562636,
-          "vx": 0,
-          "vy": -491.59999999999997,
-          "facingRight": true,
-          "onGround": false,
-          "health": 4,
-          "maxHealth": 4,
-          "alive": true,
-          "characterId": "healer",
-          "width": 23,
-          "height": 33,
-          "distance": 5
-        },
-        "vx": 0,
-        "vy": -491.59999999999997,
-        "dashing": false,
-        "meleeActive": false,
-        "renderSequence": 4
-      },
       "dash": {
         "snapshot": {
-          "x": 278.2453333333333,
-          "y": 292.358310502293,
+          "x": 273.7653333333333,
+          "y": 311.06988226709404,
           "vx": 600,
           "vy": 0,
           "facingRight": true,
@@ -956,8 +956,8 @@
       },
       "run": {
         "snapshot": {
-          "x": 245.64622222222218,
-          "y": 359.7954320998738,
+          "x": 250.87288888888884,
+          "y": 359.8794191299407,
           "vx": 313.6,
           "vy": 0,
           "facingRight": true,
@@ -968,7 +968,7 @@
           "characterId": "cherry",
           "width": 22,
           "height": 32,
-          "distance": 4
+          "distance": 5
         },
         "vx": 313.6,
         "vy": 0,
@@ -978,8 +978,30 @@
       },
       "jump": {
         "snapshot": {
-          "x": 269.1662222222222,
-          "y": 341.855060204708,
+          "x": 274.3928888888889,
+          "y": 350.83027728250386,
+          "vx": 0,
+          "vy": -559.0666666666667,
+          "facingRight": true,
+          "onGround": false,
+          "health": 3,
+          "maxHealth": 3,
+          "alive": true,
+          "characterId": "cherry",
+          "width": 22,
+          "height": 32,
+          "distance": 5
+        },
+        "vx": 0,
+        "vy": -559.0666666666667,
+        "dashing": false,
+        "meleeActive": false,
+        "renderSequence": 1
+      },
+      "attack": {
+        "snapshot": {
+          "x": 274.3928888888889,
+          "y": 341.901388393615,
           "vx": 0,
           "vy": -535.7333333333333,
           "facingRight": true,
@@ -995,35 +1017,13 @@
         "vx": 0,
         "vy": -535.7333333333333,
         "dashing": false,
-        "meleeActive": false,
-        "renderSequence": 2
-      },
-      "attack": {
-        "snapshot": {
-          "x": 269.1662222222222,
-          "y": 333.315060204708,
-          "vx": 0,
-          "vy": -512.4,
-          "facingRight": true,
-          "onGround": false,
-          "health": 3,
-          "maxHealth": 3,
-          "alive": true,
-          "characterId": "cherry",
-          "width": 22,
-          "height": 32,
-          "distance": 5
-        },
-        "vx": 0,
-        "vy": -512.4,
-        "dashing": false,
         "meleeActive": true,
         "renderSequence": 3
       },
       "dash": {
         "snapshot": {
-          "x": 279.1662222222222,
-          "y": 296.44839353804133,
+          "x": 284.3928888888889,
+          "y": 303.09027728250385,
           "vx": 600,
           "vy": 0,
           "facingRight": true,
@@ -1069,8 +1069,8 @@
       },
       "run": {
         "snapshot": {
-          "x": 253.0942222222222,
-          "y": 358.9124779605563,
+          "x": 243.20088888888887,
+          "y": 358.7533543473185,
           "vx": 296.8,
           "vy": 0,
           "facingRight": true,
@@ -1081,7 +1081,7 @@
           "characterId": "velvet",
           "width": 22,
           "height": 33,
-          "distance": 5
+          "distance": 4
         },
         "vx": 296.8,
         "vy": 0,
@@ -1091,10 +1091,10 @@
       },
       "jump": {
         "snapshot": {
-          "x": 280.30088888888884,
-          "y": 340.271986055157,
+          "x": 265.46088888888886,
+          "y": 349.4080859331602,
           "vx": 0,
-          "vy": -556.5333333333332,
+          "vy": -579.8666666666666,
           "facingRight": true,
           "onGround": false,
           "health": 3,
@@ -1106,17 +1106,17 @@
           "distance": 5
         },
         "vx": 0,
-        "vy": -556.5333333333332,
+        "vy": -579.8666666666666,
         "dashing": false,
         "meleeActive": false,
         "renderSequence": 2
       },
       "attack": {
         "snapshot": {
-          "x": 280.30088888888884,
-          "y": 340.271986055157,
+          "x": 265.46088888888886,
+          "y": 349.4080859331602,
           "vx": 0,
-          "vy": -556.5333333333332,
+          "vy": -579.8666666666666,
           "facingRight": true,
           "onGround": false,
           "health": 3,
@@ -1128,15 +1128,15 @@
           "distance": 5
         },
         "vx": 0,
-        "vy": -556.5333333333332,
+        "vy": -579.8666666666666,
         "dashing": false,
         "meleeActive": true,
-        "renderSequence": 3
+        "renderSequence": 1
       },
       "dash": {
         "snapshot": {
-          "x": 290.30088888888884,
-          "y": 292.7853193884904,
+          "x": 275.46088888888886,
+          "y": 314.63919704427127,
           "vx": 600,
           "vy": 0,
           "facingRight": true,
@@ -1182,8 +1182,8 @@
       },
       "run": {
         "snapshot": {
-          "x": 254.50666666666663,
-          "y": 359.9225107399969,
+          "x": 260.1066666666666,
+          "y": 359.9816838555986,
           "vx": 336,
           "vy": 0,
           "facingRight": true,
@@ -1222,7 +1222,7 @@
         "vy": -527.8666666666667,
         "dashing": false,
         "meleeActive": false,
-        "renderSequence": 2
+        "renderSequence": 1
       },
       "attack": {
         "snapshot": {
@@ -1249,7 +1249,7 @@
       "dash": {
         "snapshot": {
           "x": 289.7066666666667,
-          "y": 300.71173849999144,
+          "y": 313.25173849999146,
           "vx": 600,
           "vy": 0,
           "facingRight": true,
@@ -1266,7 +1266,7 @@
         "vy": 0,
         "dashing": true,
         "meleeActive": true,
-        "renderSequence": 2
+        "renderSequence": 1
       }
     },
     {
@@ -1317,10 +1317,10 @@
       },
       "jump": {
         "snapshot": {
-          "x": 266.4222222222221,
-          "y": 341.1840006144078,
+          "x": 261.7555555555554,
+          "y": 349.9031857470877,
           "vx": 0,
-          "vy": -525.3333333333333,
+          "vy": -548.6666666666666,
           "facingRight": true,
           "onGround": false,
           "health": 3,
@@ -1332,17 +1332,17 @@
           "distance": 5
         },
         "vx": 0,
-        "vy": -525.3333333333333,
+        "vy": -548.6666666666666,
         "dashing": false,
         "meleeActive": false,
-        "renderSequence": 2
+        "renderSequence": 1
       },
       "attack": {
         "snapshot": {
-          "x": 266.4222222222221,
-          "y": 341.1840006144078,
+          "x": 261.7555555555554,
+          "y": 349.9031857470877,
           "vx": 0,
-          "vy": -525.3333333333333,
+          "vy": -548.6666666666666,
           "facingRight": true,
           "onGround": false,
           "health": 3,
@@ -1354,15 +1354,15 @@
           "distance": 5
         },
         "vx": 0,
-        "vy": -525.3333333333333,
+        "vy": -548.6666666666666,
         "dashing": false,
         "meleeActive": true,
-        "renderSequence": 3
+        "renderSequence": 1
       },
       "dash": {
         "snapshot": {
-          "x": 276.4222222222221,
-          "y": 290.7840006144078,
+          "x": 271.7555555555554,
+          "y": 317.21429685819885,
           "vx": 600,
           "vy": 0,
           "facingRight": true,
@@ -1408,8 +1408,8 @@
       },
       "run": {
         "snapshot": {
-          "x": 246.46133333333324,
-          "y": 359.79974178758414,
+          "x": 257.10133333333323,
+          "y": 359.94878233877347,
           "vx": 319.2,
           "vy": 0,
           "facingRight": true,
@@ -1420,7 +1420,7 @@
           "characterId": "marionette",
           "width": 21,
           "height": 32,
-          "distance": 4
+          "distance": 5
         },
         "vx": 319.2,
         "vy": 0,
@@ -1430,8 +1430,8 @@
       },
       "jump": {
         "snapshot": {
-          "x": 270.40133333333324,
-          "y": 350.09688437637817,
+          "x": 281.0413333333332,
+          "y": 350.20367269573717,
           "vx": 0,
           "vy": -600.6666666666666,
           "facingRight": true,
@@ -1448,14 +1448,14 @@
         "vy": -600.6666666666666,
         "dashing": false,
         "meleeActive": false,
-        "renderSequence": 2
+        "renderSequence": 1
       },
       "attack": {
         "snapshot": {
-          "x": 270.40133333333324,
-          "y": 331.2413288208226,
+          "x": 281.0413333333332,
+          "y": 350.20367269573717,
           "vx": 0,
-          "vy": -553.9999999999999,
+          "vy": -600.6666666666666,
           "facingRight": true,
           "onGround": false,
           "health": 2,
@@ -1467,15 +1467,15 @@
           "distance": 5
         },
         "vx": 0,
-        "vy": -553.9999999999999,
+        "vy": -600.6666666666666,
         "dashing": false,
         "meleeActive": true,
-        "renderSequence": 3
+        "renderSequence": 1
       },
       "dash": {
         "snapshot": {
-          "x": 280.40133333333324,
-          "y": 290.9079954874893,
+          "x": 291.0413333333332,
+          "y": 314.0481171401816,
           "vx": 600,
           "vy": 0,
           "facingRight": true,
@@ -1543,8 +1543,8 @@
       },
       "jump": {
         "snapshot": {
-          "x": 277.04977777777776,
-          "y": 349.5613482422905,
+          "x": 271.6364444444444,
+          "y": 349.50687453976144,
           "vx": 0,
           "vy": -517.4666666666667,
           "facingRight": true,
@@ -1565,10 +1565,10 @@
       },
       "attack": {
         "snapshot": {
-          "x": 277.04977777777776,
-          "y": 333.47912602006824,
+          "x": 271.6364444444444,
+          "y": 341.2713189842059,
           "vx": 0,
-          "vy": -470.80000000000007,
+          "vy": -494.1333333333334,
           "facingRight": true,
           "onGround": false,
           "health": 3,
@@ -1580,15 +1580,15 @@
           "distance": 5
         },
         "vx": 0,
-        "vy": -470.80000000000007,
+        "vy": -494.1333333333334,
         "dashing": false,
         "meleeActive": true,
-        "renderSequence": 3
+        "renderSequence": 2
       },
       "dash": {
         "snapshot": {
-          "x": 297.04977777777776,
-          "y": 294.56579268673494,
+          "x": 281.6364444444444,
+          "y": 318.89798565087256,
           "vx": 600,
           "vy": 0,
           "facingRight": true,
@@ -1605,7 +1605,7 @@
         "vy": 0,
         "dashing": true,
         "meleeActive": true,
-        "renderSequence": 2
+        "renderSequence": 1
       }
     },
     {
@@ -1634,8 +1634,8 @@
       },
       "run": {
         "snapshot": {
-          "x": 243.60533333333328,
-          "y": 356.8087221222545,
+          "x": 248.08533333333327,
+          "y": 356.8788787226172,
           "vx": 268.8,
           "vy": 0,
           "facingRight": true,
@@ -1656,8 +1656,8 @@
       },
       "jump": {
         "snapshot": {
-          "x": 263.7653333333333,
-          "y": 348.79714223249414,
+          "x": 268.2453333333333,
+          "y": 348.8331511491751,
           "vx": 0,
           "vy": -496.6666666666667,
           "facingRight": true,
@@ -1678,10 +1678,10 @@
       },
       "attack": {
         "snapshot": {
-          "x": 263.7653333333333,
-          "y": 340.9082533436052,
+          "x": 268.2453333333333,
+          "y": 348.8331511491751,
           "vx": 0,
-          "vy": -473.33333333333337,
+          "vy": -496.6666666666667,
           "facingRight": true,
           "onGround": false,
           "health": 4,
@@ -1693,15 +1693,15 @@
           "distance": 5
         },
         "vx": 0,
-        "vy": -473.33333333333337,
+        "vy": -496.6666666666667,
         "dashing": false,
         "meleeActive": true,
-        "renderSequence": 3
+        "renderSequence": 1
       },
       "dash": {
         "snapshot": {
-          "x": 273.7653333333333,
-          "y": 301.7415866769386,
+          "x": 278.2453333333333,
+          "y": 319.61092892695285,
           "vx": 600,
           "vy": 0,
           "facingRight": true,
@@ -1747,8 +1747,8 @@
       },
       "run": {
         "snapshot": {
-          "x": 240.7555555555555,
-          "y": 357.71955610309544,
+          "x": 245.42222222222216,
+          "y": 357.8108111074755,
           "vx": 280,
           "vy": 0,
           "facingRight": true,
@@ -1769,8 +1769,8 @@
       },
       "jump": {
         "snapshot": {
-          "x": 266.4222222222221,
-          "y": 349.63288950329667,
+          "x": 261.7555555555554,
+          "y": 349.59651908042105,
           "vx": 0,
           "vy": -507.06666666666666,
           "facingRight": true,
@@ -1787,14 +1787,14 @@
         "vy": -507.06666666666666,
         "dashing": false,
         "meleeActive": false,
-        "renderSequence": 2
+        "renderSequence": 1
       },
       "attack": {
         "snapshot": {
-          "x": 266.4222222222221,
-          "y": 341.57066728107446,
+          "x": 261.7555555555554,
+          "y": 349.59651908042105,
           "vx": 0,
-          "vy": -483.73333333333335,
+          "vy": -507.06666666666666,
           "facingRight": true,
           "onGround": false,
           "health": 4,
@@ -1806,15 +1806,15 @@
           "distance": 5
         },
         "vx": 0,
-        "vy": -483.73333333333335,
+        "vy": -507.06666666666666,
         "dashing": false,
         "meleeActive": true,
-        "renderSequence": 3
+        "renderSequence": 1
       },
       "dash": {
         "snapshot": {
-          "x": 286.4222222222221,
-          "y": 301.36400061440776,
+          "x": 271.7555555555554,
+          "y": 319.6809635248655,
           "vx": 600,
           "vy": 0,
           "facingRight": true,
@@ -1860,8 +1860,8 @@
       },
       "run": {
         "snapshot": {
-          "x": 249.05599999999995,
-          "y": 357.8776980500952,
+          "x": 244.01599999999996,
+          "y": 357.79652895426096,
           "vx": 302.40000000000003,
           "vy": 0,
           "facingRight": true,
@@ -1922,12 +1922,12 @@
         "vy": -535.7333333333333,
         "dashing": false,
         "meleeActive": true,
-        "renderSequence": 3
+        "renderSequence": 2
       },
       "dash": {
         "snapshot": {
           "x": 281.73599999999993,
-          "y": 294.4833962036999,
+          "y": 315.4367295370332,
           "vx": 600,
           "vy": 0,
           "facingRight": true,
@@ -1944,7 +1944,7 @@
         "vy": 0,
         "dashing": true,
         "meleeActive": true,
-        "renderSequence": 2
+        "renderSequence": 1
       }
     }
   ]

@@ -2523,3 +2523,18 @@ input[type="range"]::-moz-range-thumb { background: var(--dv-text); }
 @media (max-width: 480px) {
   .dash-level-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* Secondary text in the base dash-* classes and field placeholders: the last
+   greys that sat under 4.5:1 on the ink panels. */
+.dash-save-grid small,
+.dash-rank,
+.dash-score-row small,
+.dash-shop-row span,
+.dash-panel-heading-row small,
+.dash-empty-text {
+  color: var(--dv-muted);
+}
+
+.ios-text-field::placeholder {
+  color: color-mix(in srgb, var(--dv-muted) 78%, var(--dv-ink));
+}
