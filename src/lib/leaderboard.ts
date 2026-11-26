@@ -1,3 +1,5 @@
+import type { IconName } from '@/components/ink-paths';
+
 export interface LeaderboardEntry {
   id: string;
   name: string;
@@ -19,18 +21,19 @@ const MAX_ENTRIES = 60;
 export interface AvatarPreset {
   id: string;
   label: string;
-  icon: string;
+  /** Drawn mark (the id is what gets persisted, never the mark). */
+  icon: IconName;
 }
 
 export const AVATAR_PRESETS: AvatarPreset[] = [
-  { id: 'robot_blue', label: 'Blue Bot', icon: '🤖' },
-  { id: 'knight', label: 'Knight', icon: '🛡️' },
-  { id: 'alien', label: 'Alien', icon: '👽' },
-  { id: 'archer', label: 'Archer', icon: '🏹' },
-  { id: 'healer', label: 'Healer', icon: '💚' },
-  { id: 'fox', label: 'Fox', icon: '🦊' },
-  { id: 'owl', label: 'Owl', icon: '🦉' },
-  { id: 'star', label: 'Star', icon: '⭐' },
+  { id: 'robot_blue', label: 'Blue Bot', icon: 'bot' },
+  { id: 'knight', label: 'Knight', icon: 'shield' },
+  { id: 'alien', label: 'Alien', icon: 'alien' },
+  { id: 'archer', label: 'Archer', icon: 'bow' },
+  { id: 'healer', label: 'Healer', icon: 'heart-pulse' },
+  { id: 'fox', label: 'Fox', icon: 'fox' },
+  { id: 'owl', label: 'Owl', icon: 'owl' },
+  { id: 'star', label: 'Star', icon: 'star' },
 ];
 
 function isValidName(value: unknown): value is string {

@@ -114,6 +114,56 @@ Plan: docs/plans/graphic-novel-fidelity.md · Evidence: docs/art/graphic-novel-c
 - All stages TDD (RED first), full npm run verify green each time, mobile bundle
   rebundled each time, live browser probes (art/menu/touch) passing.
 
+## One drawn mark set — interface ink pass (2026-11-24)
+
+System emoji were the last foreign object on the meta screens: they differ per
+OS, sit outside the palette, and (as the touch cluster's "ATK"/"HELP" labels
+and pencil-like melee mark showed) cannot be tuned for legibility. Every
+interface mark is now drawn by `src/components/Icon.tsx` on one 24-unit stroke
+grid.
+
+- **Drawn, never emoji.** `<Icon name="…" />` is the only way to put a mark on
+  a screen. Names are typed (`IconName`), so a typo in data is a compile error
+  rather than a blank tile at runtime.
+- **Where the data lives.** `icon-paths.ts` is generated — Lucide 0.454.0 path
+  data with the ISC notice embedded — by `scripts/generate-icon-paths.mjs`;
+  add a name to `ICON_NAMES` and regenerate (`--sheet` renders a visual check).
+  Marks Lucide lacks (bow, dunes, volcano, alien, fox, owl, the touch verbs,
+  pause, close) are hand-drawn in `ink-paths.ts`.
+- **The engine still speaks emoji.** `stats.powerUps` carries the emoji strings
+  the engine pushes; `POWER_UP_EMOJI` in `HUD.tsx` only translates them to drawn
+  marks. Never render one.
+- **Ink controls everywhere.** The base `ios-*` classes (buttons, cards, rows,
+  sliders, switches) are re-themed on the palette, unscoped, in `globals.css`.
+  Until then the selected segment of every settings control was still the iOS
+  blue→purple gradient, and split screen's buttons with it. The
+  `.dash-run-dialog` rules are the older, narrower copy of the same palette.
+- **No blur on a moving backdrop.** Sheets, cards and overlays are opaque. The
+  only backdrop blur left is the 5px scrim of the run dialogs, which open over a
+  paused game; the achievements dialog (opened over the animated menu) opts out
+  via `dash-still-dialog`.
+- **Lime is the one achievement ink.** Stars, coins, "New High Score" and
+  unlocked achievements are lime; gold survives only as the HUD's mid-urgency
+  ramp and in the engine's own canvas popups.
+
+Fixed in the same pass, all pre-existing and verified on the deployed build
+first: the achievements modal was anchored to the scrolled menu content (so it
+never appeared on phones, where its opener sits below the fold) and its scrim
+painted beneath the menu; split screen in a landscape phone viewport stacked two
+220px panes into ~340px of height (both outer Jump and move controls off-screen
+— the panes now go side by side whenever the stack cannot fit); the Carry button
+was offered in solo play, where the engine ignores the input; and the HUD's
+right cluster slid under the pause button by 4–8px on phones.
+
+Touch contract, updated: five solo actions press and release (jump, dash,
+attack, melee, special); Carry renders only with `canCarry` (both co-op
+surfaces). `scripts/test-neon-touch-browser.mjs` pins it live.
+
+Verification note: `scripts/test-offline-service-worker.mjs` simulates a deploy
+by editing `public/sw.js` on disk, so its deploy-purge check only runs against
+a server that serves this checkout (its other ten checks run against any
+`GAME_URL`).
+
 ## Remaining visual work
 - ~~Deliberate sun/moon treatment; scenery could display both celestial bodies.~~ DONE 2026-09-05:
   `resolveCelestialAlphas(gameTime)` (pure, RNG-free) cross-fades the sun and moon —
@@ -123,6 +173,9 @@ Plan: docs/plans/graphic-novel-fidelity.md · Evidence: docs/art/graphic-novel-c
   13 solver tests in `test/celestial-cycle.test.ts` + `scripts/test-neon-sky-a11y.mjs`
   gate (wired into `npm test`).
 - Broader native-shell theme parity and physical-device verification.
+- 2026-11-24: landscape split screen and the touch cluster were verified in
+  Chromium device emulation only (750×342 and 844×390). Not yet verified on a
+  physical phone or in WebKit/iOS Safari.
 - GLM 5.3 Flash independently reviewed the diff and re-ran the test suite and both browser probes: no regressions found. Parent also re-ran its independent expanded-panel and pause/resume probes successfully. Expanded settings are scrollable, not fully contained within the viewport (the worker report overstates this as "fully onscreen").
 - FIXED 2026-09-05: all six disclosure cards (Saves+Shop, Settings, Run Lab, Same-Wi-Fi,
   Leaderboard, plus panel wiring) now carry aria-expanded/aria-controls pointing at real

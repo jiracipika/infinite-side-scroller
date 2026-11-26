@@ -749,12 +749,12 @@ button,
     pointer-events: none;
   }
 
-  /* ── Low health vignette (pulsing red edge) ───────────────── */
+  /* ── Low health vignette (pulsing coral edge — the palette's danger ink) */
   .ios-low-health-vignette {
     background: radial-gradient(
       ellipse at center,
       transparent 48%,
-      rgba(255, 59, 48, 0.38) 100%
+      rgba(255, 113, 102, 0.38) 100%
     );
     animation: lowHealthPulse 1.6s ease-in-out infinite;
     pointer-events: none;
@@ -1466,8 +1466,8 @@ button,
 .dash-input-grid-v2 label {
   display: grid;
   gap: 6px;
-  color: #62666d;
-  font-size: 10px;
+  color: var(--dv-muted);
+  font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.11em;
   font-weight: 590;
@@ -1487,16 +1487,19 @@ button,
   margin-top: 12px;
 }
 .dash-avatar-button-v2 {
-  height: 38px;
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  background: rgba(255, 255, 255, 0.03);
-  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 44px;
+  border-radius: 10px;
+  border: 1px solid var(--dv-stroke);
+  background: var(--dv-raised);
+  color: var(--dv-muted);
   font-size: 15px;
 }
 .dash-avatar-button-v2.is-active {
-  border-color: rgba(113, 112, 255, 0.55);
-  background: rgba(113, 112, 255, 0.18);
+  border-color: var(--dv-violet);
+  background: rgba(178, 154, 255, 0.16);
 }
 .dash-text-button-v2 {
   min-height: 34px;
@@ -1559,11 +1562,11 @@ button,
   background: #5e6ad2;
 }
 .dash-error-text {
-  color: #f87171;
+  color: var(--dv-danger);
   font-size: 12px;
 }
 .dash-success-text {
-  color: #fbbf24;
+  color: var(--dv-action);
   font-size: 12px;
 }
 .dash-empty-text {
@@ -1631,10 +1634,11 @@ button,
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.dash-score-row b svg { margin-right: 6px; vertical-align: -0.16em; }
 .dash-score-row small,
 .dash-shop-row span {
   color: #8a8f98;
-  font-size: 11px;
+  font-size: 12px;
   display: block;
   margin-top: 2px;
 }
@@ -1645,7 +1649,7 @@ button,
   gap: 5px;
 }
 .dash-score-cell strong {
-  color: #fbbf24;
+  color: var(--dv-action);
   font-size: 13px;
   font-variant-numeric: tabular-nums;
 }
@@ -1677,25 +1681,26 @@ button,
   text-align: left;
 }
 .dash-save-grid button.is-active {
-  background: rgba(94, 106, 210, 0.22);
-  border-color: rgba(113, 112, 255, 0.55);
+  background: rgba(178, 154, 255, 0.16);
+  border-color: var(--dv-violet);
 }
 .dash-save-grid span {
-  color: #fbbf24;
+  color: var(--dv-action);
   font-size: 12px;
 }
 .dash-save-grid small {
   color: #8a8f98;
-  font-size: 10px;
+  font-size: 12px;
 }
 .dash-save-grid .dash-slot-bests {
   color: #c7c9d1;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.01em;
   margin-top: 2px;
   font-variant-numeric: tabular-nums;
 }
+.dash-slot-bests svg { vertical-align: -0.16em; }
 .dash-shop-row {
   grid-template-columns: 1fr auto;
 }
@@ -1996,8 +2001,8 @@ input[type="range"]::-moz-range-thumb {
 
 .dash-character-card-v3 small {
   margin-left: auto;
-  color: #ffd60a;
-  font-size: 10px;
+  color: var(--dv-action);
+  font-size: 11px;
   font-weight: 800;
 }
 
@@ -2129,7 +2134,7 @@ input[type="range"]::-moz-range-thumb {
 .dash-hero-topline {
   color: var(--dash-cyan);
   font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 800;
   letter-spacing: .18em;
 }
@@ -2370,15 +2375,85 @@ body {
   --dv-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
+/* ── Base controls on the ink palette (unscoped) ──────────────────
+   The ios-* component classes predate the art direction. They are restyled
+   here for every surface at once — start-menu settings, pause-menu settings,
+   split screen, run dialogs — so the interface reads the same everywhere.
+   Fills are opaque: a blurred card or sheet sitting over the animated menu
+   is recomputed on every frame for as long as it stays open. */
+.ios-card {
+  background: var(--dv-panel);
+  border: 1px solid var(--dv-stroke);
+  border-radius: var(--dv-radius);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.ios-row + .ios-row { border-top-color: var(--dv-stroke); }
+.ios-row-label,
+.ios-row-value { color: var(--dv-text); }
+.ios-footnote,
+.ios-caption,
+.ios-caption2 { color: var(--dv-muted); }
+.ios-section-header { color: var(--dv-muted); }
+
+.ios-btn { border-radius: 5px; }
+.ios-btn:focus-visible { box-shadow: 0 0 0 3.5px rgba(199, 255, 77, 0.45); }
+.ios-btn-primary {
+  background: var(--dv-action);
+  color: var(--dv-ink);
+  box-shadow: 2px 3px #584372;
+}
+.ios-btn-primary:hover { background: #d8ff83; }
+.ios-btn-secondary,
+.ios-btn-gray {
+  background: var(--dv-raised);
+  color: var(--dv-text);
+}
+.ios-btn-secondary:hover,
+.ios-btn-gray:hover { background: #3d2f4d; }
+.ios-btn-destructive { color: var(--dv-danger); }
+.ios-btn-destructive:hover { background: rgba(255, 113, 102, 0.12); }
+
+.ios-toggle-track:focus-visible { box-shadow: 0 0 0 3.5px rgba(178, 154, 255, 0.5); }
+
+/* Sliders carry their value as --fill so the track shows how far it is set. */
+input[type="range"]::-webkit-slider-runnable-track {
+  background: linear-gradient(
+    to right,
+    var(--dv-action) 0 var(--fill, 0%),
+    var(--dv-stroke) var(--fill, 0%) 100%
+  );
+}
+input[type="range"]::-webkit-slider-thumb { background: var(--dv-text); }
+input[type="range"]::-moz-range-track { background: var(--dv-stroke); }
+input[type="range"]::-moz-range-progress {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--dv-action);
+}
+input[type="range"]::-moz-range-thumb { background: var(--dv-text); }
+
 .dash-run-dialog .ios-overlay {
   background: #110c1bc9;
   backdrop-filter: blur(5px);
+}
+
+/* Dialogs opened over the animated start screen (achievements) drop the
+   backdrop blur: nothing is paused underneath, so it would be recomputed on
+   every frame for as long as the dialog stays open. */
+.dash-run-dialog.dash-still-dialog .ios-overlay {
+  background: #110c1be0;
+  backdrop-filter: none;
 }
 
 .dash-run-dialog .ios-sheet {
   background: var(--dv-panel);
   border: 1px solid var(--dv-stroke);
   border-radius: var(--dv-radius);
+  /* Opaque sheet: the inherited 28px backdrop blur would only cost GPU time
+     blurring a surface nobody can see. */
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 .dash-run-dialog .ios-title1,

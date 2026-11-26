@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FC } from 'react';
 import { playUiClick } from '@/game/audio';
+import { Icon } from './Icon';
 
 /**
  * Compact controls explainer for the start screen.
@@ -71,17 +72,21 @@ const ControlsHint: FC<{ dismissible?: boolean }> = ({ dismissible = true }) => 
         onClick={dismiss}
         aria-label="Hide controls hint"
         style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 5,
           marginLeft: 'auto',
+          minHeight: 44,
           background: 'transparent',
           border: 'none',
-          color: 'rgba(255,255,255,0.45)',
-          fontSize: 12,
+          color: 'var(--dv-muted)',
+          fontSize: 13,
           cursor: 'pointer',
           padding: '4px 8px',
           borderRadius: 8,
         }}
       >
-        Got it ✕
+        Got it <Icon name="close" size={13} />
       </button>}
     </div>
   );

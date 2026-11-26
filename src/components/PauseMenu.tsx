@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, type FC } from 'react';
+import { useState, useEffect, useRef, type CSSProperties, type FC } from 'react';
 import { useGameStore } from './GameStore';
 import { playUiClick, playUiClickOnAdjustKey } from '@/game/audio';
 import { resolvePauseKey } from './pause-keys';
@@ -9,6 +9,7 @@ import {
   type PauseConfirmationAction,
 } from './pause-confirmation';
 import TouchControlSettings from './TouchControlSettings';
+import { Icon } from './Icon';
 
 interface Props {
   onResume: () => void;
@@ -175,8 +176,8 @@ const PauseMenu: FC<Props> = ({ onResume, onRestart, onQuit }) => {
               boxShadow: '0 20px 64px rgba(0,0,0,0.72), 0 0 0 0.5px rgba(255,255,255,0.08)',
             }}
           >
-            <div aria-hidden="true" style={{ fontSize: 30, lineHeight: 1, marginBottom: 12 }}>
-              {confirmation === 'restart' ? '↻' : '⚠'}
+            <div aria-hidden="true" style={{ display: 'flex', justifyContent: 'center', lineHeight: 1, marginBottom: 12, color: 'var(--dv-danger)' }}>
+              <Icon name={confirmation === 'restart' ? 'rotate-ccw' : 'triangle-alert'} size={32} />
             </div>
             <h2 id="pause-confirmation-title" className="ios-title2" style={{ marginBottom: 8 }}>
               {confirmCopy.title}
@@ -225,16 +226,18 @@ const PauseMenu: FC<Props> = ({ onResume, onRestart, onQuit }) => {
                   flexDirection: 'column',
                   alignItems: 'center',
                   padding: '16px 16px 12px',
-                  borderBottom: '0.5px solid var(--ios-separator)',
+                  borderBottom: '1px solid var(--dv-stroke)',
                   gap: 4,
                 }}
               >
-                <div aria-hidden="true" style={{ fontSize: 20, lineHeight: 1, marginBottom: 2 }}>⏸</div>
+                <div aria-hidden="true" style={{ display: 'flex', color: 'var(--dv-action)', marginBottom: 2 }}>
+                  <Icon name="pause" size={22} />
+                </div>
                 <h2
                   style={{
-                    fontSize: 12,
+                    fontSize: 13,
                     fontWeight: 700,
-                    color: 'var(--ios-label3)',
+                    color: 'var(--dv-muted)',
                     letterSpacing: '0.1em',
                     textTransform: 'uppercase',
                   }}
@@ -394,6 +397,7 @@ const SettingsPanel: FC = () => {
           <input
             type="range" min="0" max="1" step="0.05"
             value={settings.masterVolume}
+            style={{ '--fill': `${Math.round(settings.masterVolume * 100)}%` } as CSSProperties}
             onChange={(e) => {
               setSettings({ masterVolume: parseFloat(e.target.value) });
             }}
@@ -421,6 +425,7 @@ const SettingsPanel: FC = () => {
           <input
             type="range" min="0" max="1" step="0.05"
             value={settings.musicVolume}
+            style={{ '--fill': `${Math.round(settings.musicVolume * 100)}%` } as CSSProperties}
             onChange={(e) => {
               setSettings({ musicVolume: parseFloat(e.target.value) });
             }}

@@ -25,6 +25,7 @@ import {
 } from "@/game/data/characters";
 import CharacterSprite from "./CharacterSprite";
 import AchievementsModal from "./AchievementsModal";
+import { Icon } from "./Icon";
 import ACHIEVEMENTS, { loadUnlockedAchievements } from "@/lib/achievements";
 import {
   AVATAR_PRESETS,
@@ -500,7 +501,7 @@ const StartScreen: FC<Props> = ({
                 onClick={handlePlay}
               >
                 <span>Play Endless</span>
-                <span aria-hidden="true">→</span>
+                <Icon name="arrow-right" size={20} />
               </button>
             </div>
           </div>
@@ -554,7 +555,7 @@ const StartScreen: FC<Props> = ({
                   <small>Solo</small>
                   <b>Adventure</b>
                   <span>Levels + time attacks</span>
-                  <em aria-hidden="true">→</em>
+                  <em aria-hidden="true"><Icon name="arrow-right" size={16} /></em>
                 </button>
               )}
             <button
@@ -570,7 +571,7 @@ const StartScreen: FC<Props> = ({
               <small>Co-op</small>
               <b>{showMultiplayer ? "Hide Wi-Fi" : "Same-Wi-Fi"}</b>
               <span>Host or join nearby</span>
-              <em aria-hidden="true">↔</em>
+              <em aria-hidden="true"><Icon name="move-horizontal" size={16} /></em>
             </button>
             <button
               className="dash-mode-card-v2 coop"
@@ -579,7 +580,7 @@ const StartScreen: FC<Props> = ({
               <small>Co-op</small>
               <b>Split Screen</b>
               <span>Two players locally</span>
-              <em aria-hidden="true">▦</em>
+              <em aria-hidden="true"><Icon name="grid-2x2" size={16} /></em>
             </button>
             {onPlayDailyChallenge && (
               <button
@@ -590,13 +591,16 @@ const StartScreen: FC<Props> = ({
                 <small>Compete</small>
                 <b>{dailyUsed ? "Daily Done" : "Daily"}</b>
                 <span>
-                  {dailyStreak > 0
-                    ? `🔥 ${dailyStreak}-day streak${dailyUsed ? " · keep it going tomorrow" : ""}`
-                    : dailyUsed
-                      ? "Resets tomorrow"
-                      : "One ranked shot"}
+                  {dailyStreak > 0 ? (
+                    <>
+                      <Icon name="flame" size={13} style={{ color: "var(--dv-danger)", marginRight: 4 }} />
+                      {`${dailyStreak}-day streak${dailyUsed ? " · keep it going tomorrow" : ""}`}
+                    </>
+                  ) : dailyUsed
+                    ? "Resets tomorrow"
+                    : "One ranked shot"}
                 </span>
-                <em aria-hidden="true">★</em>
+                <em aria-hidden="true"><Icon name="star" size={16} filled /></em>
               </button>
             )}
             <button
@@ -608,7 +612,7 @@ const StartScreen: FC<Props> = ({
               <small>Compete</small>
               <b>{showLeaderboard ? "Hide Board" : "Leaderboard"}</b>
               <span>Records + ghost races</span>
-              <em aria-hidden="true">≡</em>
+              <em aria-hidden="true"><Icon name="list" size={16} /></em>
             </button>
             <button
               className="dash-mode-card-v2 customize"
@@ -626,7 +630,7 @@ const StartScreen: FC<Props> = ({
               <small>Review</small>
               <b>{showRunHistory ? "Hide Run Lab" : "Run Lab"}</b>
               <span>Trends + recent debriefs</span>
-              <em aria-hidden="true">↗︎</em>
+              <em aria-hidden="true"><Icon name="arrow-up-right" size={16} /></em>
             </button>
             <button
               className="dash-mode-card-v2 customize"
@@ -641,7 +645,7 @@ const StartScreen: FC<Props> = ({
               <small>Customize</small>
               <b>{showProgression ? "Hide Shop" : "Saves + Shop"}</b>
               <span>Coins, checkpoints, perks</span>
-              <em aria-hidden="true">◇</em>
+              <em aria-hidden="true"><Icon name="coins" size={16} /></em>
             </button>
             <button
               className="dash-mode-card-v2 customize"
@@ -656,7 +660,7 @@ const StartScreen: FC<Props> = ({
               <small>Setup</small>
               <b>{showSettings ? "Hide Settings" : "Settings"}</b>
               <span>Controls, audio, and display</span>
-              <em aria-hidden="true">⚙︎</em>
+              <em aria-hidden="true"><Icon name="settings" size={16} /></em>
             </button>
           </div>
         </section>
@@ -864,9 +868,15 @@ const StartScreen: FC<Props> = ({
                     setAvatarId(preset.id);
                     saveLeaderboardAvatarId(preset.id);
                   }}
-                  title={preset.label}
+                  aria-label={preset.label}
+                  aria-pressed={avatarId === preset.id}
                 >
-                  {preset.icon}
+                  <Icon
+                    name={preset.icon}
+                    size={22}
+                    filled={preset.icon === "star"}
+                    style={{ color: avatarId === preset.id ? "var(--dv-violet)" : "var(--dv-muted)" }}
+                  />
                 </button>
               ))}
             </div>
@@ -1026,7 +1036,8 @@ const StartScreen: FC<Props> = ({
                   <ScoreRow
                     key={entry.id}
                     rank={idx + 1}
-                    title={`${getAvatarPreset(entry.avatarId).icon} ${entry.name}`}
+                    avatar={<Icon name={getAvatarPreset(entry.avatarId).icon} size={16} filled={getAvatarPreset(entry.avatarId).icon === "star"} />}
+                    title={entry.name}
                     meta={`${entry.distance}m • ${entry.coins} coins${entry.maxCombo ? ` • x${entry.maxCombo} combo` : ''}${entry.enemiesDefeated ? ` • ${entry.enemiesDefeated} kills` : ''}`}
                     score={entry.score}
                   />
@@ -1066,7 +1077,8 @@ const StartScreen: FC<Props> = ({
                   <ScoreRow
                     key={entry.id}
                     rank={idx + 1}
-                    title={`${getAvatarPreset(entry.avatarId).icon} ${entry.name}`}
+                    avatar={<Icon name={getAvatarPreset(entry.avatarId).icon} size={16} filled={getAvatarPreset(entry.avatarId).icon === "star"} />}
+                    title={entry.name}
                     meta={`${entry.distance}m • ${entry.coins} coins • ${entry.badge}`}
                     score={entry.score}
                     action={
@@ -1109,7 +1121,11 @@ const StartScreen: FC<Props> = ({
                   </small>
                   {slot.totalRuns > 0 && (
                     <small className="dash-slot-bests" aria-label={`Best score ${slot.bestScore}, best combo x${slot.bestCombo}, ${slot.bestKills} kills`}>
-                      ★{slot.bestScore.toLocaleString()} · 🔗x{slot.bestCombo} · ⚔{slot.bestKills}
+                      <Icon name="star" filled size={12} style={{ color: "var(--dv-action)" }} />{slot.bestScore.toLocaleString()}
+                      {" · "}
+                      <Icon name="link" size={12} />x{slot.bestCombo}
+                      {" · "}
+                      <Icon name="swords" size={12} />{slot.bestKills}
                     </small>
                   )}
                 </button>
@@ -1201,12 +1217,16 @@ const ScoreRow: FC<{
   title: string;
   meta: string;
   score: number;
+  avatar?: ReactNode;
   action?: ReactNode;
-}> = ({ rank, title, meta, score, action }) => (
+}> = ({ rank, title, meta, score, avatar, action }) => (
   <div className="dash-score-row">
     <span className="dash-rank">#{rank}</span>
     <div>
-      <b>{title}</b>
+      <b>
+        {avatar}
+        {title}
+      </b>
       <small>{meta}</small>
     </div>
     <div className="dash-score-cell">
@@ -1265,7 +1285,7 @@ const SettingsPanel: FC = () => {
           style={{ flexDirection: "column", alignItems: "flex-start", gap: 5 }}
         >
           <span className="ios-row-label">Controller</span>
-          <span className="ios-footnote" style={{ color: "var(--ios-label3)" }}>
+          <span className="ios-footnote" style={{ color: "var(--dv-muted)" }}>
             Left stick / D-pad move · A jump · B dash · X attack · Y help
           </span>
         </div>
@@ -1363,6 +1383,7 @@ const SliderRow: FC<{
       max="1"
       step="0.05"
       value={value}
+      style={{ "--fill": `${Math.round(value * 100)}%` } as CSSProperties}
       onChange={(e) => {
         onChange(parseFloat(e.target.value));
       }}

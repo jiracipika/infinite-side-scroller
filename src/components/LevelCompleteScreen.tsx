@@ -7,6 +7,7 @@ import { BIOME_COLORS } from './LevelSelectScreen';
 import { calcStars } from '@/lib/level-progress';
 import { playUiClick } from '@/game/audio';
 import { resolveLevelCompleteKey } from './level-complete-keys';
+import { Icon } from './Icon';
 
 interface LevelResult {
   score: number;
@@ -36,9 +37,9 @@ const Star: FC<{ filled: boolean; delay: number; size?: number }> = ({ filled, d
     initial={{ scale: 0, rotate: -180 }}
     animate={filled ? { scale: 1, rotate: 0 } : { scale: 1, rotate: 0 }}
     transition={{ delay, type: 'spring', stiffness: 300, damping: 15 }}
-    style={{ fontSize: size, opacity: filled ? 1 : 0.15, display: 'inline-block' }}
+    style={{ display: 'inline-flex', opacity: filled ? 1 : 0.3, color: filled ? 'var(--dv-action)' : 'var(--dv-stroke)' }}
   >
-    ⭐
+    <Icon name="star" filled={filled} size={size} strokeWidth={filled ? 1.5 : 2} />
   </motion.div>
 );
 
@@ -157,8 +158,8 @@ const LevelCompleteScreen: FC<Props> = ({ level, result, onNext, onRetry, onBack
         transition={{ delay: 0.3, duration: 0.4 }}
         style={{
           fontSize: 48, fontWeight: 700, letterSpacing: '-1px',
-          color: stars >= 3 ? '#FFD60A' : stars >= 1 ? biome.accent : '#fff',
-          textShadow: stars >= 3 ? '0 0 20px rgba(255,214,10,0.3)' : 'none',
+          color: stars >= 3 ? 'var(--dv-action)' : stars >= 1 ? biome.accent : 'var(--dv-text)',
+          textShadow: stars >= 3 ? '0 0 20px rgba(199,255,77,0.35)' : 'none',
           marginBottom: 8,
         }}
       >
@@ -191,7 +192,7 @@ const LevelCompleteScreen: FC<Props> = ({ level, result, onNext, onRetry, onBack
           ) : stars === 1 ? (
             <>Next star at <strong style={{ color: biome.accent }}>{level.starThresholds.two.toLocaleString()}</strong> points</>
           ) : (
-            <>Perfect at <strong style={{ color: '#FFD60A' }}>{level.starThresholds.three.toLocaleString()}</strong> points</>
+            <>Perfect at <strong style={{ color: 'var(--dv-action)' }}>{level.starThresholds.three.toLocaleString()}</strong> points</>
           )}
           {' '}· you scored {result.score.toLocaleString()}
         </motion.div>
@@ -205,7 +206,7 @@ const LevelCompleteScreen: FC<Props> = ({ level, result, onNext, onRetry, onBack
         style={{ width: '100%', marginBottom: 32 }}
       >
         <StatRow label="Distance" value={`${Math.round(result.distance)}m`} delay={0.7} />
-        <StatRow label="Coins" value={`${result.coins}`} color="#FFD60A" delay={0.75} />
+        <StatRow label="Coins" value={`${result.coins}`} color="var(--dv-action)" delay={0.75} />
         <StatRow label="Time" value={formatTime(result.timeMs)} delay={0.8} />
         <StatRow label="Enemies Defeated" value={`${result.enemiesDefeated}`} color="var(--dv-danger)" delay={0.85} />
       </motion.div>
@@ -273,7 +274,8 @@ const LevelCompleteScreen: FC<Props> = ({ level, result, onNext, onRetry, onBack
                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
               }}
             >
-              Next →
+              Next
+              <Icon name="arrow-right" size={17} />
               <kbd className="ios-kbd-hint" aria-hidden="true">Enter</kbd>
             </motion.button>
           )}

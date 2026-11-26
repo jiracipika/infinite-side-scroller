@@ -1,8 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState, type FC, type RefObject } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type FC, type RefObject } from 'react';
 import { GameEngine } from '@/game';
 import TouchControls from './TouchControls';
+import { Icon } from './Icon';
 import { loadSelectedCharacter } from '@/game/data/characters';
 import { MP_TICK_MS } from '@/game/multiplayer/config';
 import { useGameStore } from './GameStore';
@@ -22,7 +23,10 @@ interface Props {
 }
 
 const DIVIDER_HEIGHT = 58;
+const TOOLBAR_WIDTH = 84;
 const FRAME_GAP = 10;
+/** Smallest playable stacked pane; below this the panes go side by side. */
+const MIN_STACKED_PANE = 220;
 const LOCAL_HOST_ID = 'local-bottom';
 const LOCAL_GUEST_ID = 'local-top';
 
@@ -44,12 +48,25 @@ const SplitScreenMode: FC<Props> = ({ seed, onExit }) => {
   const selected = loadSelectedCharacter();
   const altCharacter = useMemo(() => (selected === 'ninja' ? 'ranger' : 'ninja'), [selected]);
 
-  const isDesktopLayout = viewportReady && !isTouchDevice && viewport.width >= 780;
+  const stackedPane = useMemo(
+    () => Math.floor(Math.min(viewport.width - 14, (viewport.height - DIVIDER_HEIGHT - FRAME_GAP * 2) / 2)),
+    [viewport.height, viewport.width],
+  );
 
-  const mobilePaneSize = useMemo(() => {
-    const safeWidth = Math.max(220, viewport.width - 14);
-    const safeHeight = Math.max(220, (viewport.height - DIVIDER_HEIGHT - FRAME_GAP * 2) / 2);
-    return Math.floor(Math.min(safeWidth, safeHeight));
+  // Portrait stacks the panes over a shared toolbar, the top one turned round
+  // so two players face each other across the device. That needs roughly
+  // 520px of height: a phone held sideways has 340-430, and clamping the panes
+  // to a minimum size used to push the outer Jump and move controls off-screen.
+  // Whenever the stack cannot fit, the panes go side by side with a rail
+  // between them, which is also the desktop layout.
+  const sideBySide = viewportReady && (!isTouchDevice ? viewport.width >= 780 : stackedPane < MIN_STACKED_PANE);
+
+  const mobilePaneSize = Math.max(MIN_STACKED_PANE, stackedPane);
+
+  const touchWidePaneSize = useMemo(() => {
+    const height = Math.max(200, viewport.height - FRAME_GAP * 2);
+    const width = Math.floor(Math.max(200, Math.min(height, (viewport.width - TOOLBAR_WIDTH - FRAME_GAP * 4) / 2)));
+    return { width, height };
   }, [viewport.height, viewport.width]);
 
   const desktopPaneSize = useMemo(() => {
@@ -182,24 +199,36 @@ const SplitScreenMode: FC<Props> = ({ seed, onExit }) => {
     };
   }, [altCharacter, isTouchDevice, seed, selected, viewportReady]);
 
-  if (isDesktopLayout) {
+  // Touch controls for a side-by-side pane (the stacked layout below passes
+  // the same props in full). No channel means no touch controls: keyboard.
+  const wideTouch = (touchChannel: string) => isTouchDevice ? {
+    touchChannel,
+    hapticsEnabled: settings.hapticsEnabled,
+    touchLayout: settings.touchControlLayout,
+    touchSize: settings.touchControlSize,
+    touchOpacity: settings.touchControlOpacity,
+  } : {};
+
+  if (sideBySide) {
+    const pane = isTouchDevice ? touchWidePaneSize : desktopPaneSize;
     return (
       <div className="absolute inset-0 z-40 bg-[#030712] flex items-center justify-center overflow-hidden">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 18, padding: 18, width: '100%' }}>
           <SplitPane
             canvasRef={topCanvasRef}
-            label="WASD Player"
+            label={isTouchDevice ? 'Left Player' : 'WASD Player'}
             stats={topStats}
             dead={topDead}
             onRestart={restartBoth}
-            width={desktopPaneSize.width}
-            height={desktopPaneSize.height}
+            width={pane.width}
+            height={pane.height}
+            {...wideTouch('game-input-top')}
           />
 
           <div
             style={{
-              width: 84,
-              minHeight: desktopPaneSize.height,
+              width: TOOLBAR_WIDTH,
+              minHeight: pane.height,
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'stretch',
@@ -209,7 +238,7 @@ const SplitScreenMode: FC<Props> = ({ seed, onExit }) => {
           >
             <button
               className="ios-btn-gray"
-              style={{ height: 42, fontSize: 13 }}
+              style={{ height: 44, fontSize: 14 }}
               onClick={() => {
                 playUiClick();
                 onExit();
@@ -219,7 +248,7 @@ const SplitScreenMode: FC<Props> = ({ seed, onExit }) => {
             </button>
             <button
               className="ios-btn-primary"
-              style={{ height: 42, fontSize: 13 }}
+              style={{ height: 44, fontSize: 14 }}
               onClick={() => {
                 playUiClick();
                 restartBoth();
@@ -227,18 +256,23 @@ const SplitScreenMode: FC<Props> = ({ seed, onExit }) => {
             >
               Restart
             </button>
-            <KeyboardLegend title="Left" keys="W A S D / E / Q / F" />
-            <KeyboardLegend title="Right" keys="Arrows / J / K / L" />
+            {!isTouchDevice && (
+              <>
+                <KeyboardLegend title="Left" keys="W A S D / E / Q / F" />
+                <KeyboardLegend title="Right" keys="Arrows / J / K / L" />
+              </>
+            )}
           </div>
 
           <SplitPane
             canvasRef={bottomCanvasRef}
-            label="Arrow Player"
+            label={isTouchDevice ? 'Right Player' : 'Arrow Player'}
             stats={bottomStats}
             dead={bottomDead}
             onRestart={restartBoth}
-            width={desktopPaneSize.width}
-            height={desktopPaneSize.height}
+            width={pane.width}
+            height={pane.height}
+            {...wideTouch('game-input-bottom')}
           />
         </div>
       </div>
@@ -272,17 +306,15 @@ const SplitScreenMode: FC<Props> = ({ seed, onExit }) => {
           alignItems: 'center',
           justifyContent: 'space-between',
           gap: 8,
-          background: 'rgba(15,23,42,0.88)',
-          border: '1px solid rgba(148,163,184,0.25)',
+          background: 'var(--dv-panel)',
+          border: '1px solid var(--dv-stroke)',
           borderRadius: 12,
           padding: '8px 10px',
-          backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)',
         }}
       >
         <button
           className="ios-btn-gray"
-          style={{ height: 38, fontSize: 14, flex: 1 }}
+          style={{ height: 44, fontSize: 14, flex: 1 }}
           onClick={() => {
             playUiClick();
             onExit();
@@ -292,7 +324,7 @@ const SplitScreenMode: FC<Props> = ({ seed, onExit }) => {
         </button>
         <button
           className="ios-btn-primary"
-          style={{ height: 38, fontSize: 14, flex: 1 }}
+          style={{ height: 44, fontSize: 14, flex: 1 }}
           onClick={() => {
             playUiClick();
             restartBoth();
@@ -364,6 +396,7 @@ const SplitPane: FC<{
       <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />
       {touchChannel && (
         <TouchControls
+          canCarry
           channel={touchChannel}
           compact
           hapticsEnabled={hapticsEnabled}
@@ -398,6 +431,17 @@ const KeyboardLegend: FC<{ title: string; keys: string }> = ({ title, keys }) =>
   </div>
 );
 
+/* Pane readouts use the same opaque panel body and violet rim as the main
+   HUD, so both players' status reads as one interface. */
+const SPLIT_PILL_STYLE: CSSProperties = {
+  background: '#211c2f',
+  border: '1px solid #9570ff77',
+  borderRadius: 999,
+  padding: '4px 8px',
+  color: '#f4f2ed',
+  boxShadow: '0 3px #100e19aa',
+};
+
 const SplitHud: FC<{ label: string; stats: LocalStats }> = ({ label, stats }) => {
   const hearts = Array.from({ length: stats.maxHealth }, (_, i) => i < stats.health);
   return (
@@ -415,11 +459,7 @@ const SplitHud: FC<{ label: string; stats: LocalStats }> = ({ label, stats }) =>
     >
       <div
         style={{
-          background: 'rgba(2,6,23,0.66)',
-          border: '1px solid rgba(148,163,184,0.24)',
-          borderRadius: 999,
-          padding: '4px 8px',
-          color: '#e2e8f0',
+          ...SPLIT_PILL_STYLE,
           fontSize: 10,
           fontWeight: 700,
           textTransform: 'uppercase',
@@ -431,29 +471,23 @@ const SplitHud: FC<{ label: string; stats: LocalStats }> = ({ label, stats }) =>
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
         <div
           style={{
-            background: 'rgba(2,6,23,0.66)',
-            border: '1px solid rgba(148,163,184,0.24)',
-            borderRadius: 999,
-            padding: '4px 8px',
-            color: '#e2e8f0',
+            ...SPLIT_PILL_STYLE,
             fontSize: 10,
             fontWeight: 700,
+            fontVariantNumeric: 'tabular-nums',
           }}
         >
           {stats.distance}m
         </div>
-        <div
-          style={{
-            background: 'rgba(2,6,23,0.66)',
-            border: '1px solid rgba(148,163,184,0.24)',
-            borderRadius: 999,
-            padding: '4px 8px',
-            display: 'flex',
-            gap: 2,
-          }}
-        >
+        <div aria-label={`${stats.health} of ${stats.maxHealth} hearts`} style={{ ...SPLIT_PILL_STYLE, display: 'flex', gap: 3 }}>
           {hearts.map((alive, i) => (
-            <span key={i} style={{ fontSize: 11, opacity: alive ? 1 : 0.35 }}>{alive ? '❤️' : '🖤'}</span>
+            <Icon
+              key={i}
+              name="heart"
+              filled
+              size={12}
+              style={{ color: alive ? '#ff7166' : 'rgba(244, 242, 237, 0.28)' }}
+            />
           ))}
         </div>
       </div>

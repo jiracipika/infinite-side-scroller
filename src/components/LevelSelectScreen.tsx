@@ -12,6 +12,7 @@ import {
   type LevelProgressMap,
 } from '@/lib/level-progress';
 import ControlsHint from './ControlsHint';
+import { Icon, type IconName } from './Icon';
 
 interface Props {
   onLevelSelect: (level: LevelConfig) => void;
@@ -19,20 +20,20 @@ interface Props {
   onEndlessPlay: () => void;
 }
 
-/** Local motif glyph per level biome id (palette itself comes from the
+/** Local motif mark per level biome (palette itself comes from the
  *  authored registry via getLevelBiomeIdentity — never hardcode colors here). */
-const BIOME_EMOJI: Record<string, string> = {
-  forest: '🌲',
-  desert: '🏜️',
-  ice: '❄️',
-  volcano: '🌋',
-  mixed: '🌈',
+const BIOME_ICON: Record<string, IconName> = {
+  forest: 'trees',
+  desert: 'dunes',
+  ice: 'snowflake',
+  volcano: 'volcano',
+  mixed: 'rainbow',
 };
 
 interface BiomeSkin {
   bg: string;
   accent: string;
-  emoji: string;
+  icon: IconName;
   stripe: string;
   name: string;
 }
@@ -40,7 +41,7 @@ interface BiomeSkin {
 /** Card skins keyed by level biome id, derived from the AUTHORED biome
  *  registry — the same BIOMES palette the engine announces via
  *  `dashverse-biome` title cards — so every card previews the biome it
- *  actually runs. Only the emoji motif is local. */
+ *  actually runs. Only the motif mark is local. */
 const BIOME_COLORS: Record<string, BiomeSkin> = {
   forest: skinFromRegistry('forest'),
   desert: skinFromRegistry('desert'),
@@ -56,7 +57,7 @@ function skinFromRegistry(levelBiome: LevelConfig['biome']): BiomeSkin {
     accent: identity.accent,
     stripe: identity.stripe,
     name: identity.name,
-    emoji: BIOME_EMOJI[levelBiome] ?? BIOME_EMOJI.forest,
+    icon: BIOME_ICON[levelBiome] ?? BIOME_ICON.forest,
   };
 }
 
@@ -120,16 +121,22 @@ const LevelCard: FC<{
         }}
       />
 
-      {/* Background emoji */}
-      <div style={{ position: 'absolute', top: -4, right: -4, fontSize: 36, opacity: locked ? 0.03 : 0.08, pointerEvents: 'none' }}>
-        {biome.emoji}
-      </div>
+      {/* Background motif — the biome's mark, tinted in its own accent. It
+          sits in the card's empty lower corner, clear of the stars and lock. */}
+      <Icon
+        name={biome.icon}
+        size={56}
+        strokeWidth={1.75}
+        style={{ position: 'absolute', bottom: -10, right: -6, color: biome.accent, opacity: locked ? 0.05 : 0.16, pointerEvents: 'none' }}
+      />
 
-      {/* Next-up badge */}
+      {/* Next-up tag — a lime corner label, clear of the star row below it */}
       {isNext && !locked && (
         <div style={{
-          position: 'absolute', top: 6, right: 8, fontSize: 8, fontWeight: 800,
-          letterSpacing: 0.8, color: biome.accent, opacity: 0.9,
+          position: 'absolute', top: 0, right: 0, padding: '3px 8px',
+          fontSize: 11, fontWeight: 800, letterSpacing: 0.8,
+          color: 'var(--dv-ink)', background: 'var(--dv-action)',
+          borderRadius: '0 7px 0 8px',
         }}>
           NEXT
         </div>
@@ -138,19 +145,25 @@ const LevelCard: FC<{
       {/* Level number */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <span style={{
-          fontSize: 11, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase',
+          fontSize: 12, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase',
           color: locked ? 'rgba(255,255,255,0.15)' : biome.accent,
         }}>
           {modePrefix ? `${modePrefix}-${level.id % 10}` : `${level.id}`}
         </span>
         {locked ? (
-          <span style={{ fontSize: 14, opacity: 0.2 }}>🔒</span>
+          <span style={{ display: 'inline-flex', opacity: 0.6 }}>
+            <Icon name="lock" size={15} />
+          </span>
         ) : (
-          <div style={{ display: 'flex', gap: 2 }}>
+          <div style={{ display: 'flex', gap: 2 }} aria-hidden="true">
             {[1,2,3].map(s => (
-              <span key={s} style={{ fontSize: 10, opacity: prog.stars >= s ? 1 : 0.15 }}>
-                ⭐
-              </span>
+              <Icon
+                key={s}
+                name="star"
+                filled
+                size={13}
+                style={{ color: prog.stars >= s ? 'var(--dv-action)' : 'rgba(255,255,255,0.18)' }}
+              />
             ))}
           </div>
         )}
@@ -158,14 +171,14 @@ const LevelCard: FC<{
 
       {/* Name */}
       <div style={{
-        fontSize: 13, fontWeight: 600, color: locked ? '#a69ab4' : 'var(--dv-text)',
+        fontSize: 14, fontWeight: 600, color: locked ? '#a69ab4' : 'var(--dv-text)',
         letterSpacing: '-0.2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
       }}>
         {level.name}
       </div>
 
       {/* Subtitle */}
-      <div style={{ fontSize: 10, color: locked ? '#a69ab4' : 'var(--dv-muted)', lineHeight: 1.3 }}>
+      <div style={{ fontSize: 12, color: locked ? '#a69ab4' : 'var(--dv-muted)', lineHeight: 1.3, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 4 }}>
         {level.mode === 'coin-rush'
           ? `${level.timeLimit}s · ${level.targetCoins} coins`
           : level.mode === 'gauntlet'
@@ -173,16 +186,21 @@ const LevelCard: FC<{
             : isTimeAttack
               ? `${level.timeLimit}s · ${level.targetDistance}m`
               : `${level.targetDistance}m`}
-        {level.boss && ' · 👑'}
+        {level.boss && (
+          <>
+            {'·'}
+            <Icon name="crown" size={13} strokeWidth={2} style={{ color: locked ? '#a69ab4' : biome.accent }} />
+          </>
+        )}
       </div>
 
       {/* Locked — the unlock condition as visible copy. The title tooltip is
-          hover-only (never shown on touch devices), and the 🔒 glyph alone
+          hover-only (never shown on touch devices), and the lock mark alone
           doesn't say HOW, so the condition is also stated on the card
           (kept in sync with the aria-label copy). */}
       {locked && (
         <div style={{
-          fontSize: 9, fontWeight: 600, color: '#a69ab4', lineHeight: 1.3,
+          fontSize: 11, fontWeight: 600, color: '#a69ab4', lineHeight: 1.3,
         }}>
           Earn a star on the previous level to unlock
         </div>
@@ -208,7 +226,7 @@ const LevelCard: FC<{
               ))}
             </div>
             <span style={{
-              fontSize: 8.5, fontWeight: 800, letterSpacing: 0.8,
+              fontSize: 11, fontWeight: 800, letterSpacing: 0.8,
               color: locked ? 'rgba(255,255,255,0.15)' : biome.accent,
             }}>
               {rating.label}
@@ -219,7 +237,7 @@ const LevelCard: FC<{
 
       {/* Best score */}
       {prog.bestScore > 0 && (
-        <div style={{ fontSize: 10, color: biome.accent, fontWeight: 600, marginTop: 'auto' }}>
+        <div style={{ fontSize: 12, color: biome.accent, fontWeight: 600, marginTop: 'auto' }}>
           Best: {prog.bestScore}
         </div>
       )}
@@ -245,20 +263,20 @@ const EndlessCard: FC<{ onClick: () => void }> = ({ onClick }) => {
         width: '100%',
         borderRadius: 16,
         padding: 24,
-        border: '1px solid rgba(10,132,255,0.2)',
-        background: 'linear-gradient(145deg, rgba(10,132,255,0.26), rgba(20,23,38,0.94))',
+        border: '1px solid var(--dv-stroke)',
+        background: 'linear-gradient(145deg, var(--dv-raised), var(--dv-panel))',
         cursor: 'pointer',
         textAlign: 'center',
         position: 'relative',
         overflow: 'hidden',
       }}
     >
-      <div style={{ position: 'absolute', top: -10, right: -10, fontSize: 64, opacity: 0.06 }}>♾️</div>
-      <div style={{ fontSize: 40, marginBottom: 8 }}>♾️</div>
-      <div style={{ fontSize: 20, fontWeight: 700, color: '#fff', letterSpacing: '-0.5px' }}>Endless Mode</div>
-      <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', marginTop: 4 }}>Survive as long as you can</div>
+      <Icon name="infinity" size={72} strokeWidth={1.5} style={{ position: 'absolute', top: -14, right: -12, color: 'var(--dv-violet)', opacity: 0.1 }} />
+      <Icon name="infinity" size={40} style={{ color: 'var(--dv-violet)', marginBottom: 10 }} />
+      <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--dv-text)', letterSpacing: '-0.5px' }}>Endless Mode</div>
+      <div style={{ fontSize: 14, color: 'var(--dv-muted)', marginTop: 4 }}>Survive as long as you can</div>
       {best > 0 && (
-        <div style={{ marginTop: 12, fontSize: 13, color: '#0A84FF', fontWeight: 600 }}>
+        <div style={{ marginTop: 12, fontSize: 13, color: 'var(--dv-action)', fontWeight: 600 }}>
           High Score: {best}
         </div>
       )}
@@ -327,12 +345,12 @@ const LevelSelectScreen: FC<Props> = ({ onLevelSelect, onBack, onEndlessPlay }) 
     onLevelSelect(level);
   };
 
-  const tabs = [
-    { id: 'adventure' as const, label: 'Adventure', icon: '🏰' },
-    { id: 'endless' as const, label: 'Endless', icon: '♾️' },
-    { id: 'time-attack' as const, label: 'Time Attack', icon: '⏱️' },
-    { id: 'coin-rush' as const, label: 'Coin Rush', icon: '🪙' },
-    { id: 'gauntlet' as const, label: 'Gauntlet', icon: '⚔️' },
+  const tabs: { id: typeof tab; label: string; icon: IconName }[] = [
+    { id: 'adventure', label: 'Adventure', icon: 'castle' },
+    { id: 'endless', label: 'Endless', icon: 'infinity' },
+    { id: 'time-attack', label: 'Time Attack', icon: 'timer' },
+    { id: 'coin-rush', label: 'Coin Rush', icon: 'coins' },
+    { id: 'gauntlet', label: 'Gauntlet', icon: 'swords' },
   ];
 
   return (
@@ -346,20 +364,21 @@ const LevelSelectScreen: FC<Props> = ({ onLevelSelect, onBack, onEndlessPlay }) 
           onClick={handleBack}
           whileTap={{ scale: 0.9 }}
           aria-label="Back to main menu"
-          style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', fontSize: 18 }}
+          style={{ background: 'var(--dv-panel)', border: '1px solid var(--dv-stroke)', borderRadius: 10, width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--dv-text)' }}
         >
-          ←
+          <Icon name="arrow-left" size={20} />
         </motion.button>
         <div>
           <h1 style={{ fontSize: 28, fontWeight: 820, margin: 0, letterSpacing: '-0.5px' }}>Select Level</h1>
-          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', margin: 0 }}>Choose your challenge</p>
+          <p style={{ fontSize: 13, color: 'var(--dv-muted)', margin: 0 }}>Choose your challenge</p>
         </div>
         {tab !== 'endless' && (
           <div
             aria-label={`Mode progress: ${starsEarned} of ${starsTotal} stars earned`}
-            style={{ marginLeft: 'auto', fontSize: 13, color: 'rgba(255,255,255,0.55)', whiteSpace: 'nowrap' }}
+            style={{ marginLeft: 'auto', fontSize: 14, color: 'var(--dv-text)', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 6 }}
           >
-            ⭐ {starsEarned}/{starsTotal}
+            <Icon name="star" filled size={16} style={{ color: 'var(--dv-action)' }} />
+            {starsEarned}/{starsTotal}
           </div>
         )}
       </div>
@@ -377,25 +396,30 @@ const LevelSelectScreen: FC<Props> = ({ onLevelSelect, onBack, onEndlessPlay }) 
             width: '100%', display: 'flex', alignItems: 'center', gap: 14,
             padding: '14px 18px', marginBottom: 20, borderRadius: 14, cursor: 'pointer',
             border: `1px solid ${(BIOME_COLORS[continueLevel.biome] || BIOME_COLORS.forest).accent}55`,
-            background: `linear-gradient(120deg, ${(BIOME_COLORS[continueLevel.biome] || BIOME_COLORS.forest).bg}, rgba(13,16,26,0.9))`,
+            background: `linear-gradient(120deg, ${(BIOME_COLORS[continueLevel.biome] || BIOME_COLORS.forest).bg}, var(--dv-panel))`,
             textAlign: 'left',
           }}
         >
-          <div style={{ fontSize: 24 }}>{(BIOME_COLORS[continueLevel.biome] || BIOME_COLORS.forest).emoji}</div>
+          <Icon
+            name={(BIOME_COLORS[continueLevel.biome] || BIOME_COLORS.forest).icon}
+            size={30}
+            strokeWidth={2}
+            style={{ color: (BIOME_COLORS[continueLevel.biome] || BIOME_COLORS.forest).accent }}
+          />
           <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', color: 'rgba(255,255,255,0.45)' }}>
+            <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', color: 'var(--dv-muted)' }}>
               CONTINUE
             </div>
-            <div style={{ fontSize: 16, fontWeight: 600, color: '#fff', letterSpacing: '-0.3px' }}>
+            <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--dv-text)', letterSpacing: '-0.3px' }}>
               {continueLevel.name}
             </div>
           </div>
-          <div style={{ fontSize: 22, color: (BIOME_COLORS[continueLevel.biome] || BIOME_COLORS.forest).accent }}>▶</div>
+          <Icon name="play" filled size={22} style={{ color: (BIOME_COLORS[continueLevel.biome] || BIOME_COLORS.forest).accent }} />
         </motion.button>
       )}
 
-      {/* Mode tabs */}
-      <div role="tablist" aria-label="Game modes" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4, marginBottom: 20, background: 'rgba(13,16,26,0.82)', borderRadius: 12, padding: 4, backdropFilter: 'blur(18px)' }}>
+      {/* Mode tabs — one opaque ink bar (no frosted backdrop) */}
+      <div role="tablist" aria-label="Game modes" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4, marginBottom: 20, background: 'var(--dv-panel)', border: '1px solid var(--dv-stroke)', borderRadius: 12, padding: 4 }}>
         {tabs.map(t => {
           const active = tab === t.id;
           return (
@@ -412,11 +436,11 @@ const LevelSelectScreen: FC<Props> = ({ onLevelSelect, onBack, onEndlessPlay }) 
               style={{
                 flex: 1, padding: '10px 8px', borderRadius: 10,
                 border: 'none', cursor: 'pointer',
-                fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
                 transition: 'background 0.2s, color 0.2s',
               }}
             >
-              <span>{t.icon}</span> {t.label}
+              <Icon name={t.icon} size={17} /> {t.label}
             </motion.button>
           );
         })}
@@ -441,8 +465,10 @@ const LevelSelectScreen: FC<Props> = ({ onLevelSelect, onBack, onEndlessPlay }) 
               fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5,
               color: tab === 'adventure' ? BIOME_COLORS.forest.accent : BIOME_COLORS.mixed.accent,
               marginBottom: 12, paddingLeft: 4,
+              display: 'flex', alignItems: 'center', gap: 7,
             }}>
-              {tab === 'adventure' ? '🏰 Adventure Levels' : tab === 'time-attack' ? '⏱️ Time Attack Levels' : tab === 'coin-rush' ? '🪙 Coin Rush Levels' : '⚔️ Gauntlet Levels'}
+              <Icon name={tabs.find(t => t.id === tab)?.icon ?? 'castle'} size={15} />
+              {tab === 'adventure' ? 'Adventure Levels' : tab === 'time-attack' ? 'Time Attack Levels' : tab === 'coin-rush' ? 'Coin Rush Levels' : 'Gauntlet Levels'}
             </div>
 
             {/* Level grid */}

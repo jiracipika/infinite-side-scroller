@@ -73,6 +73,13 @@ for (const marker of ['jump-press', 'dash-press', 'attack-press', 'carry-press',
   requireMarker(touchControls, 'TouchControls.tsx', marker)
 }
 
+// Carrying a teammate only exists in co-op (the engine ignores the input
+// without a remote player), so the button must be gated on both co-op
+// surfaces and stay off the solo one.
+requireMarker(touchControls, 'TouchControls.tsx', 'canCarry && (')
+requireMarker(page, 'page.tsx', 'canCarry={multiplayerSession !== null}')
+requireMarker(splitScreen, 'SplitScreenMode.tsx', 'canCarry')
+
 for (const marker of ['navigator.vibrate', 'visibilitychange', 'pagehide']) {
   requireMarker(touchControls, 'TouchControls.tsx', marker)
 }

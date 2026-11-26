@@ -8,13 +8,14 @@ import {
   resolveTouchDirection,
   type TouchButtonSize,
 } from '@/game/input/touch-controls';
+import { Icon } from './Icon';
 
 /**
  * Touch controls overlay for mobile — neon ink controller panels.
  *
  * Layout:
  *   Left side  — Left / Right D-pad buttons
- *   Right side — Special / Dash / ATK / Melee / Carry (small) + Jump (large, lime)
+ *   Right side — Special / Dash / Attack / Melee (+ Carry in co-op, small) + Jump (large, lime)
  *
  * Emits 'game-input' CustomEvents consumed by InputManager.
  * Respects iOS safe-area-inset-bottom for notched devices.
@@ -22,6 +23,9 @@ import {
 interface TouchControlsProps {
   channel?: string;
   compact?: boolean;
+  /** Carrying a teammate only exists in co-op (the engine ignores the input
+   *  without a remote player), so the button is only offered then. */
+  canCarry?: boolean;
   forceVisible?: boolean;
   hapticsEnabled?: boolean;
   layout?: TouchControlLayout;
@@ -33,6 +37,7 @@ interface TouchControlsProps {
 const TouchControls: FC<TouchControlsProps> = ({
   channel = 'game-input',
   compact = false,
+  canCarry = false,
   forceVisible = false,
   hapticsEnabled = true,
   layout = 'standard',
@@ -218,7 +223,7 @@ const TouchControls: FC<TouchControlsProps> = ({
         <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: 'calc(100vw - 190px)', gap: compact ? 8 : 10 }}>
           <TouchBtn active={specialHeld} onStart={startSpecial} onEnd={endSpecial}
             size={compact ? 'xs' : 'sm'} controlSize={controlSize} compact={compact}
-            tint="cyan" aria-label="Special attack"><SpecialLabel /></TouchBtn>
+            tint="cyan" aria-label="Special attack"><Icon name="sparkle" size={22} /></TouchBtn>
           <TouchBtn
             active={dashHeld}
             onStart={startDash}
@@ -229,7 +234,7 @@ const TouchControls: FC<TouchControlsProps> = ({
             tint="purple"
             aria-label="Dash"
           >
-            <DashLabel />
+            <Icon name="dash" size={22} />
           </TouchBtn>
           <TouchBtn
             active={attackHeld}
@@ -241,7 +246,7 @@ const TouchControls: FC<TouchControlsProps> = ({
             tint="orange"
             aria-label="Attack"
           >
-            <AtkLabel />
+            <Icon name="shot" size={22} />
           </TouchBtn>
           <TouchBtn
             active={meleeHeld}
@@ -253,20 +258,22 @@ const TouchControls: FC<TouchControlsProps> = ({
             tint="red"
             aria-label="Melee slash"
           >
-            <MeleeLabel />
+            <Icon name="sword" size={22} />
           </TouchBtn>
-          <TouchBtn
-            active={carryHeld}
-            onStart={startCarry}
-            onEnd={endCarry}
-            size={compact ? 'xs' : 'sm'}
-            controlSize={controlSize}
-            compact={compact}
-            tint="green"
-            aria-label="Carry teammate"
-          >
-            <CarryLabel />
-          </TouchBtn>
+          {canCarry && (
+            <TouchBtn
+              active={carryHeld}
+              onStart={startCarry}
+              onEnd={endCarry}
+              size={compact ? 'xs' : 'sm'}
+              controlSize={controlSize}
+              compact={compact}
+              tint="green"
+              aria-label="Carry teammate"
+            >
+              <Icon name="hand-heart" size={22} />
+            </TouchBtn>
+          )}
         </div>
         <TouchBtn
           active={jumpHeld}
@@ -495,54 +502,6 @@ const ChevronUp: FC = () => (
   >
     <path d="M18 15l-6-6-6 6" />
   </svg>
-);
-
-const AtkLabel: FC = () => (
-  <span style={{
-    fontSize: 11,
-    fontWeight: 800,
-    color: 'inherit',
-    letterSpacing: '0.06em',
-    lineHeight: 1,
-  }}>
-    ATK
-  </span>
-);
-
-const MeleeLabel: FC = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
-    stroke={STROKE} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
-  >
-    {/* Sword: blade + guard, tilted like the DashLabel arrow language */}
-    <path d="M14.5 4.5L19.5 9.5L9 20L4 20L4 15Z" fill="rgba(255,255,255,0.22)" />
-    <path d="M14.5 4.5L19.5 9.5" />
-    <path d="M7.5 13.5L10.5 16.5" />
-  </svg>
-);
-
-const SpecialLabel: FC = () => (
-  <span style={{ fontSize: 15, fontWeight: 900, color: 'inherit', lineHeight: 1 }}>✦</span>
-);
-
-const DashLabel: FC = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
-    stroke={STROKE} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-  >
-    <path d="M5 12h14" />
-    <path d="M13 6l6 6-6 6" />
-  </svg>
-);
-
-const CarryLabel: FC = () => (
-  <span style={{
-    fontSize: 10,
-    fontWeight: 800,
-    color: 'inherit',
-    letterSpacing: '0.05em',
-    lineHeight: 1,
-  }}>
-    HELP
-  </span>
 );
 
 const PauseIcon: FC = () => (

@@ -87,6 +87,9 @@
 }
 
 .livesText {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
   color: #ff7166;
   font-weight: 700;
   line-height: 1;
@@ -104,8 +107,10 @@
   composes: panel;
   border-top: 2px solid #9570ff;
   flex-direction: column;
+  align-items: center;
   padding: 3px 6px;
   gap: 2px;
+  color: #b29aff;
 }
 
 /* Countdown bar track, visible against the panel body. */
@@ -176,7 +181,7 @@
 }
 
 .levelCaption {
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
   color: rgba(244, 242, 237, 0.75);
   letter-spacing: 0.02em;
@@ -214,14 +219,21 @@
   display: flex;
   justify-content: space-between;
   gap: 6px;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
 .specialName {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   color: rgba(244, 242, 237, 0.78);
+}
+
+.specialName svg {
+  color: #b29aff;
 }
 
 .specialTime {
@@ -306,13 +318,20 @@
   background: #ff7166;
 }
 
-/* ── Right cluster: biome / time of day / FPS ───────────────────── */
+/* ── Right cluster: biome / FPS ──────────────────────────────────── */
 .rightCol {
   display: flex;
   flex-direction: column;
-  /* Keep biome/FPS clear of the pause button in the top-right corner. */
-  margin-right: 46px;
+  /* The pause button is 44px wide, 14px from the edge, and sits inside this
+     row's 16px padding: anything less than 44px of margin slides under it. */
+  margin-right: 48px;
   align-items: flex-end;
+  gap: 5px;
+}
+
+/* Biome chip with the day-phase mark riding inside it. */
+.biomePanel {
+  composes: panel;
   gap: 5px;
 }
 
@@ -324,9 +343,14 @@
   text-transform: uppercase;
 }
 
-.dayPanel {
-  composes: panel;
-  padding: 3px 7px;
+.dayMarkSun {
+  display: inline-flex;
+  color: #ffd60a;
+}
+
+.dayMarkMoon {
+  display: inline-flex;
+  color: #b29aff;
 }
 
 /* ── FPS readout (diagnostic, stays muted) ───────────────────────── */
@@ -376,22 +400,21 @@
   }
 
   .rightCol {
-    margin-right: 38px;
-    gap: 3px;
+    margin-right: 48px;
   }
 
   .biomeCaption {
-    font-size: 9px;
+    font-size: 10px;
   }
 
   .fpsCol {
-    font-size: 8px;
+    font-size: 10px;
   }
 }
 
 @media (max-width: 380px) {
   .rightCol {
-    margin-right: 34px;
+    margin-right: 46px;
   }
 
   .heartsPanel {

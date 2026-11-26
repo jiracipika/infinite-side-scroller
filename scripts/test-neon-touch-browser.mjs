@@ -41,19 +41,27 @@ try {
   assert.ok(await page.evaluate(y => window.__engine.player.y < y, initialY), 'Real touch press lifts live player');
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   assert.equal(await jump.getAttribute('aria-pressed'), 'false');
-  for (const name of ['Dash', 'Attack', 'Melee slash', 'Special attack', 'Carry teammate']) {
+  // Solo run: carrying a teammate needs a remote player the engine ignores
+  // the input without, so the button must not be offered at all.
+  assert.equal(await page.getByRole('button', { name: 'Carry teammate', exact: true }).count(), 0, 'Carry is not offered in a solo run');
+  for (const name of ['Dash', 'Attack', 'Melee slash', 'Special attack']) {
     const b = page.getByRole('button', { name, exact: true });
     await b.tap();
     assert.equal(await b.getAttribute('aria-pressed'), 'false', `${name} releases`);
   }
   const inputs = await page.evaluate(() => window.__inputs);
-  for (const type of ['jump', 'dash', 'attack', 'melee', 'special', 'carry']) {
+  for (const type of ['jump', 'dash', 'attack', 'melee', 'special']) {
     assert.ok(inputs.some(e => e.type === `${type}-press` && e.value === true), `${type} pressed`);
     assert.ok(inputs.some(e => e.type === `${type}-press` && e.value === false), `${type} released`);
   }
+  // Every action button carries a drawn mark, not a text label or emoji.
+  const unmarked = await page.evaluate(() => ['Jump', 'Dash', 'Attack', 'Melee slash', 'Special attack']
+    .map(name => document.querySelector(`button[aria-label="${name}"]`))
+    .filter(button => !button?.querySelector('svg')));
+  assert.deepEqual(unmarked, [], 'every touch action is drawn as an svg mark');
   await page.screenshot({ path: process.env.TOUCH_SCREENSHOT || '/tmp/dashverse-touch-qa.png' });
   await page.getByRole('button', { name: 'Pause game', exact: true }).tap();
   await page.getByRole('button', { name: /Resume/i }).waitFor();
   assert.deepEqual(errors, []);
-  console.log('PASS: live player jumps via real touch, six actions press/release, ink contrast, pause, no runtime errors');
+  console.log('PASS: live player jumps via real touch, five solo actions press/release (carry is co-op only), drawn marks, ink contrast, pause, no runtime errors');
 } finally { await browser.close(); }

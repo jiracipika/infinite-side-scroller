@@ -2,6 +2,7 @@
 
 import { useRef, useState, useEffect, type FC } from 'react';
 import styles from './HUD.module.css';
+import { Icon, type IconName } from './Icon';
 import { type GameStats, type GameSettings, type PowerUpTimerEntry } from '@/game/state/game-state';
 import { useGameHaptics } from '@/game/input/haptics';
 import { fpsBucket } from './fps-readout';
@@ -148,7 +149,7 @@ const HUD: FC<Props> = ({ stats, settings }) => {
             {stats.lives > 2 && (
               <div className={styles.livesPanel} style={{ gap: 4 }} aria-label={`${stats.lives - 2} extra lives`}>
                 <span aria-hidden="true" className={styles.livesText} style={{ fontSize: 13 }}>
-                  {"\u2764"}+{stats.lives - 2}
+                  <HeartIcon filled pulsing={false} />+{stats.lives - 2}
                 </span>
               </div>
             )}
@@ -162,7 +163,7 @@ const HUD: FC<Props> = ({ stats, settings }) => {
                   return (
                     <PowerUpPill
                       key={`${pu}-${i}`}
-                      emoji={pu}
+                      icon={POWER_UP_ICON[timerEntry?.type ?? powerUpType(pu) ?? ''] ?? 'sparkles'}
                       timer={timerEntry}
                     />
                   );
@@ -218,16 +219,16 @@ const HUD: FC<Props> = ({ stats, settings }) => {
               </div>
             )}
 
-            {/* Character special — the ✦ touch control / V key starts a short
-                pulse attack, then this meter makes its timed cooldown honest.
-                Violet contextual-ability panel; lime readout while firing. */}
+            {/* Character special — the sparkle touch control / V key starts a
+                short pulse attack, then this meter makes its timed cooldown
+                honest. Violet contextual-ability panel; lime readout while firing. */}
             {stats.specialName && stats.specialCooldownTotal && (
               <div
                 className={styles.specialPanel}
                 aria-label={`${stats.specialName}: ${specialActive ? 'active' : `${Math.ceil(stats.specialCooldownRemaining ?? 0)} seconds until ready`}`}
               >
                 <div className={styles.specialHeader}>
-                  <span className={styles.specialName}>✦ {stats.specialName}</span>
+                  <span className={styles.specialName}><Icon name="sparkle" size={11} />{stats.specialName}</span>
                   <span className={specialActive ? styles.specialTimeActive : styles.specialTime}>
                     {specialActive ? 'NOW' : `${Math.ceil(stats.specialCooldownRemaining ?? 0)}s`}
                   </span>
@@ -269,25 +270,30 @@ const HUD: FC<Props> = ({ stats, settings }) => {
             )}
           </div>
 
-          {/* ── Right cluster: Biome + Time of day + FPS ────────── */}
+          {/* ── Right cluster: Biome (+ time of day) + FPS ──────────── */}
           <div className={styles.rightCol} style={{ animation: 'fadeSlideUp 0.4s ease 0.08s both' }}>
-            {/* Biome panel — keyed on biome so it animates on change */}
+            {/* Biome panel — keyed on biome so it animates on change. The
+                day-phase mark rides inside the chip: one panel where a second
+                used to stack underneath, toward the pause button. */}
             <div
               key={stats.biome}
-              className={styles.panel}
+              className={styles.biomePanel}
               style={{ animation: 'biomeReveal 0.35s cubic-bezier(0.34,1.56,0.64,1) both' }}
               aria-label={`Current biome: ${stats.biome}`}
             >
+              {stats.dayPhase && (
+                <span
+                  aria-hidden="true"
+                  className={stats.dayPhase === 'night' ? styles.dayMarkMoon : styles.dayMarkSun}
+                >
+                  <Icon
+                    name={stats.dayPhase === 'dawn' ? 'sunrise' : stats.dayPhase === 'day' ? 'sun' : stats.dayPhase === 'dusk' ? 'sunset' : 'moon'}
+                    size={13}
+                  />
+                </span>
+              )}
               <span aria-hidden="true" className={styles.biomeCaption}>{stats.biome}</span>
             </div>
-            {/* Time-of-day indicator */}
-            {stats.dayPhase && (
-              <div className={styles.dayPanel} aria-hidden="true">
-                <span style={{ fontSize: 11, lineHeight: 1 }}>
-                  {stats.dayPhase === 'dawn' ? '\u{1F305}' : stats.dayPhase === 'day' ? '\u{2600}\u{FE0F}' : stats.dayPhase === 'dusk' ? '\u{1F31E}' : '\u{1F319}'}
-                </span>
-              </div>
-            )}
             {settings.showFPS && (
               <FpsReadout
                 fps={stats.fps}
@@ -308,8 +314,10 @@ export default HUD;
 /* ── Icon components ─────────────────────────────────────────── */
 
 /**
- * Emoji display for each timed power-up type. Used by the HUD to match
- * a powerUpTimers entry to the emoji shown in the powerUps array.
+ * Emoji the engine reports for each timed power-up type. The engine speaks
+ * emoji (it pushes these strings into `stats.powerUps`); the HUD only uses
+ * them to match a powerUpTimers entry to its panel — the player never sees
+ * one. POWER_UP_ICON is what gets drawn.
  * Mirrors the popup labels in the engine's collectible handler.
  */
 const POWER_UP_EMOJI: Record<string, string> = {
@@ -321,6 +329,21 @@ const POWER_UP_EMOJI: Record<string, string> = {
   healingAura: '\u{1F49A}',      // 💚
   coinDoubler: '\u{1FA99}',      // 🪙 — must match the emoji the engine pushes
 };
+
+/** Drawn mark per power-up type. */
+const POWER_UP_ICON: Record<string, IconName> = {
+  shield: 'shield',
+  speedBoost: 'zap',
+  magnet: 'magnet',
+  slingshot: 'crosshair',
+  bow: 'bow',
+  healingAura: 'heart-pulse',
+  coinDoubler: 'coins',
+};
+
+/** The type behind an engine-reported power-up emoji. */
+const powerUpType = (emoji: string): string | undefined =>
+  Object.keys(POWER_UP_EMOJI).find((type) => POWER_UP_EMOJI[type] === emoji);
 
 /**
  * Default max duration (seconds) for each power-up — used to compute the
@@ -338,20 +361,20 @@ const POWER_UP_MAX_DURATION: Record<string, number> = {
 };
 
 /**
- * A power-up panel with an optional countdown bar beneath the emoji.
+ * A power-up panel with an optional countdown bar beneath the mark.
  * When `timer` is provided, shows a shrinking bar (violet → amber → coral as
  * the effect approaches expiry). In the final 2 seconds the panel pulses to
  * draw attention.
  */
 const PowerUpPill: FC<{
-  emoji: string;
+  icon: IconName;
   timer?: PowerUpTimerEntry;
-}> = ({ emoji, timer }) => {
+}> = ({ icon, timer }) => {
   const hasTimer = timer != null && timer.remaining > 0;
   if (!hasTimer) {
     return (
-      <div className={styles.powerUpPanel} style={{ fontSize: 14, lineHeight: 1 }}>
-        {emoji}
+      <div className={styles.powerUpPanel}>
+        <Icon name={icon} size={15} />
       </div>
     );
   }
@@ -368,12 +391,10 @@ const PowerUpPill: FC<{
     <div
       className={styles.powerUpPanel}
       style={{
-        fontSize: 14,
-        lineHeight: 1,
         animation: isExpiring ? 'comboUrgencyPulse 0.5s ease-in-out infinite alternate' : undefined,
       }}
     >
-      <span>{emoji}</span>
+      <Icon name={icon} size={15} />
       <div aria-hidden="true" className={styles.barTrack} style={{ width: 24, height: 2 }}>
         <div
           style={{
@@ -411,22 +432,8 @@ const HeartIcon: FC<{ filled: boolean; pulsing: boolean }> = ({ filled, pulsing 
   </svg>
 );
 
-const CoinIcon: FC = () => (
-  <svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
-    <circle cx="12" cy="12" r="10" fill={INK.lime} />
-    <circle cx="12" cy="12" r="10" fill="none" stroke="rgba(0,0,0,0.25)" strokeWidth="1.5" />
-    <text
-      x="12" y="16.5"
-      textAnchor="middle"
-      fontSize="10"
-      fontWeight="800"
-      fill="rgba(10,10,15,0.6)"
-      fontFamily="-apple-system, sans-serif"
-    >
-      $
-    </text>
-  </svg>
-);
+/** Coin readout — the lime progression mark beside the count. */
+const CoinIcon: FC = () => <Icon name="coins" size={13} style={{ color: INK.lime }} />;
 
 /* ── FPS / frame-time readout ────────────────────────────────── */
 
@@ -456,22 +463,22 @@ const FpsReadout: FC<{
     <div aria-hidden="true" className={styles.fpsCol}>
       <span
         className={color}
-        style={{
-          fontSize: 10,
-          fontWeight: 700,
-          fontVariantNumeric: 'tabular-nums',
-        }}
-      >
-        {Math.round(fps)} fps
-      </span>
-      {sub && (
-        <span
-          className={styles.caption}
           style={{
-            fontSize: 9,
+            fontSize: 10,
+            fontWeight: 700,
             fontVariantNumeric: 'tabular-nums',
           }}
         >
+          {Math.round(fps)} fps
+        </span>
+        {sub && (
+          <span
+            className={styles.caption}
+            style={{
+              fontSize: 10,
+              fontVariantNumeric: 'tabular-nums',
+            }}
+          >
           {sub}
         </span>
       )}

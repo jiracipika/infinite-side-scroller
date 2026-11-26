@@ -18,6 +18,7 @@ import GameOverFlash from '@/components/GameOverFlash';
 import SplitScreenMode from '@/components/SplitScreenMode';
 import LevelSelectScreen from '@/components/LevelSelectScreen';
 import LevelCompleteScreen from '@/components/LevelCompleteScreen';
+import { Icon } from '@/components/Icon';
 import ScreenTransition from '@/components/ScreenTransition';
 import { shouldAutoPause } from '@/components/auto-pause';
 import type { LevelConfig } from '@/game/data/levels';
@@ -1829,6 +1830,7 @@ export default function Home() {
       )}
       {state === "playing" && (
         <TouchControls
+          canCarry={multiplayerSession !== null}
           hapticsEnabled={settings.hapticsEnabled}
           layout={settings.touchControlLayout}
           controlSize={settings.touchControlSize}
@@ -1861,16 +1863,14 @@ export default function Home() {
           style={{
             top: "calc(env(safe-area-inset-top, 0px) + 54px)",
             width: "min(56vw, 220px)",
-            background: "rgba(2,6,23,0.6)",
-            border: "1px solid rgba(148,163,184,0.25)",
+            background: "#1c1726",
+            border: "1px solid var(--dv-stroke)",
             borderRadius: 10,
             padding: "6px 8px",
-            color: "#cbd5e1",
+            color: "var(--dv-muted)",
             fontSize: 10,
             lineHeight: 1.25,
             fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
-            backdropFilter: "blur(8px)",
-            WebkitBackdropFilter: "blur(8px)",
           }}
         >
           <div
@@ -1932,12 +1932,11 @@ export default function Home() {
             bottom: "max(92px, calc(env(safe-area-inset-bottom, 0px) + 92px))",
             transform: "translateX(-50%)",
             width: "min(92vw, 340px)",
-            background: "rgba(2,6,23,0.88)",
-            border: "1px solid rgba(148,163,184,0.25)",
-            borderRadius: 14,
+            background: "var(--dv-panel)",
+            border: "1px solid var(--dv-stroke)",
+            borderRadius: 12,
             padding: 10,
-            backdropFilter: "blur(12px)",
-            WebkitBackdropFilter: "blur(12px)",
+            boxShadow: "0 12px 32px rgba(0,0,0,0.5)",
           }}
         >
           <div
@@ -1950,8 +1949,8 @@ export default function Home() {
           >
             <span
               style={{
-                color: "#e2e8f0",
-                fontSize: 12,
+                color: "var(--dv-text)",
+                fontSize: 13,
                 fontWeight: 700,
                 letterSpacing: "0.04em",
               }}
@@ -1961,16 +1960,22 @@ export default function Home() {
             <button
               type="button"
               onClick={() => setShowHostInvite(false)}
-              className="ios-btn-gray"
+              aria-label="Close invite"
               style={{
-                width: 26,
-                height: 26,
+                width: 44,
+                height: 44,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
                 borderRadius: 999,
-                fontSize: 12,
+                background: "var(--dv-raised)",
+                border: "1px solid var(--dv-stroke)",
+                color: "var(--dv-muted)",
+                cursor: "pointer",
                 padding: 0,
               }}
             >
-              ✕
+              <Icon name="close" size={16} />
             </button>
           </div>
 
@@ -2093,10 +2098,7 @@ export default function Home() {
             color: "#f4f2ed",
           }}
         >
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-            <rect x="3" y="2" width="3.5" height="12" rx="1.2" />
-            <rect x="9.5" y="2" width="3.5" height="12" rx="1.2" />
-          </svg>
+          <Icon name="pause" size={18} />
         </button>
       )}
 

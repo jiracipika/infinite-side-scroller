@@ -10,6 +10,7 @@ import { fireHaptic } from '@/game/input/haptics';
 import { playUiClick } from '@/game/audio';
 import { recordRun } from '@/lib/run-history';
 import { shareRunResult, type ShareRunOutcome } from '@/lib/share-run';
+import { Icon } from './Icon';
 
 interface Props {
   stats: GameStats;
@@ -240,18 +241,20 @@ const GameOverScreen: FC<Props> = ({ stats, newRecords, hapticsEnabled = true, o
               paddingRight: 16,
             }}
           >
-            {/* Death icon */}
+            {/* Death mark — a drawn skull in the danger ink */}
             <div
               aria-hidden="true"
               style={{
-                fontSize: 36,
+                display: 'flex',
+                justifyContent: 'center',
                 lineHeight: 1,
                 marginBottom: 10,
+                color: 'var(--dv-danger)',
                 animation: 'iosBounceIn 0.55s cubic-bezier(0.34,1.56,0.64,1) 0.1s both',
-                filter: 'drop-shadow(0 0 8px rgba(255,59,48,0.4))',
+                filter: 'drop-shadow(0 0 8px rgba(255,113,102,0.4))',
               }}
             >
-              💀
+              <Icon name="skull" size={46} strokeWidth={1.9} />
             </div>
 
             <h2
@@ -266,13 +269,17 @@ const GameOverScreen: FC<Props> = ({ stats, newRecords, hapticsEnabled = true, o
               <div
                 className="ios-badge-yellow"
                 style={{
+                  // Lime: the palette's achievement ink (the class only lends layout).
+                  background: 'rgba(199, 255, 77, 0.14)',
+                  border: '1px solid rgba(199, 255, 77, 0.4)',
+                  color: 'var(--dv-action)',
                   marginTop: 10,
                   gap: 5,
                   fontSize: 13,
                   fontWeight: 700,
                   padding: '4px 12px',
                   animation: 'iosBounceIn 0.5s cubic-bezier(0.34,1.56,0.64,1) 0.32s both',
-                  boxShadow: '0 0 20px rgba(255,214,10,0.2)',
+                  boxShadow: '0 0 20px rgba(199, 255, 77, 0.25)',
                 }}
               >
                 <StarIcon />
@@ -300,7 +307,7 @@ const GameOverScreen: FC<Props> = ({ stats, newRecords, hapticsEnabled = true, o
           </div>
 
           {/* ── Stats table ──────────────────────────────────── */}
-          <div style={{ borderTop: '0.5px solid var(--ios-separator)' }}>
+          <div style={{ borderTop: '1px solid var(--dv-stroke)' }}>
             <StatRow
               label="Score"
               value={displayScore.toLocaleString()}
@@ -344,7 +351,7 @@ const GameOverScreen: FC<Props> = ({ stats, newRecords, hapticsEnabled = true, o
           <div
             style={{
               padding: '14px 14px',
-              borderTop: '0.5px solid var(--ios-separator)',
+              borderTop: '1px solid var(--dv-stroke)',
               display: 'flex',
               flexDirection: 'column',
               gap: 8,
@@ -449,10 +456,10 @@ const StatRow: FC<StatRowProps> = ({ label, value, highlight, isNewBest, delay =
             }
           : highlight
             ? {
-                color: 'var(--ios-yellow)',
+                color: 'var(--dv-violet)',
                 fontWeight: 700,
                 fontVariantNumeric: 'tabular-nums',
-                textShadow: '0 0 12px rgba(255,214,10,0.4)',
+                textShadow: '0 0 12px rgba(178,154,255,0.45)',
               }
             : { fontVariantNumeric: 'tabular-nums' }
       }

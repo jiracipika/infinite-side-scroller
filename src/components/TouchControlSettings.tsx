@@ -1,6 +1,6 @@
 'use client';
 
-import type { FC } from 'react';
+import type { CSSProperties, FC } from 'react';
 import { playUiClick, playUiClickOnAdjustKey } from '@/game/audio';
 import type {
   TouchControlLayout,
@@ -62,6 +62,7 @@ const TouchControlSettings: FC = () => {
           max="1"
           step="0.05"
           value={settings.touchControlOpacity}
+          style={{ '--fill': `${Math.round(((settings.touchControlOpacity - 0.55) / 0.45) * 100)}%` } as CSSProperties}
           aria-valuetext={`${Math.round(settings.touchControlOpacity * 100)} percent`}
           onChange={(event) => {
             setSettings({ touchControlOpacity: Number(event.target.value) });
@@ -69,7 +70,7 @@ const TouchControlSettings: FC = () => {
           onPointerUp={playUiClick}
           onKeyUp={playUiClickOnAdjustKey}
         />
-        <span className="ios-footnote" style={{ color: 'var(--ios-label3)' }}>
+        <span className="ios-footnote" style={{ color: 'var(--dv-muted)' }}>
           Controls stay readable at the minimum setting.
         </span>
       </div>
@@ -116,7 +117,7 @@ function SegmentedRow<T extends string>({
           </button>
         ))}
       </div>
-      <span className="ios-footnote" style={{ color: 'var(--ios-label3)' }}>
+      <span className="ios-footnote" style={{ color: 'var(--dv-muted)' }}>
         {description}
       </span>
     </div>

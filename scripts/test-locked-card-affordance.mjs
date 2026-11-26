@@ -33,8 +33,9 @@ describe('Locked level card affordance contract', () => {
     assert.match(src, /Earn a star on the previous level to unlock/);
   });
 
-  test('locked state is distinguishable beyond color: lock glyph replaces the star row', () => {
-    assert.match(src, /\{locked \? \(\s*<span[^>]*>🔒<\/span>\s*\) : \(/);
+  test('locked state is distinguishable beyond color: lock mark replaces the star row', () => {
+    // A drawn lock (system emoji differ per OS and sit outside the ink palette).
+    assert.match(src, /\{locked \? \(\s*<span[^>]*>\s*<Icon name="lock"[^>]*\/>\s*<\/span>\s*\) : \(/);
     // The other branch renders the 3-star row (unlocked = partial, complete = 3 lit).
     assert.match(src, /\[1,2,3\]\.map\(s =>/);
   });
