@@ -1,0 +1,92 @@
+{
+  "verifiedCharacters": 17,
+  "offlineHtml": true,
+  "errors": [],
+  "results": [
+    {
+      "id": "knight",
+      "moved": true,
+      "jumped": true
+    },
+    {
+      "id": "ninja",
+      "moved": true,
+      "jumped": true
+    },
+    {
+      "id": "tank",
+      "moved": true,
+      "jumped": true
+    },
+    {
+      "id": "mage",
+      "moved": true,
+      "jumped": true
+    },
+    {
+      "id": "ranger",
+      "moved": true,
+      "jumped": true
+    },
+    {
+      "id": "cyborg",
+      "moved": true,
+      "jumped": true
+    },
+    {
+      "id": "spirit",
+      "moved": true,
+      "jumped": true
+    },
+    {
+      "id": "healer",
+      "moved": true,
+      "jumped": true
+    },
+    {
+      "id": "cherry",
+      "moved": true,
+      "jumped": true
+    },
+    {
+      "id": "velvet",
+      "moved": true,
+      "jumped": true
+    },
+    {
+      "id": "ember",
+      "moved": true,
+      "jumped": true
+    },
+    {
+      "id": "rosalia",
+      "moved": true,
+      "jumped": true
+    },
+    {
+      "id": "marionette",
+      "moved": true,
+      "jumped": true
+    },
+    {
+      "id": "dorian",
+      "moved": true,
+      "jumped": true
+    },
+    {
+      "id": "onyx",
+      "moved": true,
+      "jumped": true
+    },
+    {
+      "id": "mortimer",
+      "moved": true,
+      "jumped": true
+    },
+    {
+      "id": "grimshaw",
+      "moved": true,
+      "jumped": true
+    }
+  ]
+}

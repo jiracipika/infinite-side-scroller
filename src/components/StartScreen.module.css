@@ -350,10 +350,26 @@
   .shell .roster { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 
+/* Short desktop — the 16:10 Arcade embed (1280x630). All eight destination
+   cards must end inside the first view; pinned by test-neon-menu-browser.mjs.
+   The character column spans both rows and is taller than either, so row 1 is
+   kept to the hero's own height and the column's leftover goes to row 2. */
 @media (min-width: 900px) and (max-height: 700px) {
-  .heroScene { min-height: 252px; }
-  .heroCopy h1 { font-size: clamp(62px, 7vw, 86px); }
-  .modeGrid button:global(.dash-mode-card-v2) { min-height: 72px; }
+  .shell :global(.dash-menu-stage-v2) { grid-template-rows: min-content 1fr; gap: 10px; }
+  .heroScene { min-height: 0; padding: 20px clamp(18px, 2.4vw, 28px); }
+  .heroCopy h1 { font-size: clamp(54px, 5.5vw, 70px); }
+  .launchRow { margin-top: 14px; }
+  .heroFooter { padding-top: 6px; gap: 4px 12px; }
+  .quickStats dd { font-size: 13px; }
+  .controlsDisclosure summary { min-height: 30px; padding: 5px 0; }
+  .shell .modesPanel { padding: 12px 14px; }
+  .shell :global(.dash-section-title-row-v2) { margin-bottom: 8px; }
+  .shell :global(.dash-section-title-row-v2) h2 { font-size: 20px; }
+  .modesPanel .modeGrid { gap: 6px; }
+  .modeGrid button:global(.dash-mode-card-v2) { min-height: 66px; padding: 5px 20px 9px 10px; }
+  .modeGrid button:global(.dash-mode-card-v2) b { font-size: 15px; }
+  .modeGrid button:global(.dash-mode-card-v2) small { line-height: 1.1; }
+  .modeGrid button:global(.dash-mode-card-v2) span { font-size: 11px; margin-top: 2px; }
 }
 
 /* Short mid-width frames — the 16:10 Arcade embed (~640x400) — keep the

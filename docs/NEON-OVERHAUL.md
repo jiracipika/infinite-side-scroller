@@ -152,8 +152,12 @@ never appeared on phones, where its opener sits below the fold) and its scrim
 painted beneath the menu; split screen in a landscape phone viewport stacked two
 220px panes into ~340px of height (both outer Jump and move controls off-screen
 — the panes now go side by side whenever the stack cannot fit); the Carry button
-was offered in solo play, where the engine ignores the input; and the HUD's
-right cluster slid under the pause button by 4–8px on phones.
+was offered in solo play, where the engine ignores the input; the HUD's
+right cluster slid under the pause button by 4–8px on phones; and at 1280x630
+the second row of mode cards ended at 713px, below the fold — the character
+column spans both grid rows and split its 720px evenly between them, so row 1
+was 100px taller than the hero. `test-neon-menu-browser.mjs` pins it; it had
+been failing on the deployed build.
 
 Touch contract, updated: five solo actions press and release (jump, dash,
 attack, melee, special); Carry renders only with `canCarry` (both co-op
