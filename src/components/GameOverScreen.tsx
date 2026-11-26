@@ -427,7 +427,7 @@ const StatRow: FC<StatRowProps> = ({ label, value, highlight, isNewBest, delay =
       {isNewBest && (
         <span
           style={{
-            fontSize: 9,
+            fontSize: 12,
             fontWeight: 800,
             letterSpacing: '0.04em',
             color: 'var(--dv-action)',

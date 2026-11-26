@@ -102,7 +102,7 @@ const Key: FC<{ children: React.ReactNode }> = ({ children }) => (
       background: 'rgba(255,255,255,0.1)',
       border: '1px solid rgba(255,255,255,0.14)',
       borderBottomWidth: 2,
-      fontSize: 11,
+      fontSize: 12,
       fontFamily: 'inherit',
       color: '#fff',
       textAlign: 'center',

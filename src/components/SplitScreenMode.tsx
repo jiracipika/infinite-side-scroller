@@ -422,10 +422,10 @@ const KeyboardLegend: FC<{ title: string; keys: string }> = ({ title, keys }) =>
       textAlign: 'center',
     }}
   >
-    <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', opacity: 0.82 }}>
+    <div style={{ fontSize: 12, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', opacity: 0.82 }}>
       {title}
     </div>
-    <div style={{ marginTop: 4, fontSize: 10, lineHeight: 1.25, opacity: 0.7 }}>
+    <div style={{ marginTop: 4, fontSize: 12, lineHeight: 1.25, opacity: 0.7 }}>
       {keys}
     </div>
   </div>
@@ -460,7 +460,7 @@ const SplitHud: FC<{ label: string; stats: LocalStats }> = ({ label, stats }) =>
       <div
         style={{
           ...SPLIT_PILL_STYLE,
-          fontSize: 10,
+          fontSize: 12,
           fontWeight: 700,
           textTransform: 'uppercase',
           letterSpacing: '0.06em',
@@ -472,7 +472,7 @@ const SplitHud: FC<{ label: string; stats: LocalStats }> = ({ label, stats }) =>
         <div
           style={{
             ...SPLIT_PILL_STYLE,
-            fontSize: 10,
+            fontSize: 12,
             fontWeight: 700,
             fontVariantNumeric: 'tabular-nums',
           }}

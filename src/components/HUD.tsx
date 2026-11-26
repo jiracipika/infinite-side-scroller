@@ -184,7 +184,7 @@ const HUD: FC<Props> = ({ stats, settings }) => {
             <div
               aria-hidden="true"
               className={styles.caption}
-              style={{ fontSize: 11, fontWeight: 500, letterSpacing: '0.04em', marginTop: 3, fontVariantNumeric: 'tabular-nums' }}
+              style={{ fontSize: 12, fontWeight: 500, letterSpacing: '0.04em', marginTop: 3, fontVariantNumeric: 'tabular-nums' }}
             >
               {Math.round(stats.distance)}m
             </div>
@@ -464,7 +464,7 @@ const FpsReadout: FC<{
       <span
         className={color}
           style={{
-            fontSize: 10,
+            fontSize: 12,
             fontWeight: 700,
             fontVariantNumeric: 'tabular-nums',
           }}
@@ -475,7 +475,7 @@ const FpsReadout: FC<{
           <span
             className={styles.caption}
             style={{
-              fontSize: 10,
+              fontSize: 12,
               fontVariantNumeric: 'tabular-nums',
             }}
           >

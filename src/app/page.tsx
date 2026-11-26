@@ -1848,7 +1848,7 @@ export default function Home() {
             borderRadius: 999,
             padding: "4px 10px",
             color: "#cbd5e1",
-            fontSize: 11,
+            fontSize: 12,
             fontWeight: 600,
             letterSpacing: "0.06em",
             textTransform: "uppercase",
@@ -1868,7 +1868,7 @@ export default function Home() {
             borderRadius: 10,
             padding: "6px 8px",
             color: "var(--dv-muted)",
-            fontSize: 10,
+            fontSize: 12,
             lineHeight: 1.25,
             fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
           }}
@@ -1885,7 +1885,7 @@ export default function Home() {
               style={{
                 padding: "1px 6px",
                 borderRadius: 4,
-                fontSize: 9,
+                fontSize: 12,
                 fontWeight: 700,
                 letterSpacing: "0.04em",
                 background:
@@ -1993,7 +1993,7 @@ export default function Home() {
               }}
             />
             <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ color: "#cbd5e1", fontSize: 11, marginBottom: 6 }}>
+              <div style={{ color: "#cbd5e1", fontSize: 12, marginBottom: 6 }}>
                 Code:{" "}
                 <span style={{ fontWeight: 800, letterSpacing: "0.08em" }}>
                   {multiplayerSession?.roomId}
@@ -2002,9 +2002,9 @@ export default function Home() {
               <div
                 style={{
                   color: "#94a3b8",
-                  fontSize: 10,
+                  fontSize: 12,
                   lineHeight: 1.35,
-                  maxHeight: 42,
+                  maxHeight: 49,
                   overflow: "hidden",
                   wordBreak: "break-all",
                 }}

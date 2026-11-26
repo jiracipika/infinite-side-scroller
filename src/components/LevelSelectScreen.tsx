@@ -134,7 +134,7 @@ const LevelCard: FC<{
       {isNext && !locked && (
         <div style={{
           position: 'absolute', top: 0, right: 0, padding: '3px 8px',
-          fontSize: 11, fontWeight: 800, letterSpacing: 0.8,
+          fontSize: 12, fontWeight: 800, letterSpacing: 0.8,
           color: 'var(--dv-ink)', background: 'var(--dv-action)',
           borderRadius: '0 7px 0 8px',
         }}>
@@ -200,7 +200,7 @@ const LevelCard: FC<{
           (kept in sync with the aria-label copy). */}
       {locked && (
         <div style={{
-          fontSize: 11, fontWeight: 600, color: '#a69ab4', lineHeight: 1.3,
+          fontSize: 12, fontWeight: 600, color: '#a69ab4', lineHeight: 1.3,
         }}>
           Earn a star on the previous level to unlock
         </div>
@@ -226,7 +226,7 @@ const LevelCard: FC<{
               ))}
             </div>
             <span style={{
-              fontSize: 11, fontWeight: 800, letterSpacing: 0.8,
+              fontSize: 12, fontWeight: 800, letterSpacing: 0.8,
               color: locked ? 'rgba(255,255,255,0.15)' : biome.accent,
             }}>
               {rating.label}

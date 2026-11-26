@@ -49,7 +49,7 @@ export const AchievementToast: FC<ToastProps> = ({ title, icon, onDone }) => {
         <Icon name={icon} size={26} />
       </span>
       <div>
-        <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 2 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 2 }}>
           Achievement Unlocked
         </div>
         <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--dv-text)', letterSpacing: '-0.23px' }}>

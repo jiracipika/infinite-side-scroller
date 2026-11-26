@@ -102,7 +102,7 @@
 
 .heroCopy p, .eyebrow {
   font-family: var(--dv-mono);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: .12em;
   text-transform: uppercase;
@@ -150,7 +150,7 @@
 .heroFooter { display: grid; padding: 11px 16px 0; gap: 10px 12px; }
 .quickStats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
 .quickStats div { padding: 2px 8px; border-left: 2px solid var(--dv-stroke); min-width: 0; }
-.quickStats dt { color: var(--dv-muted); font-size: 11px; }
+.quickStats dt { color: var(--dv-muted); font-size: 12px; }
 .quickStats dd { font-size: 14px; font-weight: 750; overflow-wrap: anywhere; }
 
 .heroLinks { display: flex; gap: 6px; align-items: stretch; }
@@ -232,7 +232,7 @@
   padding: 0;
   background: none;
   color: var(--dv-muted);
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .modeGrid button:global(.dash-mode-card-v2) span { color: var(--dv-muted); font-size: 12px; line-height: 1.3; }
@@ -278,9 +278,9 @@
 .runnerDetails { min-width: 0; display: grid; align-content: start; gap: 9px; }
 .runnerDetails p { font-size: 13px; line-height: 1.35; color: var(--dv-muted); }
 .specialMove { border-left: 2px solid var(--dv-violet); padding-left: 8px; }
-.specialMove small { font-size: 11px; color: var(--dv-muted); display: block; }
+.specialMove small { font-size: 12px; color: var(--dv-muted); display: block; }
 .specialMove b { font-size: 13px; color: var(--dv-text); }
-.runnerDetails :global(.dash-stat-stack-v2) { display: grid; gap: 4px; font-size: 11px; }
+.runnerDetails :global(.dash-stat-stack-v2) { display: grid; gap: 4px; font-size: 12px; }
 .runnerDetails dl div { display: flex; justify-content: space-between; gap: 6px; padding-bottom: 3px; border-bottom: 1px solid var(--dv-stroke); }
 .runnerDetails dt { color: var(--dv-muted); }
 .runnerDetails dd { color: var(--dv-text); font-weight: 750; font-variant-numeric: tabular-nums; }
@@ -298,7 +298,7 @@
 .styleOptions button { padding-inline: 9px; }
 .unlockButton { width: 100%; min-height: 36px; border-radius: 5px; background: var(--dv-action); color: var(--dv-ink); font-size: 12px; font-weight: 800; }
 .unlockButton:disabled { background: var(--dv-raised); color: var(--dv-muted); cursor: default; }
-.runnerMessage { font-size: 11px; margin: 5px 0; color: var(--dv-action); }
+.runnerMessage { font-size: 12px; margin: 5px 0; color: var(--dv-action); }
 .runnerMessage:empty { margin: 0; }
 .shell .roster { grid-template-columns: repeat(5, minmax(0, 1fr)); margin-top: 12px; gap: 6px; }
 
@@ -313,7 +313,7 @@
   background: radial-gradient(ellipse at 50% 33%, color-mix(in srgb, var(--runner-accent) 19%, transparent), transparent 61%), var(--dv-ink);
   color: var(--dv-text);
   box-shadow: none;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.2;
   overflow-wrap: anywhere;
 }
@@ -321,7 +321,7 @@
 .roster button:hover { border-color: var(--dv-muted); }
 .roster button[aria-pressed="true"] { border-color: var(--dv-violet); background-color: var(--dv-raised); }
 .roster button[data-equipped] { border-bottom: 2px solid var(--dv-action); }
-.roster button small { align-self: center; color: var(--dv-muted); font-size: 11px; line-height: 1.15; }
+.roster button small { align-self: center; color: var(--dv-muted); font-size: 12px; line-height: 1.15; }
 .roster button[data-equipped] small { color: var(--dv-action); }
 
 .shell :global(.dash-expand-panel) { grid-column: 1 / -1; scroll-margin-top: 16px; }
@@ -369,7 +369,7 @@
   .modeGrid button:global(.dash-mode-card-v2) { min-height: 66px; padding: 5px 20px 9px 10px; }
   .modeGrid button:global(.dash-mode-card-v2) b { font-size: 15px; }
   .modeGrid button:global(.dash-mode-card-v2) small { line-height: 1.1; }
-  .modeGrid button:global(.dash-mode-card-v2) span { font-size: 11px; margin-top: 2px; }
+  .modeGrid button:global(.dash-mode-card-v2) span { font-size: 12px; margin-top: 2px; }
 }
 
 /* Short mid-width frames — the 16:10 Arcade embed (~640x400) — keep the

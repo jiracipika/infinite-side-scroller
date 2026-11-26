@@ -181,7 +181,7 @@
 }
 
 .levelCaption {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
   color: rgba(244, 242, 237, 0.75);
   letter-spacing: 0.02em;
@@ -190,7 +190,7 @@
 }
 
 .levelTimeCaption {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
   color: #c7ff4d;
   font-variant-numeric: tabular-nums;
@@ -219,7 +219,7 @@
   display: flex;
   justify-content: space-between;
   gap: 6px;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -336,7 +336,7 @@
 }
 
 .biomeCaption {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
   color: rgba(244, 242, 237, 0.72);
   letter-spacing: 0.08em;
@@ -404,11 +404,11 @@
   }
 
   .biomeCaption {
-    font-size: 10px;
+    font-size: 12px;
   }
 
   .fpsCol {
-    font-size: 10px;
+    font-size: 12px;
   }
 }
 
